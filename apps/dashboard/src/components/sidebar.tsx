@@ -92,7 +92,7 @@ export function Sidebar() {
               className="h-8 w-auto object-contain"
             />
           </div>
-          <p className="text-[10px] text-[#7A7267] tracking-wider italic mt-1 font-serif">
+          <p className="text-[10px] text-[#7A7267] tracking-wider mt-1">
             hospitality, simplified.
           </p>
         </Link>
@@ -100,7 +100,7 @@ export function Sidebar() {
         {/* Property Switcher */}
         <button className="w-full flex items-center justify-between p-2.5 rounded border border-[#E8E2DA] bg-[#FAFAFA] text-left hover:border-[#B85C3E]/50 hover:bg-white transition-colors mb-6 shadow-none">
           <div className="flex items-center gap-2.5 min-w-0">
-            <span className="w-7 h-7 rounded bg-[#71382D] text-white flex items-center justify-center font-serif text-xs font-semibold flex-shrink-0">
+            <span className="w-7 h-7 rounded bg-[#71382D] text-white flex items-center justify-center text-xs font-semibold flex-shrink-0">
               SC
             </span>
             <div className="truncate">

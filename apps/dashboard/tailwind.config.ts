@@ -27,8 +27,17 @@ const config: Config = {
         muted: '#7A7267',
       },
       fontFamily: {
-        serif: ['Georgia', 'Cambria', 'serif'],
         sans: [
+          'Poppins',
+          'system-ui',
+          '-apple-system',
+          'BlinkMacSystemFont',
+          'Segoe UI',
+          'Roboto',
+          'sans-serif',
+        ],
+        serif: [
+          'Poppins',
           'system-ui',
           '-apple-system',
           'BlinkMacSystemFont',
