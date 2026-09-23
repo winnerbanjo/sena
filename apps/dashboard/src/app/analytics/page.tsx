@@ -7,7 +7,7 @@ import { Topbar } from '../../components/topbar';
 export default function AnalyticsPage() {
   return (
     <div className="flex-1 flex flex-col h-screen overflow-hidden">
-      <Topbar title="Analytics" onOpenNewReservation={() => {}} />
+      <Topbar title="Analytics" />
 
       <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6">
         <div className="border-b border-[#E8E2DA] pb-4">

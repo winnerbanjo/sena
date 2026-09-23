@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { useSearchParams } from 'next/navigation';
 import { formatNaira, formatStayDates } from '@sena/config';
 import { Badge, Button, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@sena/ui';
 import { Plus, Search } from 'lucide-react';
@@ -9,13 +10,21 @@ import { NewReservationDialog } from '../../components/new-reservation-dialog';
 import { ReservationDrawer } from '../../components/reservation-drawer';
 import { Topbar } from '../../components/topbar';
 
-export default function ReservationsPage() {
+function ReservationsContent() {
+  const searchParams = useSearchParams();
+  const urlSearch = searchParams.get('search');
   const [reservations, setReservations] = React.useState<ReservationItem[]>(INITIAL_RESERVATIONS);
   const [activeTab, setActiveTab] = React.useState('all');
-  const [searchQuery, setSearchQuery] = React.useState('');
+  const [searchQuery, setSearchQuery] = React.useState(urlSearch || '');
   const [selectedRes, setSelectedRes] = React.useState<ReservationItem | null>(null);
   const [drawerOpen, setDrawerOpen] = React.useState(false);
   const [newResOpen, setNewResOpen] = React.useState(false);
+
+  React.useEffect(() => {
+    if (urlSearch) {
+      setSearchQuery(urlSearch);
+    }
+  }, [urlSearch]);
 
   const filtered = reservations.filter((r) => {
     // Tab filter
@@ -191,5 +200,13 @@ export default function ReservationsPage() {
         onCreateReservation={(newRes) => setReservations((prev) => [newRes, ...prev])}
       />
     </div>
+  );
+}
+
+export default function ReservationsPage() {
+  return (
+    <React.Suspense fallback={<div className="flex-1 bg-white p-8 text-xs text-[#7A7267]">Loading reservations...</div>}>
+      <ReservationsContent />
+    </React.Suspense>
   );
 }

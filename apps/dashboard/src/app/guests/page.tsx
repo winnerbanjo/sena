@@ -98,7 +98,7 @@ export default function GuestsPage() {
 
   return (
     <div className="flex-1 flex flex-col h-screen overflow-hidden">
-      <Topbar title="Guest Directory" onOpenNewReservation={() => {}} />
+      <Topbar title="Guest Directory" />
 
       <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#E8E2DA] pb-4">
@@ -258,6 +258,16 @@ export default function GuestsPage() {
               <p className="text-xs text-[#191816] leading-relaxed">
                 {selectedGuest.notes}
               </p>
+            </div>
+
+            {/* Cross-module Action */}
+            <div className="pt-2">
+              <a
+                href={`/reservations?search=${encodeURIComponent(selectedGuest.name)}`}
+                className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded border border-[#B85C3E] text-[#B85C3E] hover:bg-[#B85C3E] hover:text-white transition-colors text-xs font-medium cursor-pointer"
+              >
+                View Guest's Reservations →
+              </a>
             </div>
           </DrawerContent>
         </Drawer>

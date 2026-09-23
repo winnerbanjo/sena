@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import Link from 'next/link';
 import { formatStayDates } from '@sena/config';
 import { Badge, Button, MetricCard } from '@sena/ui';
 import { CheckCircle2, Clock, MoveRight } from 'lucide-react';
@@ -116,32 +117,44 @@ export default function OverviewPage() {
           </div>
         </div>
 
-        {/* 4 Primary Restrained Metrics (Section 27) */}
+        {/* 4 Primary Restrained Metrics with direct operational links */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-          <MetricCard
-            label="Arrivals"
-            value="12"
-            subtext="3 checked in · 9 expected"
-            subValue="Today"
-          />
-          <MetricCard
-            label="Occupancy"
-            value="84%"
-            subtext="26 of 31 rooms occupied"
-            subValue="High"
-          />
-          <MetricCard
-            label="Booking value"
-            value="₦2.48m"
-            subtext="Recorded revenue this month"
-            subValue="September"
-          />
-          <MetricCard
-            label="Rooms to clean"
-            value="6"
-            subtext="2 currently cleaning · 4 dirty"
-            subValue="Housekeeping"
-          />
+          <Link href="/front-desk" className="block focus:outline-none focus:ring-1 focus:ring-[#B85C3E]">
+            <MetricCard
+              label="Arrivals"
+              value="12"
+              subtext="3 checked in · 9 expected"
+              subValue="Front desk →"
+              className="hover:border-[#B85C3E]/60 hover:bg-[#FAFAFA] transition-all cursor-pointer h-full"
+            />
+          </Link>
+          <Link href="/calendar" className="block focus:outline-none focus:ring-1 focus:ring-[#B85C3E]">
+            <MetricCard
+              label="Occupancy"
+              value="84%"
+              subtext="26 of 31 rooms occupied"
+              subValue="Calendar →"
+              className="hover:border-[#B85C3E]/60 hover:bg-[#FAFAFA] transition-all cursor-pointer h-full"
+            />
+          </Link>
+          <Link href="/payments" className="block focus:outline-none focus:ring-1 focus:ring-[#B85C3E]">
+            <MetricCard
+              label="Booking value"
+              value="₦2.48m"
+              subtext="Recorded revenue this month"
+              subValue="Payments →"
+              className="hover:border-[#B85C3E]/60 hover:bg-[#FAFAFA] transition-all cursor-pointer h-full"
+            />
+          </Link>
+          <Link href="/housekeeping" className="block focus:outline-none focus:ring-1 focus:ring-[#B85C3E]">
+            <MetricCard
+              label="Rooms to clean"
+              value="6"
+              subtext="2 currently cleaning · 4 dirty"
+              subValue="Housekeeping →"
+              className="hover:border-[#B85C3E]/60 hover:bg-[#FAFAFA] transition-all cursor-pointer h-full"
+            />
+          </Link>
         </div>
 
         {/* Live Weekly Occupancy & Revenue Velocity Graph */}
@@ -161,9 +174,17 @@ export default function OverviewPage() {
                     Click any guest to open their stay details without leaving the page.
                   </p>
                 </div>
-                <span className="text-xs font-mono text-[#B85C3E]">
-                  {arrivals.length} reservations
-                </span>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs font-mono text-[#B85C3E]">
+                    {arrivals.length} reservations
+                  </span>
+                  <Link
+                    href="/front-desk"
+                    className="text-xs font-medium text-[#71382D] hover:text-[#B85C3E] transition-colors hidden sm:inline-flex items-center gap-1"
+                  >
+                    View Front Desk <MoveRight className="w-3.5 h-3.5" />
+                  </Link>
+                </div>
               </div>
 
               {/* Arrivals Table */}
@@ -254,36 +275,59 @@ export default function OverviewPage() {
 
           {/* Right Column: Today at a Glance + Activity Stream */}
           <div className="space-y-6">
-            {/* Section 28: Today at a Glance */}
+            {/* Section 28: Today at a Glance with deep links */}
             <div className="bg-white border border-[#E8E2DA] p-5 rounded-md space-y-3 shadow-none">
-              <span className="text-[11px] font-medium tracking-wider uppercase text-[#7A7267] block">
-                Today at a glance
-              </span>
-              <div className="space-y-2 text-xs">
-                <div className="flex items-center justify-between py-1.5 border-b border-[#E8E2DA]/60">
-                  <span className="text-[#191816]">Arrivals</span>
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-medium tracking-wider uppercase text-[#7A7267] block">
+                  Today at a glance
+                </span>
+                <Link href="/front-desk" className="text-[11px] text-[#B85C3E] hover:underline font-mono">
+                  All Activity →
+                </Link>
+              </div>
+              <div className="space-y-1 text-xs">
+                <Link
+                  href="/front-desk"
+                  className="flex items-center justify-between py-2 px-2 -mx-2 rounded hover:bg-[#FAF9F7] border-b border-[#E8E2DA]/60 transition-colors group"
+                >
+                  <span className="text-[#191816] group-hover:text-[#B85C3E] transition-colors">Arrivals</span>
                   <strong className="font-serif text-sm">12</strong>
-                </div>
-                <div className="flex items-center justify-between py-1.5 border-b border-[#E8E2DA]/60">
-                  <span className="text-[#191816]">Departures</span>
+                </Link>
+                <Link
+                  href="/front-desk"
+                  className="flex items-center justify-between py-2 px-2 -mx-2 rounded hover:bg-[#FAF9F7] border-b border-[#E8E2DA]/60 transition-colors group"
+                >
+                  <span className="text-[#191816] group-hover:text-[#B85C3E] transition-colors">Departures</span>
                   <strong className="font-serif text-sm">8</strong>
-                </div>
-                <div className="flex items-center justify-between py-1.5 border-b border-[#E8E2DA]/60">
-                  <span className="text-[#191816]">In-house guests</span>
+                </Link>
+                <Link
+                  href="/front-desk"
+                  className="flex items-center justify-between py-2 px-2 -mx-2 rounded hover:bg-[#FAF9F7] border-b border-[#E8E2DA]/60 transition-colors group"
+                >
+                  <span className="text-[#191816] group-hover:text-[#B85C3E] transition-colors">In-house guests</span>
                   <strong className="font-serif text-sm">34</strong>
-                </div>
-                <div className="flex items-center justify-between py-1.5 border-b border-[#E8E2DA]/60">
-                  <span className="text-[#191816]">Available rooms</span>
+                </Link>
+                <Link
+                  href="/rooms"
+                  className="flex items-center justify-between py-2 px-2 -mx-2 rounded hover:bg-[#FAF9F7] border-b border-[#E8E2DA]/60 transition-colors group"
+                >
+                  <span className="text-[#191816] group-hover:text-[#B85C3E] transition-colors">Available rooms</span>
                   <strong className="font-serif text-sm text-[#2E6B4F]">5</strong>
-                </div>
-                <div className="flex items-center justify-between py-1.5 border-b border-[#E8E2DA]/60">
-                  <span className="text-[#191816]">Rooms to clean</span>
+                </Link>
+                <Link
+                  href="/housekeeping"
+                  className="flex items-center justify-between py-2 px-2 -mx-2 rounded hover:bg-[#FAF9F7] border-b border-[#E8E2DA]/60 transition-colors group"
+                >
+                  <span className="text-[#191816] group-hover:text-[#B85C3E] transition-colors">Rooms to clean</span>
                   <strong className="font-serif text-sm text-[#B85C3E]">6</strong>
-                </div>
-                <div className="flex items-center justify-between py-1.5">
-                  <span className="text-[#191816]">Outstanding payments</span>
+                </Link>
+                <Link
+                  href="/payments"
+                  className="flex items-center justify-between py-2 px-2 -mx-2 rounded hover:bg-[#FAF9F7] transition-colors group"
+                >
+                  <span className="text-[#191816] group-hover:text-[#B85C3E] transition-colors">Outstanding payments</span>
                   <strong className="font-serif text-sm text-[#B85C3E]">₦480,000</strong>
-                </div>
+                </Link>
               </div>
             </div>
 

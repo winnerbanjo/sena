@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import Link from 'next/link';
 import { Badge, Button } from '@sena/ui';
 import { Layers, Plus } from 'lucide-react';
 import { INITIAL_ROOMS } from '../../components/mock-data';
@@ -19,7 +20,7 @@ export default function RoomsPage() {
 
   return (
     <div className="flex-1 flex flex-col h-screen overflow-hidden">
-      <Topbar title="Rooms" onOpenNewReservation={() => {}} />
+      <Topbar title="Rooms" />
 
       <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#E8E2DA] pb-4">
@@ -105,6 +106,32 @@ export default function RoomsPage() {
                 >
                   {room.housekeeping}
                 </Badge>
+              </div>
+
+              {/* Cross-module contextual shortcuts */}
+              <div className="pt-1 flex items-center justify-between text-[11px] font-mono">
+                {room.housekeeping === 'dirty' ? (
+                  <Link
+                    href="/housekeeping"
+                    className="text-[#B85C3E] hover:underline flex items-center gap-1 font-sans"
+                  >
+                    Open Housekeeping Board →
+                  </Link>
+                ) : room.operational === 'occupied' ? (
+                  <Link
+                    href={`/reservations?search=${room.number}`}
+                    className="text-[#71382D] hover:underline flex items-center gap-1 font-sans"
+                  >
+                    View Reservation →
+                  </Link>
+                ) : (
+                  <Link
+                    href={`/front-desk`}
+                    className="text-[#7A7267] hover:text-[#191816] hover:underline flex items-center gap-1 font-sans"
+                  >
+                    Assign in Front Desk →
+                  </Link>
+                )}
               </div>
             </div>
           ))}
