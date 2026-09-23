@@ -28,7 +28,8 @@ const config: Config = {
       },
       fontFamily: {
         sans: [
-          'Poppins',
+          'Inter',
+          'InterVariable',
           'system-ui',
           '-apple-system',
           'BlinkMacSystemFont',
@@ -37,7 +38,8 @@ const config: Config = {
           'sans-serif',
         ],
         serif: [
-          'Poppins',
+          'Inter',
+          'InterVariable',
           'system-ui',
           '-apple-system',
           'BlinkMacSystemFont',
