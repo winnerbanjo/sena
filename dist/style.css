@@ -20,3 +20,5 @@
 @media(prefers-reduced-motion:reduce){.reveal-wait{opacity:1;transform:none}.dashboard{transform:none!important}.button:hover,.button:hover>span,.text-link:hover>span,.plan:hover,.integrations-grid>div:hover{transform:none}*,*:before,*:after{animation:none!important;transition:none!important}}
 @media print{.header,footer,.reading-progress,.legal-toc,.legal-related,.breadcrumb{display:none}.legal-layout{display:block;width:100%;padding:0}.legal-hero{padding:0 0 25px;width:100%}.legal-copy section{break-inside:avoid}.reveal-wait{opacity:1;transform:none}body{background:white;color:black}}
 .reveal-wait:focus-within{opacity:1;transform:none}
+
+.hero .brand-tagline{text-transform:none;letter-spacing:.8px;font-size:13px}
