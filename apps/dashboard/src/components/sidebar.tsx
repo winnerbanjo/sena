@@ -1,0 +1,180 @@
+'use client';
+
+import * as React from 'react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import {
+  Calendar,
+  ClipboardList,
+  Compass,
+  CreditCard,
+  DoorOpen,
+  Globe,
+  Home,
+  Layers,
+  Sparkles,
+  Tag,
+  TrendingUp,
+  Users,
+  Settings,
+  Bell,
+  HelpCircle,
+  ChevronDown,
+} from 'lucide-react';
+
+interface NavSection {
+  title?: string;
+  items: {
+    label: string;
+    href: string;
+    icon: React.ComponentType<{ className?: string }>;
+    badge?: string | number;
+  }[];
+}
+
+const NAV_SECTIONS: NavSection[] = [
+  {
+    items: [{ label: 'Overview', href: '/', icon: Home }],
+  },
+  {
+    title: 'OPERATIONS',
+    items: [
+      { label: 'Reservations', href: '/reservations', icon: ClipboardList },
+      { label: 'Calendar', href: '/calendar', icon: Calendar },
+      { label: 'Front Desk', href: '/front-desk', icon: DoorOpen },
+      { label: 'Rooms', href: '/rooms', icon: Layers },
+      { label: 'Housekeeping', href: '/housekeeping', icon: Sparkles, badge: '6' },
+      { label: 'Guests', href: '/guests', icon: Users },
+    ],
+  },
+  {
+    title: 'SALES',
+    items: [
+      { label: 'Website', href: '/website', icon: Globe },
+      { label: 'Direct Booking', href: '/booking-preview', icon: Compass },
+      { label: 'Payments', href: '/payments', icon: CreditCard },
+      { label: 'Offers', href: '/offers', icon: Tag },
+      { label: 'Channels', href: '/channels', icon: Layers },
+    ],
+  },
+  {
+    title: 'INSIGHTS',
+    items: [
+      { label: 'Analytics', href: '/analytics', icon: TrendingUp },
+      { label: 'Reports', href: '/reports', icon: ClipboardList },
+    ],
+  },
+  {
+    title: 'MANAGE',
+    items: [
+      { label: 'Staff', href: '/staff', icon: Users },
+      { label: 'Settings', href: '/settings', icon: Settings },
+    ],
+  },
+];
+
+export function Sidebar() {
+  const pathname = usePathname();
+
+  return (
+    <aside className="w-60 min-w-60 flex-shrink-0 border-r border-[#E2D8CC] bg-[#F7F1E8]/70 flex flex-col justify-between h-screen sticky top-0 overflow-y-auto">
+      <div className="p-5 pb-2">
+        {/* Brand header */}
+        <Link href="/" className="block mb-6 group">
+          <div className="flex items-baseline gap-1.5">
+            <span className="font-serif text-2xl font-normal tracking-tight text-[#191816]">
+              sena
+            </span>
+            <span className="w-1.5 h-1.5 rounded-full bg-[#B85C3E]" />
+          </div>
+          <p className="text-[11px] text-[#7A7267] tracking-wider italic">
+            hospitality, simplified.
+          </p>
+        </Link>
+
+        {/* Property Switcher */}
+        <button className="w-full flex items-center justify-between p-2.5 rounded border border-[#E2D8CC] bg-white text-left hover:border-[#B85C3E]/50 transition-colors mb-6 shadow-none">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <span className="w-7 h-7 rounded bg-[#71382D] text-white flex items-center justify-center font-serif text-xs font-semibold flex-shrink-0">
+              SC
+            </span>
+            <div className="truncate">
+              <span className="block text-xs font-semibold text-[#191816] truncate">
+                Stay Connect Lekki
+              </span>
+              <span className="block text-[10px] text-[#7A7267] truncate">
+                Lekki, Lagos
+              </span>
+            </div>
+          </div>
+          <ChevronDown className="w-3.5 h-3.5 text-[#7A7267] flex-shrink-0 ml-1" />
+        </button>
+
+        {/* Navigation Sections */}
+        <nav className="space-y-5">
+          {NAV_SECTIONS.map((section, idx) => (
+            <div key={idx}>
+              {section.title && (
+                <div className="text-[10px] font-medium tracking-widest uppercase text-[#7A7267]/80 px-2 mb-1.5">
+                  {section.title}
+                </div>
+              )}
+              <div className="space-y-0.5">
+                {section.items.map((item) => {
+                  const isActive =
+                    item.href === '/'
+                      ? pathname === '/'
+                      : pathname.startsWith(item.href);
+                  const Icon = item.icon;
+
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className={`flex items-center justify-between px-2.5 py-1.5 rounded text-[13px] font-medium transition-colors ${
+                        isActive
+                          ? 'bg-white text-[#191816] shadow-sm font-semibold border border-[#E2D8CC]'
+                          : 'text-[#191816]/80 hover:text-[#191816] hover:bg-white/60'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <Icon
+                          className={`w-4 h-4 ${
+                            isActive ? 'text-[#B85C3E]' : 'text-[#7A7267]'
+                          }`}
+                        />
+                        <span>{item.label}</span>
+                      </div>
+                      {item.badge && (
+                        <span className="px-1.5 py-0.2 rounded-full text-[10px] font-semibold bg-[#B85C3E] text-white">
+                          {item.badge}
+                        </span>
+                      )}
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </nav>
+      </div>
+
+      {/* User profile footer */}
+      <div className="p-4 border-t border-[#E2D8CC] bg-[#F7F1E8]">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-full bg-[#E5D4BC] text-[#71382D] flex items-center justify-center font-medium text-xs">
+            AO
+          </div>
+          <div className="truncate">
+            <span className="block text-xs font-semibold text-[#191816] truncate">
+              Amara Okafor
+            </span>
+            <span className="block text-[10px] text-[#7A7267]">
+              Property manager
+            </span>
+          </div>
+        </div>
+      </div>
+    </aside>
+  );
+}

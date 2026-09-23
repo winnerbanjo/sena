@@ -1,0 +1,19 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --ivory: #F7F1E8;
+  --terracotta: #B85C3E;
+  --clay: #71382D;
+  --sand: #E5D4BC;
+  --ink: #191816;
+  --line: #E2D8CC;
+}
+
+body {
+  background-color: var(--ivory);
+  color: var(--ink);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}

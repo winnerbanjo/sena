@@ -1,0 +1,22 @@
+{
+  "name": "@sena/reservations",
+  "version": "1.0.0",
+  "private": true,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "build": "tsc",
+    "check-types": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@sena/config": "workspace:*",
+    "@sena/database": "workspace:*",
+    "@sena/inventory": "workspace:*",
+    "@sena/types": "workspace:*",
+    "@sena/validation": "workspace:*",
+    "drizzle-orm": "^0.39.3"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3"
+  }
+}

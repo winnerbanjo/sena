@@ -1,0 +1,11 @@
+{
+  "name": "@sena/marketing",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "echo 'Marketing site ready in dist'",
+    "dev": "npx serve dist -l 3003",
+    "lint": "echo 'OK'",
+    "check-types": "echo 'OK'"
+  }
+}

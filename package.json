@@ -1,0 +1,23 @@
+{
+  "name": "sena",
+  "private": true,
+  "description": "Sena - Operating system for modern hospitality businesses",
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "check-types": "turbo run check-types",
+    "format": "prettier --write \"**/*.{ts,tsx,md,json}\"",
+    "clean": "turbo run clean"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.4",
+    "prettier": "^3.5.0",
+    "turbo": "^2.11.3",
+    "typescript": "^5.7.3"
+  },
+  "packageManager": "pnpm@12.6.0",
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
