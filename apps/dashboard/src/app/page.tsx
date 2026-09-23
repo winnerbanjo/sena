@@ -10,6 +10,7 @@ import {
   type ReservationItem,
 } from '../components/mock-data';
 import { NewReservationDialog } from '../components/new-reservation-dialog';
+import { OccupancyChart } from '../components/occupancy-chart';
 import { ReservationDrawer } from '../components/reservation-drawer';
 import { Topbar } from '../components/topbar';
 
@@ -142,6 +143,9 @@ export default function OverviewPage() {
             subValue="Housekeeping"
           />
         </div>
+
+        {/* Live Weekly Occupancy & Revenue Velocity Graph */}
+        <OccupancyChart />
 
         {/* Main Content Layout: Section 28 & 29 */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
