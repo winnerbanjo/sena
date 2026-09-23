@@ -21,7 +21,9 @@ import {
   Bell,
   HelpCircle,
   ChevronDown,
+  X,
 } from 'lucide-react';
+import { useMobileNav } from './dashboard-shell';
 
 interface NavSection {
   title?: string;
@@ -74,14 +76,14 @@ const NAV_SECTIONS: NavSection[] = [
   },
 ];
 
-export function Sidebar() {
+function SidebarNavItems({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
 
   return (
-    <aside className="w-60 min-w-60 flex-shrink-0 border-r border-[#E8E2DA] bg-white flex flex-col justify-between h-screen sticky top-0 overflow-y-auto">
+    <>
       <div className="p-5 pb-2">
         {/* Brand header with official logo image */}
-        <Link href="/" className="block mb-6 group">
+        <Link href="/" onClick={onNavigate} className="block mb-6 group">
           <div className="h-8 flex items-center">
             <Image
               src="/assets/sena-logo.png"
@@ -98,7 +100,10 @@ export function Sidebar() {
         </Link>
 
         {/* Property Switcher */}
-        <button className="w-full flex items-center justify-between p-2.5 rounded border border-[#E8E2DA] bg-[#FAFAFA] text-left hover:border-[#B85C3E]/50 hover:bg-white transition-colors mb-6 shadow-none">
+        <button
+          onClick={onNavigate}
+          className="w-full flex items-center justify-between p-2.5 rounded border border-[#E8E2DA] bg-[#FAFAFA] text-left hover:border-[#B85C3E]/50 hover:bg-white transition-colors mb-6 shadow-none"
+        >
           <div className="flex items-center gap-2.5 min-w-0">
             <span className="w-7 h-7 rounded bg-[#71382D] text-white flex items-center justify-center text-xs font-semibold flex-shrink-0">
               SC
@@ -136,6 +141,7 @@ export function Sidebar() {
                     <Link
                       key={item.href}
                       href={item.href}
+                      onClick={onNavigate}
                       className={`flex items-center justify-between px-2.5 py-1.5 rounded text-[13px] font-medium transition-colors ${
                         isActive
                           ? 'bg-[#F9F7F5] text-[#191816] font-semibold border border-[#E8E2DA]'
@@ -165,7 +171,7 @@ export function Sidebar() {
       </div>
 
       {/* User profile footer */}
-      <div className="p-4 border-t border-[#E8E2DA] bg-white">
+      <div className="p-4 border-t border-[#E8E2DA] bg-white mt-auto">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-full bg-[#E5D4BC] text-[#71382D] flex items-center justify-center font-medium text-xs">
             AO
@@ -180,6 +186,45 @@ export function Sidebar() {
           </div>
         </div>
       </div>
-    </aside>
+    </>
+  );
+}
+
+export function Sidebar() {
+  const { isOpen, closeMobileNav } = useMobileNav();
+
+  return (
+    <>
+      {/* Desktop Persistent Sidebar */}
+      <aside className="hidden lg:flex w-60 min-w-60 flex-shrink-0 border-r border-[#E8E2DA] bg-white flex-col justify-between h-screen sticky top-0 overflow-y-auto">
+        <SidebarNavItems />
+      </aside>
+
+      {/* Mobile Drawer Overlay */}
+      {isOpen && (
+        <div className="fixed inset-0 z-50 lg:hidden">
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-black/50 backdrop-blur-xs transition-opacity duration-200"
+            onClick={closeMobileNav}
+            aria-hidden="true"
+          />
+
+          {/* Drawer Panel */}
+          <aside className="fixed inset-y-0 left-0 w-72 max-w-[85vw] bg-white border-r border-[#E8E2DA] flex flex-col justify-between h-full overflow-y-auto z-50 shadow-2xl animate-in slide-in-from-left duration-200">
+            <div className="absolute top-4 right-4 z-10">
+              <button
+                onClick={closeMobileNav}
+                className="p-1.5 rounded-md text-[#7A7267] hover:text-[#191816] hover:bg-[#FAFAFA] transition-colors"
+                aria-label="Close menu"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <SidebarNavItems onNavigate={closeMobileNav} />
+          </aside>
+        </div>
+      )}
+    </>
   );
 }

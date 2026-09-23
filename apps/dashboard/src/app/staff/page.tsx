@@ -169,11 +169,11 @@ export default function StaffPage() {
         onOpenNewReservation={() => setNewResOpen(true)}
       />
 
-      <main className="flex-1 overflow-y-auto p-8 space-y-6 bg-white">
+      <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6 bg-white">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#E8E2DA] pb-4">
           <div>
-            <h2 className="text-2xl font-serif font-normal text-[#191816]">
+            <h2 className="text-xl sm:text-2xl font-serif font-normal text-[#191816]">
               Team & Staff Roster
             </h2>
             <p className="text-xs text-[#7A7267] mt-1">
@@ -181,10 +181,10 @@ export default function StaffPage() {
             </p>
           </div>
 
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2.5 self-start sm:self-auto">
             <Button
               onClick={() => setInviteModalOpen(true)}
-              className="flex items-center gap-1.5"
+              className="flex items-center gap-1.5 text-xs"
             >
               <UserPlus className="w-4 h-4" />
               <span>Invite Staff Member</span>
@@ -193,17 +193,17 @@ export default function StaffPage() {
         </div>
 
         {/* Stats Row */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="p-4 rounded-lg border border-[#E8E2DA] bg-white">
-            <span className="text-[11px] text-[#7A7267] uppercase font-semibold">Total Staff</span>
-            <div className="text-2xl font-serif text-[#191816] mt-1">{staff.length}</div>
-            <p className="text-[11px] text-[#7A7267] mt-1">Active team accounts</p>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          <div className="p-3 sm:p-4 rounded-lg border border-[#E8E2DA] bg-white">
+            <span className="text-[10px] sm:text-[11px] text-[#7A7267] uppercase font-semibold">Total Staff</span>
+            <div className="text-xl sm:text-2xl font-serif text-[#191816] mt-1">{staff.length}</div>
+            <p className="text-[10px] sm:text-[11px] text-[#7A7267] mt-1">Active team</p>
           </div>
 
-          <div className="p-4 rounded-lg border border-[#E8E2DA] bg-white">
-            <span className="text-[11px] text-[#7A7267] uppercase font-semibold">On Duty Now</span>
-            <div className="text-2xl font-serif text-[#191816] mt-1">{onDutyCount}</div>
-            <p className="text-[11px] text-emerald-700 mt-1 font-medium">Active on property</p>
+          <div className="p-3 sm:p-4 rounded-lg border border-[#E8E2DA] bg-white">
+            <span className="text-[10px] sm:text-[11px] text-[#7A7267] uppercase font-semibold">On Duty Now</span>
+            <div className="text-xl sm:text-2xl font-serif text-[#191816] mt-1">{onDutyCount}</div>
+            <p className="text-[10px] sm:text-[11px] text-emerald-700 mt-1 font-medium">On property</p>
           </div>
 
           <div className="p-4 rounded-lg border border-[#E8E2DA] bg-white">

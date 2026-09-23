@@ -101,12 +101,12 @@ export default function BookingPreviewPage() {
         onOpenNewReservation={() => setNewResOpen(true)}
       />
 
-      <main className="flex-1 overflow-y-auto p-8 space-y-6 bg-white">
+      <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6 bg-white">
         {/* Header with Direct Booking URL and Stats */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#E8E2DA] pb-5">
           <div>
-            <div className="flex items-center gap-3">
-              <h2 className="text-2xl font-serif font-normal text-[#191816]">
+            <div className="flex items-center gap-3 flex-wrap">
+              <h2 className="text-xl sm:text-2xl font-serif font-normal text-[#191816]">
                 Direct Booking Engine
               </h2>
               <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
@@ -127,7 +127,7 @@ export default function BookingPreviewPage() {
             </p>
           </div>
 
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2 sm:gap-2.5 flex-wrap">
             <button
               onClick={copyUrl}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-[#E8E2DA] bg-white text-xs text-[#191816] hover:bg-[#FAFAFA] transition-colors"
@@ -177,8 +177,8 @@ export default function BookingPreviewPage() {
         </div>
 
         {/* Tab Controls */}
-        <div className="flex items-center justify-between border-b border-[#E8E2DA]">
-          <div className="flex items-center gap-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-[#E8E2DA] gap-2">
+          <div className="flex items-center gap-4 sm:gap-6 overflow-x-auto whitespace-nowrap">
             {[
               { id: 'preview', label: 'Interactive Engine Preview' },
               { id: 'embed', label: 'Embed & Widget Snippets' },

@@ -93,7 +93,7 @@ export default function AdminDashboardPage() {
       )}
 
       {/* Header */}
-      <header className="border-b border-[#E8E2DA] bg-white py-4 px-8 flex items-center justify-between">
+      <header className="border-b border-[#E8E2DA] bg-white py-3.5 px-4 sm:px-8 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div className="flex items-center gap-3">
           <div className="flex items-center">
             <Image
@@ -115,9 +115,9 @@ export default function AdminDashboardPage() {
       </header>
 
       {/* Main Admin Area */}
-      <main className="p-8 max-w-6xl mx-auto w-full space-y-8 flex-1">
+      <main className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto w-full space-y-6 sm:space-y-8 flex-1">
         {/* Section 82: High-Level Platform Metrics */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           <MetricCard
             label="Active Properties"
             value="14"
@@ -202,12 +202,13 @@ export default function AdminDashboardPage() {
                 placeholder="Search property or city..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="pl-8 pr-3 py-1.5 rounded border border-[#E8E2DA] bg-white text-xs text-[#191816] w-64 focus:outline-none focus:ring-1 focus:ring-[#B85C3E]"
+                className="pl-8 pr-3 py-1.5 rounded border border-[#E8E2DA] bg-white text-xs text-[#191816] w-full sm:w-64 focus:outline-none focus:ring-1 focus:ring-[#B85C3E]"
               />
             </div>
           </div>
 
-          <Table>
+          <div className="overflow-x-auto">
+            <Table className="min-w-[700px]">
             <TableHeader>
               <TableRow>
                 <TableHead>Property</TableHead>
@@ -261,6 +262,7 @@ export default function AdminDashboardPage() {
               ))}
             </TableBody>
           </Table>
+          </div>
         </div>
       </main>
 

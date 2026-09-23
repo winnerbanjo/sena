@@ -108,9 +108,9 @@ export default function BookingEnginePage() {
   return (
     <div className="min-h-screen flex flex-col justify-between">
       {/* Brand Header */}
-      <header className="border-b border-[#E8E2DA] bg-white py-4 px-6 sm:px-12 flex items-center justify-between">
+      <header className="border-b border-[#E8E2DA] bg-white py-3.5 px-4 sm:px-8 lg:px-12 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div>
-          <span className="font-serif text-xl font-normal text-[#191816]">
+          <span className="font-serif text-lg sm:text-xl font-normal text-[#191816]">
             Stay Connect Lekki
           </span>
           <span className="text-[10px] text-[#7A7267] block tracking-wider uppercase">
@@ -118,17 +118,17 @@ export default function BookingEnginePage() {
           </span>
         </div>
         <div className="flex items-center gap-2 text-xs text-[#2E6B4F] font-medium">
-          <ShieldCheck className="w-4 h-4" />
+          <ShieldCheck className="w-4 h-4 flex-shrink-0" />
           <span>Best rate guarantee · 0% commission</span>
         </div>
       </header>
 
       {/* Main Booking Area */}
-      <main className="max-w-4xl mx-auto w-full p-6 sm:p-12 space-y-8 flex-1">
+      <main className="max-w-4xl mx-auto w-full p-4 sm:p-8 lg:p-12 space-y-6 sm:space-y-8 flex-1">
         {stage === 'search' && (
-          <div className="space-y-8">
+          <div className="space-y-6 sm:space-y-8">
             {/* Search Toolbar */}
-            <div className="bg-white border border-[#E8E2DA] p-6 rounded-md shadow-sm">
+            <div className="bg-white border border-[#E8E2DA] p-4 sm:p-6 rounded-md shadow-sm">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <Label>Check-in</Label>

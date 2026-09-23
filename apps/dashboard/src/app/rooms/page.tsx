@@ -21,10 +21,10 @@ export default function RoomsPage() {
     <div className="flex-1 flex flex-col h-screen overflow-hidden">
       <Topbar title="Rooms" onOpenNewReservation={() => {}} />
 
-      <main className="flex-1 overflow-y-auto p-8 space-y-6">
+      <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#E8E2DA] pb-4">
           <div>
-            <h2 className="text-2xl font-serif font-normal text-[#191816]">
+            <h2 className="text-xl sm:text-2xl font-serif font-normal text-[#191816]">
               Know Every Room
             </h2>
             <p className="text-xs text-[#7A7267] mt-1">
@@ -39,7 +39,7 @@ export default function RoomsPage() {
         </div>
 
         {/* Filter Chips */}
-        <div className="flex items-center gap-2 border-b border-[#E8E2DA] pb-3 text-xs">
+        <div className="flex items-center gap-2 border-b border-[#E8E2DA] pb-3 text-xs overflow-x-auto whitespace-nowrap">
           {[
             { id: 'all', label: `All (${INITIAL_ROOMS.length})` },
             { id: 'available', label: 'Available' },

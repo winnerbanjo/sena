@@ -94,21 +94,21 @@ export default function OverviewPage() {
         onOpenNewReservation={() => setNewResOpen(true)}
       />
 
-      <main className="flex-1 overflow-y-auto p-8 space-y-8 bg-white">
+      <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6 sm:space-y-8 bg-white">
         {/* Morning Greeting Section 26 */}
-        <div className="flex items-end justify-between border-b border-[#E8E2DA] pb-6">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 border-b border-[#E8E2DA] pb-4 sm:pb-6">
           <div>
-            <span className="text-[11px] font-mono tracking-widest uppercase text-[#7A7267] block mb-1">
+            <span className="text-[10px] sm:text-[11px] font-mono tracking-widest uppercase text-[#7A7267] block mb-1">
               WEDNESDAY, 23 SEPTEMBER 2026
             </span>
-            <h2 className="text-3xl font-serif font-normal text-[#191816]">
+            <h2 className="text-2xl sm:text-3xl font-serif font-normal text-[#191816]">
               Good morning, Amara <span className="text-[#B85C3E]">☼</span>
             </h2>
             <p className="text-xs text-[#7A7267] mt-1">
               Here's what's happening at Stay Connect Lekki today.
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 self-start sm:self-auto">
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs bg-[#EBF5ED] text-[#2E6B4F] font-medium border border-[#C6E4CC]">
               <span className="w-1.5 h-1.5 rounded-full bg-[#2E6B4F] animate-pulse" />
               All systems live
@@ -117,7 +117,7 @@ export default function OverviewPage() {
         </div>
 
         {/* 4 Primary Restrained Metrics (Section 27) */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           <MetricCard
             label="Arrivals"
             value="12"
@@ -152,12 +152,12 @@ export default function OverviewPage() {
           {/* Today's Arrivals List */}
           <div className="lg:col-span-2 space-y-4">
             <div className="bg-white border border-[#E8E2DA] rounded-md overflow-hidden shadow-none">
-              <div className="p-4 border-b border-[#E8E2DA] flex items-center justify-between bg-[#FAFAFA]">
+              <div className="p-3.5 sm:p-4 border-b border-[#E8E2DA] flex items-center justify-between bg-[#FAFAFA]">
                 <div>
-                  <h3 className="text-base font-serif font-normal text-[#191816]">
+                  <h3 className="text-sm sm:text-base font-serif font-normal text-[#191816]">
                     Today's Expected Arrivals
                   </h3>
-                  <p className="text-xs text-[#7A7267]">
+                  <p className="text-[11px] sm:text-xs text-[#7A7267]">
                     Click any guest to open their stay details without leaving the page.
                   </p>
                 </div>
@@ -175,63 +175,76 @@ export default function OverviewPage() {
                       setSelectedRes(res);
                       setDrawerOpen(true);
                     }}
-                    className="p-4 flex items-center justify-between hover:bg-[#FAFAFA] transition-colors cursor-pointer group"
+                    className="p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-[#FAFAFA] transition-colors cursor-pointer group"
                   >
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-full bg-[#E5D4BC] text-[#71382D] flex items-center justify-center font-serif text-xs font-bold">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-[#E5D4BC] text-[#71382D] flex items-center justify-center font-serif text-xs font-bold flex-shrink-0">
                         {res.guestName
                           .split(' ')
                           .map((n) => n[0])
                           .join('')}
                       </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <strong className="text-sm font-serif text-[#191816] group-hover:text-[#B85C3E] transition-colors">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <strong className="text-sm font-serif text-[#191816] group-hover:text-[#B85C3E] transition-colors truncate">
                             {res.guestName}
                           </strong>
-                          <span className="text-xs text-[#7A7267] font-mono">
+                          <span className="text-[11px] text-[#7A7267] font-mono">
                             {res.reference}
                           </span>
                         </div>
-                        <span className="text-xs text-[#7A7267] block">
+                        <span className="text-xs text-[#7A7267] block truncate">
                           {res.roomType} · Room {res.roomNumber}
                         </span>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-4">
-                      <div className="text-right hidden sm:block">
+                    <div className="flex items-center justify-between sm:justify-end gap-2.5 sm:gap-4 w-full sm:w-auto">
+                      <div className="text-left sm:text-right">
                         <span className="text-xs font-medium text-[#191816] block">
                           {formatStayDates(res.checkInDate, res.checkOutDate)}
                         </span>
-                        <span className="text-[11px] text-[#7A7267]">
+                        <span className="text-[10px] sm:text-[11px] text-[#7A7267]">
                           {res.nights} {res.nights === 1 ? 'night' : 'nights'}
                         </span>
                       </div>
 
-                      <Badge
-                        variant={res.paymentStatus === 'paid' ? 'paid' : 'pending'}
-                      >
-                        {res.paymentStatus.replace('_', ' ')}
-                      </Badge>
-
-                      {res.status === 'confirmed' ? (
-                        <Button
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleCheckIn(res.id);
-                          }}
-                          className="bg-[#2E6B4F] hover:bg-[#255740]"
+                      <div className="flex items-center gap-2">
+                        <Badge
+                          variant={res.paymentStatus === 'paid' ? 'paid' : 'pending'}
                         >
-                          <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
-                          Check in
-                        </Button>
-                      ) : res.status === 'checked_in' ? (
-                        <Badge variant="occupied">Checked in</Badge>
-                      ) : (
-                        <Badge variant="clean">Checked out</Badge>
-                      )}
+                          {res.paymentStatus.replace('_', ' ')}
+                        </Badge>
+
+                        {res.status === 'confirmed' ? (
+                          <Button
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleCheckIn(res.id);
+                            }}
+                            className="bg-[#2E6B4F] hover:bg-[#255740] text-xs px-2.5 py-1"
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
+                            Check in
+                          </Button>
+                        ) : res.status === 'checked_in' ? (
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleCheckOut(res.id);
+                            }}
+                            className="text-xs px-2.5 py-1"
+                          >
+                            <Clock className="w-3.5 h-3.5 mr-1" />
+                            Check out
+                          </Button>
+                        ) : (
+                          <Badge variant="clean">Checked out</Badge>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))}

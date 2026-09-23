@@ -196,11 +196,11 @@ export default function OffersPage() {
         onOpenNewReservation={() => setNewResOpen(true)}
       />
 
-      <main className="flex-1 overflow-y-auto p-8 space-y-6 bg-white">
+      <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6 bg-white">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#E8E2DA] pb-4">
           <div>
-            <h2 className="text-2xl font-serif font-normal text-[#191816]">
+            <h2 className="text-xl sm:text-2xl font-serif font-normal text-[#191816]">
               Offers & Promotions
             </h2>
             <p className="text-xs text-[#7A7267] mt-1">
@@ -210,7 +210,7 @@ export default function OffersPage() {
 
           <Button
             onClick={() => setCreateModalOpen(true)}
-            className="flex items-center gap-1.5"
+            className="flex items-center gap-1.5 self-start sm:self-auto text-xs"
           >
             <Plus className="w-4 h-4" />
             <span>Create Offer</span>
@@ -218,32 +218,32 @@ export default function OffersPage() {
         </div>
 
         {/* Metrics Row */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="p-4 rounded-lg border border-[#E8E2DA] bg-white">
-            <span className="text-[11px] text-[#7A7267] uppercase font-semibold">Active Promotions</span>
-            <div className="text-2xl font-serif text-[#191816] mt-1">{activeCount}</div>
-            <p className="text-[11px] text-emerald-700 mt-1 font-medium">Currently live for guests</p>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          <div className="p-3 sm:p-4 rounded-lg border border-[#E8E2DA] bg-white">
+            <span className="text-[10px] sm:text-[11px] text-[#7A7267] uppercase font-semibold">Active Promotions</span>
+            <div className="text-xl sm:text-2xl font-serif text-[#191816] mt-1">{activeCount}</div>
+            <p className="text-[10px] sm:text-[11px] text-emerald-700 mt-1 font-medium">Currently live</p>
           </div>
-          <div className="p-4 rounded-lg border border-[#E8E2DA] bg-white">
-            <span className="text-[11px] text-[#7A7267] uppercase font-semibold">Revenue Generated</span>
-            <div className="text-2xl font-serif text-[#191816] mt-1">₦{totalRevenue.toLocaleString()}</div>
-            <p className="text-[11px] text-[#7A7267] mt-1">Across all campaigns</p>
+          <div className="p-3 sm:p-4 rounded-lg border border-[#E8E2DA] bg-white">
+            <span className="text-[10px] sm:text-[11px] text-[#7A7267] uppercase font-semibold">Revenue Generated</span>
+            <div className="text-xl sm:text-2xl font-serif text-[#191816] mt-1">₦{totalRevenue.toLocaleString()}</div>
+            <p className="text-[10px] sm:text-[11px] text-[#7A7267] mt-1">All campaigns</p>
           </div>
-          <div className="p-4 rounded-lg border border-[#E8E2DA] bg-white">
-            <span className="text-[11px] text-[#7A7267] uppercase font-semibold">Bookings Claimed</span>
-            <div className="text-2xl font-serif text-[#191816] mt-1">{totalClaims}</div>
-            <p className="text-[11px] text-[#7A7267] mt-1">Direct guest reservations</p>
+          <div className="p-3 sm:p-4 rounded-lg border border-[#E8E2DA] bg-white">
+            <span className="text-[10px] sm:text-[11px] text-[#7A7267] uppercase font-semibold">Bookings Claimed</span>
+            <div className="text-xl sm:text-2xl font-serif text-[#191816] mt-1">{totalClaims}</div>
+            <p className="text-[10px] sm:text-[11px] text-[#7A7267] mt-1">Direct guests</p>
           </div>
-          <div className="p-4 rounded-lg border border-[#E8E2DA] bg-white">
-            <span className="text-[11px] text-[#7A7267] uppercase font-semibold">Avg. Conversion Uplift</span>
-            <div className="text-2xl font-serif text-[#191816] mt-1">+18.4%</div>
-            <p className="text-[11px] text-emerald-700 mt-1 font-medium">Direct checkout boost</p>
+          <div className="p-3 sm:p-4 rounded-lg border border-[#E8E2DA] bg-white">
+            <span className="text-[10px] sm:text-[11px] text-[#7A7267] uppercase font-semibold">Avg. Conversion</span>
+            <div className="text-xl sm:text-2xl font-serif text-[#191816] mt-1">+18.4%</div>
+            <p className="text-[10px] sm:text-[11px] text-emerald-700 mt-1 font-medium">Checkout boost</p>
           </div>
         </div>
 
         {/* Filters and Search Bar */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 overflow-x-auto whitespace-nowrap">
             {[
               { id: 'all', label: 'All Offers' },
               { id: 'active', label: 'Active' },
@@ -253,7 +253,7 @@ export default function OffersPage() {
               <button
                 key={tab.id}
                 onClick={() => setStatusFilter(tab.id as any)}
-                className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
+                className={`px-3 py-1.5 rounded text-xs font-medium transition-colors flex-shrink-0 ${
                   statusFilter === tab.id
                     ? 'bg-[#191816] text-white'
                     : 'bg-[#FAFAFA] border border-[#E8E2DA] text-[#7A7267] hover:text-[#191816]'
@@ -264,14 +264,14 @@ export default function OffersPage() {
             ))}
           </div>
 
-          <div className="relative">
+          <div className="relative w-full sm:w-auto">
             <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-[#7A7267]" />
             <input
               type="text"
               placeholder="Search code or offer name..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-8 pr-3 py-1.5 rounded border border-[#E8E2DA] bg-white text-xs text-[#191816] w-64 focus:outline-none focus:ring-1 focus:ring-[#B85C3E]"
+              className="pl-8 pr-3 py-1.5 rounded border border-[#E8E2DA] bg-white text-xs text-[#191816] w-full sm:w-64 focus:outline-none focus:ring-1 focus:ring-[#B85C3E]"
             />
           </div>
         </div>
@@ -279,7 +279,7 @@ export default function OffersPage() {
         {/* Offers Table / Cards */}
         <div className="border border-[#E8E2DA] rounded-lg overflow-hidden bg-white">
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
+            <table className="w-full text-left text-xs min-w-[700px]">
               <thead className="bg-[#FAFAFA] border-b border-[#E8E2DA] text-[#7A7267] uppercase text-[10px] tracking-wider font-semibold">
                 <tr>
                   <th className="py-3 px-4">Promo Code & Title</th>

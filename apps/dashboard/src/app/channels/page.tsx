@@ -91,9 +91,9 @@ export default function ChannelsPage() {
         onOpenNewReservation={() => {}}
       />
 
-      <main className="flex-1 overflow-y-auto p-8 space-y-6">
+      <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6">
         <div className="border-b border-[#E8E2DA] pb-4">
-          <h2 className="text-2xl font-serif font-normal text-[#191816]">
+          <h2 className="text-xl sm:text-2xl font-serif font-normal text-[#191816]">
             Channels & Integrations
           </h2>
           <p className="text-xs text-[#7A7267] mt-1">

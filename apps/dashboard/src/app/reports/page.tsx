@@ -41,11 +41,11 @@ export default function ReportsPage() {
         onOpenNewReservation={() => setNewResOpen(true)}
       />
 
-      <main className="flex-1 overflow-y-auto p-8 space-y-6 bg-white">
+      <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6 bg-white">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#E8E2DA] pb-4">
           <div>
-            <h2 className="text-2xl font-serif font-normal text-[#191816]">
+            <h2 className="text-xl sm:text-2xl font-serif font-normal text-[#191816]">
               Reports & Auditing
             </h2>
             <p className="text-xs text-[#7A7267] mt-1">
@@ -53,7 +53,7 @@ export default function ReportsPage() {
             </p>
           </div>
 
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2 sm:gap-2.5 flex-wrap">
             {/* Date range picker */}
             <select
               value={dateRange}
@@ -62,7 +62,7 @@ export default function ReportsPage() {
             >
               <option value="today">Today (24h)</option>
               <option value="week">This Week</option>
-              <option value="month">Month to Date (September 2026)</option>
+              <option value="month">Month to Date (Sep 2026)</option>
               <option value="quarter">Q3 2026</option>
               <option value="year">Year to Date 2026</option>
             </select>
@@ -73,7 +73,7 @@ export default function ReportsPage() {
               className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-[#E8E2DA] bg-white text-xs font-medium text-[#191816] hover:bg-[#FAFAFA] transition-colors"
             >
               <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
-              <span>{exporting === 'csv' ? 'Exporting...' : 'Export CSV'}</span>
+              <span>{exporting === 'csv' ? 'Exporting...' : 'CSV'}</span>
             </button>
 
             <button
@@ -82,7 +82,7 @@ export default function ReportsPage() {
               className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-[#E8E2DA] bg-white text-xs font-medium text-[#191816] hover:bg-[#FAFAFA] transition-colors"
             >
               <FileText className="w-3.5 h-3.5 text-rose-600" />
-              <span>{exporting === 'pdf' ? 'Generating...' : 'Export PDF'}</span>
+              <span>{exporting === 'pdf' ? 'Generating...' : 'PDF'}</span>
             </button>
 
             <button
@@ -96,7 +96,7 @@ export default function ReportsPage() {
         </div>
 
         {/* Report Sub-tabs */}
-        <div className="flex items-center gap-6 border-b border-[#E8E2DA]">
+        <div className="flex items-center gap-4 sm:gap-6 border-b border-[#E8E2DA] overflow-x-auto whitespace-nowrap">
           {[
             { id: 'financial', label: 'Financial & Revenue Ledger' },
             { id: 'occupancy', label: 'Occupancy & ADR Performance' },
@@ -106,7 +106,7 @@ export default function ReportsPage() {
             <button
               key={tab.id}
               onClick={() => setActiveReportTab(tab.id as any)}
-              className={`py-2.5 text-xs font-medium border-b-2 -mb-px transition-colors ${
+              className={`py-2.5 text-xs font-medium border-b-2 -mb-px transition-colors flex-shrink-0 ${
                 activeReportTab === tab.id
                   ? 'border-[#B85C3E] text-[#B85C3E] font-semibold'
                   : 'border-transparent text-[#7A7267] hover:text-[#191816]'
@@ -120,14 +120,14 @@ export default function ReportsPage() {
         {/* Tab 1: Financial & Revenue */}
         {activeReportTab === 'financial' && (
           <div className="space-y-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="p-4 rounded-lg border border-[#E8E2DA] bg-white">
-                <span className="text-[11px] text-[#7A7267] uppercase font-semibold">Gross Booking Value</span>
-                <div className="text-2xl font-serif text-[#191816] mt-1">₦14,850,000</div>
-                <p className="text-[11px] text-emerald-700 mt-1 font-medium">+14.2% vs previous period</p>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+              <div className="p-3 sm:p-4 rounded-lg border border-[#E8E2DA] bg-white">
+                <span className="text-[10px] sm:text-[11px] text-[#7A7267] uppercase font-semibold">Gross Booking Value</span>
+                <div className="text-xl sm:text-2xl font-serif text-[#191816] mt-1">₦14,850,000</div>
+                <p className="text-[10px] sm:text-[11px] text-emerald-700 mt-1 font-medium">+14.2% vs prev</p>
               </div>
 
-              <div className="p-4 rounded-lg border border-[#E8E2DA] bg-white">
+              <div className="p-3 sm:p-4 rounded-lg border border-[#E8E2DA] bg-white">
                 <span className="text-[11px] text-[#7A7267] uppercase font-semibold">Net Accommodation</span>
                 <div className="text-2xl font-serif text-[#191816] mt-1">₦13,420,000</div>
                 <p className="text-[11px] text-[#7A7267] mt-1">Room rate revenue</p>

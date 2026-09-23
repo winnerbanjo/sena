@@ -56,11 +56,11 @@ export default function SettingsPage() {
         onOpenNewReservation={() => setNewResOpen(true)}
       />
 
-      <main className="flex-1 overflow-y-auto p-8 space-y-6 bg-white">
+      <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6 bg-white">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#E8E2DA] pb-4">
           <div>
-            <h2 className="text-2xl font-serif font-normal text-[#191816]">
+            <h2 className="text-xl sm:text-2xl font-serif font-normal text-[#191816]">
               Property Settings
             </h2>
             <p className="text-xs text-[#7A7267] mt-1">
@@ -68,7 +68,7 @@ export default function SettingsPage() {
             </p>
           </div>
 
-          <Button onClick={handleSave} className="flex items-center gap-1.5">
+          <Button onClick={handleSave} className="flex items-center gap-1.5 self-start sm:self-auto text-xs">
             {saveSuccess ? (
               <>
                 <Check className="w-3.5 h-3.5 text-white" />
@@ -84,7 +84,7 @@ export default function SettingsPage() {
         </div>
 
         {/* Tab switcher */}
-        <div className="flex items-center gap-6 border-b border-[#E8E2DA]">
+        <div className="flex items-center gap-4 sm:gap-6 border-b border-[#E8E2DA] overflow-x-auto whitespace-nowrap">
           {[
             { id: 'general', label: 'General & Profile', icon: Building },
             { id: 'policies', label: 'Policies & Check-in Times', icon: Clock },
@@ -96,7 +96,7 @@ export default function SettingsPage() {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as any)}
-                className={`py-2.5 text-xs font-medium border-b-2 -mb-px flex items-center gap-2 transition-colors ${
+                className={`py-2.5 text-xs font-medium border-b-2 -mb-px flex items-center gap-2 transition-colors flex-shrink-0 ${
                   activeTab === tab.id
                     ? 'border-[#B85C3E] text-[#B85C3E] font-semibold'
                     : 'border-transparent text-[#7A7267] hover:text-[#191816]'
@@ -112,13 +112,13 @@ export default function SettingsPage() {
         <form onSubmit={handleSave} className="space-y-6 max-w-3xl">
           {/* Tab 1: General */}
           {activeTab === 'general' && (
-            <div className="bg-white border border-[#E8E2DA] rounded-lg p-6 space-y-5">
+            <div className="bg-white border border-[#E8E2DA] rounded-lg p-4 sm:p-6 space-y-5">
               <div>
                 <h3 className="text-base font-semibold text-[#191816]">Property Profile</h3>
                 <p className="text-xs text-[#7A7267]">Basic identifiers used across guest booking confirmation & receipts.</p>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-medium text-[#191816] mb-1">
                     Property Name
@@ -148,7 +148,7 @@ export default function SettingsPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-medium text-[#191816] mb-1">
                     Contact Email
@@ -186,7 +186,7 @@ export default function SettingsPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-xs font-medium text-[#191816] mb-1">
                     City
@@ -226,13 +226,13 @@ export default function SettingsPage() {
 
           {/* Tab 2: Policies */}
           {activeTab === 'policies' && (
-            <div className="bg-white border border-[#E8E2DA] rounded-lg p-6 space-y-5">
+            <div className="bg-white border border-[#E8E2DA] rounded-lg p-4 sm:p-6 space-y-5">
               <div>
                 <h3 className="text-base font-semibold text-[#191816]">Check-in & Check-out Timing</h3>
                 <p className="text-xs text-[#7A7267]">Standard operational turnover schedule.</p>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-medium text-[#191816] mb-1">
                     Check-in Time (From)
@@ -262,7 +262,7 @@ export default function SettingsPage() {
                 <label className="block text-xs font-medium text-[#191816] mb-1.5">
                   Cancellation Policy
                 </label>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   {[
                     { id: 'flexible', title: 'Flexible', desc: 'Full refund up to 24h prior to arrival' },
                     { id: 'moderate', title: 'Moderate', desc: 'Full refund up to 48h prior to arrival' },

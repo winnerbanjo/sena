@@ -75,10 +75,10 @@ export default function PaymentsPage() {
     <div className="flex-1 flex flex-col h-screen overflow-hidden">
       <Topbar title="Payments" onOpenNewReservation={() => {}} />
 
-      <main className="flex-1 overflow-y-auto p-8 space-y-6">
+      <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#E8E2DA] pb-4">
           <div>
-            <h2 className="text-2xl font-serif font-normal text-[#191816]">
+            <h2 className="text-xl sm:text-2xl font-serif font-normal text-[#191816]">
               Financials & Transactions
             </h2>
             <p className="text-xs text-[#7A7267] mt-1">
@@ -86,12 +86,12 @@ export default function PaymentsPage() {
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
-            <Button variant="secondary" size="sm">
+          <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+            <Button variant="secondary" size="sm" className="text-xs">
               <Download className="w-3.5 h-3.5 mr-1" />
               Export CSV
             </Button>
-            <Button size="sm">
+            <Button size="sm" className="text-xs">
               <Plus className="w-3.5 h-3.5 mr-1" />
               Record payment
             </Button>
@@ -99,7 +99,7 @@ export default function PaymentsPage() {
         </div>
 
         {/* Financial Overview Metrics */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
           <MetricCard
             label="Collected Revenue"
             value="₦2.48m"
@@ -121,7 +121,7 @@ export default function PaymentsPage() {
         </div>
 
         {/* Transactions Table */}
-        <div className="bg-white border border-[#E8E2DA] rounded-md overflow-hidden">
+        <div className="bg-white border border-[#E8E2DA] rounded-md overflow-x-auto">
           <div className="p-4 border-b border-[#E8E2DA] bg-[#FAFAFA] flex items-center justify-between">
             <strong className="text-sm font-serif text-[#191816]">
               Recent Transactions
@@ -131,7 +131,7 @@ export default function PaymentsPage() {
             </span>
           </div>
 
-          <Table>
+          <Table className="min-w-[650px]">
             <TableHeader>
               <TableRow>
                 <TableHead>Reference</TableHead>

@@ -31,7 +31,7 @@ export default function CalendarPage() {
         onOpenNewReservation={() => setNewResOpen(true)}
       />
 
-      <main className="flex-1 overflow-y-auto p-8 space-y-6 bg-white">
+      <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6 bg-white">
         {/* Controls */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#E8E2DA] pb-4">
           <div className="flex items-center gap-3">
@@ -51,7 +51,7 @@ export default function CalendarPage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-4 text-xs text-[#7A7267]">
+          <div className="flex items-center gap-3 sm:gap-4 text-xs text-[#7A7267] flex-wrap">
             <span className="flex items-center gap-1.5">
               <span className="w-2.5 h-2.5 rounded-sm bg-[#B85C3E]" />
               Confirmed

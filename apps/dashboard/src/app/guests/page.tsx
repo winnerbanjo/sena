@@ -100,10 +100,10 @@ export default function GuestsPage() {
     <div className="flex-1 flex flex-col h-screen overflow-hidden">
       <Topbar title="Guest Directory" onOpenNewReservation={() => {}} />
 
-      <main className="flex-1 overflow-y-auto p-8 space-y-6">
+      <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#E8E2DA] pb-4">
           <div>
-            <h2 className="text-2xl font-serif font-normal text-[#191816]">
+            <h2 className="text-xl sm:text-2xl font-serif font-normal text-[#191816]">
               Guests
             </h2>
             <p className="text-xs text-[#7A7267] mt-1">
@@ -111,20 +111,20 @@ export default function GuestsPage() {
             </p>
           </div>
 
-          <div className="relative">
-            <Search className="w-3.5 h-3.5 absolute left-3 top-3 text-[#7A7267]" />
+          <div className="relative w-full sm:w-auto">
+            <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-[#7A7267]" />
             <input
               type="text"
               placeholder="Search by name, phone, email..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-8 pr-3 py-1.5 rounded border border-[#E8E2DA] bg-white text-xs text-[#191816] w-64 focus:outline-none focus:ring-1 focus:ring-[#B85C3E]"
+              className="pl-8 pr-3 py-1.5 rounded border border-[#E8E2DA] bg-white text-xs text-[#191816] w-full sm:w-64 focus:outline-none focus:ring-1 focus:ring-[#B85C3E]"
             />
           </div>
         </div>
 
-        <div className="bg-white border border-[#E8E2DA] rounded-md overflow-hidden">
-          <Table>
+        <div className="bg-white border border-[#E8E2DA] rounded-md overflow-x-auto">
+          <Table className="min-w-[650px]">
             <TableHeader>
               <TableRow>
                 <TableHead>Guest Name</TableHead>

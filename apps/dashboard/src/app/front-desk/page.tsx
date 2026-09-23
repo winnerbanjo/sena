@@ -75,10 +75,10 @@ export default function FrontDeskPage() {
         onOpenNewReservation={() => {}}
       />
 
-      <main className="flex-1 overflow-y-auto p-8 space-y-6">
+      <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6">
         <div className="flex items-center justify-between border-b border-[#E8E2DA] pb-4">
           <div>
-            <h2 className="text-2xl font-serif font-normal text-[#191816]">
+            <h2 className="text-xl sm:text-2xl font-serif font-normal text-[#191816]">
               Front Desk Operations
             </h2>
             <p className="text-xs text-[#7A7267] mt-1">
@@ -88,7 +88,7 @@ export default function FrontDeskPage() {
         </div>
 
         {/* Operational Filter Tabs */}
-        <div className="flex items-center gap-3 border-b border-[#E8E2DA] pb-3 text-xs">
+        <div className="flex items-center gap-2 sm:gap-3 border-b border-[#E8E2DA] pb-3 text-xs overflow-x-auto whitespace-nowrap">
           <button
             onClick={() => setActiveTab('arriving')}
             className={`px-3 py-1.5 rounded font-medium transition-colors flex items-center gap-1.5 ${
