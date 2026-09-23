@@ -5,14 +5,14 @@ import { MinorUnits, Permission, Role } from '@sena/types';
  * Section 14 of PRD
  */
 export const SENA_COLORS = {
-  ivory: '#F7F1E8',
+  ivory: '#FFFFFF',
   terracotta: '#B85C3E',
   clay: '#71382D',
   sand: '#E5D4BC',
   ink: '#191816',
   white: '#FFFFFF',
   muted: '#7A7267',
-  border: '#E2D8CC',
+  border: '#E8E2DA',
   success: '#2E6B4F',
   warning: '#C47C2B',
   danger: '#9E382A',

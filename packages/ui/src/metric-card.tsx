@@ -23,8 +23,8 @@ export function MetricCard({
     <div
       onClick={onClick}
       className={cn(
-        'bg-white border border-[#E2D8CC] p-5 rounded-md flex flex-col justify-between transition-all',
-        onClick && 'cursor-pointer hover:border-[#B85C3E]/60 hover:bg-[#F7F1E8]/20',
+        'bg-white border border-[#E8E2DA] p-5 rounded-md flex flex-col justify-between transition-all shadow-none',
+        onClick && 'cursor-pointer hover:border-[#B85C3E]/60 hover:bg-[#FAFAFA]',
         className
       )}
       {...props}

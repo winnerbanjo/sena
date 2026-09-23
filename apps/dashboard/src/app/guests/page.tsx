@@ -101,7 +101,7 @@ export default function GuestsPage() {
       <Topbar title="Guest Directory" onOpenNewReservation={() => {}} />
 
       <main className="flex-1 overflow-y-auto p-8 space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#E2D8CC] pb-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#E8E2DA] pb-4">
           <div>
             <h2 className="text-2xl font-serif font-normal text-[#191816]">
               Guests
@@ -118,12 +118,12 @@ export default function GuestsPage() {
               placeholder="Search by name, phone, email..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-8 pr-3 py-1.5 rounded border border-[#E2D8CC] bg-white text-xs text-[#191816] w-64 focus:outline-none focus:ring-1 focus:ring-[#B85C3E]"
+              className="pl-8 pr-3 py-1.5 rounded border border-[#E8E2DA] bg-white text-xs text-[#191816] w-64 focus:outline-none focus:ring-1 focus:ring-[#B85C3E]"
             />
           </div>
         </div>
 
-        <div className="bg-white border border-[#E2D8CC] rounded-md overflow-hidden">
+        <div className="bg-white border border-[#E8E2DA] rounded-md overflow-hidden">
           <Table>
             <TableHeader>
               <TableRow>
@@ -185,8 +185,8 @@ export default function GuestsPage() {
           open={Boolean(selectedGuest)}
           onOpenChange={() => setSelectedGuest(null)}
         >
-          <DrawerContent className="p-6 space-y-6">
-            <div className="border-b border-[#E2D8CC] pb-4">
+          <DrawerContent className="p-6 space-y-6 bg-white border-l border-[#E8E2DA]">
+            <div className="border-b border-[#E8E2DA] pb-4">
               <span className="text-[10px] font-mono uppercase tracking-wider text-[#B85C3E] block mb-1">
                 Guest Profile
               </span>
@@ -202,15 +202,15 @@ export default function GuestsPage() {
 
             {/* Metrics */}
             <div className="grid grid-cols-3 gap-3">
-              <div className="p-3 rounded border border-[#E2D8CC] bg-[#F7F1E8]/50 text-center">
+              <div className="p-3 rounded border border-[#E8E2DA] bg-[#FAFAFA] text-center">
                 <span className="text-[10px] uppercase text-[#7A7267] block">Stays</span>
                 <strong className="text-lg font-serif text-[#191816]">{selectedGuest.stays}</strong>
               </div>
-              <div className="p-3 rounded border border-[#E2D8CC] bg-[#F7F1E8]/50 text-center">
+              <div className="p-3 rounded border border-[#E8E2DA] bg-[#FAFAFA] text-center">
                 <span className="text-[10px] uppercase text-[#7A7267] block">Nights</span>
                 <strong className="text-lg font-serif text-[#191816]">{selectedGuest.nights}</strong>
               </div>
-              <div className="p-3 rounded border border-[#E2D8CC] bg-[#F7F1E8]/50 text-center">
+              <div className="p-3 rounded border border-[#E8E2DA] bg-[#FAFAFA] text-center">
                 <span className="text-[10px] uppercase text-[#7A7267] block">Total Spent</span>
                 <strong className="text-sm font-serif text-[#191816] block mt-1">
                   {formatNaira(selectedGuest.lifetimeValueMinorUnits)}
@@ -219,7 +219,7 @@ export default function GuestsPage() {
             </div>
 
             {/* Contact */}
-            <div className="p-4 rounded border border-[#E2D8CC] bg-white space-y-2 text-xs">
+            <div className="p-4 rounded border border-[#E8E2DA] bg-white space-y-2 text-xs">
               <span className="text-[10px] uppercase font-mono text-[#7A7267] block mb-2">
                 Contact Details
               </span>
@@ -234,7 +234,7 @@ export default function GuestsPage() {
             </div>
 
             {/* Preferences */}
-            <div className="p-4 rounded border border-[#E2D8CC] bg-[#F7F1E8]/30 space-y-2">
+            <div className="p-4 rounded border border-[#E8E2DA] bg-[#FAFAFA] space-y-2">
               <span className="text-[10px] uppercase font-mono text-[#7A7267] block mb-1">
                 Guest Preferences
               </span>
@@ -242,7 +242,7 @@ export default function GuestsPage() {
                 {selectedGuest.preferences.map((p, idx) => (
                   <span
                     key={idx}
-                    className="px-2 py-0.5 rounded border border-[#E2D8CC] bg-white text-xs text-[#191816]"
+                    className="px-2 py-0.5 rounded border border-[#E8E2DA] bg-white text-xs text-[#191816]"
                   >
                     {p}
                   </span>
@@ -251,7 +251,7 @@ export default function GuestsPage() {
             </div>
 
             {/* Staff Notes */}
-            <div className="p-4 rounded border border-[#E2D8CC] bg-white">
+            <div className="p-4 rounded border border-[#E8E2DA] bg-white">
               <span className="text-[10px] uppercase font-mono text-[#7A7267] block mb-1">
                 Internal Team Note
               </span>

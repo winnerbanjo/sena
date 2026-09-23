@@ -10,7 +10,7 @@ export default function AnalyticsPage() {
       <Topbar title="Analytics" onOpenNewReservation={() => {}} />
 
       <main className="flex-1 overflow-y-auto p-8 space-y-6">
-        <div className="border-b border-[#E2D8CC] pb-4">
+        <div className="border-b border-[#E8E2DA] pb-4">
           <h2 className="text-2xl font-serif font-normal text-[#191816]">
             Performance & Insights
           </h2>
@@ -50,7 +50,7 @@ export default function AnalyticsPage() {
         {/* Breakdown Section */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Booking Sources (Section 66) */}
-          <div className="bg-white border border-[#E2D8CC] p-6 rounded-md space-y-4">
+          <div className="bg-white border border-[#E8E2DA] p-6 rounded-md space-y-4">
             <div>
               <strong className="text-base font-serif text-[#191816] block">
                 Booking Sources
@@ -72,7 +72,7 @@ export default function AnalyticsPage() {
                     <span className="text-[#191816] font-medium">{item.source}</span>
                     <strong className="font-mono">{item.percentage}%</strong>
                   </div>
-                  <div className="w-full h-2 rounded-full bg-[#F7F1E8] overflow-hidden">
+                  <div className="w-full h-2 rounded-full bg-[#FAFAFA] border border-[#E8E2DA] overflow-hidden">
                     <div
                       className={`h-full ${item.color} rounded-full`}
                       style={{ width: `${item.percentage}%` }}
@@ -84,7 +84,7 @@ export default function AnalyticsPage() {
           </div>
 
           {/* Room Category Performance */}
-          <div className="bg-white border border-[#E2D8CC] p-6 rounded-md space-y-4">
+          <div className="bg-white border border-[#E8E2DA] p-6 rounded-md space-y-4">
             <div>
               <strong className="text-base font-serif text-[#191816] block">
                 Room Category Utilization
@@ -102,7 +102,7 @@ export default function AnalyticsPage() {
               ].map((cat) => (
                 <div
                   key={cat.type}
-                  className="p-3 rounded border border-[#E2D8CC] bg-[#F7F1E8]/30 flex items-center justify-between"
+                  className="p-3 rounded border border-[#E8E2DA] bg-[#FAFAFA] flex items-center justify-between"
                 >
                   <div>
                     <strong className="text-xs font-serif text-[#191816] block">

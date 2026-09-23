@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { formatNaira, formatStayDates } from '@sena/config';
-import { Badge, Button, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Tabs, TabsList, TabsTrigger } from '@sena/ui';
+import { Badge, Button, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@sena/ui';
 import { Plus, Search } from 'lucide-react';
 import { INITIAL_RESERVATIONS, type ReservationItem } from '../../components/mock-data';
 import { NewReservationDialog } from '../../components/new-reservation-dialog';
@@ -37,14 +37,14 @@ export default function ReservationsPage() {
   });
 
   return (
-    <div className="flex-1 flex flex-col h-screen overflow-hidden">
+    <div className="flex-1 flex flex-col h-screen overflow-hidden bg-white">
       <Topbar
         title="Reservations"
         onOpenNewReservation={() => setNewResOpen(true)}
       />
 
-      <main className="flex-1 overflow-y-auto p-8 space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#E2D8CC] pb-4">
+      <main className="flex-1 overflow-y-auto p-8 space-y-6 bg-white">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#E8E2DA] pb-4">
           <div>
             <h2 className="text-2xl font-serif font-normal text-[#191816]">
               All Reservations
@@ -62,14 +62,14 @@ export default function ReservationsPage() {
                 placeholder="Filter by guest, ref, room..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-8 pr-3 py-1.5 rounded border border-[#E2D8CC] bg-white text-xs text-[#191816] w-64 focus:outline-none focus:ring-1 focus:ring-[#B85C3E]"
+                className="pl-8 pr-3 py-1.5 rounded border border-[#E8E2DA] bg-white text-xs text-[#191816] w-64 focus:outline-none focus:ring-1 focus:ring-[#B85C3E]"
               />
             </div>
           </div>
         </div>
 
         {/* Tabs: All, Upcoming, In house, Completed, Cancelled */}
-        <div className="flex items-center gap-2 border-b border-[#E2D8CC] pb-2 text-xs">
+        <div className="flex items-center gap-2 border-b border-[#E8E2DA] pb-2 text-xs">
           {[
             { id: 'all', label: 'All Stays' },
             { id: 'upcoming', label: 'Upcoming' },
@@ -83,7 +83,7 @@ export default function ReservationsPage() {
               className={`px-3 py-1.5 rounded font-medium transition-colors ${
                 activeTab === tab.id
                   ? 'bg-[#71382D] text-white'
-                  : 'text-[#7A7267] hover:bg-white'
+                  : 'text-[#7A7267] hover:bg-[#FAFAFA]'
               }`}
             >
               {tab.label}
@@ -92,7 +92,7 @@ export default function ReservationsPage() {
         </div>
 
         {/* Reservations Data Table */}
-        <div className="bg-white border border-[#E2D8CC] rounded-md overflow-hidden">
+        <div className="bg-white border border-[#E8E2DA] rounded-md overflow-hidden shadow-none">
           <Table>
             <TableHeader>
               <TableRow>

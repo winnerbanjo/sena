@@ -7,7 +7,7 @@ const badgeVariants = cva(
   {
     variants: {
       variant: {
-        default: 'bg-[#F7F1E8] text-[#71382D] border border-[#E2D8CC]',
+        default: 'bg-[#FAFAFA] text-[#71382D] border border-[#E8E2DA]',
         paid: 'bg-[#EBF5ED] text-[#2E6B4F] border border-[#C6E4CC]',
         pending: 'bg-[#FAF0E4] text-[#C47C2B] border border-[#F2DAC0]',
         danger: 'bg-[#FDF0ED] text-[#9E382A] border border-[#F5CBC5]',
@@ -15,7 +15,7 @@ const badgeVariants = cva(
         dirty: 'bg-[#FAF0E4] text-[#C47C2B] border border-[#F2DAC0]',
         cleaning: 'bg-[#F0F4FA] text-[#3B6699] border border-[#D0DEF2]',
         occupied: 'bg-[#71382D] text-white',
-        available: 'bg-[#F7F1E8] text-[#191816] border border-[#E2D8CC]',
+        available: 'bg-[#FAFAFA] text-[#191816] border border-[#E8E2DA]',
       },
     },
     defaultVariants: {

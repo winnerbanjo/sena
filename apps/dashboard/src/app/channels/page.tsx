@@ -92,7 +92,7 @@ export default function ChannelsPage() {
       />
 
       <main className="flex-1 overflow-y-auto p-8 space-y-6">
-        <div className="border-b border-[#E2D8CC] pb-4">
+        <div className="border-b border-[#E8E2DA] pb-4">
           <h2 className="text-2xl font-serif font-normal text-[#191816]">
             Channels & Integrations
           </h2>
@@ -108,7 +108,7 @@ export default function ChannelsPage() {
             return (
               <div
                 key={channel.id}
-                className="bg-white border border-[#E2D8CC] p-6 rounded-md flex flex-col justify-between space-y-4 shadow-none hover:border-[#7A7267] transition-all"
+                className="bg-white border border-[#E8E2DA] p-6 rounded-md flex flex-col justify-between space-y-4 shadow-none hover:border-[#7A7267] transition-all"
               >
                 <div>
                   <div className="flex items-center justify-between mb-2">
@@ -127,7 +127,7 @@ export default function ChannelsPage() {
                   </p>
                 </div>
 
-                <div className="pt-4 border-t border-[#E2D8CC] flex items-center justify-between">
+                <div className="pt-4 border-t border-[#E8E2DA] flex items-center justify-between">
                   {isConnected ? (
                     <span className="text-xs text-[#2E6B4F] font-medium flex items-center gap-1">
                       <Check className="w-3.5 h-3.5" /> Active & sync enabled

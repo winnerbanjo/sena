@@ -3,12 +3,12 @@
 @tailwind utilities;
 
 :root {
-  --ivory: #F7F1E8;
+  --ivory: #FFFFFF;
   --terracotta: #B85C3E;
   --clay: #71382D;
   --sand: #E5D4BC;
   --ink: #191816;
-  --line: #E2D8CC;
+  --line: #E8E2DA;
 }
 
 body {

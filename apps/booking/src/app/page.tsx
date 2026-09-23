@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import Image from 'next/image';
 import { calculateNights, formatNaira, formatStayDates } from '@sena/config';
 import { Badge, Button, Input, Label } from '@sena/ui';
 import { Calendar, CheckCircle2, Clock, ShieldCheck, Sparkles, Users } from 'lucide-react';
@@ -107,7 +108,7 @@ export default function BookingEnginePage() {
   return (
     <div className="min-h-screen flex flex-col justify-between">
       {/* Brand Header */}
-      <header className="border-b border-[#E2D8CC] bg-white py-4 px-6 sm:px-12 flex items-center justify-between">
+      <header className="border-b border-[#E8E2DA] bg-white py-4 px-6 sm:px-12 flex items-center justify-between">
         <div>
           <span className="font-serif text-xl font-normal text-[#191816]">
             Stay Connect Lekki
@@ -127,7 +128,7 @@ export default function BookingEnginePage() {
         {stage === 'search' && (
           <div className="space-y-8">
             {/* Search Toolbar */}
-            <div className="bg-white border border-[#E2D8CC] p-6 rounded-md shadow-sm">
+            <div className="bg-white border border-[#E8E2DA] p-6 rounded-md shadow-sm">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <Label>Check-in</Label>
@@ -150,7 +151,7 @@ export default function BookingEnginePage() {
                   <select
                     value={numGuests}
                     onChange={(e) => setNumGuests(Number(e.target.value))}
-                    className="flex h-10 w-full rounded border border-[#E2D8CC] bg-white px-3 py-2 text-xs text-[#191816]"
+                    className="flex h-10 w-full rounded border border-[#E8E2DA] bg-white px-3 py-2 text-xs text-[#191816]"
                   >
                     <option value={1}>1 Guest</option>
                     <option value={2}>2 Guests</option>
@@ -160,7 +161,7 @@ export default function BookingEnginePage() {
                 </div>
               </div>
 
-              <div className="mt-4 pt-4 border-t border-[#E2D8CC] flex items-center justify-between text-xs text-[#7A7267]">
+              <div className="mt-4 pt-4 border-t border-[#E8E2DA] flex items-center justify-between text-xs text-[#7A7267]">
                 <span>
                   Staying: <strong>{formatStayDates(checkIn, checkOut)}</strong> ({nights} {nights === 1 ? 'night' : 'nights'})
                 </span>
@@ -183,7 +184,7 @@ export default function BookingEnginePage() {
                   return (
                     <div
                       key={room.id}
-                      className="bg-white border border-[#E2D8CC] p-6 rounded-md flex flex-col md:flex-row md:items-center justify-between gap-6 shadow-sm hover:border-[#B85C3E]/50 transition-all"
+                      className="bg-white border border-[#E8E2DA] p-6 rounded-md flex flex-col md:flex-row md:items-center justify-between gap-6 shadow-sm hover:border-[#B85C3E]/50 transition-all"
                     >
                       <div className="space-y-2 max-w-lg">
                         <div className="flex items-center gap-2">
@@ -201,7 +202,7 @@ export default function BookingEnginePage() {
                           {room.amenities.map((a, i) => (
                             <span
                               key={i}
-                              className="text-[11px] px-2 py-0.5 rounded bg-[#F7F1E8] text-[#7A7267] border border-[#E2D8CC]"
+                              className="text-[11px] px-2 py-0.5 rounded bg-[#FAFAFA] text-[#7A7267] border border-[#E8E2DA]"
                             >
                               {a}
                             </span>
@@ -209,7 +210,7 @@ export default function BookingEnginePage() {
                         </div>
                       </div>
 
-                      <div className="text-left md:text-right border-t md:border-t-0 pt-4 md:pt-0 border-[#E2D8CC] flex md:flex-col justify-between items-center md:items-end gap-3 min-w-44">
+                      <div className="text-left md:text-right border-t md:border-t-0 pt-4 md:pt-0 border-[#E8E2DA] flex md:flex-col justify-between items-center md:items-end gap-3 min-w-44">
                         <div>
                           <strong className="text-xl font-serif text-[#191816] block">
                             {formatNaira(stayTotal)}
@@ -248,9 +249,9 @@ export default function BookingEnginePage() {
 
             <form
               onSubmit={handleCompleteBooking}
-              className="bg-white border border-[#E2D8CC] p-8 rounded-md space-y-6 shadow-sm"
+              className="bg-white border border-[#E8E2DA] p-8 rounded-md space-y-6 shadow-sm"
             >
-              <div className="border-b border-[#E2D8CC] pb-4">
+              <div className="border-b border-[#E8E2DA] pb-4">
                 <span className="text-[10px] font-mono uppercase tracking-wider text-[#B85C3E]">
                   Complete Reservation
                 </span>
@@ -297,7 +298,7 @@ export default function BookingEnginePage() {
               </div>
 
               {/* Price summary */}
-              <div className="p-4 rounded bg-[#F7F1E8]/60 border border-[#E2D8CC] space-y-2 text-xs">
+              <div className="p-4 rounded bg-[#FAFAFA] border border-[#E8E2DA] space-y-2 text-xs">
                 <div className="flex justify-between text-[#7A7267]">
                   <span>Nightly rate</span>
                   <span>{formatNaira(selectedRoom.pricePerNight)}</span>
@@ -306,7 +307,7 @@ export default function BookingEnginePage() {
                   <span>Stay length</span>
                   <span>{nights} nights</span>
                 </div>
-                <div className="flex justify-between text-[#7A7267] border-t border-[#E2D8CC] pt-2">
+                <div className="flex justify-between text-[#7A7267] border-t border-[#E8E2DA] pt-2">
                   <span className="font-semibold text-[#191816]">Total due now</span>
                   <strong className="text-base font-serif text-[#191816]">
                     {formatNaira(selectedRoom.pricePerNight * nights)}
@@ -334,14 +335,13 @@ export default function BookingEnginePage() {
           </div>
         )}
 
-        {/* Confirmed Stage */}
         {stage === 'confirmed' && selectedRoom && (
-          <div className="max-w-md mx-auto bg-white border border-[#E2D8CC] p-8 rounded-md text-center space-y-4 shadow-sm">
+          <div className="max-w-md mx-auto bg-white border border-[#E8E2DA] p-8 rounded-md text-center space-y-4 shadow-sm">
             <CheckCircle2 className="w-12 h-12 mx-auto text-[#2E6B4F]" />
             <h2 className="text-2xl font-serif text-[#191816]">
               Your stay is confirmed!
             </h2>
-            <div className="p-3 bg-[#F7F1E8] rounded border border-[#E2D8CC]">
+            <div className="p-3 bg-[#FAFAFA] rounded border border-[#E8E2DA]">
               <span className="text-[10px] uppercase font-mono text-[#7A7267] block">
                 Reservation Reference
               </span>
@@ -368,8 +368,18 @@ export default function BookingEnginePage() {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-[#E2D8CC] py-6 px-6 sm:px-12 text-center text-xs text-[#7A7267]">
-        Powered by Sena · Hospitality, Simplified · Nile Africa Technologies Ltd.
+      <footer className="border-t border-[#E8E2DA] py-6 px-6 sm:px-12 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-[#7A7267]">
+        <div className="flex items-center gap-2">
+          <span>Powered by</span>
+          <Image
+            src="/assets/sena-logo.png"
+            alt="Sena"
+            width={60}
+            height={20}
+            className="h-4 w-auto object-contain"
+          />
+        </div>
+        <span>hospitality, simplified · Nile Africa Technologies Ltd.</span>
       </footer>
     </div>
   );

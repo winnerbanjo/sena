@@ -36,7 +36,7 @@ export default function HousekeepingPage() {
 
       <main className="flex-1 overflow-y-auto p-4 sm:p-8 space-y-6 max-w-4xl mx-auto w-full">
         {/* Mobile-first Header */}
-        <div className="border-b border-[#E2D8CC] pb-4">
+        <div className="border-b border-[#E8E2DA] pb-4">
           <div className="flex items-center gap-2 text-[#B85C3E] mb-1">
             <Sparkles className="w-4 h-4" />
             <span className="text-[11px] font-mono uppercase tracking-wider">
@@ -53,7 +53,7 @@ export default function HousekeepingPage() {
 
         {/* Section 50 Top Summary Counts */}
         <div className="grid grid-cols-4 gap-2 sm:gap-4">
-          <div className="p-3 sm:p-4 rounded border border-[#E2D8CC] bg-white text-center">
+          <div className="p-3 sm:p-4 rounded border border-[#E8E2DA] bg-white text-center">
             <span className="text-[10px] text-[#7A7267] uppercase tracking-wider block">
               Dirty
             </span>
@@ -61,7 +61,7 @@ export default function HousekeepingPage() {
               {dirtyCount}
             </strong>
           </div>
-          <div className="p-3 sm:p-4 rounded border border-[#E2D8CC] bg-white text-center">
+          <div className="p-3 sm:p-4 rounded border border-[#E8E2DA] bg-white text-center">
             <span className="text-[10px] text-[#7A7267] uppercase tracking-wider block">
               Cleaning
             </span>
@@ -69,7 +69,7 @@ export default function HousekeepingPage() {
               {cleaningCount}
             </strong>
           </div>
-          <div className="p-3 sm:p-4 rounded border border-[#E2D8CC] bg-white text-center">
+          <div className="p-3 sm:p-4 rounded border border-[#E8E2DA] bg-white text-center">
             <span className="text-[10px] text-[#7A7267] uppercase tracking-wider block">
               Clean
             </span>
@@ -77,7 +77,7 @@ export default function HousekeepingPage() {
               {cleanCount}
             </strong>
           </div>
-          <div className="p-3 sm:p-4 rounded border border-[#E2D8CC] bg-white text-center">
+          <div className="p-3 sm:p-4 rounded border border-[#E8E2DA] bg-white text-center">
             <span className="text-[10px] text-[#7A7267] uppercase tracking-wider block">
               Maint.
             </span>
@@ -97,7 +97,7 @@ export default function HousekeepingPage() {
             return (
               <div
                 key={room.id}
-                className="bg-white border border-[#E2D8CC] p-4 rounded-md flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-none"
+                className="bg-white border border-[#E8E2DA] p-4 rounded-md flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-none"
               >
                 <div>
                   <div className="flex items-center gap-2 mb-1">

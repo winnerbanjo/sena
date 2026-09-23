@@ -25,27 +25,27 @@ export default function CalendarPage() {
   const [newResOpen, setNewResOpen] = React.useState(false);
 
   return (
-    <div className="flex-1 flex flex-col h-screen overflow-hidden">
+    <div className="flex-1 flex flex-col h-screen overflow-hidden bg-white">
       <Topbar
         title="Master Calendar"
         onOpenNewReservation={() => setNewResOpen(true)}
       />
 
-      <main className="flex-1 overflow-y-auto p-8 space-y-6">
+      <main className="flex-1 overflow-y-auto p-8 space-y-6 bg-white">
         {/* Controls */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#E2D8CC] pb-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#E8E2DA] pb-4">
           <div className="flex items-center gap-3">
             <h2 className="text-xl font-serif text-[#191816]">
               September 2026
             </h2>
-            <div className="flex items-center gap-1 border border-[#E2D8CC] rounded bg-white p-0.5">
-              <button className="p-1 hover:bg-[#F7F1E8] rounded text-[#7A7267]">
+            <div className="flex items-center gap-1 border border-[#E8E2DA] rounded bg-white p-0.5">
+              <button className="p-1 hover:bg-[#FAFAFA] rounded text-[#7A7267]">
                 <ChevronLeft className="w-4 h-4" />
               </button>
-              <button className="px-2 py-0.5 text-xs font-semibold text-[#191816] hover:bg-[#F7F1E8] rounded">
+              <button className="px-2 py-0.5 text-xs font-semibold text-[#191816] hover:bg-[#FAFAFA] rounded">
                 Today
               </button>
-              <button className="p-1 hover:bg-[#F7F1E8] rounded text-[#7A7267]">
+              <button className="p-1 hover:bg-[#FAFAFA] rounded text-[#7A7267]">
                 <ChevronRight className="w-4 h-4" />
               </button>
             </div>
@@ -61,25 +61,25 @@ export default function CalendarPage() {
               Checked In
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-sm bg-[#E5D4BC]" />
+              <span className="w-2.5 h-2.5 rounded-sm bg-[#FAFAFA] border border-[#E8E2DA]" />
               Available
             </span>
           </div>
         </div>
 
         {/* Master Calendar Matrix */}
-        <div className="bg-white border border-[#E2D8CC] rounded-md overflow-x-auto shadow-sm">
+        <div className="bg-white border border-[#E8E2DA] rounded-md overflow-x-auto shadow-none">
           <table className="w-full border-collapse min-w-[800px]">
             <thead>
-              <tr className="border-b border-[#E2D8CC] bg-[#F7F1E8]/60 text-xs">
-                <th className="p-3 text-left font-serif font-normal text-[#7A7267] w-48 border-r border-[#E2D8CC]">
+              <tr className="border-b border-[#E8E2DA] bg-[#FAFAFA] text-xs">
+                <th className="p-3 text-left font-serif font-normal text-[#7A7267] w-48 border-r border-[#E8E2DA]">
                   ROOM / CATEGORY
                 </th>
                 {CALENDAR_DATES.map((d) => (
                   <th
                     key={d.full}
-                    className={`p-3 text-center font-medium border-r border-[#E2D8CC] ${
-                      d.isToday ? 'bg-[#FAF0E4] text-[#B85C3E]' : 'text-[#7A7267]'
+                    className={`p-3 text-center font-medium border-r border-[#E8E2DA] ${
+                      d.isToday ? 'bg-[#FAF0E4]/70 text-[#B85C3E]' : 'text-[#7A7267]'
                     }`}
                   >
                     <span className="text-[10px] block font-mono">{d.day}</span>
@@ -88,15 +88,14 @@ export default function CalendarPage() {
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#E2D8CC] text-xs">
+            <tbody className="divide-y divide-[#E8E2DA] text-xs">
               {INITIAL_ROOMS.map((room) => {
-                // Find matching reservation for this room
                 const res = reservations.find((r) => r.roomNumber === room.number);
 
                 return (
-                  <tr key={room.id} className="hover:bg-[#F7F1E8]/20 transition-colors">
+                  <tr key={room.id} className="hover:bg-[#FAFAFA] transition-colors">
                     {/* Room title */}
-                    <td className="p-3 border-r border-[#E2D8CC] bg-[#F7F1E8]/30">
+                    <td className="p-3 border-r border-[#E8E2DA] bg-[#FAFAFA]/50">
                       <strong className="block text-sm font-serif text-[#191816]">
                         Room {room.number}
                       </strong>
@@ -123,10 +122,10 @@ export default function CalendarPage() {
                               setSelectedRes(res);
                               setDrawerOpen(true);
                             }}
-                            className="p-1 border-r border-[#E2D8CC] cursor-pointer"
+                            className="p-1 border-r border-[#E8E2DA] cursor-pointer"
                           >
                             <div
-                              className={`h-9 px-3 rounded flex items-center justify-between text-xs text-white shadow-sm transition-opacity hover:opacity-90 ${
+                              className={`h-9 px-3 rounded flex items-center justify-between text-xs text-white shadow-none transition-opacity hover:opacity-90 ${
                                 res.status === 'checked_in'
                                   ? 'bg-[#71382D]'
                                   : 'bg-[#B85C3E]'
@@ -153,7 +152,6 @@ export default function CalendarPage() {
                         dateObj.full > res.checkInDate &&
                         dateObj.full < res.checkOutDate
                       ) {
-                        // Handled by colSpan above
                         return null;
                       }
 
@@ -161,7 +159,7 @@ export default function CalendarPage() {
                         <td
                           key={dateObj.full}
                           onClick={() => setNewResOpen(true)}
-                          className={`p-3 text-center border-r border-[#E2D8CC] hover:bg-[#F7F1E8]/60 cursor-pointer text-[#7A7267]/40 ${
+                          className={`p-3 text-center border-r border-[#E8E2DA] hover:bg-[#FAFAFA] cursor-pointer text-[#7A7267]/40 ${
                             dateObj.isToday ? 'bg-[#FAF0E4]/30' : ''
                           }`}
                         >

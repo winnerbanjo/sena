@@ -87,7 +87,7 @@ export function NewReservationDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg bg-white border border-[#E8E2DA]">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
             <DialogTitle>New reservation</DialogTitle>
@@ -130,8 +130,8 @@ export function NewReservationDialog({
                     onClick={() => setSelectedRoom(rm.name)}
                     className={`p-2.5 rounded border text-left text-xs transition-all ${
                       selectedRoom === rm.name
-                        ? 'border-[#B85C3E] bg-[#F7F1E8] ring-1 ring-[#B85C3E]'
-                        : 'border-[#E2D8CC] bg-white hover:border-[#7A7267]'
+                        ? 'border-[#B85C3E] bg-[#FAFAFA] ring-1 ring-[#B85C3E]'
+                        : 'border-[#E8E2DA] bg-white hover:border-[#7A7267]'
                     }`}
                   >
                     <span className="font-semibold text-[#191816] block truncate">
@@ -149,7 +149,7 @@ export function NewReservationDialog({
             </div>
 
             {/* Guest Details */}
-            <div className="pt-2 border-t border-[#E2D8CC] space-y-3">
+            <div className="pt-2 border-t border-[#E8E2DA] space-y-3">
               <Label>Guest Information</Label>
               <div>
                 <Input
@@ -181,7 +181,7 @@ export function NewReservationDialog({
                 <select
                   value={source}
                   onChange={(e) => setSource(e.target.value as any)}
-                  className="flex h-10 w-full rounded border border-[#E2D8CC] bg-white px-3 py-2 text-xs text-[#191816]"
+                  className="flex h-10 w-full rounded border border-[#E8E2DA] bg-white px-3 py-2 text-xs text-[#191816]"
                 >
                   <option value="walk_in">Walk-in</option>
                   <option value="phone">Phone call</option>
@@ -194,7 +194,7 @@ export function NewReservationDialog({
                 <select
                   value={paymentStatus}
                   onChange={(e) => setPaymentStatus(e.target.value as any)}
-                  className="flex h-10 w-full rounded border border-[#E2D8CC] bg-white px-3 py-2 text-xs text-[#191816]"
+                  className="flex h-10 w-full rounded border border-[#E8E2DA] bg-white px-3 py-2 text-xs text-[#191816]"
                 >
                   <option value="pay_later">Pay later</option>
                   <option value="paid">Paid in full</option>
@@ -204,7 +204,7 @@ export function NewReservationDialog({
             </div>
 
             {/* Cost summary */}
-            <div className="p-3 bg-[#F7F1E8]/70 rounded border border-[#E2D8CC] flex items-center justify-between text-xs">
+            <div className="p-3 bg-[#FAFAFA] rounded border border-[#E8E2DA] flex items-center justify-between text-xs">
               <span className="text-[#7A7267]">
                 Total for {nights} {nights === 1 ? 'night' : 'nights'}:
               </span>

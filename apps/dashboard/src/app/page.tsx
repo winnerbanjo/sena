@@ -87,15 +87,15 @@ export default function OverviewPage() {
   const arrivals = reservations.filter((r) => r.checkInDate === '2026-09-23');
 
   return (
-    <div className="flex-1 flex flex-col h-screen overflow-hidden">
+    <div className="flex-1 flex flex-col h-screen overflow-hidden bg-white">
       <Topbar
         title="Overview"
         onOpenNewReservation={() => setNewResOpen(true)}
       />
 
-      <main className="flex-1 overflow-y-auto p-8 space-y-8">
+      <main className="flex-1 overflow-y-auto p-8 space-y-8 bg-white">
         {/* Morning Greeting Section 26 */}
-        <div className="flex items-end justify-between border-b border-[#E2D8CC] pb-6">
+        <div className="flex items-end justify-between border-b border-[#E8E2DA] pb-6">
           <div>
             <span className="text-[11px] font-mono tracking-widest uppercase text-[#7A7267] block mb-1">
               WEDNESDAY, 23 SEPTEMBER 2026
@@ -145,10 +145,10 @@ export default function OverviewPage() {
 
         {/* Main Content Layout: Section 28 & 29 */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Today's Arrivals List (2 columns on large screens) */}
+          {/* Today's Arrivals List */}
           <div className="lg:col-span-2 space-y-4">
-            <div className="bg-white border border-[#E2D8CC] rounded-md overflow-hidden">
-              <div className="p-4 border-b border-[#E2D8CC] flex items-center justify-between bg-[#F7F1E8]/30">
+            <div className="bg-white border border-[#E8E2DA] rounded-md overflow-hidden shadow-none">
+              <div className="p-4 border-b border-[#E8E2DA] flex items-center justify-between bg-[#FAFAFA]">
                 <div>
                   <h3 className="text-base font-serif font-normal text-[#191816]">
                     Today's Expected Arrivals
@@ -163,7 +163,7 @@ export default function OverviewPage() {
               </div>
 
               {/* Arrivals Table */}
-              <div className="divide-y divide-[#E2D8CC]">
+              <div className="divide-y divide-[#E8E2DA]">
                 {arrivals.map((res) => (
                   <div
                     key={res.id}
@@ -171,7 +171,7 @@ export default function OverviewPage() {
                       setSelectedRes(res);
                       setDrawerOpen(true);
                     }}
-                    className="p-4 flex items-center justify-between hover:bg-[#F7F1E8]/40 transition-colors cursor-pointer group"
+                    className="p-4 flex items-center justify-between hover:bg-[#FAFAFA] transition-colors cursor-pointer group"
                   >
                     <div className="flex items-center gap-3">
                       <div className="w-9 h-9 rounded-full bg-[#E5D4BC] text-[#71382D] flex items-center justify-center font-serif text-xs font-bold">
@@ -238,28 +238,28 @@ export default function OverviewPage() {
           {/* Right Column: Today at a Glance + Activity Stream */}
           <div className="space-y-6">
             {/* Section 28: Today at a Glance */}
-            <div className="bg-white border border-[#E2D8CC] p-5 rounded-md space-y-3">
+            <div className="bg-white border border-[#E8E2DA] p-5 rounded-md space-y-3 shadow-none">
               <span className="text-[11px] font-medium tracking-wider uppercase text-[#7A7267] block">
                 Today at a glance
               </span>
               <div className="space-y-2 text-xs">
-                <div className="flex items-center justify-between py-1.5 border-b border-[#E2D8CC]/60">
+                <div className="flex items-center justify-between py-1.5 border-b border-[#E8E2DA]/60">
                   <span className="text-[#191816]">Arrivals</span>
                   <strong className="font-serif text-sm">12</strong>
                 </div>
-                <div className="flex items-center justify-between py-1.5 border-b border-[#E2D8CC]/60">
+                <div className="flex items-center justify-between py-1.5 border-b border-[#E8E2DA]/60">
                   <span className="text-[#191816]">Departures</span>
                   <strong className="font-serif text-sm">8</strong>
                 </div>
-                <div className="flex items-center justify-between py-1.5 border-b border-[#E2D8CC]/60">
+                <div className="flex items-center justify-between py-1.5 border-b border-[#E8E2DA]/60">
                   <span className="text-[#191816]">In-house guests</span>
                   <strong className="font-serif text-sm">34</strong>
                 </div>
-                <div className="flex items-center justify-between py-1.5 border-b border-[#E2D8CC]/60">
+                <div className="flex items-center justify-between py-1.5 border-b border-[#E8E2DA]/60">
                   <span className="text-[#191816]">Available rooms</span>
                   <strong className="font-serif text-sm text-[#2E6B4F]">5</strong>
                 </div>
-                <div className="flex items-center justify-between py-1.5 border-b border-[#E2D8CC]/60">
+                <div className="flex items-center justify-between py-1.5 border-b border-[#E8E2DA]/60">
                   <span className="text-[#191816]">Rooms to clean</span>
                   <strong className="font-serif text-sm text-[#B85C3E]">6</strong>
                 </div>
@@ -271,11 +271,11 @@ export default function OverviewPage() {
             </div>
 
             {/* Section 30: Recent Activity Stream */}
-            <div className="bg-white border border-[#E2D8CC] p-5 rounded-md">
+            <div className="bg-white border border-[#E8E2DA] p-5 rounded-md shadow-none">
               <span className="text-[11px] font-medium tracking-wider uppercase text-[#7A7267] block mb-3">
                 Recent Activity
               </span>
-              <div className="space-y-3 relative before:absolute before:left-2 before:top-2 before:bottom-2 before:w-[1px] before:bg-[#E2D8CC]">
+              <div className="space-y-3 relative before:absolute before:left-2 before:top-2 before:bottom-2 before:w-[1px] before:bg-[#E8E2DA]">
                 {activity.slice(0, 5).map((act) => (
                   <div key={act.id} className="relative pl-5 text-xs">
                     <span className="w-1.5 h-1.5 rounded-full bg-[#B85C3E] absolute left-1.5 top-1.5 ring-2 ring-white" />
@@ -291,7 +291,7 @@ export default function OverviewPage() {
         </div>
       </main>
 
-      {/* Reservation Drawer (PRD Section 34-35) */}
+      {/* Reservation Drawer */}
       <ReservationDrawer
         reservation={selectedRes}
         open={drawerOpen}
@@ -300,7 +300,7 @@ export default function OverviewPage() {
         onCheckOut={handleCheckOut}
       />
 
-      {/* New Reservation Dialog (PRD Section 36-38) */}
+      {/* New Reservation Dialog */}
       <NewReservationDialog
         open={newResOpen}
         onOpenChange={setNewResOpen}

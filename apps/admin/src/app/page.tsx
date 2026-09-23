@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import Image from 'next/image';
 import { Badge, Button, MetricCard, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@sena/ui';
 import { Activity, AlertTriangle, CheckCircle2, Eye, Lock, Search, Server, Shield } from 'lucide-react';
 
@@ -92,11 +93,17 @@ export default function AdminDashboardPage() {
       )}
 
       {/* Header */}
-      <header className="border-b border-[#E2D8CC] bg-white py-4 px-8 flex items-center justify-between">
+      <header className="border-b border-[#E8E2DA] bg-white py-4 px-8 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="flex items-baseline gap-1.5">
-            <span className="font-serif text-2xl font-normal text-[#191816]">sena</span>
-            <span className="w-1.5 h-1.5 rounded-full bg-[#B85C3E]" />
+          <div className="flex items-center">
+            <Image
+              src="/assets/sena-logo.png"
+              alt="Sena"
+              width={90}
+              height={28}
+              priority
+              className="h-7 w-auto object-contain"
+            />
           </div>
           <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#71382D] text-white uppercase tracking-wider">
             Internal Platform Admin
@@ -138,8 +145,8 @@ export default function AdminDashboardPage() {
         </div>
 
         {/* Section 88: System Health Panel */}
-        <div className="bg-white border border-[#E2D8CC] p-6 rounded-md space-y-4">
-          <div className="flex items-center justify-between border-b border-[#E2D8CC] pb-3">
+        <div className="bg-white border border-[#E8E2DA] p-6 rounded-md space-y-4">
+          <div className="flex items-center justify-between border-b border-[#E8E2DA] pb-3">
             <div className="flex items-center gap-2">
               <Server className="w-4 h-4 text-[#2E6B4F]" />
               <strong className="text-sm font-serif text-[#191816]">
@@ -161,7 +168,7 @@ export default function AdminDashboardPage() {
               { name: 'Fluid Compute', status: 'Operational', latency: '18ms' },
               { name: 'Realtime SSE', status: 'Operational', latency: '5ms' },
             ].map((srv) => (
-              <div key={srv.name} className="p-3 rounded border border-[#E2D8CC] bg-[#F7F1E8]/40">
+              <div key={srv.name} className="p-3 rounded border border-[#E8E2DA] bg-[#FAFAFA]">
                 <span className="text-[10px] text-[#7A7267] font-mono uppercase block">
                   {srv.name}
                 </span>
@@ -177,8 +184,8 @@ export default function AdminDashboardPage() {
         </div>
 
         {/* Section 83: Property Management */}
-        <div className="bg-white border border-[#E2D8CC] rounded-md overflow-hidden">
-          <div className="p-4 border-b border-[#E2D8CC] flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#F7F1E8]/30">
+        <div className="bg-white border border-[#E8E2DA] rounded-md overflow-hidden">
+          <div className="p-4 border-b border-[#E8E2DA] flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#FAFAFA]">
             <div>
               <strong className="text-base font-serif text-[#191816]">
                 Managed Properties
@@ -195,7 +202,7 @@ export default function AdminDashboardPage() {
                 placeholder="Search property or city..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="pl-8 pr-3 py-1.5 rounded border border-[#E2D8CC] bg-white text-xs text-[#191816] w-64 focus:outline-none focus:ring-1 focus:ring-[#B85C3E]"
+                className="pl-8 pr-3 py-1.5 rounded border border-[#E8E2DA] bg-white text-xs text-[#191816] w-64 focus:outline-none focus:ring-1 focus:ring-[#B85C3E]"
               />
             </div>
           </div>
@@ -226,7 +233,7 @@ export default function AdminDashboardPage() {
                   </TableCell>
                   <TableCell className="text-xs">{prop.location}</TableCell>
                   <TableCell>
-                    <span className="text-xs font-semibold px-2 py-0.5 rounded bg-[#F7F1E8] border border-[#E2D8CC]">
+                    <span className="text-xs font-semibold px-2 py-0.5 rounded bg-[#FAFAFA] border border-[#E8E2DA]">
                       {prop.plan}
                     </span>
                   </TableCell>
@@ -257,7 +264,7 @@ export default function AdminDashboardPage() {
         </div>
       </main>
 
-      <footer className="border-t border-[#E2D8CC] py-4 px-8 text-center text-xs text-[#7A7267]">
+      <footer className="border-t border-[#E8E2DA] py-4 px-8 text-center text-xs text-[#7A7267]">
         Sena Internal Admin Console · admin.sena.ng · Authorized Personnel Only
       </footer>
     </div>

@@ -76,7 +76,7 @@ export default function FrontDeskPage() {
       />
 
       <main className="flex-1 overflow-y-auto p-8 space-y-6">
-        <div className="flex items-center justify-between border-b border-[#E2D8CC] pb-4">
+        <div className="flex items-center justify-between border-b border-[#E8E2DA] pb-4">
           <div>
             <h2 className="text-2xl font-serif font-normal text-[#191816]">
               Front Desk Operations
@@ -88,7 +88,7 @@ export default function FrontDeskPage() {
         </div>
 
         {/* Operational Filter Tabs */}
-        <div className="flex items-center gap-3 border-b border-[#E2D8CC] pb-3 text-xs">
+        <div className="flex items-center gap-3 border-b border-[#E8E2DA] pb-3 text-xs">
           <button
             onClick={() => setActiveTab('arriving')}
             className={`px-3 py-1.5 rounded font-medium transition-colors flex items-center gap-1.5 ${
@@ -141,7 +141,7 @@ export default function FrontDeskPage() {
                 setSelectedRes(res);
                 setDrawerOpen(true);
               }}
-              className="bg-white border border-[#E2D8CC] p-5 rounded-md flex flex-col justify-between hover:border-[#B85C3E]/60 transition-all cursor-pointer space-y-4"
+              className="bg-white border border-[#E8E2DA] p-5 rounded-md flex flex-col justify-between hover:border-[#B85C3E]/60 transition-all cursor-pointer space-y-4"
             >
               <div>
                 <div className="flex items-center justify-between mb-2">
@@ -164,7 +164,7 @@ export default function FrontDeskPage() {
                 </div>
               </div>
 
-              <div className="pt-3 border-t border-[#E2D8CC] flex items-center justify-between">
+              <div className="pt-3 border-t border-[#E8E2DA] flex items-center justify-between">
                 <div>
                   <span className="text-[10px] uppercase tracking-wider text-[#7A7267] block">
                     Total
@@ -206,7 +206,7 @@ export default function FrontDeskPage() {
           ))}
 
           {currentList.length === 0 && (
-            <div className="col-span-3 p-12 text-center bg-white border border-[#E2D8CC] rounded-md">
+            <div className="col-span-3 p-12 text-center bg-white border border-[#E8E2DA] rounded-md">
               <p className="text-sm text-[#7A7267]">
                 No guests in this view right now.
               </p>

@@ -8,7 +8,7 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        ivory: '#F7F1E8',
+        ivory: '#FFFFFF',
         terracotta: {
           DEFAULT: '#B85C3E',
           hover: '#A34F33',
@@ -16,7 +16,7 @@ const config: Config = {
         clay: '#71382D',
         sand: '#E5D4BC',
         ink: '#191816',
-        line: '#E2D8CC',
+        line: '#E8E2DA',
       },
       fontFamily: {
         serif: ['Georgia', 'Cambria', 'serif'],

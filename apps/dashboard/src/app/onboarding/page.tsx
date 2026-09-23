@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { Button, Input, Label } from '@sena/ui';
 import { Check, ChevronRight, Globe, Layers, ShieldCheck, Sparkles } from 'lucide-react';
 
@@ -22,20 +23,26 @@ export default function OnboardingPage() {
   const [selectedTheme, setSelectedTheme] = React.useState('sena_one');
 
   return (
-    <div className="min-h-screen bg-[#F7F1E8] flex flex-col justify-between p-6 sm:p-12">
+    <div className="min-h-screen bg-white flex flex-col justify-between p-6 sm:p-12">
       {/* Brand header */}
-      <div className="max-w-xl mx-auto w-full flex items-center justify-between pb-6 border-b border-[#E2D8CC]">
-        <div className="flex items-baseline gap-1.5">
-          <span className="font-serif text-2xl font-normal text-[#191816]">sena</span>
-          <span className="w-1.5 h-1.5 rounded-full bg-[#B85C3E]" />
-        </div>
+      <div className="max-w-xl mx-auto w-full flex items-center justify-between pb-6 border-b border-[#E8E2DA]">
+        <Link href="/" className="flex items-center">
+          <Image
+            src="/assets/sena-logo.png"
+            alt="Sena"
+            width={100}
+            height={32}
+            priority
+            className="h-7 w-auto object-contain"
+          />
+        </Link>
         <span className="text-xs font-mono text-[#7A7267]">
           Step {step} of 5
         </span>
       </div>
 
       {/* Wizard Content */}
-      <div className="max-w-xl mx-auto w-full bg-white border border-[#E2D8CC] p-8 rounded-md my-8 space-y-6 shadow-sm">
+      <div className="max-w-xl mx-auto w-full bg-white border border-[#E8E2DA] p-8 rounded-md my-8 space-y-6 shadow-sm">
         {step === 1 && (
           <div className="space-y-4">
             <div>
@@ -66,7 +73,7 @@ export default function OnboardingPage() {
                   <select
                     value={propType}
                     onChange={(e) => setPropType(e.target.value)}
-                    className="flex h-10 w-full rounded border border-[#E2D8CC] bg-white px-3 py-2 text-xs text-[#191816]"
+                    className="flex h-10 w-full rounded border border-[#E8E2DA] bg-white px-3 py-2 text-xs text-[#191816]"
                   >
                     <option value="hotel">Boutique Hotel</option>
                     <option value="serviced_apartment">Serviced Apartment</option>
@@ -75,7 +82,7 @@ export default function OnboardingPage() {
                 </div>
                 <div>
                   <Label>Timezone</Label>
-                  <Input value="Africa/Lagos (GMT+1)" disabled className="bg-[#F7F1E8]" />
+                  <Input value="Africa/Lagos (GMT+1)" disabled className="bg-[#FAFAFA]" />
                 </div>
               </div>
               <div>
@@ -167,9 +174,9 @@ export default function OnboardingPage() {
               </p>
             </div>
 
-            <div className="p-4 bg-[#F7F1E8]/50 rounded border border-[#E2D8CC] grid grid-cols-4 gap-2 text-center text-xs">
+            <div className="p-4 bg-[#FAFAFA] rounded border border-[#E8E2DA] grid grid-cols-4 gap-2 text-center text-xs">
               {Array.from({ length: Number(numRooms) || 6 }).map((_, idx) => (
-                <div key={idx} className="p-2 rounded bg-white border border-[#E2D8CC]">
+                <div key={idx} className="p-2 rounded bg-white border border-[#E8E2DA]">
                   <strong className="text-sm font-serif text-[#191816]">
                     20{idx + 1}
                   </strong>
@@ -194,7 +201,7 @@ export default function OnboardingPage() {
               </p>
             </div>
 
-            <div className="p-6 rounded border border-[#E2D8CC] bg-[#F7F1E8]/30 space-y-4 text-center">
+            <div className="p-6 rounded border border-[#E8E2DA] bg-[#FAFAFA] space-y-4 text-center">
               <ShieldCheck className="w-10 h-10 mx-auto text-[#2E6B4F]" />
               <div>
                 <strong className="text-base font-serif text-[#191816] block">
@@ -236,8 +243,8 @@ export default function OnboardingPage() {
                   onClick={() => setSelectedTheme(theme.id)}
                   className={`p-3 rounded border text-left cursor-pointer transition-all ${
                     selectedTheme === theme.id
-                      ? 'border-[#B85C3E] bg-[#F7F1E8] ring-1 ring-[#B85C3E]'
-                      : 'border-[#E2D8CC] bg-white hover:border-[#7A7267]'
+                      ? 'border-[#B85C3E] bg-[#FAFAFA] ring-1 ring-[#B85C3E]'
+                      : 'border-[#E8E2DA] bg-white hover:border-[#7A7267]'
                   }`}
                 >
                   <strong className="text-xs font-serif text-[#191816] block">
@@ -253,7 +260,7 @@ export default function OnboardingPage() {
         )}
 
         {/* Wizard Controls */}
-        <div className="pt-6 border-t border-[#E2D8CC] flex items-center justify-between">
+        <div className="pt-6 border-t border-[#E8E2DA] flex items-center justify-between">
           {step > 1 ? (
             <Button
               variant="outline"

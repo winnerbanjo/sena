@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import {
   Calendar,
@@ -77,23 +78,27 @@ export function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="w-60 min-w-60 flex-shrink-0 border-r border-[#E2D8CC] bg-[#F7F1E8]/70 flex flex-col justify-between h-screen sticky top-0 overflow-y-auto">
+    <aside className="w-60 min-w-60 flex-shrink-0 border-r border-[#E8E2DA] bg-white flex flex-col justify-between h-screen sticky top-0 overflow-y-auto">
       <div className="p-5 pb-2">
-        {/* Brand header */}
+        {/* Brand header with official logo image */}
         <Link href="/" className="block mb-6 group">
-          <div className="flex items-baseline gap-1.5">
-            <span className="font-serif text-2xl font-normal tracking-tight text-[#191816]">
-              sena
-            </span>
-            <span className="w-1.5 h-1.5 rounded-full bg-[#B85C3E]" />
+          <div className="h-8 flex items-center">
+            <Image
+              src="/assets/sena-logo.png"
+              alt="Sena"
+              width={112}
+              height={36}
+              priority
+              className="h-8 w-auto object-contain"
+            />
           </div>
-          <p className="text-[11px] text-[#7A7267] tracking-wider italic">
+          <p className="text-[10px] text-[#7A7267] tracking-wider italic mt-1 font-serif">
             hospitality, simplified.
           </p>
         </Link>
 
         {/* Property Switcher */}
-        <button className="w-full flex items-center justify-between p-2.5 rounded border border-[#E2D8CC] bg-white text-left hover:border-[#B85C3E]/50 transition-colors mb-6 shadow-none">
+        <button className="w-full flex items-center justify-between p-2.5 rounded border border-[#E8E2DA] bg-[#FAFAFA] text-left hover:border-[#B85C3E]/50 hover:bg-white transition-colors mb-6 shadow-none">
           <div className="flex items-center gap-2.5 min-w-0">
             <span className="w-7 h-7 rounded bg-[#71382D] text-white flex items-center justify-center font-serif text-xs font-semibold flex-shrink-0">
               SC
@@ -115,7 +120,7 @@ export function Sidebar() {
           {NAV_SECTIONS.map((section, idx) => (
             <div key={idx}>
               {section.title && (
-                <div className="text-[10px] font-medium tracking-widest uppercase text-[#7A7267]/80 px-2 mb-1.5">
+                <div className="text-[10px] font-medium tracking-widest uppercase text-[#7A7267]/70 px-2 mb-1.5">
                   {section.title}
                 </div>
               )}
@@ -133,8 +138,8 @@ export function Sidebar() {
                       href={item.href}
                       className={`flex items-center justify-between px-2.5 py-1.5 rounded text-[13px] font-medium transition-colors ${
                         isActive
-                          ? 'bg-white text-[#191816] shadow-sm font-semibold border border-[#E2D8CC]'
-                          : 'text-[#191816]/80 hover:text-[#191816] hover:bg-white/60'
+                          ? 'bg-[#F9F7F5] text-[#191816] font-semibold border border-[#E8E2DA]'
+                          : 'text-[#191816]/75 hover:text-[#191816] hover:bg-[#FAFAFA]'
                       }`}
                     >
                       <div className="flex items-center gap-2.5">
@@ -160,7 +165,7 @@ export function Sidebar() {
       </div>
 
       {/* User profile footer */}
-      <div className="p-4 border-t border-[#E2D8CC] bg-[#F7F1E8]">
+      <div className="p-4 border-t border-[#E8E2DA] bg-white">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-full bg-[#E5D4BC] text-[#71382D] flex items-center justify-center font-medium text-xs">
             AO

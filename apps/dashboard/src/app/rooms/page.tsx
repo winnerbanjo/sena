@@ -22,7 +22,7 @@ export default function RoomsPage() {
       <Topbar title="Rooms" onOpenNewReservation={() => {}} />
 
       <main className="flex-1 overflow-y-auto p-8 space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#E2D8CC] pb-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#E8E2DA] pb-4">
           <div>
             <h2 className="text-2xl font-serif font-normal text-[#191816]">
               Know Every Room
@@ -39,7 +39,7 @@ export default function RoomsPage() {
         </div>
 
         {/* Filter Chips */}
-        <div className="flex items-center gap-2 border-b border-[#E2D8CC] pb-3 text-xs">
+        <div className="flex items-center gap-2 border-b border-[#E8E2DA] pb-3 text-xs">
           {[
             { id: 'all', label: `All (${INITIAL_ROOMS.length})` },
             { id: 'available', label: 'Available' },
@@ -66,7 +66,7 @@ export default function RoomsPage() {
           {filteredRooms.map((room) => (
             <div
               key={room.id}
-              className="bg-white border border-[#E2D8CC] p-4 rounded-md space-y-3 hover:border-[#7A7267] transition-all"
+              className="bg-white border border-[#E8E2DA] p-4 rounded-md space-y-3 hover:border-[#7A7267] transition-all"
             >
               <div className="flex items-center justify-between">
                 <strong className="text-xl font-serif text-[#191816]">
@@ -92,7 +92,7 @@ export default function RoomsPage() {
                 <span className="text-[11px] text-[#7A7267]">{room.floor}</span>
               </div>
 
-              <div className="pt-2 border-t border-[#E2D8CC] flex items-center justify-between text-xs">
+              <div className="pt-2 border-t border-[#E8E2DA] flex items-center justify-between text-xs">
                 <span className="text-[#7A7267]">Housekeeping:</span>
                 <Badge
                   variant={

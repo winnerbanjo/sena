@@ -21,7 +21,7 @@ export function TableHeader({
 }: React.HTMLAttributes<HTMLTableSectionElement>) {
   return (
     <thead
-      className={cn('border-b border-[#E2D8CC] bg-[#F7F1E8]/50 text-[11px] font-medium tracking-wider text-[#7A7267] uppercase', className)}
+      className={cn('border-b border-[#E8E2DA] bg-[#FAFAFA] text-[11px] font-medium tracking-wider text-[#7A7267] uppercase', className)}
       {...props}
     />
   );
@@ -33,7 +33,7 @@ export function TableBody({
 }: React.HTMLAttributes<HTMLTableSectionElement>) {
   return (
     <tbody
-      className={cn('divide-y divide-[#E2D8CC] bg-white', className)}
+      className={cn('divide-y divide-[#E8E2DA] bg-white', className)}
       {...props}
     />
   );
@@ -46,7 +46,7 @@ export function TableRow({
   return (
     <tr
       className={cn(
-        'transition-colors hover:bg-[#F7F1E8]/30 data-[state=selected]:bg-[#F7F1E8]',
+        'transition-colors hover:bg-[#FAFAFA] data-[state=selected]:bg-[#F9F7F5]',
         className
       )}
       {...props}

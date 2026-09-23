@@ -3,17 +3,17 @@
 @tailwind utilities;
 
 :root {
-  --ivory: #F7F1E8;
+  --ivory: #FFFFFF;
   --terracotta: #B85C3E;
   --clay: #71382D;
-  --sand: #E5D4BC;
+  --sand: #F5EFE9;
   --ink: #191816;
-  --line: #E2D8CC;
+  --line: #E8E2DA;
   --white: #FFFFFF;
 }
 
 body {
-  background-color: var(--ivory);
+  background-color: #FFFFFF;
   color: var(--ink);
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
@@ -28,7 +28,7 @@ body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #E2D8CC;
+  background: #E8E2DA;
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
