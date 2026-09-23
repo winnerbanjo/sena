@@ -4,7 +4,7 @@ import * as React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Button, Input, Label } from '@sena/ui';
-import { Check, ChevronRight, Globe, Layers, ShieldCheck, Sparkles } from 'lucide-react';
+import { ArrowRight, Check, ChevronRight, Globe, Layers, ShieldCheck } from 'lucide-react';
 
 export default function OnboardingPage() {
   const [step, setStep] = React.useState(1);
@@ -280,7 +280,7 @@ export default function OnboardingPage() {
           ) : (
             <Link href="/">
               <Button size="sm">
-                Open Sena <Sparkles className="w-3.5 h-3.5 ml-1" />
+                Open Sena <ArrowRight className="w-3.5 h-3.5 ml-1" />
               </Button>
             </Link>
           )}

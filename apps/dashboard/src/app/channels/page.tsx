@@ -12,7 +12,7 @@ import {
   DialogTitle,
   Input,
 } from '@sena/ui';
-import { Check, Globe, Layers, Sparkles } from 'lucide-react';
+import { Check, Globe, Layers } from 'lucide-react';
 import { Topbar } from '../../components/topbar';
 
 interface ChannelItem {

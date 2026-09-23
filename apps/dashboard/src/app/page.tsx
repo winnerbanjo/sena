@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { formatStayDates } from '@sena/config';
 import { Badge, Button, MetricCard } from '@sena/ui';
-import { CheckCircle2, Clock, MoveRight, Sparkles } from 'lucide-react';
+import { CheckCircle2, Clock, MoveRight } from 'lucide-react';
 import {
   INITIAL_ACTIVITY,
   INITIAL_RESERVATIONS,

@@ -4,7 +4,7 @@ import * as React from 'react';
 import Image from 'next/image';
 import { calculateNights, formatNaira, formatStayDates } from '@sena/config';
 import { Badge, Button, Input, Label } from '@sena/ui';
-import { Calendar, CheckCircle2, Clock, ShieldCheck, Sparkles, Users } from 'lucide-react';
+import { Calendar, CheckCircle2, Clock, ShieldCheck, Users } from 'lucide-react';
 
 interface AvailableRoom {
   id: string;

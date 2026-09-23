@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { Badge, Button } from '@sena/ui';
-import { CheckCircle2, Play, Sparkles } from 'lucide-react';
+import { Brush, CheckCircle2, Play } from 'lucide-react';
 import { INITIAL_ROOMS } from '../../components/mock-data';
 import { Topbar } from '../../components/topbar';
 
@@ -38,7 +38,7 @@ export default function HousekeepingPage() {
         {/* Mobile-first Header */}
         <div className="border-b border-[#E8E2DA] pb-4">
           <div className="flex items-center gap-2 text-[#B85C3E] mb-1">
-            <Sparkles className="w-4 h-4" />
+            <Brush className="w-4 h-4" />
             <span className="text-[11px] font-mono uppercase tracking-wider">
               Room Readiness & Care
             </span>
