@@ -13,6 +13,7 @@
     "@sena/config": "workspace:*",
     "@sena/types": "workspace:*",
     "@sena/ui": "workspace:*",
+    "@sena/database": "workspace:*",
     "lucide-react": "^1.16.0",
     "next": "^15.1.7",
     "react": "^19.0.0",
