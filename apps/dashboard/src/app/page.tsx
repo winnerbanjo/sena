@@ -141,10 +141,13 @@ export default function OverviewPage() {
 
   const arrivals = reservations.filter((r) => r.status === 'confirmed');
   const inHouse = reservations.filter((r) => r.status === 'checked_in');
+  const todayIso = new Date().toISOString().split('T')[0];
+  const departures = inHouse.filter((r) => r.checkOutDate === todayIso);
   const dirtyRooms = rooms.filter((r) => r.housekeeping === 'dirty' || r.housekeepingStatus === 'dirty');
   const occupiedCount = rooms.filter((r) => r.operational === 'occupied' || r.operationalStatus === 'occupied').length;
   const totalRoomsCount = rooms.length || 1;
-  const occupancyRate = Math.round((occupiedCount / totalRoomsCount) * 100);
+  const occupancyRate = rooms.length > 0 ? Math.round((occupiedCount / totalRoomsCount) * 100) : 0;
+  const monthRevenueMinorUnits = reservations.reduce((acc, curr) => acc + (curr.paidAmountMinorUnits || 0), 0);
 
   return (
     <div className="flex-1 flex flex-col h-screen overflow-hidden bg-white text-[#191816]">
@@ -219,7 +222,7 @@ export default function OverviewPage() {
                 Departures
               </span>
               <div className="text-2xl sm:text-3xl font-serif text-[#191816] group-hover:text-[#71382D] transition-colors">
-                4
+                {departures.length}
               </div>
               <span className="text-[11px] text-[#7A7267] block">
                 Checkout by 11:00
@@ -243,7 +246,7 @@ export default function OverviewPage() {
                 Month Revenue
               </span>
               <div className="text-2xl sm:text-3xl font-serif text-[#191816] group-hover:text-[#71382D] transition-colors">
-                ₦2.48m
+                {formatNaira(monthRevenueMinorUnits)}
               </div>
               <span className="text-[11px] text-[#2E6B4F] block">
                 0% Sena fee kept
@@ -262,7 +265,7 @@ export default function OverviewPage() {
               Open 30-day calendar &rarr;
             </Link>
           </div>
-          <OccupancyChart />
+          <OccupancyChart reservations={reservations} rooms={rooms} />
         </div>
 
         {/* Two-Column Editorial Rhythm: Arrivals Ledger & Operational Notes */}

@@ -18,93 +18,6 @@ interface DayData {
   isToday?: boolean;
 }
 
-const DAYS: DayData[] = [
-  {
-    day: 'Mon',
-    dayName: 'Monday',
-    dateNum: '21',
-    fullDate: 'Monday, 21 Sep',
-    occupancy: 71,
-    roomsBooked: 22,
-    totalRooms: 31,
-    revenueMinorUnits: 36000000,
-    arrivals: 6,
-    departures: 4,
-  },
-  {
-    day: 'Tue',
-    dayName: 'Tuesday',
-    dateNum: '22',
-    fullDate: 'Tuesday, 22 Sep',
-    occupancy: 77,
-    roomsBooked: 24,
-    totalRooms: 31,
-    revenueMinorUnits: 44000000,
-    arrivals: 8,
-    departures: 5,
-  },
-  {
-    day: 'Wed',
-    dayName: 'Wednesday',
-    dateNum: '23',
-    fullDate: 'Wednesday, 23 Sep (Today)',
-    occupancy: 84,
-    roomsBooked: 26,
-    totalRooms: 31,
-    revenueMinorUnits: 52000000,
-    arrivals: 12,
-    departures: 8,
-    isToday: true,
-  },
-  {
-    day: 'Thu',
-    dayName: 'Thursday',
-    dateNum: '24',
-    fullDate: 'Thursday, 24 Sep',
-    occupancy: 87,
-    roomsBooked: 27,
-    totalRooms: 31,
-    revenueMinorUnits: 58000000,
-    arrivals: 7,
-    departures: 6,
-  },
-  {
-    day: 'Fri',
-    dayName: 'Friday',
-    dateNum: '25',
-    fullDate: 'Friday, 25 Sep',
-    occupancy: 94,
-    roomsBooked: 29,
-    totalRooms: 31,
-    revenueMinorUnits: 76000000,
-    arrivals: 11,
-    departures: 3,
-  },
-  {
-    day: 'Sat',
-    dayName: 'Saturday',
-    dateNum: '26',
-    fullDate: 'Saturday, 26 Sep',
-    occupancy: 97,
-    roomsBooked: 30,
-    totalRooms: 31,
-    revenueMinorUnits: 84000000,
-    arrivals: 5,
-    departures: 2,
-  },
-  {
-    day: 'Sun',
-    dayName: 'Sunday',
-    dateNum: '27',
-    fullDate: 'Sunday, 27 Sep',
-    occupancy: 74,
-    roomsBooked: 23,
-    totalRooms: 31,
-    revenueMinorUnits: 38000000,
-    arrivals: 4,
-    departures: 14,
-  },
-];
 
 function formatShortNaira(minorUnits: number) {
   const naira = minorUnits / 100;
@@ -192,6 +105,14 @@ export function OccupancyChart({
   const maxRevenue = Math.max(1000000, ...days.map((d) => d.revenueMinorUnits));
   const currentInspectDay = hoveredDay || selectedDay || days[0];
 
+  const todayDay = days.find(d => d.isToday) || days[0];
+  const maxOccDay = [...days].sort((a, b) => b.occupancy - a.occupancy)[0] || todayDay;
+  const maxRevDay = [...days].sort((a, b) => b.revenueMinorUnits - a.revenueMinorUnits)[0] || todayDay;
+  const peakDay = activeTab === 'occupancy' ? maxOccDay : maxRevDay;
+  
+  const weeklyAvgOcc = Math.round(days.reduce((sum, d) => sum + d.occupancy, 0) / (days.length || 1));
+  const weeklyTotalRev = days.reduce((sum, d) => sum + d.revenueMinorUnits, 0);
+
   return (
     <div className="bg-white border border-[#E8E2DA] rounded-lg p-6 space-y-6 shadow-xs">
       {/* Top Header & Dynamic Controls */}
@@ -221,7 +142,7 @@ export function OccupancyChart({
           </div>
           <p className="text-xs text-[#7A7267] mt-1">
             {activeTab === 'occupancy'
-              ? 'Real-time room occupancy across all 31 rooms (Sep 21 – 27)'
+              ? `Real-time room occupancy across all ${rooms.length} rooms`
               : 'Daily recorded & projected room revenue across direct and OTA bookings'}
           </p>
         </div>
@@ -262,10 +183,10 @@ export function OccupancyChart({
             {activeTab === 'occupancy' ? 'Today Occupancy' : "Today's Revenue"}
           </span>
           <strong className="text-lg font-semibold text-[#191816] block mt-0.5">
-            {activeTab === 'occupancy' ? '84%' : '₦520,000'}
+            {activeTab === 'occupancy' ? `${todayDay.occupancy}%` : formatNaira(todayDay.revenueMinorUnits)}
           </strong>
           <span className="text-[10px] text-[#7A7267] block">
-            {activeTab === 'occupancy' ? '26 of 31 rooms' : '12 verified payments'}
+            {activeTab === 'occupancy' ? `${todayDay.roomsBooked} of ${rooms.length} rooms` : 'Verified payments'}
           </span>
         </div>
 
@@ -274,7 +195,7 @@ export function OccupancyChart({
             {activeTab === 'occupancy' ? 'Weekly Average' : 'Total Week Gross'}
           </span>
           <strong className="text-lg font-semibold text-[#191816] block mt-0.5">
-            {activeTab === 'occupancy' ? '83.4%' : '₦3.88m'}
+            {activeTab === 'occupancy' ? `${weeklyAvgOcc}%` : formatShortNaira(weeklyTotalRev)}
           </strong>
           <span className="text-[10px] text-[#2E6B4F] flex items-center font-medium">
             <ArrowUpRight className="w-3 h-3" />
@@ -291,10 +212,10 @@ export function OccupancyChart({
               activeTab === 'occupancy' ? 'text-[#B85C3E]' : 'text-[#2E6B4F]'
             }`}
           >
-            Saturday
+            {peakDay.dayName}
           </strong>
           <span className="text-[10px] text-[#7A7267] block">
-            {activeTab === 'occupancy' ? '97% (30 rooms)' : '₦840,000 projected'}
+            {activeTab === 'occupancy' ? `${peakDay.occupancy}% (${peakDay.roomsBooked} rooms)` : `${formatShortNaira(peakDay.revenueMinorUnits)} projected`}
           </span>
         </div>
 
@@ -303,7 +224,7 @@ export function OccupancyChart({
             Available Tonight
           </span>
           <strong className="text-lg font-semibold text-[#2E6B4F] block mt-0.5">
-            5 Rooms
+            {rooms.length - todayDay.roomsBooked} Rooms
           </strong>
           <span className="text-[10px] text-[#7A7267] block">
             Ready for walk-in / direct
@@ -322,7 +243,7 @@ export function OccupancyChart({
 
         {/* 7 Interactive Bar Columns */}
         <div className="grid grid-cols-7 gap-2 sm:gap-6 items-end h-52 pb-2 relative z-10">
-          {DAYS.map((d, idx) => {
+          {days.map((d, idx) => {
             const targetPercent =
               activeTab === 'occupancy'
                 ? d.occupancy
