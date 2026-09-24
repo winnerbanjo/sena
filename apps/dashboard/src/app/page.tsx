@@ -19,6 +19,17 @@ export default function OverviewPage() {
   const [drawerOpen, setDrawerOpen] = React.useState(false);
   const [newResOpen, setNewResOpen] = React.useState(false);
   const [currentDateStr, setCurrentDateStr] = React.useState('');
+  const [propertyName, setPropertyName] = React.useState('Your Property');
+
+  React.useEffect(() => {
+    try {
+      const stored =
+        localStorage.getItem('sena_property_name') ||
+        JSON.parse(localStorage.getItem('sena_auth_user') || '{}')?.property ||
+        JSON.parse(localStorage.getItem('sena_onboarding_draft') || '{}')?.propName;
+      if (stored) setPropertyName(stored);
+    } catch {}
+  }, []);
 
   React.useEffect(() => {
     const today = new Date();
@@ -150,7 +161,7 @@ export default function OverviewPage() {
               {currentDateStr || 'Today'} &middot; Run of House
             </span>
             <h1 className="text-2xl sm:text-3xl font-serif font-normal text-[#71382D]">
-              Stay Connect Lekki
+              {propertyName}
             </h1>
           </div>
 

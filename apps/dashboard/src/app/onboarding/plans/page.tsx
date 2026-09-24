@@ -233,7 +233,7 @@ export default function OnboardingPlansPage() {
               onClick={() => handleSelectTrial('growth')}
               className="w-full h-11 rounded-md bg-[#B85C3E] hover:bg-[#A34E32] text-white text-xs font-semibold tracking-wide transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
             >
-              {isLoading && selectedPlan === 'growth' ? 'Activating Trial...' : 'Start 3-Day Free Trial &rarr;'}
+              {isLoading && selectedPlan === 'growth' ? 'Activating Trial...' : 'Start 3-Day Free Trial →'}
             </button>
           </div>
 

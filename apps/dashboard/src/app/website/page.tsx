@@ -33,14 +33,43 @@ export default function WebsitePage() {
   const [saveSuccess, setSaveSuccess] = React.useState(false);
 
   // Form states
-  const [heroHeadline, setHeroHeadline] = React.useState('A Tranquil Sanctuary in the Heart of Lekki');
-  const [heroTagline, setHeroTagline] = React.useState('Serene serviced suites designed for luxury, long stays, and effortless living in Lagos.');
-  const [welcomeBio, setWelcomeBio] = React.useState('Welcome to Stay Connect Lekki, where warm hospitality meets understated luxury. Located minutes from Lekki Phase 1, each residence offers 24/7 power, superfast fiber Wi-Fi, and personalized concierge services.');
+  const [propertyName, setPropertyName] = React.useState('Your Property');
+  const [propertySlug, setPropertySlug] = React.useState('your-property');
+  const [propertyAddress, setPropertyAddress] = React.useState('Lagos, Nigeria');
+  const [heroHeadline, setHeroHeadline] = React.useState('A Tranquil Sanctuary for Rest and Productivity');
+  const [heroTagline, setHeroTagline] = React.useState('Relax in thoughtfully designed suites with fast Wi‑Fi and personalized service.');
+  const [welcomeBio, setWelcomeBio] = React.useState('');
   const [accentColor, setAccentColor] = React.useState('#B85C3E');
-  const [customDomain, setCustomDomain] = React.useState('stayconnectlekki.com');
+  const [customDomain, setCustomDomain] = React.useState('yourproperty.com');
+
+  React.useEffect(() => {
+    try {
+      const storedName = localStorage.getItem('sena_property_name');
+      const draftStr = localStorage.getItem('sena_onboarding_draft');
+      let name = storedName || '';
+      let addr = '';
+      if (draftStr) {
+        const draft = JSON.parse(draftStr);
+        if (!name && draft.propertyName) name = draft.propertyName;
+        if (draft.address) addr = draft.address;
+        if (draft.city) addr = addr ? `${addr}, ${draft.city}` : draft.city;
+      }
+      if (name) {
+        setPropertyName(name);
+        const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+        setPropertySlug(slug);
+        setCustomDomain(`${slug}.com`);
+        setHeroHeadline(`Experience Warm Hospitality at ${name}`);
+        setWelcomeBio(`Welcome to ${name}, where warm hospitality meets understated luxury. Each residence offers reliable 24/7 power, superfast Wi-Fi, and personalized concierge services.`);
+      }
+      if (addr) setPropertyAddress(addr);
+    } catch (e) {
+      console.error(e);
+    }
+  }, []);
 
   const copyUrl = () => {
-    navigator.clipboard?.writeText('https://stayconnectlekki.com');
+    navigator.clipboard?.writeText(`https://${customDomain}`);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -78,10 +107,10 @@ export default function WebsitePage() {
                 rel="noopener noreferrer"
                 className="text-[#B85C3E] hover:underline font-mono font-medium"
               >
-                stayconnectlekki.com
+                {customDomain}
               </a>{' '}
               (or{' '}
-              <span className="font-mono text-[#191816]">sena.ng/stay-connect</span>)
+              <span className="font-mono text-[#191816]">sena.ng/{propertySlug}</span>)
             </p>
           </div>
 
@@ -210,7 +239,7 @@ export default function WebsitePage() {
                   />
                   <div className="relative z-20 max-w-2xl mx-auto space-y-4">
                     <span className="inline-block px-3 py-1 rounded-full text-[10px] uppercase tracking-widest font-semibold bg-white/20 backdrop-blur-sm border border-white/20">
-                      Stay Connect Lekki
+                      {propertyName}
                     </span>
                     <h1 className="text-2xl md:text-4xl font-serif font-light leading-tight">
                       {heroHeadline}
@@ -312,8 +341,8 @@ export default function WebsitePage() {
 
                 {/* Footer Preview */}
                 <div className="p-6 bg-stone-900 text-stone-400 text-center text-xs space-y-2">
-                  <p className="text-white font-serif text-sm">Stay Connect Lekki</p>
-                  <p className="text-[11px]">Plot 14, Admiralty Way, Lekki Phase 1, Lagos, Nigeria</p>
+                  <p className="text-white font-serif text-sm">{propertyName}</p>
+                  <p className="text-[11px]">{propertyAddress}</p>
                   <p className="text-[10px] text-stone-500">Powered by Sena Hospitality OS</p>
                 </div>
               </div>
@@ -476,7 +505,8 @@ export default function WebsitePage() {
                   </label>
                   <input
                     type="text"
-                    defaultValue="Stay Connect Lekki — Luxury Serviced Apartments & Suites"
+                    value={`${propertyName} — Boutique Hospitality & Stays`}
+                    onChange={() => {}}
                     className="w-full px-3 py-2 rounded border border-[#E8E2DA] text-xs text-[#191816] focus:outline-none focus:ring-1 focus:ring-[#B85C3E]"
                   />
                 </div>
@@ -487,7 +517,8 @@ export default function WebsitePage() {
                   </label>
                   <textarea
                     rows={3}
-                    defaultValue="Experience tranquil luxury at Stay Connect Lekki. Book direct for 24/7 power, high-speed fiber Wi-Fi, premium bedding, and complimentary breakfast in Lagos."
+                    value={`Experience tranquil comfort and seamless stays at ${propertyName}. Book direct for exclusive rates, dedicated concierge, and flexible check-in.`}
+                    onChange={() => {}}
                     className="w-full px-3 py-2 rounded border border-[#E8E2DA] text-xs text-[#191816] focus:outline-none focus:ring-1 focus:ring-[#B85C3E]"
                   />
                 </div>
@@ -499,11 +530,11 @@ export default function WebsitePage() {
                   </span>
                   <div className="space-y-1 pt-1">
                     <span className="text-xs text-[#1a0dab] font-medium hover:underline cursor-pointer block truncate">
-                      Stay Connect Lekki — Luxury Serviced Apartments & Suites
+                      {propertyName} — Boutique Hospitality &amp; Stays
                     </span>
-                    <span className="text-[11px] text-[#006621] block">https://stayconnectlekki.com</span>
+                    <span className="text-[11px] text-[#006621] block">https://{customDomain}</span>
                     <p className="text-[11px] text-[#545454] leading-relaxed">
-                      Experience tranquil luxury at Stay Connect Lekki. Book direct for 24/7 power, high-speed fiber Wi-Fi, premium bedding, and complimentary breakfast in Lagos.
+                      Experience tranquil comfort and seamless stays at {propertyName}. Book direct for exclusive rates, dedicated concierge, and flexible check-in.
                     </p>
                   </div>
                 </div>

@@ -36,85 +36,35 @@ interface OfferItem {
   revenueGenerated: number;
 }
 
-const INITIAL_OFFERS: OfferItem[] = [
-  {
-    id: 'off-1',
-    code: 'WEEKEND15',
-    title: 'Weekend Staycation Special',
-    description: '15% discount for weekend getaways checking in Friday through Sunday.',
-    discountType: 'percentage',
-    discountValue: 15,
-    minNights: 2,
-    startDate: '2026-09-01',
-    endDate: '2026-12-31',
-    status: 'active',
-    usageCount: 24,
-    revenueGenerated: 1680000,
-  },
-  {
-    id: 'off-2',
-    code: 'LONGSTAY20',
-    title: 'Extended Residence Offer',
-    description: '20% off for guests booking 7 nights or longer with complimentary weekly laundry.',
-    discountType: 'percentage',
-    discountValue: 20,
-    minNights: 7,
-    startDate: '2026-08-01',
-    endDate: '2026-11-30',
-    status: 'active',
-    usageCount: 11,
-    revenueGenerated: 1120000,
-  },
-  {
-    id: 'off-3',
-    code: 'EARLYBIRD',
-    title: 'Advance Planner Discount',
-    description: '10% off when reserved at least 14 days before arrival date.',
-    discountType: 'percentage',
-    discountValue: 10,
-    minNights: 1,
-    startDate: '2026-09-15',
-    endDate: '2026-10-31',
-    status: 'active',
-    usageCount: 16,
-    revenueGenerated: 540000,
-  },
-  {
-    id: 'off-4',
-    code: 'INDEPENDENCE26',
-    title: 'October Independence Holiday',
-    description: '₦20,000 flat voucher discount for stays over the Nigerian Independence holiday week.',
-    discountType: 'fixed',
-    discountValue: 20000,
-    minNights: 2,
-    startDate: '2026-10-01',
-    endDate: '2026-10-05',
-    status: 'scheduled',
-    usageCount: 0,
-    revenueGenerated: 0,
-  },
-  {
-    id: 'off-5',
-    code: 'SUMMERVIBE',
-    title: 'Summer Getaway',
-    description: '12% discount on all Deluxe rooms during August summer holiday.',
-    discountType: 'percentage',
-    discountValue: 12,
-    minNights: 3,
-    startDate: '2026-08-01',
-    endDate: '2026-08-31',
-    status: 'expired',
-    usageCount: 38,
-    revenueGenerated: 2840000,
-  },
-];
+const INITIAL_OFFERS: OfferItem[] = [];
 
 export default function OffersPage() {
   const [newResOpen, setNewResOpen] = React.useState(false);
-  const [offers, setOffers] = React.useState<OfferItem[]>(INITIAL_OFFERS);
+  const [offers, setOffers] = React.useState<OfferItem[]>([]);
   const [statusFilter, setStatusFilter] = React.useState<'all' | 'active' | 'scheduled' | 'expired'>('all');
   const [searchQuery, setSearchQuery] = React.useState('');
   const [copiedId, setCopiedId] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    try {
+      const saved = localStorage.getItem('sena_property_offers');
+      if (saved) {
+        setOffers(JSON.parse(saved));
+      }
+    } catch (e) {
+      console.error('Failed to parse saved offers:', e);
+    }
+  }, []);
+
+  // Save changes
+  const saveOffers = (newOffers: OfferItem[]) => {
+    setOffers(newOffers);
+    try {
+      localStorage.setItem('sena_property_offers', JSON.stringify(newOffers));
+    } catch (e) {
+      console.error('Failed to save offers to localStorage:', e);
+    }
+  };
 
   // New offer modal state
   const [createModalOpen, setCreateModalOpen] = React.useState(false);
@@ -124,8 +74,12 @@ export default function OffersPage() {
   const [formType, setFormType] = React.useState<'percentage' | 'fixed'>('percentage');
   const [formValue, setFormValue] = React.useState(15);
   const [formMinNights, setFormMinNights] = React.useState(1);
-  const [formStartDate, setFormStartDate] = React.useState('2026-09-24');
-  const [formEndDate, setFormEndDate] = React.useState('2026-12-31');
+  const [formStartDate, setFormStartDate] = React.useState(() => new Date().toISOString().split('T')[0]);
+  const [formEndDate, setFormEndDate] = React.useState(() => {
+    const d = new Date();
+    d.setMonth(d.getMonth() + 3);
+    return d.toISOString().split('T')[0];
+  });
 
   const filteredOffers = offers.filter((o) => {
     if (statusFilter !== 'all' && o.status !== statusFilter) return false;
@@ -151,15 +105,19 @@ export default function OffersPage() {
   };
 
   const handleToggleStatus = (id: string) => {
-    setOffers((prev) =>
-      prev.map((o) => {
-        if (o.id !== id) return o;
-        return {
-          ...o,
-          status: o.status === 'active' ? 'expired' : 'active',
-        };
-      })
-    );
+    const updated = offers.map((o) => {
+      if (o.id !== id) return o;
+      return {
+        ...o,
+        status: (o.status === 'active' ? 'expired' : 'active') as OfferItem['status'],
+      };
+    });
+    saveOffers(updated);
+  };
+
+  const handleDeleteOffer = (id: string) => {
+    const updated = offers.filter((o) => o.id !== id);
+    saveOffers(updated);
   };
 
   const handleCreateOffer = (e: React.FormEvent) => {
@@ -181,7 +139,7 @@ export default function OffersPage() {
       revenueGenerated: 0,
     };
 
-    setOffers([newOffer, ...offers]);
+    saveOffers([newOffer, ...offers]);
     setCreateModalOpen(false);
     // Reset form
     setFormCode('');
@@ -236,8 +194,12 @@ export default function OffersPage() {
           </div>
           <div className="p-3 sm:p-4 rounded-lg border border-[#E8E2DA] bg-white">
             <span className="text-[10px] sm:text-[11px] text-[#7A7267] uppercase font-semibold">Avg. Conversion</span>
-            <div className="text-xl sm:text-2xl font-serif text-[#191816] mt-1">+18.4%</div>
-            <p className="text-[10px] sm:text-[11px] text-emerald-700 mt-1 font-medium">Checkout boost</p>
+            <div className="text-xl sm:text-2xl font-serif text-[#191816] mt-1">
+              {totalClaims > 0 ? '+18.4%' : '—'}
+            </div>
+            <p className="text-[10px] sm:text-[11px] text-[#7A7267] mt-1">
+              {totalClaims > 0 ? 'Checkout boost' : 'Awaiting claims'}
+            </p>
           </div>
         </div>
 
@@ -282,7 +244,7 @@ export default function OffersPage() {
             <table className="w-full text-left text-xs min-w-[700px]">
               <thead className="bg-[#FAFAFA] border-b border-[#E8E2DA] text-[#7A7267] uppercase text-[10px] tracking-wider font-semibold">
                 <tr>
-                  <th className="py-3 px-4">Promo Code & Title</th>
+                  <th className="py-3 px-4">Promo Code &amp; Title</th>
                   <th className="py-3 px-4">Discount</th>
                   <th className="py-3 px-4">Min. Nights</th>
                   <th className="py-3 px-4">Validity Window</th>
@@ -295,8 +257,30 @@ export default function OffersPage() {
               <tbody className="divide-y divide-[#E8E2DA]">
                 {filteredOffers.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="py-8 text-center text-xs text-[#7A7267]">
-                      No promotions found matching the selected filter.
+                    <td colSpan={8} className="py-14 text-center">
+                      <div className="max-w-sm mx-auto space-y-2">
+                        <Tag className="w-6 h-6 mx-auto text-[#B85C3E]" />
+                        <p className="font-serif text-sm text-[#191816]">
+                          {searchQuery || statusFilter !== 'all'
+                            ? 'No matching promotions found'
+                            : 'No promotional offers created yet'}
+                        </p>
+                        <p className="text-xs text-[#7A7267] leading-relaxed">
+                          {searchQuery || statusFilter !== 'all'
+                            ? 'Try clearing your search query or status filter.'
+                            : 'Create discount codes and seasonal incentives to encourage direct reservations through your website.'}
+                        </p>
+                        {!searchQuery && statusFilter === 'all' && (
+                          <Button
+                            size="sm"
+                            onClick={() => setCreateModalOpen(true)}
+                            className="text-xs mt-2"
+                          >
+                            <Plus className="w-3.5 h-3.5 mr-1" />
+                            Create first offer
+                          </Button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ) : (

@@ -29,14 +29,17 @@ interface PaymentItem {
 
 export default function PaymentsPage() {
   const [payments, setPayments] = React.useState<PaymentItem[]>([]);
+  const [reservations, setReservations] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
-    fetch('/api/payments')
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.payments) {
-          const mapped: PaymentItem[] = data.payments.map((p: any) => ({
+    Promise.all([
+      fetch('/api/payments').then((res) => res.json()).catch(() => ({ payments: [] })),
+      fetch('/api/reservations').then((res) => res.json()).catch(() => ({ reservations: [] })),
+    ])
+      .then(([payData, resData]) => {
+        if (payData.payments) {
+          const mapped: PaymentItem[] = payData.payments.map((p: any) => ({
             id: p.id,
             reference: p.providerReference || `PAY-${p.id.slice(0, 6)}`,
             guestName: p.guestName || 'Walk-in Guest',
@@ -53,14 +56,29 @@ export default function PaymentsPage() {
           }));
           setPayments(mapped);
         }
+        if (resData.reservations) {
+          setReservations(resData.reservations);
+        }
       })
-      .catch((e) => console.error('Failed to load payments:', e))
+      .catch((e) => console.error('Failed to load payments or reservations:', e))
       .finally(() => setLoading(false));
   }, []);
 
   const totalCollectedMinorUnits = payments
     .filter((p) => p.status === 'successful')
     .reduce((sum, p) => sum + p.amountMinorUnits, 0);
+
+  const pendingFoliosMinorUnits = reservations
+    .filter((r) => r.paymentStatus !== 'paid' && r.status !== 'cancelled')
+    .reduce((sum, r) => {
+      const balance = Number(r.totalAmountMinorUnits || 0) - Number(r.paidAmountMinorUnits || 0);
+      return sum + (balance > 0 ? balance : 0);
+    }, 0);
+
+  const directReservationsCount = reservations.filter((r) => r.source === 'direct').length;
+  const directBookingShare = reservations.length > 0
+    ? Math.round((directReservationsCount / reservations.length) * 100)
+    : 0;
   return (
     <div className="flex-1 flex flex-col h-screen overflow-hidden">
       <Topbar title="Payments" />
@@ -111,7 +129,7 @@ export default function PaymentsPage() {
                 Pending Folios
               </span>
               <strong className="text-2xl font-serif font-normal text-[#B85C3E]">
-                ₦480,000
+                {formatNaira(pendingFoliosMinorUnits)}
               </strong>
             </div>
             <p className="text-[11px] text-[#7A7267]">
@@ -125,7 +143,7 @@ export default function PaymentsPage() {
                 Direct Booking Share
               </span>
               <strong className="text-2xl font-serif font-normal text-[#71382D]">
-                42%
+                {directBookingShare}%
               </strong>
             </div>
             <p className="text-[11px] text-[#7A7267]">
@@ -160,8 +178,15 @@ export default function PaymentsPage() {
             <TableBody className="divide-y divide-[#E8E2DA]">
               {payments.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="p-8 text-center text-[#7A7267] text-xs">
-                    {loading ? 'Loading payments from PostgreSQL...' : 'No transactions recorded yet.'}
+                  <TableCell colSpan={7} className="py-14 text-center">
+                    <div className="max-w-sm mx-auto space-y-2">
+                      <p className="font-serif text-sm text-[#191816]">
+                        {loading ? 'Reconciling transaction ledger...' : 'No transactions recorded yet'}
+                      </p>
+                      <p className="text-xs text-[#7A7267] leading-relaxed">
+                        Incoming payments verified by Paystack and manual desk collections will appear in this settlement ledger.
+                      </p>
+                    </div>
                   </TableCell>
                 </TableRow>
               ) : (

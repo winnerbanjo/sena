@@ -4,6 +4,7 @@ import * as React from 'react';
 import { Topbar } from '../../components/topbar';
 import { NewReservationDialog } from '../../components/new-reservation-dialog';
 import { Badge, Button } from '@sena/ui';
+import { formatNaira } from '@sena/config';
 import {
   ClipboardList,
   Download,
@@ -17,7 +18,8 @@ import {
   FileText,
   DollarSign,
   ArrowUpRight,
-  Filter
+  Filter,
+  FileCheck
 } from 'lucide-react';
 
 export default function ReportsPage() {
@@ -26,6 +28,29 @@ export default function ReportsPage() {
   const [activeReportTab, setActiveReportTab] = React.useState<'financial' | 'occupancy' | 'housekeeping' | 'tax'>('financial');
   const [exporting, setExporting] = React.useState<string | null>(null);
 
+  // Dynamic DB data
+  const [reservations, setReservations] = React.useState<any[]>([]);
+  const [payments, setPayments] = React.useState<any[]>([]);
+  const [rooms, setRooms] = React.useState<any[]>([]);
+  const [roomTypes, setRoomTypes] = React.useState<any[]>([]);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    Promise.all([
+      fetch('/api/reservations').then((r) => r.json()).catch(() => ({ reservations: [] })),
+      fetch('/api/payments').then((r) => r.json()).catch(() => ({ payments: [] })),
+      fetch('/api/rooms').then((r) => r.json()).catch(() => ({ rooms: [], roomTypes: [] })),
+    ])
+      .then(([resData, payData, roomData]) => {
+        if (resData.reservations) setReservations(resData.reservations);
+        if (payData.payments) setPayments(payData.payments);
+        if (roomData.rooms) setRooms(roomData.rooms);
+        if (roomData.roomTypes) setRoomTypes(roomData.roomTypes);
+      })
+      .catch((e) => console.error('Failed to load reports data:', e))
+      .finally(() => setLoading(false));
+  }, []);
+
   const handleExport = (format: 'csv' | 'pdf') => {
     setExporting(format);
     setTimeout(() => {
@@ -33,6 +58,48 @@ export default function ReportsPage() {
       alert(`Report exported successfully as ${format.toUpperCase()}!`);
     }, 800);
   };
+
+  // Calculations
+  const grossBookingValueMinorUnits = reservations
+    .filter((r) => r.status !== 'cancelled')
+    .reduce((sum, r) => sum + Number(r.totalAmountMinorUnits || 0), 0);
+
+  const netAccommodationMinorUnits = grossBookingValueMinorUnits;
+  const ancillaryMinorUnits = 0;
+  // Direct booking commission saved (15% OTA commission saved on direct bookings)
+  const directBookingsValue = reservations
+    .filter((r) => r.source === 'direct' && r.status !== 'cancelled')
+    .reduce((sum, r) => sum + Number(r.totalAmountMinorUnits || 0), 0);
+  const commissionSavedMinorUnits = Math.round(directBookingsValue * 0.15);
+
+  // Taxes
+  const vatMinorUnits = Math.round(grossBookingValueMinorUnits * 0.075);
+  const consumptionTaxMinorUnits = Math.round(grossBookingValueMinorUnits * 0.05);
+  const totalTaxMinorUnits = vatMinorUnits + consumptionTaxMinorUnits;
+
+  // Occupancy metrics
+  const validStays = reservations.filter((r) => r.status !== 'cancelled');
+  const totalNightsSold = validStays.reduce((sum, r) => sum + Number(r.nights || 1), 0);
+  const totalAvailableRoomNights = rooms.length * 30 || 1;
+  const avgOccupancy = rooms.length > 0
+    ? Math.min(100, Math.round((totalNightsSold / totalAvailableRoomNights) * 100))
+    : 0;
+
+  const adrMinorUnits = totalNightsSold > 0
+    ? Math.round(grossBookingValueMinorUnits / totalNightsSold)
+    : 0;
+  const revParMinorUnits = rooms.length > 0
+    ? Math.round(grossBookingValueMinorUnits / (rooms.length * 30))
+    : 0;
+
+  const avgStayLength = validStays.length > 0
+    ? (totalNightsSold / validStays.length).toFixed(1)
+    : '0';
+
+  // Housekeeping counts
+  const cleanRoomsCount = rooms.filter((r) => (r.housekeepingStatus || r.housekeeping) === 'clean').length;
+  const dirtyRoomsCount = rooms.filter((r) => (r.housekeepingStatus || r.housekeeping) === 'dirty').length;
+  const cleaningRoomsCount = rooms.filter((r) => (r.housekeepingStatus || r.housekeeping) === 'cleaning').length;
 
   return (
     <div className="flex-1 flex flex-col h-screen overflow-hidden bg-white">
@@ -54,7 +121,6 @@ export default function ReportsPage() {
           </div>
 
           <div className="flex items-center gap-2 sm:gap-2.5 flex-wrap">
-            {/* Date range picker */}
             <select
               value={dateRange}
               onChange={(e) => setDateRange(e.target.value as any)}
@@ -62,9 +128,9 @@ export default function ReportsPage() {
             >
               <option value="today">Today (24h)</option>
               <option value="week">This Week</option>
-              <option value="month">Month to Date (Sep 2026)</option>
-              <option value="quarter">Q3 2026</option>
-              <option value="year">Year to Date 2026</option>
+              <option value="month">Month to Date</option>
+              <option value="quarter">This Quarter</option>
+              <option value="year">Year to Date</option>
             </select>
 
             <button
@@ -123,26 +189,36 @@ export default function ReportsPage() {
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
               <div className="p-3 sm:p-4 rounded-lg border border-[#E8E2DA] bg-white">
                 <span className="text-[10px] sm:text-[11px] text-[#7A7267] uppercase font-semibold">Gross Booking Value</span>
-                <div className="text-xl sm:text-2xl font-serif text-[#191816] mt-1">₦14,850,000</div>
-                <p className="text-[10px] sm:text-[11px] text-emerald-700 mt-1 font-medium">+14.2% vs prev</p>
+                <div className="text-xl sm:text-2xl font-serif text-[#191816] mt-1">
+                  {formatNaira(grossBookingValueMinorUnits)}
+                </div>
+                <p className="text-[10px] sm:text-[11px] text-[#7A7267] mt-1">
+                  {reservations.length > 0 ? `${reservations.length} bookings recorded` : 'No bookings recorded'}
+                </p>
               </div>
 
               <div className="p-3 sm:p-4 rounded-lg border border-[#E8E2DA] bg-white">
                 <span className="text-[11px] text-[#7A7267] uppercase font-semibold">Net Accommodation</span>
-                <div className="text-2xl font-serif text-[#191816] mt-1">₦13,420,000</div>
+                <div className="text-2xl font-serif text-[#191816] mt-1">
+                  {formatNaira(netAccommodationMinorUnits)}
+                </div>
                 <p className="text-[11px] text-[#7A7267] mt-1">Room rate revenue</p>
               </div>
 
               <div className="p-4 rounded-lg border border-[#E8E2DA] bg-white">
                 <span className="text-[11px] text-[#7A7267] uppercase font-semibold">Ancillary & Services</span>
-                <div className="text-2xl font-serif text-[#191816] mt-1">₦1,430,000</div>
-                <p className="text-[11px] text-[#7A7267] mt-1">Laundry, kitchen, late checkout</p>
+                <div className="text-2xl font-serif text-[#191816] mt-1">
+                  {formatNaira(ancillaryMinorUnits)}
+                </div>
+                <p className="text-[11px] text-[#7A7267] mt-1">Laundry, kitchen, add-ons</p>
               </div>
 
               <div className="p-4 rounded-lg border border-[#E8E2DA] bg-white">
                 <span className="text-[11px] text-[#7A7267] uppercase font-semibold">Direct Commission Saved</span>
-                <div className="text-2xl font-serif text-[#191816] mt-1">₦1,850,000</div>
-                <p className="text-[11px] text-emerald-700 mt-1 font-medium">Retained vs OTAs</p>
+                <div className="text-2xl font-serif text-[#191816] mt-1">
+                  {formatNaira(commissionSavedMinorUnits)}
+                </div>
+                <p className="text-[11px] text-emerald-700 mt-1 font-medium">15% saved vs OTAs</p>
               </div>
             </div>
 
@@ -153,42 +229,51 @@ export default function ReportsPage() {
                   <h3 className="text-sm font-semibold text-[#191816]">Settlement Channels & Payment Methods</h3>
                   <p className="text-[11px] text-[#7A7267]">Reconciliation by payment processor for selected period.</p>
                 </div>
-                <span className="text-xs font-mono font-medium text-[#191816]">Total: ₦14,850,000</span>
+                <span className="text-xs font-mono font-medium text-[#191816]">
+                  Total: {formatNaira(grossBookingValueMinorUnits)}
+                </span>
               </div>
 
-              <table className="w-full text-left text-xs">
-                <thead className="bg-[#FAFAFA] border-b border-[#E8E2DA] text-[#7A7267] uppercase text-[10px] tracking-wider font-semibold">
-                  <tr>
-                    <th className="py-2.5 px-4">Channel / Gateway</th>
-                    <th className="py-2.5 px-4">Transactions</th>
-                    <th className="py-2.5 px-4">Gross Collected</th>
-                    <th className="py-2.5 px-4">Processing Fees</th>
-                    <th className="py-2.5 px-4">Net Settled</th>
-                    <th className="py-2.5 px-4 text-right">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#E8E2DA]">
-                  {[
-                    { channel: 'Paystack Direct (Card / Apple Pay)', count: 48, gross: 7850000, fee: 117750, net: 7732250, status: 'Settled to GTBank' },
-                    { channel: 'Bank Transfer (Dedicated Virtual Account)', count: 32, gross: 4200000, fee: 21000, net: 4179000, status: 'Settled to GTBank' },
-                    { channel: 'Front Desk POS Terminal', count: 18, gross: 2300000, fee: 34500, net: 2265500, status: 'Settled to GTBank' },
-                    { channel: 'Corporate Invoice Wire', count: 4, gross: 500000, fee: 0, net: 500000, status: 'Direct Wire' },
-                  ].map((row, i) => (
-                    <tr key={i} className="hover:bg-[#FAFAFA]/70">
-                      <td className="py-3 px-4 font-medium text-[#191816]">{row.channel}</td>
-                      <td className="py-3 px-4 text-[#7A7267]">{row.count} txns</td>
-                      <td className="py-3 px-4 font-semibold text-[#191816]">₦{row.gross.toLocaleString()}</td>
-                      <td className="py-3 px-4 text-[#7A7267]">₦{row.fee.toLocaleString()}</td>
-                      <td className="py-3 px-4 font-semibold text-emerald-700">₦{row.net.toLocaleString()}</td>
-                      <td className="py-3 px-4 text-right">
-                        <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
-                          {row.status}
-                        </span>
-                      </td>
+              {payments.length === 0 ? (
+                <div className="p-12 text-center space-y-2 bg-[#FAF9F6]">
+                  <CreditCard className="w-6 h-6 mx-auto text-[#7A7267]" />
+                  <p className="font-serif text-sm text-[#191816]">No transactions recorded for this period</p>
+                  <p className="text-xs text-[#7A7267] max-w-sm mx-auto">
+                    Confirmed payments and bank transfers will automatically reconcile in this ledger.
+                  </p>
+                </div>
+              ) : (
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-[#FAFAFA] border-b border-[#E8E2DA] text-[#7A7267] uppercase text-[10px] tracking-wider font-semibold">
+                    <tr>
+                      <th className="py-2.5 px-4">Channel / Gateway</th>
+                      <th className="py-2.5 px-4">Transactions</th>
+                      <th className="py-2.5 px-4">Gross Collected</th>
+                      <th className="py-2.5 px-4">Provider</th>
+                      <th className="py-2.5 px-4 text-right">Status</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-[#E8E2DA]">
+                    {payments.map((p, i) => (
+                      <tr key={i} className="hover:bg-[#FAFAFA]/70">
+                        <td className="py-3 px-4 font-medium text-[#191816]">
+                          {p.providerReference || `PAY-${p.id.slice(0, 6)}`}
+                        </td>
+                        <td className="py-3 px-4 text-[#7A7267] capitalize">{p.method || 'Card'}</td>
+                        <td className="py-3 px-4 font-semibold text-[#191816] font-mono">
+                          {formatNaira(p.amountMinorUnits)}
+                        </td>
+                        <td className="py-3 px-4 text-[#7A7267] capitalize">{p.provider || 'Paystack'}</td>
+                        <td className="py-3 px-4 text-right">
+                          <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            {p.status || 'Verified'}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
             </div>
           </div>
         )}
@@ -199,26 +284,28 @@ export default function ReportsPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="p-4 rounded-lg border border-[#E8E2DA] bg-white">
                 <span className="text-[11px] text-[#7A7267] uppercase font-semibold">Average Occupancy</span>
-                <div className="text-2xl font-serif text-[#191816] mt-1">83.8%</div>
-                <p className="text-[11px] text-[#7A7267] mt-1">352 room nights sold / 420 total</p>
+                <div className="text-2xl font-serif text-[#191816] mt-1">{avgOccupancy}%</div>
+                <p className="text-[11px] text-[#7A7267] mt-1">
+                  {rooms.length > 0 ? `${totalNightsSold} nights sold / ${totalAvailableRoomNights} room capacity` : 'No rooms configured'}
+                </p>
               </div>
 
               <div className="p-4 rounded-lg border border-[#E8E2DA] bg-white">
                 <span className="text-[11px] text-[#7A7267] uppercase font-semibold">ADR (Average Daily Rate)</span>
-                <div className="text-2xl font-serif text-[#191816] mt-1">₦84,200</div>
-                <p className="text-[11px] text-emerald-700 mt-1 font-medium">+₦6,500 vs last month</p>
+                <div className="text-2xl font-serif text-[#191816] mt-1">{formatNaira(adrMinorUnits)}</div>
+                <p className="text-[11px] text-[#7A7267] mt-1">Average earned per occupied room</p>
               </div>
 
               <div className="p-4 rounded-lg border border-[#E8E2DA] bg-white">
                 <span className="text-[11px] text-[#7A7267] uppercase font-semibold">RevPAR</span>
-                <div className="text-2xl font-serif text-[#191816] mt-1">₦70,560</div>
+                <div className="text-2xl font-serif text-[#191816] mt-1">{formatNaira(revParMinorUnits)}</div>
                 <p className="text-[11px] text-[#7A7267] mt-1">Revenue per available room</p>
               </div>
 
               <div className="p-4 rounded-lg border border-[#E8E2DA] bg-white">
                 <span className="text-[11px] text-[#7A7267] uppercase font-semibold">Average Stay Length</span>
-                <div className="text-2xl font-serif text-[#191816] mt-1">3.4 nights</div>
-                <p className="text-[11px] text-[#7A7267] mt-1">Extended residence guests</p>
+                <div className="text-2xl font-serif text-[#191816] mt-1">{avgStayLength} nights</div>
+                <p className="text-[11px] text-[#7A7267] mt-1">Across all confirmed guests</p>
               </div>
             </div>
 
@@ -226,34 +313,42 @@ export default function ReportsPage() {
               <div className="p-4 border-b border-[#E8E2DA] bg-[#FAFAFA]">
                 <h3 className="text-sm font-semibold text-[#191816]">Room Type Performance Audit</h3>
               </div>
-              <table className="w-full text-left text-xs">
-                <thead className="bg-[#FAFAFA] border-b border-[#E8E2DA] text-[#7A7267] uppercase text-[10px] tracking-wider font-semibold">
-                  <tr>
-                    <th className="py-2.5 px-4">Room Category</th>
-                    <th className="py-2.5 px-4">Units</th>
-                    <th className="py-2.5 px-4">Nights Sold</th>
-                    <th className="py-2.5 px-4">Occupancy %</th>
-                    <th className="py-2.5 px-4">Category ADR</th>
-                    <th className="py-2.5 px-4 text-right">Total Revenue</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#E8E2DA]">
-                  {[
-                    { type: 'Executive Penthouse Suite', units: 6, sold: 98, occ: 91, adr: 120000, rev: 5880000 },
-                    { type: 'Deluxe Residence Suite', units: 12, sold: 168, occ: 82, adr: 85000, rev: 5712000 },
-                    { type: 'Studio Apartment', units: 8, sold: 86, occ: 78, adr: 65000, rev: 1828000 },
-                  ].map((row, i) => (
-                    <tr key={i} className="hover:bg-[#FAFAFA]/70">
-                      <td className="py-3 px-4 font-medium text-[#191816]">{row.type}</td>
-                      <td className="py-3 px-4 text-[#7A7267]">{row.units} rooms</td>
-                      <td className="py-3 px-4 text-[#7A7267]">{row.sold} nights</td>
-                      <td className="py-3 px-4 font-semibold text-[#191816]">{row.occ}%</td>
-                      <td className="py-3 px-4 font-mono">₦{row.adr.toLocaleString()}</td>
-                      <td className="py-3 px-4 text-right font-semibold text-[#191816]">₦{row.rev.toLocaleString()}</td>
+              {roomTypes.length === 0 ? (
+                <div className="p-12 text-center space-y-2 bg-[#FAF9F6]">
+                  <p className="font-serif text-sm text-[#191816]">No room categories configured</p>
+                  <p className="text-xs text-[#7A7267]">Add room categories to audit individual tier ADR and occupancy.</p>
+                </div>
+              ) : (
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-[#FAFAFA] border-b border-[#E8E2DA] text-[#7A7267] uppercase text-[10px] tracking-wider font-semibold">
+                    <tr>
+                      <th className="py-2.5 px-4">Room Category</th>
+                      <th className="py-2.5 px-4">Units</th>
+                      <th className="py-2.5 px-4">Nights Sold</th>
+                      <th className="py-2.5 px-4">Base Rate</th>
+                      <th className="py-2.5 px-4 text-right">Total Revenue</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-[#E8E2DA]">
+                    {roomTypes.map((rt) => {
+                      const catRooms = rooms.filter((r) => r.roomTypeId === rt.id || r.roomTypeName === rt.name);
+                      const catRes = reservations.filter((r) => r.roomTypeId === rt.id || r.roomTypeName === rt.name);
+                      const sold = catRes.reduce((s, r) => s + Number(r.nights || 1), 0);
+                      const rev = catRes.reduce((s, r) => s + Number(r.paidAmountMinorUnits || 0), 0);
+
+                      return (
+                        <tr key={rt.id} className="hover:bg-[#FAFAFA]/70">
+                          <td className="py-3 px-4 font-medium text-[#191816]">{rt.name}</td>
+                          <td className="py-3 px-4 text-[#7A7267]">{catRooms.length} rooms</td>
+                          <td className="py-3 px-4 text-[#7A7267]">{sold} nights</td>
+                          <td className="py-3 px-4 font-mono">{formatNaira(rt.basePriceMinorUnits || 0)}</td>
+                          <td className="py-3 px-4 text-right font-semibold text-[#191816]">{formatNaira(rev)}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
             </div>
           </div>
         )}
@@ -263,21 +358,21 @@ export default function ReportsPage() {
           <div className="space-y-6">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="p-4 rounded-lg border border-[#E8E2DA] bg-white">
-                <span className="text-[11px] text-[#7A7267] uppercase font-semibold">Total Turnovers</span>
-                <div className="text-2xl font-serif text-[#191816] mt-1">142 cleanings</div>
-                <p className="text-[11px] text-[#7A7267] mt-1">100% completed on time</p>
+                <span className="text-[11px] text-[#7A7267] uppercase font-semibold">Clean & Ready Units</span>
+                <div className="text-2xl font-serif text-[#191816] mt-1">{cleanRoomsCount} rooms</div>
+                <p className="text-[11px] text-[#7A7267] mt-1">Inspected and available for check-in</p>
               </div>
 
               <div className="p-4 rounded-lg border border-[#E8E2DA] bg-white">
-                <span className="text-[11px] text-[#7A7267] uppercase font-semibold">Average Turnaround Time</span>
-                <div className="text-2xl font-serif text-[#191816] mt-1">28 mins</div>
-                <p className="text-[11px] text-emerald-700 mt-1 font-medium">4 mins faster than SLA</p>
+                <span className="text-[11px] text-[#7A7267] uppercase font-semibold">Awaiting Turnover</span>
+                <div className="text-2xl font-serif text-[#191816] mt-1">{dirtyRoomsCount} rooms</div>
+                <p className="text-[11px] text-[#B85C3E] mt-1 font-medium">Pending housekeeping attention</p>
               </div>
 
               <div className="p-4 rounded-lg border border-[#E8E2DA] bg-white">
-                <span className="text-[11px] text-[#7A7267] uppercase font-semibold">Supervisor Inspection Pass Rate</span>
-                <div className="text-2xl font-serif text-[#191816] mt-1">98.4%</div>
-                <p className="text-[11px] text-emerald-700 mt-1 font-medium">High cleanliness score</p>
+                <span className="text-[11px] text-[#7A7267] uppercase font-semibold">Service in Progress</span>
+                <div className="text-2xl font-serif text-[#191816] mt-1">{cleaningRoomsCount} rooms</div>
+                <p className="text-[11px] text-[#2E6B4F] mt-1 font-medium">Currently being serviced</p>
               </div>
             </div>
           </div>
@@ -289,20 +384,26 @@ export default function ReportsPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               <div className="p-4 rounded-lg border border-[#E8E2DA] bg-white">
                 <span className="text-[11px] text-[#7A7267] uppercase font-semibold">Federal VAT (7.5%)</span>
-                <div className="text-2xl font-serif text-[#191816] mt-1">₦1,006,500</div>
-                <p className="text-[11px] text-[#7A7267] mt-1">FIRS compliant remittance</p>
+                <div className="text-2xl font-serif text-[#191816] mt-1">
+                  {formatNaira(vatMinorUnits)}
+                </div>
+                <p className="text-[11px] text-[#7A7267] mt-1">FIRS statutory remittance calculation</p>
               </div>
 
               <div className="p-4 rounded-lg border border-[#E8E2DA] bg-white">
-                <span className="text-[11px] text-[#7A7267] uppercase font-semibold">Lagos Hotel Consumption Tax (5%)</span>
-                <div className="text-2xl font-serif text-[#191816] mt-1">₦671,000</div>
-                <p className="text-[11px] text-[#7A7267] mt-1">LIRS statutory levy</p>
+                <span className="text-[11px] text-[#7A7267] uppercase font-semibold">Hotel Consumption Tax (5%)</span>
+                <div className="text-2xl font-serif text-[#191816] mt-1">
+                  {formatNaira(consumptionTaxMinorUnits)}
+                </div>
+                <p className="text-[11px] text-[#7A7267] mt-1">State consumption tax levy</p>
               </div>
 
               <div className="p-4 rounded-lg border border-[#E8E2DA] bg-white">
                 <span className="text-[11px] text-[#7A7267] uppercase font-semibold">Total Tax Provision</span>
-                <div className="text-2xl font-serif text-[#191816] mt-1">₦1,677,500</div>
-                <p className="text-[11px] text-emerald-700 mt-1 font-medium">Prepared for e-filing</p>
+                <div className="text-2xl font-serif text-[#191816] mt-1">
+                  {formatNaira(totalTaxMinorUnits)}
+                </div>
+                <p className="text-[11px] text-emerald-700 mt-1 font-medium">Accrued from settled folios</p>
               </div>
             </div>
           </div>

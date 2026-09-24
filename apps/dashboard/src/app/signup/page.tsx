@@ -213,7 +213,7 @@ export default function SignupPage() {
         </Link>
 
         <div className="flex items-center gap-3 text-xs text-[#7A7267]">
-          <span>Already managing on Sena?</span>
+          <span>Already have an account?</span>
           <Link
             href="/login"
             className="text-[#71382D] hover:text-[#B85C3E] font-medium transition-colors"
@@ -236,7 +236,7 @@ export default function SignupPage() {
                 Give your property the operating foundation it deserves.
               </h2>
               <p className="text-sm text-[#7A7267] leading-relaxed">
-                Connect your room inventory, launch your zero-commission booking engine, and coordinate your front desk team from one quiet workspace.
+                Connect inventory, launch a zero‑commission booking engine, and manage your front desk from one workspace.
               </p>
             </div>
 
@@ -514,7 +514,7 @@ export default function SignupPage() {
                     disabled={isLoading}
                     className="w-full h-11 rounded-md bg-[#B85C3E] hover:bg-[#A34E32] text-white text-xs font-semibold tracking-wide transition-colors flex items-center justify-center gap-2 mt-4 disabled:opacity-50"
                   >
-                    {isLoading ? 'Creating Property Profile...' : 'Begin 3-Day Free Trial &rarr;'}
+                    {isLoading ? 'Creating Property Profile...' : 'Begin 3-Day Free Trial →'}
                   </button>
                 </form>
               </>

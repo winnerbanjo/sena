@@ -70,29 +70,29 @@ const CountrySelector = React.memo(function CountrySelector({
   onSelect: (c: CountryOption) => void;
 }) {
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-      {COUNTRIES.map((c) => (
-        <button
-          key={c.code}
-          type="button"
-          onClick={() => onSelect(c)}
-          className={`p-2.5 rounded border text-left flex items-center gap-2 transition-all cursor-pointer ${
-            selected.code === c.code
-              ? 'border-[#B85C3E] bg-[#FAF9F7] ring-1 ring-[#B85C3E]'
-              : 'border-[#E8E2DA] bg-white hover:border-[#7A7267]'
-          }`}
+    <div className="space-y-1.5">
+      <div className="relative">
+        <select
+          value={selected.code}
+          onChange={(e) => {
+            const found = COUNTRIES.find((c) => c.code === e.target.value);
+            if (found) onSelect(found);
+          }}
+          className="w-full h-11 px-3.5 pr-8 rounded-md border border-[#E8E2DA] bg-[#FAF9F7]/60 text-xs text-[#191816] font-medium focus:bg-white focus:outline-none focus:border-[#71382D] transition-all cursor-pointer appearance-none"
         >
-          <span className="text-lg">{c.flag}</span>
-          <div className="truncate">
-            <span className="font-medium text-[#191816] block truncate text-xs">
-              {c.name}
-            </span>
-            <span className="text-[10px] text-[#7A7267] font-mono">
-              {c.currencySymbol} {c.currency}
-            </span>
-          </div>
-        </button>
-      ))}
+          {COUNTRIES.map((c) => (
+            <option key={c.code} value={c.code}>
+              {c.flag}  {c.name} &middot; {c.currency} ({c.currencySymbol}) &middot; Dialing {c.phoneCode}
+            </option>
+          ))}
+        </select>
+        <div className="absolute right-3.5 top-3.5 pointer-events-none text-[#7A7267] text-[10px]">
+          ▼
+        </div>
+      </div>
+      <p className="text-[11px] text-[#7A7267]">
+        All reservations, guest booking transactions, and bank payouts will settle in {selected.currency} ({selected.currencySymbol}).
+      </p>
     </div>
   );
 });
@@ -111,17 +111,15 @@ export default function OnboardingPage() {
   const [instagram, setInstagram] = React.useState('');
   const [websiteUrl, setWebsiteUrl] = React.useState('');
 
-  // Step 2: Room Classes & Pricing
-  const [roomTypeName, setRoomTypeName] = React.useState('Deluxe Room');
-  const [bedType, setBedType] = React.useState('1 Queen Bed');
-  const [price, setPrice] = React.useState('85000');
-  const [numRooms, setNumRooms] = React.useState('8');
+  // Step 2: Room Classes & Pricing (clean empty initial states)
+  const [roomTypeName, setRoomTypeName] = React.useState('');
+  const [bedType, setBedType] = React.useState('1 King Bed');
+  const [price, setPrice] = React.useState('');
+  const [numRooms, setNumRooms] = React.useState('');
   const [floorNumber, setFloorNumber] = React.useState('1');
 
   // Step 3: Smart Room Numbering Generator
-  const [roomsList, setRoomsList] = React.useState<string[]>([
-    '101', '102', '103', '104', '105', '106', '107', '108'
-  ]);
+  const [roomsList, setRoomsList] = React.useState<string[]>([]);
   const [editingIndex, setEditingIndex] = React.useState<number | null>(null);
   const [editingRoomVal, setEditingRoomVal] = React.useState('');
   const [startNumber, setStartNumber] = React.useState('101');
@@ -485,6 +483,7 @@ export default function OnboardingPage() {
                       type="number"
                       value={price}
                       onChange={(e) => setPrice(e.target.value)}
+                      placeholder="e.g. 75000"
                       className="pl-8 h-10 text-xs font-mono font-medium"
                       required
                     />
@@ -493,7 +492,7 @@ export default function OnboardingPage() {
 
                 <div className="space-y-1.5">
                   <Label className="text-xs font-medium text-[#191816]">
-                    Total Rooms in this Tier
+                    Total Rooms in this Tier <span className="text-[#B85C3E]">*</span>
                   </Label>
                   <Input
                     type="number"
@@ -501,6 +500,7 @@ export default function OnboardingPage() {
                     max="50"
                     value={numRooms}
                     onChange={(e) => handleNumRoomsChange(e.target.value)}
+                    placeholder="e.g. 4"
                     className="h-10 text-xs font-mono"
                     required
                   />
@@ -569,60 +569,77 @@ export default function OnboardingPage() {
             </div>
 
             {/* Interactive Room Badges Grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 max-h-64 overflow-y-auto p-1">
-              {roomsList.map((roomNum, idx) => (
-                <div
-                  key={idx}
-                  className="p-3 rounded border border-[#E8E2DA] bg-white hover:border-[#B85C3E]/60 transition-all flex flex-col justify-between space-y-2 group relative"
+            {roomsList.length === 0 ? (
+              <div className="p-8 text-center border border-dashed border-[#E8E2DA] rounded-lg bg-[#FAF9F7] space-y-2">
+                <p className="font-serif text-sm text-[#71382D]">No room numbers generated yet</p>
+                <p className="text-xs text-[#7A7267]">
+                  Click below to generate room numbers for your {numRooms || 'primary'} room tier.
+                </p>
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => generateRooms(parseInt(numRooms, 10) || 4, startNumber)}
+                  className="text-xs mt-1"
                 >
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-mono uppercase text-[#7A7267]">
-                      Floor {floorNumber}
+                  Generate {parseInt(numRooms, 10) || 4} Rooms
+                </Button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 max-h-64 overflow-y-auto p-1">
+                {roomsList.map((roomNum, idx) => (
+                  <div
+                    key={idx}
+                    className="p-3 rounded border border-[#E8E2DA] bg-white hover:border-[#B85C3E]/60 transition-all flex flex-col justify-between space-y-2 group relative"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-mono uppercase text-[#7A7267]">
+                        Floor {floorNumber}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveRoom(idx)}
+                        title="Remove room"
+                        className="text-[#7A7267] hover:text-[#B85C3E] opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
+
+                    {editingIndex === idx ? (
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="text"
+                          autoFocus
+                          value={editingRoomVal}
+                          onChange={(e) => setEditingRoomVal(e.target.value)}
+                          onKeyDown={(e) => e.key === 'Enter' && saveEditedRoom(idx)}
+                          onBlur={() => saveEditedRoom(idx)}
+                          className="w-full text-sm font-serif font-bold text-[#191816] border-b border-[#B85C3E] focus:outline-none"
+                        />
+                      </div>
+                    ) : (
+                      <div
+                        onClick={() => {
+                          setEditingIndex(idx);
+                          setEditingRoomVal(roomNum);
+                        }}
+                        className="cursor-pointer flex items-center justify-between"
+                        title="Click to rename"
+                      >
+                        <strong className="text-base font-serif text-[#191816] group-hover:text-[#B85C3E] transition-colors">
+                          Room {roomNum}
+                        </strong>
+                        <Edit2 className="w-3 h-3 text-[#7A7267] opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </div>
+                    )}
+
+                    <span className="text-[10px] text-[#7A7267] block truncate">
+                      {roomTypeName || 'Room'}
                     </span>
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveRoom(idx)}
-                      title="Remove room"
-                      className="text-[#7A7267] hover:text-[#B85C3E] opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                    </button>
                   </div>
-
-                  {editingIndex === idx ? (
-                    <div className="flex items-center gap-1">
-                      <input
-                        type="text"
-                        autoFocus
-                        value={editingRoomVal}
-                        onChange={(e) => setEditingRoomVal(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && saveEditedRoom(idx)}
-                        onBlur={() => saveEditedRoom(idx)}
-                        className="w-full text-sm font-serif font-bold text-[#191816] border-b border-[#B85C3E] focus:outline-none"
-                      />
-                    </div>
-                  ) : (
-                    <div
-                      onClick={() => {
-                        setEditingIndex(idx);
-                        setEditingRoomVal(roomNum);
-                      }}
-                      className="cursor-pointer flex items-center justify-between"
-                      title="Click to rename"
-                    >
-                      <strong className="text-base font-serif text-[#191816] group-hover:text-[#B85C3E] transition-colors">
-                        Room {roomNum}
-                      </strong>
-                      <Edit2 className="w-3 h-3 text-[#7A7267] opacity-0 group-hover:opacity-100 transition-opacity" />
-                    </div>
-                  )}
-
-                  <span className="text-[10px] text-[#7A7267] block truncate">
-                    {roomTypeName}
-                  </span>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -695,14 +712,16 @@ export default function OnboardingPage() {
                   <Label className="text-xs font-medium text-[#191816]">
                     Account Name (Beneficiary) <span className="text-[#B85C3E]">*</span>
                   </Label>
-                  <span className="text-[10px] font-mono text-[#2E6B4F] flex items-center gap-1 font-medium">
-                    <CheckCircle2 className="w-3 h-3" /> Verified Business Account
-                  </span>
+                  {accountNumber.length === 10 && (
+                    <span className="text-[10px] font-mono text-[#2E6B4F] flex items-center gap-1 font-medium">
+                      <CheckCircle2 className="w-3 h-3" /> Payout Destination Set
+                    </span>
+                  )}
                 </div>
                 <Input
                   value={accountName}
                   onChange={(e) => setAccountName(e.target.value)}
-                  placeholder="e.g. STAY CONNECT LEKKI LTD"
+                  placeholder={propName ? `${propName.toUpperCase()} LTD` : 'e.g. THE STILL HOUSE LTD'}
                   className="h-10 text-xs font-mono uppercase"
                   required
                 />
@@ -830,6 +849,12 @@ export default function OnboardingPage() {
               size="sm"
               onClick={() => {
                 if (step === 1) handlePropNameBlur();
+                if (step === 2) {
+                  const count = parseInt(numRooms, 10) || 4;
+                  if (roomsList.length === 0) {
+                    generateRooms(count, startNumber);
+                  }
+                }
                 setStep((s) => s + 1);
               }}
               className="text-xs flex items-center gap-1"

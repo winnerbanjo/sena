@@ -162,9 +162,37 @@ function ReservationsContent() {
               <tbody className="divide-y divide-[#E8E1D5] text-xs">
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="py-16 text-center text-[#8C8275]">
-                      <p className="font-serif text-sm text-[#71382D]">No stays found in this view</p>
-                      <p className="text-xs mt-1">Try switching tabs or adjusting your search term.</p>
+                    <td colSpan={7} className="py-20 text-center">
+                      <div className="max-w-md mx-auto space-y-3">
+                        <span className="text-[11px] font-mono uppercase tracking-widest text-[#8C8275] block">
+                          Reservation Folio Ledger
+                        </span>
+                        <h3 className="font-serif text-lg text-[#71382D]">
+                          {reservations.length === 0 ? 'No guest reservations recorded yet' : 'No stays found in this view'}
+                        </h3>
+                        <p className="text-xs text-[#7A7267] leading-relaxed">
+                          {reservations.length === 0
+                            ? 'Direct bookings captured through your guest website and manual walk-ins logged at the front desk will appear here with automated folio tracking.'
+                            : 'Try selecting a different filter tab or clearing your search term.'}
+                        </p>
+                        {reservations.length === 0 && (
+                          <div className="pt-2 flex items-center justify-center gap-3">
+                            <button
+                              type="button"
+                              onClick={() => setNewResOpen(true)}
+                              className="px-4 py-2 rounded-md bg-[#71382D] hover:bg-[#5A2C23] text-white text-xs font-medium transition-colors"
+                            >
+                              + Record Walk-in Stay
+                            </button>
+                            <a
+                              href="/booking-preview"
+                              className="px-4 py-2 rounded-md border border-[#E5D4BC] bg-[#FAF7F2] hover:bg-[#F2EAE0] text-[#71382D] text-xs font-medium transition-colors"
+                            >
+                              View Direct Booking Engine &rarr;
+                            </a>
+                          </div>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ) : (

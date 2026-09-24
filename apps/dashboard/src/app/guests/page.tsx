@@ -112,66 +112,87 @@ export default function GuestsPage() {
               </TableRow>
             </TableHeader>
             <TableBody className="divide-y divide-[#E8E2DA]">
-              {filtered.map((guest) => (
-                <TableRow
-                  key={guest.id}
-                  onClick={() => setSelectedGuest(guest)}
-                  className="cursor-pointer hover:bg-[#FAF9F6]/60 transition-colors"
-                >
-                  <TableCell className="py-3.5">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-[#FAF0E4] text-[#71382D] flex items-center justify-center font-serif text-xs font-medium border border-[#E5D4BC]">
-                        {guest.name
-                          .split(' ')
-                          .map((n) => n[0])
-                          .slice(0, 2)
-                          .join('')}
-                      </div>
-                      <div>
-                        <strong className="text-sm font-serif font-normal text-[#191816] block">
-                          {guest.name}
-                        </strong>
-                        {guest.stays > 1 ? (
-                          <span className="text-[10px] text-[#B85C3E] font-medium flex items-center gap-1">
-                            <Star className="w-2.5 h-2.5 fill-current" /> Returning guest · {guest.stays} stays
-                          </span>
-                        ) : (
-                          <span className="text-[10px] text-[#7A7267]">
-                            First visit · 1 stay
-                          </span>
-                        )}
-                      </div>
+              {filtered.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="py-16 text-center">
+                    <div className="max-w-sm mx-auto space-y-2">
+                      <p className="font-serif text-sm text-[#191816]">
+                        {loading
+                          ? 'Accessing guest directory...'
+                          : search
+                          ? `No guests found matching "${search}"`
+                          : 'No guest profiles recorded yet'}
+                      </p>
+                      <p className="text-xs text-[#7A7267] leading-relaxed">
+                        {search
+                          ? 'Try searching with a different name, phone number, or email.'
+                          : 'Guest profiles, stay frequencies, and preferences are automatically captured as reservations are placed online or recorded at your front desk.'}
+                      </p>
                     </div>
-                  </TableCell>
-                  <TableCell className="py-3.5">
-                    <span className="block text-xs text-[#191816]">{guest.phone}</span>
-                    <span className="block text-[11px] text-[#7A7267]">{guest.email}</span>
-                  </TableCell>
-                  <TableCell className="py-3.5">
-                    <span className="text-xs text-[#191816] block">{guest.nights} nights total</span>
-                    <span className="text-[10px] text-[#7A7267] block">Last: {guest.lastStay}</span>
-                  </TableCell>
-                  <TableCell className="py-3.5">
-                    <div className="flex items-center gap-1.5 flex-wrap max-w-xs">
-                      {guest.preferences && guest.preferences.length > 0 ? (
-                        guest.preferences.map((p, idx) => (
-                          <span
-                            key={idx}
-                            className="px-2 py-0.5 rounded text-[10px] bg-[#FAF9F6] border border-[#E8E2DA] text-[#7A7267]"
-                          >
-                            {p}
-                          </span>
-                        ))
-                      ) : (
-                        <span className="text-[11px] text-[#7A7267] italic">—</span>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell className="py-3.5 text-right font-serif text-sm text-[#191816]">
-                    {formatNaira(guest.lifetimeValueMinorUnits)}
                   </TableCell>
                 </TableRow>
-              ))}
+              ) : (
+                filtered.map((guest) => (
+                  <TableRow
+                    key={guest.id}
+                    onClick={() => setSelectedGuest(guest)}
+                    className="cursor-pointer hover:bg-[#FAF9F6]/60 transition-colors"
+                  >
+                    <TableCell className="py-3.5">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-[#FAF0E4] text-[#71382D] flex items-center justify-center font-serif text-xs font-medium border border-[#E5D4BC]">
+                          {guest.name
+                            .split(' ')
+                            .map((n) => n[0])
+                            .slice(0, 2)
+                            .join('')}
+                        </div>
+                        <div>
+                          <strong className="text-sm font-serif font-normal text-[#191816] block">
+                            {guest.name}
+                          </strong>
+                          {guest.stays > 1 ? (
+                            <span className="text-[10px] text-[#B85C3E] font-medium flex items-center gap-1">
+                              <Star className="w-2.5 h-2.5 fill-current" /> Returning guest · {guest.stays} stays
+                            </span>
+                          ) : (
+                            <span className="text-[10px] text-[#7A7267]">
+                              First visit · 1 stay
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell className="py-3.5">
+                      <span className="block text-xs text-[#191816]">{guest.phone}</span>
+                      <span className="block text-[11px] text-[#7A7267]">{guest.email}</span>
+                    </TableCell>
+                    <TableCell className="py-3.5">
+                      <span className="text-xs text-[#191816] block">{guest.nights} nights total</span>
+                      <span className="text-[10px] text-[#7A7267] block">Last: {guest.lastStay}</span>
+                    </TableCell>
+                    <TableCell className="py-3.5">
+                      <div className="flex items-center gap-1.5 flex-wrap max-w-xs">
+                        {guest.preferences && guest.preferences.length > 0 ? (
+                          guest.preferences.map((p, idx) => (
+                            <span
+                              key={idx}
+                              className="px-2 py-0.5 rounded text-[10px] bg-[#FAF9F6] border border-[#E8E2DA] text-[#7A7267]"
+                            >
+                              {p}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-[11px] text-[#7A7267] italic">—</span>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="py-3.5 text-right font-serif text-sm text-[#191816]">
+                      {formatNaira(guest.lifetimeValueMinorUnits)}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
         </div>

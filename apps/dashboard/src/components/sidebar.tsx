@@ -47,7 +47,7 @@ const NAV_SECTIONS: NavSection[] = [
       { label: 'Calendar', href: '/calendar', icon: Calendar },
       { label: 'Front Desk', href: '/front-desk', icon: DoorOpen },
       { label: 'Rooms', href: '/rooms', icon: Layers },
-      { label: 'Housekeeping', href: '/housekeeping', icon: Brush, badge: '6' },
+      { label: 'Housekeeping', href: '/housekeeping', icon: Brush },
       { label: 'Guests', href: '/guests', icon: Users },
     ],
   },
@@ -81,6 +81,49 @@ const NAV_SECTIONS: NavSection[] = [
 
 function SidebarNavItems({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
+  const [profile, setProfile] = React.useState({
+    name: 'Hotelier',
+    email: '',
+    role: 'Property Owner',
+    property: 'Your Property',
+    city: 'Front Desk',
+  });
+
+  React.useEffect(() => {
+    try {
+      const stored = localStorage.getItem('sena_auth_user');
+      const draft = localStorage.getItem('sena_onboarding_draft');
+      const propName = localStorage.getItem('sena_property_name');
+      const authUser = stored ? JSON.parse(stored) : null;
+      const draftObj = draft ? JSON.parse(draft) : null;
+
+      const resolvedName = authUser?.name || draftObj?.name || 'Hotelier';
+      const resolvedProp = propName || authUser?.property || draftObj?.propName || 'Your Property';
+      const resolvedRole = authUser?.role || 'Property Manager';
+
+      setProfile({
+        name: resolvedName,
+        email: authUser?.email || draftObj?.email || '',
+        role: resolvedRole,
+        property: resolvedProp,
+        city: draftObj?.city || 'Hospitality Suites',
+      });
+    } catch {}
+  }, []);
+
+  const propInitials = (profile.property || 'YP')
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w: string) => w[0]?.toUpperCase())
+    .join('') || 'YP';
+
+  const userInitials = (profile.name || 'H')
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w: string) => w[0]?.toUpperCase())
+    .join('') || 'H';
 
   return (
     <>
@@ -109,14 +152,14 @@ function SidebarNavItems({ onNavigate }: { onNavigate?: () => void }) {
         >
           <div className="flex items-center gap-2.5 min-w-0">
             <span className="w-7 h-7 rounded bg-[#71382D] text-white flex items-center justify-center text-xs font-semibold flex-shrink-0">
-              SC
+              {propInitials}
             </span>
             <div className="truncate">
               <span className="block text-xs font-semibold text-[#191816] truncate">
-                Stay Connect Lekki
+                {profile.property}
               </span>
               <span className="block text-[10px] text-[#7A7267] truncate">
-                Lekki, Lagos
+                {profile.city}
               </span>
             </div>
           </div>
@@ -177,14 +220,14 @@ function SidebarNavItems({ onNavigate }: { onNavigate?: () => void }) {
       <div className="p-3.5 border-t border-[#E8E2DA] bg-white mt-auto flex items-center justify-between gap-2">
         <div className="flex items-center gap-2.5 min-w-0">
           <div className="w-8 h-8 rounded-full bg-[#E5D4BC] text-[#71382D] flex items-center justify-center font-medium text-xs flex-shrink-0">
-            AO
+            {userInitials}
           </div>
           <div className="truncate">
             <span className="block text-xs font-semibold text-[#191816] truncate">
-              Amara Okafor
+              {profile.name}
             </span>
             <span className="block text-[10px] text-[#7A7267] truncate">
-              Stay Connect Lekki
+              {profile.role} &middot; {profile.property}
             </span>
           </div>
         </div>

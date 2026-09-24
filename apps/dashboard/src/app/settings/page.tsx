@@ -26,27 +26,84 @@ export default function SettingsPage() {
   const [saveSuccess, setSaveSuccess] = React.useState(false);
 
   // Form states
-  const [propertyName, setPropertyName] = React.useState('Stay Connect Lekki');
-  const [propertyType, setPropertyType] = React.useState('Serviced Apartment Hotel');
+  const [propertyName, setPropertyName] = React.useState('Your Property');
+  const [propertyType, setPropertyType] = React.useState('Boutique Hotel');
   const [tagline, setTagline] = React.useState('hospitality, simplified.');
-  const [contactEmail, setContactEmail] = React.useState('concierge@stayconnect.ng');
-  const [contactPhone, setContactPhone] = React.useState('+234 803 123 4567');
-  const [address, setAddress] = React.useState('Plot 14, Admiralty Way, Lekki Phase 1');
-  const [city, setCity] = React.useState('Lagos');
+  const [contactEmail, setContactEmail] = React.useState('concierge@sena.ng');
+  const [contactPhone, setContactPhone] = React.useState('');
+  const [address, setAddress] = React.useState('');
+  const [city, setCity] = React.useState('');
+
+  // Bank states
+  const [bankName, setBankName] = React.useState('Guaranty Trust Bank (GTBank)');
+  const [accountNumber, setAccountNumber] = React.useState('—');
+  const [accountName, setAccountName] = React.useState('—');
 
   // Policy states
   const [checkInTime, setCheckInTime] = React.useState('14:00');
   const [checkOutTime, setCheckOutTime] = React.useState('11:00');
   const [cancellationPolicy, setCancellationPolicy] = React.useState('moderate');
-  const [securityDeposit, setSecurityDeposit] = React.useState('50000');
+  const [securityDeposit, setSecurityDeposit] = React.useState('0');
 
   // Notifications
   const [whatsappGuestAlerts, setWhatsappGuestAlerts] = React.useState(true);
   const [emailBookingDigest, setEmailBookingDigest] = React.useState(true);
   const [smsHousekeepingAlerts, setSmsHousekeepingAlerts] = React.useState(true);
 
+  React.useEffect(() => {
+    try {
+      const storedName = localStorage.getItem('sena_property_name');
+      const draftStr = localStorage.getItem('sena_onboarding_draft');
+      const authStr = localStorage.getItem('sena_auth_user');
+
+      let name = storedName || '';
+      if (authStr) {
+        const auth = JSON.parse(authStr);
+        if (auth.email) setContactEmail(auth.email);
+      }
+
+      if (draftStr) {
+        const draft = JSON.parse(draftStr);
+        if (!name && draft.propertyName) name = draft.propertyName;
+        if (draft.propertyType) setPropertyType(draft.propertyType);
+        if (draft.whatsapp) setContactPhone(draft.whatsapp);
+        if (draft.address) setAddress(draft.address);
+        if (draft.city) setCity(draft.city);
+        if (draft.bankName) setBankName(draft.bankName);
+        if (draft.accountNumber) setAccountNumber(draft.accountNumber);
+        if (draft.beneficiaryName) setAccountName(draft.beneficiaryName);
+      }
+
+      if (name) {
+        setPropertyName(name);
+        if (accountName === '—') setAccountName(name.toUpperCase());
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }, []);
+
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
+    try {
+      localStorage.setItem('sena_property_name', propertyName);
+      const draftStr = localStorage.getItem('sena_onboarding_draft');
+      const prev = draftStr ? JSON.parse(draftStr) : {};
+      localStorage.setItem(
+        'sena_onboarding_draft',
+        JSON.stringify({
+          ...prev,
+          propertyName,
+          propertyType,
+          address,
+          city,
+          whatsapp: contactPhone,
+          bankName,
+          accountNumber,
+          beneficiaryName: accountName,
+        })
+      );
+    } catch {}
     setSaveSuccess(true);
     setTimeout(() => setSaveSuccess(false), 3000);
   };
@@ -321,15 +378,15 @@ export default function SettingsPage() {
                 <div className="font-mono text-xs bg-white p-3 rounded border border-[#E8E2DA] text-[#191816] space-y-1.5">
                   <div className="flex justify-between">
                     <span className="text-[#7A7267]">Bank Name:</span>
-                    <span>Guaranty Trust Bank (GTBank)</span>
+                    <span>{bankName}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-[#7A7267]">Account Number:</span>
-                    <span>0123456789</span>
+                    <span>{accountNumber}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-[#7A7267]">Account Name:</span>
-                    <span>STAY CONNECT APARTMENTS LTD</span>
+                    <span>{accountName}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-[#7A7267]">Payout Frequency:</span>

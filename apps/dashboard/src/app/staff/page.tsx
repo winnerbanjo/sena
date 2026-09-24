@@ -31,75 +31,57 @@ interface StaffMember {
   lastActive: string;
 }
 
-const INITIAL_STAFF: StaffMember[] = [
-  {
-    id: 'staff-1',
-    name: 'Amara Okafor',
-    email: 'amara@stayconnect.ng',
-    phone: '+234 803 123 4567',
-    role: 'General Manager',
-    department: 'Management',
-    shiftStatus: 'on_duty',
-    lastActive: 'Just now',
-  },
-  {
-    id: 'staff-2',
-    name: 'Babatunde Adeleke',
-    email: 'babatunde@stayconnect.ng',
-    phone: '+234 812 345 6789',
-    role: 'Front Desk Lead',
-    department: 'Front Office',
-    shiftStatus: 'on_duty',
-    lastActive: '5m ago',
-  },
-  {
-    id: 'staff-3',
-    name: 'Chioma Eze',
-    email: 'chioma@stayconnect.ng',
-    phone: '+234 809 987 6543',
-    role: 'Housekeeping Supervisor',
-    department: 'Housekeeping',
-    shiftStatus: 'on_duty',
-    lastActive: '12m ago',
-  },
-  {
-    id: 'staff-4',
-    name: 'Femi Alabi',
-    email: 'femi@stayconnect.ng',
-    phone: '+234 802 234 5678',
-    role: 'Front Desk Lead',
-    department: 'Front Office',
-    shiftStatus: 'off_duty',
-    lastActive: 'Yesterday, 11:30 PM',
-  },
-  {
-    id: 'staff-5',
-    name: 'Blessing Nwosu',
-    email: 'blessing@stayconnect.ng',
-    phone: '+234 814 555 1234',
-    role: 'Room Attendant',
-    department: 'Housekeeping',
-    shiftStatus: 'on_duty',
-    lastActive: '2m ago',
-  },
-  {
-    id: 'staff-6',
-    name: 'Ibrahim Musa',
-    email: 'ibrahim@stayconnect.ng',
-    phone: '+234 805 777 8899',
-    role: 'Finance',
-    department: 'Accounting',
-    shiftStatus: 'off_duty',
-    lastActive: '4h ago',
-  },
-];
-
 export default function StaffPage() {
   const [newResOpen, setNewResOpen] = React.useState(false);
-  const [staff, setStaff] = React.useState<StaffMember[]>(INITIAL_STAFF);
+  const [staff, setStaff] = React.useState<StaffMember[]>([]);
   const [deptFilter, setDeptFilter] = React.useState<string>('all');
   const [searchQuery, setSearchQuery] = React.useState('');
   const [viewTab, setViewTab] = React.useState<'roster' | 'permissions'>('roster');
+
+  React.useEffect(() => {
+    try {
+      const saved = localStorage.getItem('sena_property_staff');
+      if (saved) {
+        setStaff(JSON.parse(saved));
+        return;
+      }
+    } catch (e) {
+      console.error('Failed to load saved staff:', e);
+    }
+
+    // Initialize with only current logged-in user
+    let currentUserName = 'Property Owner';
+    let currentUserEmail = 'owner@sena.ng';
+    try {
+      const authUserStr = localStorage.getItem('sena_auth_user');
+      if (authUserStr) {
+        const parsed = JSON.parse(authUserStr);
+        if (parsed.fullName) currentUserName = parsed.fullName;
+        if (parsed.email) currentUserEmail = parsed.email;
+      }
+    } catch {}
+
+    const defaultOwner: StaffMember = {
+      id: 'staff-owner',
+      name: currentUserName,
+      email: currentUserEmail,
+      phone: '—',
+      role: 'Owner',
+      department: 'Management',
+      shiftStatus: 'on_duty',
+      lastActive: 'Active now',
+    };
+    setStaff([defaultOwner]);
+  }, []);
+
+  const saveStaff = (newStaff: StaffMember[]) => {
+    setStaff(newStaff);
+    try {
+      localStorage.setItem('sena_property_staff', JSON.stringify(newStaff));
+    } catch (e) {
+      console.error('Failed to save staff:', e);
+    }
+  };
 
   // Invite modal state
   const [inviteModalOpen, setInviteModalOpen] = React.useState(false);
@@ -136,14 +118,14 @@ export default function StaffPage() {
       id: `staff-${Date.now()}`,
       name: inviteName,
       email: inviteEmail,
-      phone: invitePhone || '+234 800 000 0000',
+      phone: invitePhone || '—',
       role: inviteRole,
       department: dept,
       shiftStatus: 'on_duty',
       lastActive: 'Invited just now',
     };
 
-    setStaff([newMember, ...staff]);
+    saveStaff([newMember, ...staff]);
     setInviteModalOpen(false);
     setInviteName('');
     setInviteEmail('');
@@ -151,15 +133,14 @@ export default function StaffPage() {
   };
 
   const toggleDutyStatus = (id: string) => {
-    setStaff((prev) =>
-      prev.map((s) => {
-        if (s.id !== id) return s;
-        return {
-          ...s,
-          shiftStatus: s.shiftStatus === 'on_duty' ? 'off_duty' : 'on_duty',
-        };
-      })
-    );
+    const updated = staff.map((s) => {
+      if (s.id !== id) return s;
+      return {
+        ...s,
+        shiftStatus: (s.shiftStatus === 'on_duty' ? 'off_duty' : 'on_duty') as StaffMember['shiftStatus'],
+      };
+    });
+    saveStaff(updated);
   };
 
   return (
@@ -299,7 +280,36 @@ export default function StaffPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#E8E2DA]">
-                  {filteredStaff.map((member) => {
+                  {filteredStaff.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="py-14 text-center">
+                        <div className="max-w-sm mx-auto space-y-2">
+                          <Users className="w-6 h-6 mx-auto text-[#B85C3E]" />
+                          <p className="font-serif text-sm text-[#191816]">
+                            {searchQuery || deptFilter !== 'all'
+                              ? 'No staff members match the selected filter'
+                              : 'No additional team members invited yet'}
+                          </p>
+                          <p className="text-xs text-[#7A7267] leading-relaxed">
+                            {searchQuery || deptFilter !== 'all'
+                              ? 'Try clearing your search query or department filter.'
+                              : 'Invite your front desk officers and housekeeping supervisors to collaborate with role-scoped permissions.'}
+                          </p>
+                          {!searchQuery && deptFilter === 'all' && (
+                            <Button
+                              size="sm"
+                              onClick={() => setInviteModalOpen(true)}
+                              className="text-xs mt-2"
+                            >
+                              <UserPlus className="w-3.5 h-3.5 mr-1" />
+                              Invite team member
+                            </Button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredStaff.map((member) => {
                     const initials = member.name
                       .split(' ')
                       .map((n) => n[0])

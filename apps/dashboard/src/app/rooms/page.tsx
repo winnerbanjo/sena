@@ -334,24 +334,45 @@ export default function RoomsPage() {
 
             {/* Room Matrix Grouped by Floor */}
             {filteredRooms.length === 0 ? (
-              <div className="p-12 text-center border border-dashed border-[#E8E2DA] rounded-lg bg-[#FAF9F6] space-y-3">
-                <p className="text-sm font-serif text-[#191816]">No matching rooms found</p>
-                <p className="text-xs text-[#7A7267]">
-                  Try clearing your search or add a new room to this floor.
-                </p>
-                <Button
-                  size="sm"
-                  onClick={() => {
-                    setFilter('all');
-                    setSearchQuery('');
-                    setAddRoomOpen(true);
-                  }}
-                  className="text-xs"
-                >
-                  <Plus className="w-3.5 h-3.5 mr-1" />
-                  Add a room now
-                </Button>
-              </div>
+              rooms.length === 0 ? (
+                <div className="p-12 text-center border border-dashed border-[#E8E2DA] rounded-lg bg-[#FAF9F6] space-y-3 max-w-md mx-auto my-6">
+                  <Bed className="w-8 h-8 mx-auto text-[#B85C3E]" />
+                  <p className="text-base font-serif text-[#191816]">No rooms added to inventory yet</p>
+                  <p className="text-xs text-[#7A7267] leading-relaxed">
+                    Add your physical room numbers (e.g. 101, 102) and assign them to categories to begin taking reservations and managing housekeeping.
+                  </p>
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      setFilter('all');
+                      setSearchQuery('');
+                      setAddRoomOpen(true);
+                    }}
+                    className="text-xs mt-1"
+                  >
+                    <Plus className="w-3.5 h-3.5 mr-1" />
+                    Add your first room
+                  </Button>
+                </div>
+              ) : (
+                <div className="p-12 text-center border border-dashed border-[#E8E2DA] rounded-lg bg-[#FAF9F6] space-y-3">
+                  <p className="text-sm font-serif text-[#191816]">No matching rooms found</p>
+                  <p className="text-xs text-[#7A7267]">
+                    Try clearing your search or filter to view other rooms.
+                  </p>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => {
+                      setFilter('all');
+                      setSearchQuery('');
+                    }}
+                    className="text-xs"
+                  >
+                    Reset filters
+                  </Button>
+                </div>
+              )
             ) : (
               <div className="space-y-8">
                 {Array.from(new Set(filteredRooms.map((r) => r.floor || 'Ground Floor'))).map((floorName) => {
@@ -464,9 +485,26 @@ export default function RoomsPage() {
         {/* TAB 2: ROOM CATEGORIES */}
         {activeTab === 'categories' && (
           <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-              {categories.map((category) => {
-                const roomCount = rooms.filter((r) => r.type === category.name).length;
+            {categories.length === 0 ? (
+              <div className="p-12 text-center border border-dashed border-[#E8E2DA] rounded-lg bg-[#FAF9F6] space-y-3 max-w-md mx-auto my-6">
+                <Layers className="w-8 h-8 mx-auto text-[#B85C3E]" />
+                <p className="text-base font-serif text-[#191816]">No room categories defined yet</p>
+                <p className="text-xs text-[#7A7267] leading-relaxed">
+                  Create room categories (like Executive Suite or Deluxe Studio) to configure nightly rates, maximum guest capacity, bed types, and assign room numbers.
+                </p>
+                <Button
+                  size="sm"
+                  onClick={() => setAddCategoryOpen(true)}
+                  className="text-xs mt-1"
+                >
+                  <Plus className="w-3.5 h-3.5 mr-1" />
+                  Create room category
+                </Button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                {categories.map((category) => {
+                  const roomCount = rooms.filter((r) => r.type === category.name).length;
                 return (
                   <div
                     key={category.id}

@@ -46,7 +46,7 @@ export default function LoginPage() {
             email,
             name: email.split('@')[0].replace('.', ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
             role: 'Property Manager',
-            property: 'Stay Connect Lekki',
+            property: localStorage.getItem('sena_property_name') || 'Your Property',
           })
         );
       } catch (err) {
@@ -62,48 +62,6 @@ export default function LoginPage() {
     }
   }
 
-  async function handleDemoLogin() {
-    setEmail('amara@stayconnect.ng');
-    setPassword('Password123!');
-    setIsLoading(true);
-    setError('');
-
-    try {
-      const { signIn } = await import('next-auth/react');
-      const res = await signIn('credentials', {
-        email: 'amara@stayconnect.ng',
-        password: 'Password123!',
-        redirect: false,
-      });
-
-      if (res?.error) {
-        setError('Demo sign-in failed. Please verify credentials.');
-        setIsLoading(false);
-        return;
-      }
-
-      try {
-        localStorage.setItem(
-          'sena_auth_user',
-          JSON.stringify({
-            email: 'amara@stayconnect.ng',
-            name: 'Amara Okafor',
-            role: 'General Manager',
-            property: 'Stay Connect Lekki',
-          })
-        );
-      } catch (err) {
-        console.error(err);
-      }
-
-      setIsLoading(false);
-      router.push('/');
-    } catch (err: any) {
-      console.error('Demo login error:', err);
-      setError('Failed to connect to demo account.');
-      setIsLoading(false);
-    }
-  }
 
   return (
     <div className="min-h-screen bg-[#FAF7F2] text-[#191816] flex flex-col justify-between">
@@ -121,7 +79,7 @@ export default function LoginPage() {
         </Link>
 
         <div className="flex items-center gap-3 text-xs text-[#7A7267]">
-          <span>New to Sena?</span>
+          <span>New here?</span>
           <Link
             href="/signup"
             className="text-[#71382D] hover:text-[#B85C3E] font-medium transition-colors"
@@ -158,7 +116,7 @@ export default function LoginPage() {
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent flex items-end p-4">
                 <span className="text-[11px] text-white/90 tracking-wide font-mono">
-                  Stay Connect Lekki · Lagos
+                  Boutique Property · Hospitality OS
                 </span>
               </div>
             </div>
@@ -265,19 +223,6 @@ export default function LoginPage() {
                 </Link>
               </div>
             </form>
-
-            {/* Quick Demo Access - Restrained & Human */}
-            <div className="mt-8 pt-6 border-t border-[#F0ECE4] flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
-              <span className="text-[#8C8275]">Reviewing as an evaluator?</span>
-              <button
-                type="button"
-                onClick={handleDemoLogin}
-                disabled={isLoading}
-                className="text-[#71382D] hover:text-[#B85C3E] font-medium underline underline-offset-4 decoration-[#E5D4BC] hover:decoration-[#B85C3E] transition-all"
-              >
-                Sign in with demo property &rarr;
-              </button>
-            </div>
           </div>
         </div>
       </main>

@@ -1,10 +1,20 @@
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
-import { db, users, organizations, organizationMembers, verificationTokens } from '@sena/database';
+import { db, verificationTokens, users, organizations, organizationMembers } from '@sena/database';
 import { eq } from 'drizzle-orm';
 import bcrypt from 'bcryptjs';
 import { sendSenaEmail } from '@sena/email';
 
+/**
+ * POST /api/auth/register
+ *
+ * Step 1 of 2 – store a pending signup OTP token (NO user row written yet).
+ * The real user + org are created in /api/auth/otp/verify once the code is confirmed.
+ *
+ * Token format stored in DB:  "<otpCode>|<base64(JSON payload)>"
+ * The pipe separator lets the verify route split OTP from signup data without
+ * adding a new DB column.
+ */
 export async function POST(request: Request) {
   try {
     const body = await request.json();
@@ -19,122 +29,94 @@ export async function POST(request: Request) {
 
     const cleanEmail = String(email).toLowerCase().trim();
 
-    // Check if user already exists
+    // Block re-registration for ALREADY-VERIFIED accounts only
     const existing = await db
-      .select({ id: users.id })
+      .select({ id: users.id, emailVerified: users.emailVerified })
       .from(users)
       .where(eq(users.email, cleanEmail))
       .limit(1);
 
-    if (existing.length > 0) {
+    if (existing.length > 0 && existing[0].emailVerified !== null) {
       return NextResponse.json(
         { error: 'An account with this email address already exists. Please log in.' },
         { status: 409 }
       );
     }
 
-    // Hash password
+    // If a ghost unverified row exists (e.g. previous failed attempt), clean it up
+    if (existing.length > 0 && existing[0].emailVerified === null) {
+      const ghostId = existing[0].id;
+      const memberships = await db
+        .select({ orgId: organizationMembers.organizationId })
+        .from(organizationMembers)
+        .where(eq(organizationMembers.userId, ghostId));
+
+      for (const m of memberships) {
+        await db.delete(organizationMembers).where(eq(organizationMembers.organizationId, m.orgId));
+        await db.delete(organizations).where(eq(organizations.id, m.orgId));
+      }
+      await db.delete(users).where(eq(users.id, ghostId));
+    }
+
+    // Pre-hash the password (safe to do before account creation)
     const passwordHash = await bcrypt.hash(password, 10);
-    const orgSlug = propertyName
-      .toLowerCase()
-      .replace(/[^a-z0-9]/g, '-')
-      .replace(/-+/g, '-')
-      .replace(/^-|-$/g, '') + '-' + Math.random().toString(36).substring(2, 7);
+    const orgSlug =
+      propertyName
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, '-')
+        .replace(/-+/g, '-')
+        .replace(/^-|-$/g, '') +
+      '-' +
+      Math.random().toString(36).substring(2, 7);
 
-    // Atomically create user and organization
-    const result = await db.transaction(async (tx) => {
-      // 1. Insert User
-      const [newUser] = await tx
-        .insert(users)
-        .values({
-          fullName: fullName.trim(),
-          email: cleanEmail,
-          passwordHash,
-          phone: phone ? String(phone).trim() : null,
-          isActive: true,
-        })
-        .returning({
-          id: users.id,
-          email: users.email,
-          fullName: users.fullName,
-        });
+    // Build the OTP and the pending-signup payload
+    const otpCode = crypto.randomInt(100000, 999999).toString();
+    const pendingPayload = Buffer.from(
+      JSON.stringify({
+        fullName: fullName.trim(),
+        email: cleanEmail,
+        passwordHash,
+        phone: phone ? String(phone).trim() : null,
+        propertyName: propertyName.trim(),
+        propertyCategory: propertyCategory || 'boutique_hotel',
+        orgSlug,
+      })
+    ).toString('base64');
 
-      // 2. Insert Organization
-      const [newOrg] = await tx
-        .insert(organizations)
-        .values({
-          name: propertyName.trim(),
-          slug: orgSlug,
-        })
-        .returning({
-          id: organizations.id,
-          name: organizations.name,
-          slug: organizations.slug,
-        });
+    // Store as "<otpCode>|<base64payload>" in the token column
+    const tokenValue = `${otpCode}|${pendingPayload}`;
 
-      // 3. Insert Organization Member (Owner)
-      await tx.insert(organizationMembers).values({
-        organizationId: newOrg.id,
-        userId: newUser.id,
-        role: 'owner',
-      });
-
-      return {
-        user: newUser,
-        organization: newOrg,
-      };
+    // Clear any stale tokens for this email and insert the new one
+    await db.delete(verificationTokens).where(eq(verificationTokens.identifier, cleanEmail));
+    await db.insert(verificationTokens).values({
+      identifier: cleanEmail,
+      token: tokenValue,
+      expires: new Date(Date.now() + 15 * 60 * 1000), // 15 min
     });
 
-    // Generate 6-digit OTP code and save verification token
-    const otpCode = crypto.randomInt(100000, 999999).toString();
+    // Send OTP verification email
     try {
-      await db.delete(verificationTokens).where(eq(verificationTokens.identifier, cleanEmail));
-      await db.insert(verificationTokens).values({
-        identifier: cleanEmail,
-        token: otpCode,
-        expires: new Date(Date.now() + 10 * 60 * 1000),
-      });
-
-      // Dispatch OTP verification email via Resend
       await sendSenaEmail(
         'account.verify_email',
         {
-          userName: result.user.fullName,
+          userName: fullName.trim(),
           otpCode,
-          expiresInMinutes: 10,
+          expiresInMinutes: 15,
         },
         {
-          to: result.user.email,
+          to: cleanEmail,
           idempotencyKey: `otp_${cleanEmail}_${Date.now()}`,
-        }
-      );
-    } catch (otpErr) {
-      console.warn('[REGISTRATION OTP EMAIL ERROR]', otpErr);
-    }
-
-    // Dispatch welcome email asynchronously (non-blocking)
-    try {
-      await sendSenaEmail(
-        'account.welcome',
-        {
-          userName: result.user.fullName,
-          organizationName: result.organization.name,
-          propertyName: propertyName.trim(),
-        },
-        {
-          to: result.user.email,
-          organizationId: result.organization.id,
-          idempotencyKey: `welcome_${result.user.id}`,
+          skipPreferencesCheck: true,
         }
       );
     } catch (emailErr) {
-      console.warn('[WELCOME EMAIL ERROR]', emailErr);
+      console.warn('[REGISTRATION OTP EMAIL ERROR]', emailErr);
     }
 
     return NextResponse.json({
       success: true,
-      message: 'Account created successfully in PostgreSQL.',
-      data: result,
+      message: 'Verification code sent. Complete signup by entering the code.',
+      requiresVerification: true,
     });
   } catch (error: any) {
     console.error('Registration error:', error);

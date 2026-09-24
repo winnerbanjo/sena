@@ -13,6 +13,12 @@ export async function POST(req: NextRequest) {
     }
 
     const cleanEmail = email.trim().toLowerCase();
+    // In dev without a Resend key, replace example.com with a Resend‑allowed test address
+    const safeEmail = process.env.RESEND_API_KEY
+      ? cleanEmail
+      : cleanEmail.endsWith('@example.com')
+        ? 'test@resend.dev'
+        : cleanEmail;
 
     // Generate cryptographic 6-digit numeric OTP
     const otpCode = crypto.randomInt(100000, 999999).toString();
@@ -41,7 +47,7 @@ export async function POST(req: NextRequest) {
           expiresInMinutes: 10,
         },
         {
-          to: cleanEmail,
+          to: safeEmail,
           idempotencyKey: `otp_${cleanEmail}_${Date.now()}`,
         }
       );

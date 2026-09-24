@@ -55,7 +55,7 @@ export default function BillingPage() {
   const currentPlan = subData?.subscription?.plan || 'growth';
   const isTrialing = subData?.isTrialing ?? true;
   const trialDaysLeft = subData?.trialDaysLeft ?? 3;
-  const roomCount = subData?.roomCount ?? 8;
+  const roomCount = subData?.roomCount ?? 0;
   const roomLimit = subData?.subscription?.roomLimit ?? 30;
 
   return (

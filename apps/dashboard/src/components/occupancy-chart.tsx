@@ -112,20 +112,85 @@ function formatShortNaira(minorUnits: number) {
   return `₦${(naira / 1000).toFixed(0)}k`;
 }
 
-export function OccupancyChart() {
+export function OccupancyChart({
+  reservations = [],
+  rooms = [],
+}: {
+  reservations?: any[];
+  rooms?: any[];
+}) {
   const [activeTab, setActiveTab] = React.useState<'occupancy' | 'revenue'>('occupancy');
-  const [selectedDay, setSelectedDay] = React.useState<DayData>(DAYS[2]); // Default Wednesday (today)
+
+  const days: DayData[] = React.useMemo(() => {
+    const result: DayData[] = [];
+    const today = new Date();
+    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const fullDayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+    for (let i = -3; i <= 3; i++) {
+      const d = new Date(today);
+      d.setDate(today.getDate() + i);
+      const iso = d.toISOString().split('T')[0];
+      const isToday = i === 0;
+
+      const overlapping = reservations.filter(
+        (r) => iso >= r.checkInDate && iso < r.checkOutDate && r.status !== 'cancelled'
+      );
+      const arrivalsOnDay = reservations.filter((r) => r.checkInDate === iso).length;
+      const departuresOnDay = reservations.filter((r) => r.checkOutDate === iso).length;
+      const dayRev = overlapping.reduce((sum, r) => sum + (r.paidAmountMinorUnits || 0), 0);
+      const totalR = rooms.length || 1;
+      const occ = rooms.length > 0 ? Math.min(100, Math.round((overlapping.length / totalR) * 100)) : 0;
+
+      result.push({
+        day: dayNames[d.getDay()],
+        dayName: fullDayNames[d.getDay()],
+        dateNum: String(d.getDate()),
+        fullDate: `${fullDayNames[d.getDay()]}, ${d.getDate()} ${d.toLocaleString('en-GB', { month: 'short' })}${isToday ? ' (Today)' : ''}`,
+        occupancy: occ,
+        roomsBooked: overlapping.length,
+        totalRooms: rooms.length,
+        revenueMinorUnits: dayRev,
+        arrivals: arrivalsOnDay,
+        departures: departuresOnDay,
+        isToday,
+      });
+    }
+    return result;
+  }, [reservations, rooms]);
+
+  const [selectedDay, setSelectedDay] = React.useState<DayData>(() => days.find((d) => d.isToday) || days[3] || days[0]);
   const [hoveredDay, setHoveredDay] = React.useState<DayData | null>(null);
   const [isLoaded, setIsLoaded] = React.useState(false);
 
   React.useEffect(() => {
-    // Trigger smooth bar grow animation on mount
+    const todayDay = days.find((d) => d.isToday);
+    if (todayDay) setSelectedDay(todayDay);
+  }, [days]);
+
+  React.useEffect(() => {
     const timer = setTimeout(() => setIsLoaded(true), 50);
     return () => clearTimeout(timer);
   }, []);
 
-  const maxRevenue = 90000000;
-  const currentInspectDay = hoveredDay || selectedDay;
+  if (rooms.length === 0 && reservations.length === 0) {
+    return (
+      <div className="bg-[#FAF7F2] rounded-xl border border-[#E8E1D5] p-8 sm:p-10 text-center space-y-3">
+        <span className="text-[11px] font-mono uppercase tracking-widest text-[#8C8275] block">
+          Occupancy &amp; Revenue Velocity
+        </span>
+        <h3 className="font-serif text-lg text-[#71382D]">
+          No reservation velocity to plot yet
+        </h3>
+        <p className="text-xs text-[#7A7267] max-w-md mx-auto leading-relaxed">
+          As guests book rooms via your direct website or walk in at the front desk, 7-day occupancy percentages and revenue yield trends will automatically generate here.
+        </p>
+      </div>
+    );
+  }
+
+  const maxRevenue = Math.max(1000000, ...days.map((d) => d.revenueMinorUnits));
+  const currentInspectDay = hoveredDay || selectedDay || days[0];
 
   return (
     <div className="bg-white border border-[#E8E2DA] rounded-lg p-6 space-y-6 shadow-xs">

@@ -31,10 +31,32 @@ export default function BookingPreviewPage() {
   const [activeTab, setActiveTab] = React.useState<'preview' | 'embed' | 'rules'>('preview');
   const [copiedUrl, setCopiedUrl] = React.useState(false);
   const [copiedSnippet, setCopiedSnippet] = React.useState(false);
+  const [propertyName, setPropertyName] = React.useState('Your Property');
+  const [propertySlug, setPropertySlug] = React.useState('your-property');
+
+  React.useEffect(() => {
+    try {
+      const stored = localStorage.getItem('sena_property_name');
+      const draftStr = localStorage.getItem('sena_onboarding_draft');
+      let name = stored || '';
+      if (!name && draftStr) {
+        const draft = JSON.parse(draftStr);
+        name = draft.propertyName || '';
+      }
+      if (name) {
+        setPropertyName(name);
+        setPropertySlug(name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''));
+      }
+    } catch {}
+  }, []);
 
   // Booking engine interactive preview state
-  const [checkIn, setCheckIn] = React.useState('2026-09-24');
-  const [checkOut, setCheckOut] = React.useState('2026-09-27');
+  const [checkIn, setCheckIn] = React.useState(() => new Date().toISOString().split('T')[0]);
+  const [checkOut, setCheckOut] = React.useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 3);
+    return d.toISOString().split('T')[0];
+  });
   const [guestsCount, setGuestsCount] = React.useState('2 Guests');
   const [selectedRoomId, setSelectedRoomId] = React.useState<string | null>(null);
 
@@ -45,14 +67,14 @@ export default function BookingPreviewPage() {
   const [directDiscountPercent, setDirectDiscountPercent] = React.useState('10');
 
   const copyUrl = () => {
-    navigator.clipboard?.writeText('https://book.sena.ng/stay-connect');
+    navigator.clipboard?.writeText(`https://book.sena.ng/${propertySlug}`);
     setCopiedUrl(true);
     setTimeout(() => setCopiedUrl(false), 2000);
   };
 
   const copyEmbedSnippet = () => {
     navigator.clipboard?.writeText(
-      '<iframe src="https://book.sena.ng/stay-connect?embed=true" width="100%" height="700px" frameborder="0" style="border:none;border-radius:12px;overflow:hidden;"></iframe>'
+      `<iframe src="https://book.sena.ng/${propertySlug}?embed=true" width="100%" height="700px" frameborder="0" style="border:none;border-radius:12px;overflow:hidden;"></iframe>`
     );
     setCopiedSnippet(true);
     setTimeout(() => setCopiedSnippet(false), 2000);
@@ -121,7 +143,7 @@ export default function BookingPreviewPage() {
                 rel="noopener noreferrer"
                 className="text-[#B85C3E] hover:underline font-mono font-medium"
               >
-                book.sena.ng/stay-connect
+                book.sena.ng/{propertySlug}
               </a>{' '}
               — Keep 100% of guest revenue without middleman fees.
             </p>
@@ -237,7 +259,7 @@ export default function BookingPreviewPage() {
               {/* Header bar */}
               <div className="bg-stone-900 text-white px-6 py-4 flex items-center justify-between border-b border-stone-800">
                 <div>
-                  <span className="text-sm font-serif tracking-wide block">Stay Connect Lekki</span>
+                  <span className="text-sm font-serif tracking-wide block">{propertyName}</span>
                   <span className="text-[10px] text-stone-400">Direct Reservation Guarantee</span>
                 </div>
                 <div className="flex items-center gap-2">

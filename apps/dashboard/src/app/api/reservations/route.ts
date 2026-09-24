@@ -149,7 +149,7 @@ export async function POST(req: NextRequest) {
           guestEmail: body.guest.email,
           guestName: body.guest.fullName,
           reference: reservation.reference,
-          propertyName: prop?.name || 'Stay Connect Lekki',
+          propertyName: prop?.name || 'Your Property',
           roomType: rt?.name || 'Selected Room',
           checkInDate: body.checkInDate,
           checkOutDate: body.checkOutDate,
