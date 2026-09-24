@@ -24,53 +24,7 @@ interface NotificationItem {
   href: string;
 }
 
-const INITIAL_NOTIFICATIONS: NotificationItem[] = [
-  {
-    id: 'notif-1',
-    title: 'Room 204 Ready',
-    description: 'Chioma marked Executive Room 204 clean and inspected.',
-    time: '2m ago',
-    unread: true,
-    type: 'housekeeping',
-    href: '/housekeeping',
-  },
-  {
-    id: 'notif-2',
-    title: 'New Direct Booking',
-    description: 'Ada James booked Executive Room 204 (3 nights, ₦360,000).',
-    time: '5m ago',
-    unread: true,
-    type: 'booking',
-    href: '/reservations',
-  },
-  {
-    id: 'notif-3',
-    title: 'Paystack Payment Confirmed',
-    description: '₦360,000 settled for reservation SEN-84K2JQ.',
-    time: '5m ago',
-    unread: true,
-    type: 'payment',
-    href: '/payments',
-  },
-  {
-    id: 'notif-4',
-    title: 'Expected Arrival',
-    description: 'Tobi Ade arriving today for Saffron Suite 301.',
-    time: '25m ago',
-    unread: false,
-    type: 'front_desk',
-    href: '/front-desk',
-  },
-  {
-    id: 'notif-5',
-    title: 'Maintenance Alert',
-    description: 'Room 302 placed in routine AC inspection.',
-    time: '1h ago',
-    unread: false,
-    type: 'housekeeping',
-    href: '/rooms',
-  },
-];
+const INITIAL_NOTIFICATIONS: NotificationItem[] = [];
 
 interface NotificationsPopoverProps {
   open: boolean;
@@ -156,37 +110,43 @@ export function NotificationsPopover({ open, onClose }: NotificationsPopoverProp
 
         {/* Notifications List */}
         <div className="divide-y divide-[#E8E2DA] max-h-[380px] overflow-y-auto">
-          {notifications.map((item) => (
-            <div
-              key={item.id}
-              onClick={() => handleClickItem(item)}
-              className={`p-3.5 flex items-start gap-3 hover:bg-[#FAFAFA] transition-colors cursor-pointer ${
-                item.unread ? 'bg-[#FDFBF9]' : 'bg-white'
-              }`}
-            >
-              <div className="p-1.5 rounded bg-white border border-[#E8E2DA] flex-shrink-0 mt-0.5">
-                {getIcon(item.type)}
-              </div>
-
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between gap-1">
-                  <h4 className="text-xs font-semibold text-[#191816] truncate">
-                    {item.title}
-                  </h4>
-                  <span className="text-[10px] text-[#7A7267] flex-shrink-0">
-                    {item.time}
-                  </span>
-                </div>
-                <p className="text-[11px] text-[#7A7267] line-clamp-2 mt-0.5">
-                  {item.description}
-                </p>
-              </div>
-
-              {item.unread && (
-                <span className="w-2 h-2 rounded-full bg-[#B85C3E] flex-shrink-0 mt-1.5 ring-2 ring-white" />
-              )}
+          {notifications.length === 0 ? (
+            <div className="p-8 text-center text-[#7A7267] text-xs">
+              No new notifications.
             </div>
-          ))}
+          ) : (
+            notifications.map((item) => (
+              <div
+                key={item.id}
+                onClick={() => handleClickItem(item)}
+                className={`p-3.5 flex items-start gap-3 hover:bg-[#FAFAFA] transition-colors cursor-pointer ${
+                  item.unread ? 'bg-[#FDFBF9]' : 'bg-white'
+                }`}
+              >
+                <div className="p-1.5 rounded bg-white border border-[#E8E2DA] flex-shrink-0 mt-0.5">
+                  {getIcon(item.type)}
+                </div>
+
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-1">
+                    <h4 className="text-xs font-semibold text-[#191816] truncate">
+                      {item.title}
+                    </h4>
+                    <span className="text-[10px] text-[#7A7267] flex-shrink-0">
+                      {item.time}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-[#7A7267] line-clamp-2 mt-0.5">
+                    {item.description}
+                  </p>
+                </div>
+
+                {item.unread && (
+                  <span className="w-2 h-2 rounded-full bg-[#B85C3E] flex-shrink-0 mt-1.5 ring-2 ring-white" />
+                )}
+              </div>
+            ))
+          )}
         </div>
 
         <div className="p-2.5 border-t border-[#E8E2DA] bg-[#FAFAFA] text-center">
