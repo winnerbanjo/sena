@@ -4,27 +4,24 @@ import * as React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { Button, Input, Label } from '@sena/ui';
 import {
   ArrowRight,
-  Banknote,
   Bed,
+  Building,
   Building2,
   Check,
-  CheckCircle2,
   ChevronRight,
   CreditCard,
   Edit2,
   Globe,
-  AtSign,
+  Home,
   Layers,
-  MapPin,
-  Phone,
   Plus,
   ShieldCheck,
   Trash2,
+  Palmtree,
+  Loader2,
 } from 'lucide-react';
-import type { RoomItem } from '../../components/mock-data';
 
 interface CountryOption {
   code: string;
@@ -45,845 +42,695 @@ const COUNTRIES: CountryOption[] = [
   { code: 'US', name: 'United States', flag: '🇺🇸', currency: 'USD', currencySymbol: '$', phoneCode: '+1' },
 ];
 
-const NIGERIAN_BANKS = [
-  'Guaranty Trust Bank (GTBank)',
-  'Zenith Bank',
-  'Access Bank',
-  'First Bank of Nigeria',
-  'United Bank for Africa (UBA)',
-  'Kuda Microfinance Bank',
-  'Moniepoint MFB',
-  'OPay',
-  'Stanbic IBTC Bank',
-  'Sterling Bank',
-  'Fidelity Bank',
-  'Wema Bank (ALAT)',
-  'Standard Chartered',
-  'Other Commercial Bank',
+const PROPERTY_TYPES = [
+  { id: 'hotel', label: 'Hotel', icon: Building2 },
+  { id: 'serviced_apartment', label: 'Serviced Apartment', icon: Home },
+  { id: 'guest_house', label: 'Guest House', icon: Building },
+  { id: 'resort', label: 'Resort / Villa', icon: Palmtree },
 ];
 
-const CountrySelector = React.memo(function CountrySelector({
-  selected,
-  onSelect,
-}: {
-  selected: CountryOption;
-  onSelect: (c: CountryOption) => void;
-}) {
-  return (
-    <div className="space-y-1.5">
-      <div className="relative">
-        <select
-          value={selected.code}
-          onChange={(e) => {
-            const found = COUNTRIES.find((c) => c.code === e.target.value);
-            if (found) onSelect(found);
-          }}
-          className="w-full h-11 px-3.5 pr-8 rounded-md border border-[#E8E2DA] bg-[#FAF9F7]/60 text-xs text-[#191816] font-medium focus:bg-white focus:outline-none focus:border-[#71382D] transition-all cursor-pointer appearance-none"
-        >
-          {COUNTRIES.map((c) => (
-            <option key={c.code} value={c.code}>
-              {c.flag}  {c.name} &middot; {c.currency} ({c.currencySymbol}) &middot; Dialing {c.phoneCode}
-            </option>
-          ))}
-        </select>
-        <div className="absolute right-3.5 top-3.5 pointer-events-none text-[#7A7267] text-[10px]">
-          ▼
-        </div>
-      </div>
-      <p className="text-[11px] text-[#7A7267]">
-        All reservations, guest booking transactions, and bank payouts will settle in {selected.currency} ({selected.currencySymbol}).
-      </p>
-    </div>
-  );
-});
+interface RoomCategoryDraft {
+  id: string;
+  name: string;
+  price: string;
+  quantity: string;
+  bedType: string;
+}
 
 export default function OnboardingPage() {
   const router = useRouter();
-  const [step, setStep] = React.useState(1);
+  const [step, setStep] = React.useState<1 | 2 | 3 | 4>(1);
 
-  // Step 1: Property Profile & Socials
-  const [selectedCountry, setSelectedCountry] = React.useState<CountryOption>(COUNTRIES[0]);
+  // Step 1: Property Info
   const [propName, setPropName] = React.useState('');
   const [propType, setPropType] = React.useState('hotel');
-  const [city, setCity] = React.useState('');
-  const [address, setAddress] = React.useState('');
-  const [whatsappPhone, setWhatsappPhone] = React.useState('');
+  const [country, setCountry] = React.useState<CountryOption>(COUNTRIES[0]);
+  const [phone, setPhone] = React.useState('');
   const [instagram, setInstagram] = React.useState('');
-  const [websiteUrl, setWebsiteUrl] = React.useState('');
 
-  // Step 2: Room Classes & Pricing (clean empty initial states)
-  const [roomTypeName, setRoomTypeName] = React.useState('');
-  const [bedType, setBedType] = React.useState('1 King Bed');
-  const [price, setPrice] = React.useState('');
-  const [numRooms, setNumRooms] = React.useState('');
-  const [floorNumber, setFloorNumber] = React.useState('1');
+  // Step 2: Room Categories List
+  const [categories, setCategories] = React.useState<RoomCategoryDraft[]>([
+    { id: '1', name: 'Standard Room', price: '40000', quantity: '4', bedType: '1 King Bed' },
+  ]);
+  const [editingCatId, setEditingCatId] = React.useState<string | null>(null);
 
-  // Step 3: Smart Room Numbering Generator
-  const [roomsList, setRoomsList] = React.useState<string[]>([]);
-  const [editingIndex, setEditingIndex] = React.useState<number | null>(null);
-  const [editingRoomVal, setEditingRoomVal] = React.useState('');
-  const [startNumber, setStartNumber] = React.useState('101');
+  // Category form modal / inline drawer state
+  const [catNameInput, setCatNameInput] = React.useState('');
+  const [catPriceInput, setCatPriceInput] = React.useState('');
+  const [catQtyInput, setCatQtyInput] = React.useState('');
+  const [catBedInput, setCatBedInput] = React.useState('1 King Bed');
+  const [showCatForm, setShowCatForm] = React.useState(false);
 
-  // Step 4: Direct Bank Transfer Details
-  const [bankName, setBankName] = React.useState(NIGERIAN_BANKS[0]);
-  const [accountNumber, setAccountNumber] = React.useState('');
+  // Step 3: Payment Bank Details
+  const [bankName, setBankName] = React.useState('');
   const [accountName, setAccountName] = React.useState('');
-  const [transferInstructions, setTransferInstructions] = React.useState(
-    'Please use your booking reference as payment narration and send transfer receipt via WhatsApp.'
+  const [accountNumber, setAccountNumber] = React.useState('');
+  const [paymentInstructions, setPaymentInstructions] = React.useState(
+    'Please use your reservation reference as the transfer description.'
   );
 
-  // Load from draft if available
+  // UI state
+  const [loading, setLoading] = React.useState(false);
+  const [loadingTextIndex, setLoadingTextIndex] = React.useState(0);
+  const [errors, setErrors] = React.useState<Record<string, string>>({});
+  const [completed, setCompleted] = React.useState(false);
+
+  // Draft recovery from localStorage
   React.useEffect(() => {
     try {
-      const draft = localStorage.getItem('sena_onboarding_draft');
-      if (draft) {
-        const parsed = JSON.parse(draft);
-        if (parsed.propName) {
-          setPropName(parsed.propName);
-          setAccountName((prev) => prev || `${parsed.propName.toUpperCase()} LTD`);
-          const cleanHandle = parsed.propName.toLowerCase().replace(/[^a-z0-9]/g, '');
-          if (cleanHandle) {
-            setInstagram((prev) => prev || `@${cleanHandle}`);
-          }
-        }
-        if (parsed.propType) setPropType(parsed.propType);
-        if (parsed.phone) setWhatsappPhone(parsed.phone);
+      const saved = localStorage.getItem('sena_onboarding_draft');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.propName) setPropName(parsed.propName);
+        if (parsed.phone) setPhone(parsed.phone);
+        if (parsed.instagram) setInstagram(parsed.instagram);
       }
-    } catch (e) {
-      console.error(e);
-    }
+    } catch {}
   }, []);
 
-  // Update only propName on change to keep typing instant & snappy
-  function handlePropNameChange(val: string) {
-    setPropName(val);
-  }
-
-  function handlePropNameBlur() {
-    if (propName.trim()) {
-      if (!accountName.trim()) {
-        setAccountName(`${propName.trim().toUpperCase()} LTD`);
-      }
-      if (!instagram.trim()) {
-        const cleanHandle = propName.toLowerCase().replace(/[^a-z0-9]/g, '');
-        if (cleanHandle) setInstagram(`@${cleanHandle}`);
-      }
-    }
-  }
-
-  // Regenerate rooms automatically when numRooms or startNumber changes
-  function generateRooms(count: number, startNumStr: string) {
-    const start = parseInt(startNumStr, 10) || 101;
-    const generated: string[] = [];
-    for (let i = 0; i < count; i++) {
-      generated.push(String(start + i));
-    }
-    setRoomsList(generated);
-  }
-
-  function handleNumRoomsChange(countStr: string) {
-    setNumRooms(countStr);
-    const count = parseInt(countStr, 10) || 1;
-    generateRooms(count, startNumber);
-  }
-
-  function handleStartNumberChange(startStr: string) {
-    setStartNumber(startStr);
-    const count = parseInt(numRooms, 10) || 1;
-    generateRooms(count, startStr);
-  }
-
-  function handleAddCustomRoom() {
-    const lastNum = roomsList[roomsList.length - 1];
-    const nextNum = lastNum && !isNaN(Number(lastNum)) ? String(Number(lastNum) + 1) : `10${roomsList.length + 1}`;
-    setRoomsList((prev) => [...prev, nextNum]);
-    setNumRooms(String(roomsList.length + 1));
-  }
-
-  function handleRemoveRoom(idx: number) {
-    setRoomsList((prev) => prev.filter((_, i) => i !== idx));
-    setNumRooms(String(Math.max(1, roomsList.length - 1)));
-  }
-
-  function saveEditedRoom(idx: number) {
-    if (editingRoomVal.trim()) {
-      setRoomsList((prev) => {
-        const copy = [...prev];
-        copy[idx] = editingRoomVal.trim();
-        return copy;
-      });
-    }
-    setEditingIndex(null);
-  }
-
-  const [saving, setSaving] = React.useState(false);
-  const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
-
-  // Final Launch & Save to PostgreSQL
-  async function handleComplete() {
-    setSaving(true);
-    setErrorMsg(null);
+  // Save progress locally as user types
+  React.useEffect(() => {
     try {
+      localStorage.setItem(
+        'sena_onboarding_draft',
+        JSON.stringify({ propName, phone, instagram, propType })
+      );
+    } catch {}
+  }, [propName, phone, instagram, propType]);
+
+  // Loading text animation
+  const loadingSubtexts = [
+    'Setting up your property...',
+    'Adding your rooms...',
+    'Saving your payment details...',
+    'Almost ready...',
+  ];
+
+  React.useEffect(() => {
+    if (loading) {
+      const interval = setInterval(() => {
+        setLoadingTextIndex((prev) => (prev + 1) % loadingSubtexts.length);
+      }, 1200);
+      return () => clearInterval(interval);
+    }
+  }, [loading]);
+
+  // Validation helpers
+  function validateStep1() {
+    const errs: Record<string, string> = {};
+    if (!propName.trim()) {
+      errs.propName = 'Please enter your property name.';
+    }
+    setErrors(errs);
+    return Object.keys(errs).length === 0;
+  }
+
+  function validateStep2() {
+    const errs: Record<string, string> = {};
+    if (categories.length === 0) {
+      errs.categories = 'Add at least one room category to continue.';
+    }
+    setErrors(errs);
+    return Object.keys(errs).length === 0;
+  }
+
+  // Room category handlers
+  function openAddCategoryModal() {
+    setEditingCatId(null);
+    setCatNameInput('');
+    setCatPriceInput('');
+    setCatQtyInput('4');
+    setCatBedInput('1 King Bed');
+    setShowCatForm(true);
+    setErrors({});
+  }
+
+  function openEditCategoryModal(cat: RoomCategoryDraft) {
+    setEditingCatId(cat.id);
+    setCatNameInput(cat.name);
+    setCatPriceInput(cat.price);
+    setCatQtyInput(cat.quantity);
+    setCatBedInput(cat.bedType);
+    setShowCatForm(true);
+    setErrors({});
+  }
+
+  function saveCategory() {
+    const errs: Record<string, string> = {};
+    if (!catNameInput.trim()) errs.catName = 'Enter a room category name.';
+    if (!catPriceInput.trim() || Number(catPriceInput) <= 0) errs.catPrice = 'Enter a nightly rate.';
+    if (!catQtyInput.trim() || Number(catQtyInput) <= 0) errs.catQty = 'Enter room quantity.';
+
+    if (Object.keys(errs).length > 0) {
+      setErrors(errs);
+      return;
+    }
+
+    if (editingCatId) {
+      setCategories((prev) =>
+        prev.map((c) =>
+          c.id === editingCatId
+            ? { ...c, name: catNameInput.trim(), price: catPriceInput.trim(), quantity: catQtyInput.trim(), bedType: catBedInput }
+            : c
+        )
+      );
+    } else {
+      setCategories((prev) => [
+        ...prev,
+        {
+          id: String(Date.now()),
+          name: catNameInput.trim(),
+          price: catPriceInput.trim(),
+          quantity: catQtyInput.trim(),
+          bedType: catBedInput,
+        },
+      ]);
+    }
+    setShowCatForm(false);
+    setErrors({});
+  }
+
+  function deleteCategory(id: string) {
+    setCategories((prev) => prev.filter((c) => c.id !== id));
+  }
+
+  // Final submission
+  async function handleFinish(skipBank = false) {
+    setLoading(true);
+    setErrors({});
+
+    try {
+      const payload = {
+        name: propName.trim(),
+        propertyType: propType,
+        country: country.name,
+        currency: country.currency,
+        phone: phone.trim(),
+        instagram: instagram.trim(),
+        roomCategories: categories.map((c) => ({
+          name: c.name,
+          priceMinorUnits: Number(c.price) * 100,
+          quantity: Number(c.quantity),
+          bedType: c.bedType,
+        })),
+        bankDetails: skipBank
+          ? null
+          : {
+              bankName: bankName.trim(),
+              accountName: accountName.trim(),
+              accountNumber: accountNumber.trim(),
+              instructions: paymentInstructions.trim(),
+            },
+      };
+
       const res = await fetch('/api/onboarding', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: propName,
-          propertyType: propType,
-          country: selectedCountry.name,
-          currency: selectedCountry.currency,
-          address: `${address}, ${city}`,
-          phone: whatsappPhone,
-          email: 'stay@sena.ng',
-          roomTypeName,
-          bedType,
-          priceMinorUnits: Number(price) * 100,
-          numRooms: Number(numRooms),
-          floorNumber,
-          roomsList,
-          bankDetails: {
-            bankName,
-            accountNumber,
-            accountName,
-            instructions: transferInstructions,
-          },
-        }),
+        body: JSON.stringify(payload),
       });
 
       if (!res.ok) {
         const errorData = await res.json();
-        throw new Error(errorData.error || 'Failed to complete onboarding');
+        throw new Error(errorData.error || 'We couldn’t finish setting up your property. Your details are preserved. Try again.');
       }
 
       localStorage.setItem('sena_onboarding_completed', 'true');
-      localStorage.setItem('sena_property_name', propName);
-      router.push('/onboarding/plans');
-    } catch (e: any) {
-      console.error('Failed to persist onboarding to PostgreSQL:', e);
-      setErrorMsg(e.message || 'An error occurred while saving.');
+      localStorage.setItem('sena_property_name', propName.trim());
+      setCompleted(true);
+    } catch (err: any) {
+      setErrors({ submit: err.message || 'We couldn’t finish setting up your property. Your details are safe. Try again.' });
     } finally {
-      setSaving(false);
+      setLoading(false);
     }
   }
 
+  // Completion view
+  if (completed) {
+    return (
+      <div className="min-h-screen bg-[#FAF7F2] text-[#191816] flex flex-col justify-between p-6 sm:p-12">
+        <header className="max-w-xl mx-auto w-full flex items-center justify-between pb-6 border-b border-[#E8E1D5]">
+          <Image src="/assets/sena-logo.png" alt="Sena" width={96} height={32} priority className="h-7 w-auto object-contain" />
+        </header>
+
+        <main className="max-w-xl mx-auto w-full py-12 text-center space-y-6">
+          <div className="w-16 h-16 rounded-full bg-[#FAF4EF] border border-[#E5D4BC] flex items-center justify-center mx-auto text-[#B85C3E]">
+            <Check className="w-8 h-8" />
+          </div>
+
+          <div className="space-y-2">
+            <h1 className="text-3xl font-serif font-normal text-[#71382D]">Your property is ready.</h1>
+            <p className="text-sm text-[#7A7267] max-w-md mx-auto leading-relaxed">
+              We’ve set up your rooms and property details. You can change anything later from your workspace.
+            </p>
+          </div>
+
+          <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-3">
+            <button
+              onClick={() => router.push('/onboarding/plans')}
+              className="w-full sm:w-auto px-8 h-12 rounded-md bg-[#B85C3E] hover:bg-[#A34E32] text-white text-xs font-semibold tracking-wide transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+            >
+              <span>Go to my dashboard &rarr;</span>
+            </button>
+          </div>
+        </main>
+
+        <footer className="text-center text-xs text-[#8C8275]">
+          &copy; 2026 Sena Hospitality Operating System
+        </footer>
+      </div>
+    );
+  }
+
+  // Loading View
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#FAF7F2] flex flex-col items-center justify-center p-6 text-center">
+        <div className="space-y-6 max-w-md">
+          <div className="relative w-12 h-12 mx-auto">
+            <Loader2 className="w-12 h-12 text-[#B85C3E] animate-spin" />
+          </div>
+          <div className="space-y-2">
+            <h2 className="text-2xl font-serif text-[#71382D]">Setting up your property</h2>
+            <p className="text-xs font-medium text-[#8C8275] transition-all duration-300">
+              {loadingSubtexts[loadingTextIndex]}
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-white flex flex-col justify-between p-4 sm:p-8 lg:p-12">
-      {/* Brand Header */}
-      <div className="max-w-2xl mx-auto w-full flex items-center justify-between pb-6 border-b border-[#E8E2DA]">
-        <Link href="/" className="flex items-center">
-          <Image
-            src="/assets/sena-logo.png"
-            alt="Sena"
-            width={110}
-            height={36}
-            priority
-            className="h-7 sm:h-8 w-auto object-contain"
-          />
+    <div className="min-h-screen bg-[#FAF7F2] text-[#191816] flex flex-col justify-between p-4 sm:p-8 lg:p-12">
+      {/* Header */}
+      <header className="max-w-2xl mx-auto w-full flex items-center justify-between pb-6 border-b border-[#E8E1D5]">
+        <Link href="/">
+          <Image src="/assets/sena-logo.png" alt="Sena" width={100} height={32} priority className="h-7 w-auto object-contain" />
         </Link>
+
         <div className="flex items-center gap-3">
-          <span className="text-[11px] font-mono text-[#7A7267]">
-            Step {step} of 5
-          </span>
+          <span className="text-[11px] font-mono text-[#8C8275]">Step {step} of 3</span>
           <div className="flex gap-1">
-            {[1, 2, 3, 4, 5].map((i) => (
+            {[1, 2, 3].map((i) => (
               <span
                 key={i}
                 className={`w-2 h-2 rounded-full transition-colors ${
-                  i <= step ? 'bg-[#B85C3E]' : 'bg-[#E8E2DA]'
+                  i <= step ? 'bg-[#B85C3E]' : 'bg-[#E8E1D5]'
                 }`}
               />
             ))}
           </div>
         </div>
-      </div>
+      </header>
 
-      {/* Main Wizard Form Card */}
-      <div className="max-w-2xl mx-auto w-full bg-white border border-[#E8E2DA] p-6 sm:p-10 rounded-lg my-8 space-y-6 shadow-sm">
-        {/* STEP 1: PROPERTY PROFILE, COUNTRY & SOCIALS */}
+      {/* Content Container */}
+      <main className="max-w-2xl mx-auto w-full py-8 sm:py-12">
+        {errors.submit && (
+          <div className="mb-6 p-4 rounded-md bg-[#FDF2F2] border border-[#F2B8B8] text-[#8A2424] text-xs leading-relaxed">
+            {errors.submit}
+          </div>
+        )}
+
+        {/* ── STEP 1: YOUR PROPERTY ────────────────────────────────────────── */}
         {step === 1 && (
-          <div className="space-y-5 animate-in fade-in duration-200">
-            <div>
-              <span className="text-[10px] font-mono uppercase tracking-widest text-[#B85C3E] block mb-1">
-                Step 1 · Identity & Socials
-              </span>
-              <h2 className="text-2xl sm:text-3xl font-serif text-[#191816]">
-                Tell us about your property
-              </h2>
-              <p className="text-xs text-[#7A7267] mt-1">
-                We'll configure your local currency, WhatsApp communication, and guest reservations.
-              </p>
+          <div className="bg-white border border-[#E8E1D5] rounded-xl p-6 sm:p-10 space-y-8 shadow-xs">
+            <div className="space-y-1.5">
+              <h1 className="text-2xl sm:text-3xl font-serif text-[#71382D]">Tell us about your property</h1>
+              <p className="text-xs text-[#7A7267]">We’ll use this to set up your workspace.</p>
             </div>
 
-            <div className="space-y-4 pt-1 text-xs">
-              {/* Country Selection */}
-              <div className="space-y-1.5">
-                <Label className="text-xs font-medium text-[#191816]">
-                  Operating Country & Currency <span className="text-[#B85C3E]">*</span>
-                </Label>
-                <CountrySelector
-                  selected={selectedCountry}
-                  onSelect={setSelectedCountry}
-                />
-              </div>
-
-              {/* Property Name & Type */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className="sm:col-span-2 space-y-1.5">
-                  <Label className="text-xs font-medium text-[#191816]">
-                    Property Name <span className="text-[#B85C3E]">*</span>
-                  </Label>
-                  <Input
-                    value={propName}
-                    onChange={(e) => handlePropNameChange(e.target.value)}
-                    onBlur={handlePropNameBlur}
-                    placeholder="e.g. The Still House"
-                    required
-                    className="h-10 text-xs"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-medium text-[#191816]">Property Type</Label>
-                  <select
-                    value={propType}
-                    onChange={(e) => setPropType(e.target.value)}
-                    className="flex h-10 w-full rounded border border-[#E8E2DA] bg-white px-3 text-xs text-[#191816] focus:outline-none focus:ring-1 focus:ring-[#B85C3E]"
-                  >
-                    <option value="hotel">Boutique Hotel</option>
-                    <option value="serviced_apartment">Serviced Apartment</option>
-                    <option value="resort">Resort & Spa</option>
-                    <option value="villa">Luxury Villa</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* City and Address */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-medium text-[#191816]">City / Area</Label>
-                  <div className="relative">
-                    <MapPin className="w-4 h-4 text-[#7A7267] absolute left-3 top-3" />
-                    <Input
-                      value={city}
-                      onChange={(e) => setCity(e.target.value)}
-                      placeholder="e.g. Victoria Island, Lagos"
-                      className="pl-9 h-10 text-xs"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-medium text-[#191816]">Physical Address</Label>
-                  <Input
-                    value={address}
-                    onChange={(e) => setAddress(e.target.value)}
-                    placeholder="Street name & building number"
-                    className="h-10 text-xs"
-                  />
-                </div>
-              </div>
-
-              {/* Socials & Guest WhatsApp */}
-              <div className="pt-2 border-t border-[#E8E2DA] space-y-3">
-                <span className="text-[10px] font-mono uppercase tracking-wider text-[#7A7267] block">
-                  Guest Contact & Social Media
-                </span>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-medium text-[#191816]">
-                      Front Desk WhatsApp <span className="text-[#B85C3E]">*</span>
-                    </Label>
-                    <div className="relative">
-                      <Phone className="w-4 h-4 text-[#2E6B4F] absolute left-3 top-3" />
-                      <Input
-                        value={whatsappPhone}
-                        onChange={(e) => setWhatsappPhone(e.target.value)}
-                        placeholder="+234 800 000 0000"
-                        className="pl-9 h-10 text-xs font-mono"
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-medium text-[#191816]">Instagram Handle</Label>
-                    <div className="relative">
-                      <AtSign className="w-4 h-4 text-[#B85C3E] absolute left-3 top-3" />
-                      <Input
-                        value={instagram}
-                        onChange={(e) => setInstagram(e.target.value)}
-                        placeholder="@yourproperty"
-                        className="pl-9 h-10 text-xs font-mono"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* STEP 2: ROOM CLASS & PRICING */}
-        {step === 2 && (
-          <div className="space-y-5 animate-in fade-in duration-200">
-            <div>
-              <span className="text-[10px] font-mono uppercase tracking-widest text-[#B85C3E] block mb-1">
-                Step 2 · Room Classes
-              </span>
-              <h2 className="text-2xl sm:text-3xl font-serif text-[#191816]">
-                Configure your primary room tier
-              </h2>
-              <p className="text-xs text-[#7A7267] mt-1">
-                Set up your primary room category, standard nightly rate, and bed setup. You can add more room tiers anytime.
-              </p>
-            </div>
-
-            <div className="space-y-4 pt-1 text-xs">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-medium text-[#191816]">
-                    Category Name <span className="text-[#B85C3E]">*</span>
-                  </Label>
-                  <Input
-                    value={roomTypeName}
-                    onChange={(e) => setRoomTypeName(e.target.value)}
-                    placeholder="e.g. Deluxe Room, Executive Suite"
-                    required
-                    className="h-10 text-xs"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-medium text-[#191816]">Bed Layout</Label>
-                  <select
-                    value={bedType}
-                    onChange={(e) => setBedType(e.target.value)}
-                    className="flex h-10 w-full rounded border border-[#E8E2DA] bg-white px-3 text-xs text-[#191816] focus:outline-none focus:ring-1 focus:ring-[#B85C3E]"
-                  >
-                    <option value="1 Queen Bed">1 Queen Bed</option>
-                    <option value="1 King Bed">1 King Bed</option>
-                    <option value="2 Queen Beds">2 Queen Beds (Double)</option>
-                    <option value="Studio Layout">Studio Layout</option>
-                    <option value="Penthouse Multi-Bed">Penthouse Master</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-medium text-[#191816]">
-                    Standard Nightly Rate ({selectedCountry.currencySymbol}) <span className="text-[#B85C3E]">*</span>
-                  </Label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-3 text-[#7A7267] font-serif font-bold text-xs">
-                      {selectedCountry.currencySymbol}
-                    </span>
-                    <Input
-                      type="number"
-                      value={price}
-                      onChange={(e) => setPrice(e.target.value)}
-                      placeholder="e.g. 75000"
-                      className="pl-8 h-10 text-xs font-mono font-medium"
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-medium text-[#191816]">
-                    Total Rooms in this Tier <span className="text-[#B85C3E]">*</span>
-                  </Label>
-                  <Input
-                    type="number"
-                    min="1"
-                    max="50"
-                    value={numRooms}
-                    onChange={(e) => handleNumRoomsChange(e.target.value)}
-                    placeholder="e.g. 4"
-                    className="h-10 text-xs font-mono"
-                    required
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-medium text-[#191816]">Located on Floor</Label>
-                  <select
-                    value={floorNumber}
-                    onChange={(e) => setFloorNumber(e.target.value)}
-                    className="flex h-10 w-full rounded border border-[#E8E2DA] bg-white px-3 text-xs text-[#191816] focus:outline-none focus:ring-1 focus:ring-[#B85C3E]"
-                  >
-                    <option value="1">Floor 1</option>
-                    <option value="2">Floor 2</option>
-                    <option value="3">Floor 3</option>
-                    <option value="4">Floor 4</option>
-                    <option value="G">Ground Floor</option>
-                    <option value="PH">Penthouse</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* STEP 3: DETAILED ROOM NUMBER GENERATOR */}
-        {step === 3 && (
-          <div className="space-y-5 animate-in fade-in duration-200">
-            <div>
-              <span className="text-[10px] font-mono uppercase tracking-widest text-[#B85C3E] block mb-1">
-                Step 3 · Smart Inventory Generator
-              </span>
-              <h2 className="text-2xl sm:text-3xl font-serif text-[#191816]">
-                Sena generated your room numbers
-              </h2>
-              <p className="text-xs text-[#7A7267] mt-1">
-                Review, rename, or customize your individual room numbers below. You can click any room tag to edit its number.
-              </p>
-            </div>
-
-            {/* Quick Generator Controls */}
-            <div className="p-3.5 bg-[#FAF9F7] rounded-md border border-[#E8E2DA] flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-              <div className="flex items-center gap-2">
-                <span className="text-[#7A7267]">Starting Room #:</span>
+            <div className="space-y-6">
+              {/* Property Name */}
+              <div>
+                <label className="block text-xs font-semibold text-[#191816] mb-1.5">
+                  Property Name <span className="text-[#B85C3E]">*</span>
+                </label>
                 <input
                   type="text"
-                  value={startNumber}
-                  onChange={(e) => handleStartNumberChange(e.target.value)}
-                  className="w-20 px-2 py-1 border border-[#E8E2DA] rounded bg-white text-xs font-mono font-bold text-center"
+                  placeholder="e.g. The Still House"
+                  value={propName}
+                  onChange={(e) => {
+                    setPropName(e.target.value);
+                    if (errors.propName) setErrors({});
+                  }}
+                  className={`w-full h-11 px-3.5 rounded-md border bg-[#FAF9F7]/60 text-xs text-[#191816] focus:bg-white focus:outline-none focus:border-[#71382D] transition-all ${
+                    errors.propName ? 'border-[#8A2424]' : 'border-[#E8E1D5]'
+                  }`}
                 />
+                {errors.propName && <p className="text-[11px] text-[#8A2424] mt-1">{errors.propName}</p>}
               </div>
 
-              <div className="flex items-center gap-2">
-                <span className="text-[#7A7267]">{roomsList.length} rooms generated</span>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="secondary"
-                  onClick={handleAddCustomRoom}
-                  className="text-xs h-7 px-2.5 flex items-center gap-1"
-                >
-                  <Plus className="w-3 h-3" />
-                  <span>Add Room</span>
-                </Button>
-              </div>
-            </div>
-
-            {/* Interactive Room Badges Grid */}
-            {roomsList.length === 0 ? (
-              <div className="p-8 text-center border border-dashed border-[#E8E2DA] rounded-lg bg-[#FAF9F7] space-y-2">
-                <p className="font-serif text-sm text-[#71382D]">No room numbers generated yet</p>
-                <p className="text-xs text-[#7A7267]">
-                  Click below to generate room numbers for your {numRooms || 'primary'} room tier.
-                </p>
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={() => generateRooms(parseInt(numRooms, 10) || 4, startNumber)}
-                  className="text-xs mt-1"
-                >
-                  Generate {parseInt(numRooms, 10) || 4} Rooms
-                </Button>
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 max-h-64 overflow-y-auto p-1">
-                {roomsList.map((roomNum, idx) => (
-                  <div
-                    key={idx}
-                    className="p-3 rounded border border-[#E8E2DA] bg-white hover:border-[#B85C3E]/60 transition-all flex flex-col justify-between space-y-2 group relative"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-mono uppercase text-[#7A7267]">
-                        Floor {floorNumber}
-                      </span>
+              {/* Property Type Cards */}
+              <div>
+                <label className="block text-xs font-semibold text-[#191816] mb-2">Property Style</label>
+                <div className="grid grid-cols-2 gap-3">
+                  {PROPERTY_TYPES.map((t) => {
+                    const Icon = t.icon;
+                    const selected = propType === t.id;
+                    return (
                       <button
+                        key={t.id}
                         type="button"
-                        onClick={() => handleRemoveRoom(idx)}
-                        title="Remove room"
-                        className="text-[#7A7267] hover:text-[#B85C3E] opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={() => setPropType(t.id)}
+                        className={`p-3.5 rounded-lg border text-left flex items-center gap-3 transition-all cursor-pointer ${
+                          selected
+                            ? 'bg-[#FAF4EF] border-[#B85C3E] text-[#71382D]'
+                            : 'bg-white border-[#E8E1D5] hover:border-[#D5CABA] text-[#191816]'
+                        }`}
                       >
-                        <Trash2 className="w-3 h-3" />
+                        <Icon className={`w-4 h-4 flex-shrink-0 ${selected ? 'text-[#B85C3E]' : 'text-[#8C8275]'}`} />
+                        <span className="text-xs font-medium">{t.label}</span>
                       </button>
-                    </div>
-
-                    {editingIndex === idx ? (
-                      <div className="flex items-center gap-1">
-                        <input
-                          type="text"
-                          autoFocus
-                          value={editingRoomVal}
-                          onChange={(e) => setEditingRoomVal(e.target.value)}
-                          onKeyDown={(e) => e.key === 'Enter' && saveEditedRoom(idx)}
-                          onBlur={() => saveEditedRoom(idx)}
-                          className="w-full text-sm font-serif font-bold text-[#191816] border-b border-[#B85C3E] focus:outline-none"
-                        />
-                      </div>
-                    ) : (
-                      <div
-                        onClick={() => {
-                          setEditingIndex(idx);
-                          setEditingRoomVal(roomNum);
-                        }}
-                        className="cursor-pointer flex items-center justify-between"
-                        title="Click to rename"
-                      >
-                        <strong className="text-base font-serif text-[#191816] group-hover:text-[#B85C3E] transition-colors">
-                          Room {roomNum}
-                        </strong>
-                        <Edit2 className="w-3 h-3 text-[#7A7267] opacity-0 group-hover:opacity-100 transition-opacity" />
-                      </div>
-                    )}
-
-                    <span className="text-[10px] text-[#7A7267] block truncate">
-                      {roomTypeName || 'Room'}
-                    </span>
-                  </div>
-                ))}
+                    );
+                  })}
+                </div>
               </div>
-            )}
-          </div>
-        )}
 
-        {/* STEP 4: DIRECT BANK TRANSFER DETAILS (NO PAYSTACK REQUIRED) */}
-        {step === 4 && (
-          <div className="space-y-5 animate-in fade-in duration-200">
-            <div>
-              <span className="text-[10px] font-mono uppercase tracking-widest text-[#B85C3E] block mb-1">
-                Step 4 · Direct Bank Transfers
-              </span>
-              <h2 className="text-2xl sm:text-3xl font-serif text-[#191816]">
-                Set up direct bank payouts
-              </h2>
-              <p className="text-xs text-[#7A7267] mt-1">
-                Receive guest payments directly into your property's bank account with zero platform commissions.
-              </p>
-            </div>
-
-            <div className="p-4 bg-[#FAF9F7] rounded-md border border-[#E8E2DA] flex items-center gap-3">
-              <Banknote className="w-5 h-5 text-[#2E6B4F] flex-shrink-0" />
-              <div className="text-xs">
-                <strong className="font-serif text-[#191816] block">
-                  Direct Bank Settlement
-                </strong>
-                <span className="text-[#7A7267]">
-                  Guests booking online will transfer directly to this official account and send proof to your front desk.
-                </span>
-              </div>
-            </div>
-
-            <div className="space-y-4 pt-1 text-xs">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-medium text-[#191816]">
-                    Settlement Bank <span className="text-[#B85C3E]">*</span>
-                  </Label>
+              {/* Country & Phone */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-[#191816] mb-1.5">Country &amp; Currency</label>
                   <select
-                    value={bankName}
-                    onChange={(e) => setBankName(e.target.value)}
-                    className="flex h-10 w-full rounded border border-[#E8E2DA] bg-white px-3 text-xs text-[#191816] focus:outline-none focus:ring-1 focus:ring-[#B85C3E]"
+                    value={country.code}
+                    onChange={(e) => {
+                      const found = COUNTRIES.find((c) => c.code === e.target.value);
+                      if (found) setCountry(found);
+                    }}
+                    className="w-full h-11 px-3.5 rounded-md border border-[#E8E1D5] bg-[#FAF9F7]/60 text-xs text-[#191816] focus:bg-white focus:outline-none focus:border-[#71382D] transition-all cursor-pointer"
                   >
-                    {NIGERIAN_BANKS.map((b) => (
-                      <option key={b} value={b}>
-                        {b}
+                    {COUNTRIES.map((c) => (
+                      <option key={c.code} value={c.code}>
+                        {c.flag} {c.name} ({c.currencySymbol} {c.currency})
                       </option>
                     ))}
                   </select>
                 </div>
 
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-medium text-[#191816]">
-                    10-digit Account Number <span className="text-[#B85C3E]">*</span>
-                  </Label>
-                  <div className="relative">
-                    <CreditCard className="w-4 h-4 text-[#7A7267] absolute left-3 top-3" />
-                    <Input
-                      value={accountNumber}
-                      onChange={(e) => setAccountNumber(e.target.value)}
-                      placeholder="0123456789"
-                      maxLength={10}
-                      className="pl-9 h-10 text-xs font-mono font-bold"
-                      required
-                    />
-                  </div>
+                <div>
+                  <label className="block text-xs font-semibold text-[#191816] mb-1.5">WhatsApp / Phone</label>
+                  <input
+                    type="tel"
+                    placeholder={`${country.phoneCode} 800 000 0000`}
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    className="w-full h-11 px-3.5 rounded-md border border-[#E8E1D5] bg-[#FAF9F7]/60 text-xs text-[#191816] focus:bg-white focus:outline-none focus:border-[#71382D] transition-all"
+                  />
                 </div>
               </div>
 
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <Label className="text-xs font-medium text-[#191816]">
-                    Account Name (Beneficiary) <span className="text-[#B85C3E]">*</span>
-                  </Label>
-                  {accountNumber.length === 10 && (
-                    <span className="text-[10px] font-mono text-[#2E6B4F] flex items-center gap-1 font-medium">
-                      <CheckCircle2 className="w-3 h-3" /> Payout Destination Set
-                    </span>
-                  )}
+              {/* Optional Instagram */}
+              <div>
+                <label className="block text-xs font-medium text-[#7A7267] mb-1.5">Instagram Handle (Optional)</label>
+                <input
+                  type="text"
+                  placeholder="@thestillhouse"
+                  value={instagram}
+                  onChange={(e) => setInstagram(e.target.value)}
+                  className="w-full h-11 px-3.5 rounded-md border border-[#E8E1D5] bg-[#FAF9F7]/60 text-xs text-[#191816] focus:bg-white focus:outline-none focus:border-[#71382D] transition-all"
+                />
+              </div>
+            </div>
+
+            <div className="pt-4 border-t border-[#F0ECE4] flex justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  if (validateStep1()) setStep(2);
+                }}
+                className="h-11 px-6 rounded-md bg-[#B85C3E] hover:bg-[#A34E32] text-white text-xs font-semibold transition-colors flex items-center gap-2 cursor-pointer shadow-xs"
+              >
+                <span>Continue &rarr;</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── STEP 2: YOUR ROOMS ───────────────────────────────────────────── */}
+        {step === 2 && (
+          <div className="bg-white border border-[#E8E1D5] rounded-xl p-6 sm:p-10 space-y-8 shadow-xs">
+            <div className="space-y-1.5">
+              <h1 className="text-2xl sm:text-3xl font-serif text-[#71382D]">Add your rooms</h1>
+              <p className="text-xs text-[#7A7267]">Start with your room types. You can edit individual rooms later.</p>
+            </div>
+
+            {errors.categories && (
+              <p className="text-xs text-[#8A2424] bg-[#FDF2F2] p-3 rounded-md border border-[#F2B8B8]">
+                {errors.categories}
+              </p>
+            )}
+
+            {/* List of Configured Categories */}
+            <div className="space-y-3">
+              {categories.map((cat) => (
+                <div
+                  key={cat.id}
+                  className="p-4 rounded-lg border border-[#E8E1D5] bg-[#FAF9F7]/50 flex items-center justify-between gap-4"
+                >
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-sm font-semibold text-[#191816]">{cat.name}</h3>
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#EAE3D9]/60 text-[#71382D]">
+                        {cat.quantity} {Number(cat.quantity) === 1 ? 'room' : 'rooms'}
+                      </span>
+                    </div>
+                    <p className="text-xs text-[#7A7267]">
+                      {country.currencySymbol}
+                      {Number(cat.price).toLocaleString()} / night &middot; {cat.bedType}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => openEditCategoryModal(cat)}
+                      className="p-2 text-[#7A7267] hover:text-[#71382D] rounded transition-colors"
+                      title="Edit"
+                    >
+                      <Edit2 className="w-3.5 h-3.5" />
+                    </button>
+                    {categories.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => deleteCategory(cat.id)}
+                        className="p-2 text-[#7A7267] hover:text-[#8A2424] rounded transition-colors"
+                        title="Delete"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
                 </div>
-                <Input
+              ))}
+            </div>
+
+            {/* Add Room Type Button */}
+            {!showCatForm && (
+              <button
+                type="button"
+                onClick={openAddCategoryModal}
+                className="w-full h-11 rounded-lg border border-dashed border-[#B85C3E]/60 text-[#B85C3E] hover:bg-[#FAF4EF] text-xs font-medium transition-colors flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Add another room type</span>
+              </button>
+            )}
+
+            {/* Modal / Inline Category Form */}
+            {showCatForm && (
+              <div className="p-5 rounded-lg border border-[#B85C3E]/40 bg-[#FAF4EF]/40 space-y-4">
+                <h4 className="text-xs font-semibold text-[#71382D] uppercase tracking-wider">
+                  {editingCatId ? 'Edit Room Type' : 'New Room Type'}
+                </h4>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-medium text-[#191816] mb-1">
+                      Room Type Name <span className="text-[#B85C3E]">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Executive Suite"
+                      value={catNameInput}
+                      onChange={(e) => setCatNameInput(e.target.value)}
+                      className="w-full h-10 px-3 rounded border border-[#E8E1D5] bg-white text-xs text-[#191816] focus:outline-none focus:border-[#71382D]"
+                    />
+                    {errors.catName && <p className="text-[10px] text-[#8A2424] mt-1">{errors.catName}</p>}
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-[#191816] mb-1">
+                      Nightly Price ({country.currencySymbol}) <span className="text-[#B85C3E]">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      placeholder="e.g. 75000"
+                      value={catPriceInput}
+                      onChange={(e) => setCatPriceInput(e.target.value)}
+                      className="w-full h-10 px-3 rounded border border-[#E8E1D5] bg-white text-xs text-[#191816] focus:outline-none focus:border-[#71382D]"
+                    />
+                    {errors.catPrice && <p className="text-[10px] text-[#8A2424] mt-1">{errors.catPrice}</p>}
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-[#191816] mb-1">
+                      Number of Rooms <span className="text-[#B85C3E]">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      placeholder="e.g. 4"
+                      value={catQtyInput}
+                      onChange={(e) => setCatQtyInput(e.target.value)}
+                      className="w-full h-10 px-3 rounded border border-[#E8E1D5] bg-white text-xs text-[#191816] focus:outline-none focus:border-[#71382D]"
+                    />
+                    {errors.catQty && <p className="text-[10px] text-[#8A2424] mt-1">{errors.catQty}</p>}
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-[#191816] mb-1">Bed Layout</label>
+                    <select
+                      value={catBedInput}
+                      onChange={(e) => setCatBedInput(e.target.value)}
+                      className="w-full h-10 px-3 rounded border border-[#E8E1D5] bg-white text-xs text-[#191816] focus:outline-none focus:border-[#71382D]"
+                    >
+                      <option value="1 King Bed">1 King Bed</option>
+                      <option value="2 Queen Beds">2 Queen Beds</option>
+                      <option value="1 Double Bed">1 Double Bed</option>
+                      <option value="Twin Beds">Twin Beds</option>
+                      <option value="Studio Layout">Studio Layout</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowCatForm(false)}
+                    className="px-4 h-9 text-xs text-[#7A7267] hover:text-[#191816]"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={saveCategory}
+                    className="px-4 h-9 rounded bg-[#71382D] hover:bg-[#5C2D24] text-white text-xs font-medium transition-colors"
+                  >
+                    Save Room Type
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <div className="pt-4 border-t border-[#F0ECE4] flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => setStep(1)}
+                className="text-xs text-[#7A7267] hover:text-[#191816]"
+              >
+                &larr; Back
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (validateStep2()) setStep(3);
+                }}
+                className="h-11 px-6 rounded-md bg-[#B85C3E] hover:bg-[#A34E32] text-white text-xs font-semibold transition-colors flex items-center gap-2 cursor-pointer shadow-xs"
+              >
+                <span>Continue &rarr;</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── STEP 3: GET PAID ─────────────────────────────────────────────── */}
+        {step === 3 && (
+          <div className="bg-white border border-[#E8E1D5] rounded-xl p-6 sm:p-10 space-y-8 shadow-xs">
+            <div className="space-y-1.5">
+              <h1 className="text-2xl sm:text-3xl font-serif text-[#71382D]">Where should guests pay you?</h1>
+              <p className="text-xs text-[#7A7267]">Add the bank account you want to show guests for direct transfers.</p>
+            </div>
+
+            <div className="space-y-5">
+              <div>
+                <label className="block text-xs font-semibold text-[#191816] mb-1.5">Bank Name</label>
+                <input
+                  type="text"
+                  placeholder="e.g. GTBank, Zenith Bank, Moniepoint"
+                  value={bankName}
+                  onChange={(e) => setBankName(e.target.value)}
+                  className="w-full h-11 px-3.5 rounded-md border border-[#E8E1D5] bg-[#FAF9F7]/60 text-xs text-[#191816] focus:bg-white focus:outline-none focus:border-[#71382D] transition-all"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-[#191816] mb-1.5">Account Name</label>
+                <input
+                  type="text"
+                  placeholder="e.g. The Still House Ltd"
                   value={accountName}
                   onChange={(e) => setAccountName(e.target.value)}
-                  placeholder={propName ? `${propName.toUpperCase()} LTD` : 'e.g. THE STILL HOUSE LTD'}
-                  className="h-10 text-xs font-mono uppercase"
-                  required
+                  className="w-full h-11 px-3.5 rounded-md border border-[#E8E1D5] bg-[#FAF9F7]/60 text-xs text-[#191816] focus:bg-white focus:outline-none focus:border-[#71382D] transition-all"
                 />
               </div>
 
-              <div className="space-y-1.5">
-                <Label className="text-xs font-medium text-[#191816]">
-                  Transfer Instructions for Guests
-                </Label>
-                <textarea
-                  rows={2}
-                  value={transferInstructions}
-                  onChange={(e) => setTransferInstructions(e.target.value)}
-                  className="w-full rounded border border-[#E8E2DA] bg-white p-2.5 text-xs text-[#191816] focus:outline-none focus:ring-1 focus:ring-[#B85C3E]"
+              <div>
+                <label className="block text-xs font-semibold text-[#191816] mb-1.5">Account Number</label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="0123456789"
+                  value={accountNumber}
+                  onChange={(e) => setAccountNumber(e.target.value)}
+                  className="w-full h-11 px-3.5 rounded-md border border-[#E8E1D5] bg-[#FAF9F7]/60 text-xs text-[#191816] focus:bg-white focus:outline-none focus:border-[#71382D] transition-all font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-[#7A7267] mb-1.5">Payment Instructions (Optional)</label>
+                <input
+                  type="text"
+                  placeholder="Please use your reservation reference as transfer description."
+                  value={paymentInstructions}
+                  onChange={(e) => setPaymentInstructions(e.target.value)}
+                  className="w-full h-11 px-3.5 rounded-md border border-[#E8E1D5] bg-[#FAF9F7]/60 text-xs text-[#191816] focus:bg-white focus:outline-none focus:border-[#71382D] transition-all"
                 />
               </div>
             </div>
-          </div>
-        )}
 
-        {/* STEP 5: REVIEW & GO LIVE */}
-        {step === 5 && (
-          <div className="space-y-5 animate-in fade-in duration-200">
-            <div>
-              <span className="text-[10px] font-mono uppercase tracking-widest text-[#B85C3E] block mb-1">
-                Step 5 · Ready for Launch
-              </span>
-              <h2 className="text-2xl sm:text-3xl font-serif text-[#191816]">
-                Review your property setup
-              </h2>
-              <p className="text-xs text-[#7A7267] mt-1">
-                Your direct guest booking engine, room inventory, and bank transfers are ready to operate.
-              </p>
-            </div>
-
-            {/* Launch Summary Card */}
-            <div className="bg-[#FAF9F7] rounded-md border border-[#E8E2DA] p-5 space-y-4 text-xs">
-              <div className="flex items-center justify-between border-b border-[#E8E2DA] pb-3">
-                <div className="flex items-center gap-2.5">
-                  <span className="text-2xl">{selectedCountry.flag}</span>
-                  <div>
-                    <h3 className="font-serif text-base font-normal text-[#191816]">
-                      {propName}
-                    </h3>
-                    <span className="text-[11px] text-[#7A7267] block">
-                      {city} · {selectedCountry.name}
-                    </span>
-                  </div>
-                </div>
-                <span className="px-2.5 py-1 rounded bg-[#EBF5ED] text-[#2E6B4F] font-medium border border-[#C6E4CC] text-[11px]">
-                  Setup Verified
-                </span>
-              </div>
-
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                <div className="p-3 bg-white rounded border border-[#E8E2DA]">
-                  <span className="text-[10px] uppercase text-[#7A7267] block">Inventory</span>
-                  <strong className="text-sm font-serif text-[#191816]">
-                    {roomsList.length} Rooms
-                  </strong>
-                  <span className="text-[10px] text-[#7A7267] block truncate">
-                    {roomTypeName}
-                  </span>
-                </div>
-
-                <div className="p-3 bg-white rounded border border-[#E8E2DA]">
-                  <span className="text-[10px] uppercase text-[#7A7267] block">Nightly Rate</span>
-                  <strong className="text-sm font-serif text-[#B85C3E]">
-                    {selectedCountry.currencySymbol}{Number(price).toLocaleString()}
-                  </strong>
-                  <span className="text-[10px] text-[#7A7267] block">{bedType}</span>
-                </div>
-
-                <div className="p-3 bg-white rounded border border-[#E8E2DA] sm:col-span-1 col-span-2">
-                  <span className="text-[10px] uppercase text-[#7A7267] block">Bank Transfers</span>
-                  <strong className="text-xs font-serif text-[#191816] block truncate">
-                    {bankName}
-                  </strong>
-                  <span className="text-[10px] text-[#7A7267] font-mono block">
-                    {accountNumber}
-                  </span>
-                </div>
-              </div>
-
-              {/* Guest Website info */}
-              <div className="p-3 bg-white rounded border border-[#E8E2DA] flex items-center justify-between text-xs">
-                <div className="flex items-center gap-2">
-                  <Globe className="w-4 h-4 text-[#B85C3E]" />
-                  <div>
-                    <span className="font-medium text-[#191816] block">
-                      Guest Booking Engine Website
-                    </span>
-                    <span className="text-[10px] text-[#7A7267] font-mono">
-                      https://book.sena.ng/{propName.toLowerCase().replace(/[^a-z0-9]/g, '')}
-                    </span>
-                  </div>
-                </div>
-                <span className="text-[10px] font-mono text-[#7A7267] bg-[#FAFAFA] px-2 py-0.5 rounded border border-[#E8E2DA]">
-                  Default Theme: Sena One
-                </span>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Wizard Navigation Controls */}
-        <div className="pt-6 border-t border-[#E8E2DA] flex items-center justify-between">
-          {step > 1 ? (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setStep((s) => s - 1)}
-              className="text-xs"
-            >
-              Back
-            </Button>
-          ) : (
-            <div />
-          )}
-
-          {step < 5 ? (
-            <Button
-              type="button"
-              size="sm"
-              onClick={() => {
-                if (step === 1) handlePropNameBlur();
-                if (step === 2) {
-                  const count = parseInt(numRooms, 10) || 4;
-                  if (roomsList.length === 0) {
-                    generateRooms(count, startNumber);
-                  }
-                }
-                setStep((s) => s + 1);
-              }}
-              className="text-xs flex items-center gap-1"
-            >
-              <span>Continue</span>
-              <ChevronRight className="w-3.5 h-3.5" />
-            </Button>
-          ) : (
-            <div className="flex flex-col items-end gap-1">
-              {errorMsg && <p className="text-[11px] text-red-600 font-medium">{errorMsg}</p>}
-              <Button
+            <div className="pt-4 border-t border-[#F0ECE4] flex items-center justify-between">
+              <button
                 type="button"
-                size="sm"
-                disabled={saving}
-                onClick={handleComplete}
-                className="text-xs flex items-center gap-1.5 bg-[#2E6B4F] hover:bg-[#255740] disabled:opacity-50"
+                onClick={() => setStep(2)}
+                className="text-xs text-[#7A7267] hover:text-[#191816]"
               >
-                <span>{saving ? 'Persisting to PostgreSQL...' : 'Launch Sena Operating System'}</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </Button>
+                &larr; Back
+              </button>
+
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => handleFinish(true)}
+                  className="text-xs text-[#7A7267] hover:text-[#191816] font-medium"
+                >
+                  Skip for now
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleFinish(false)}
+                  className="h-11 px-6 rounded-md bg-[#B85C3E] hover:bg-[#A34E32] text-white text-xs font-semibold transition-colors flex items-center gap-2 cursor-pointer shadow-xs"
+                >
+                  <span>Finish Setup &amp; Launch &rarr;</span>
+                </button>
+              </div>
             </div>
-          )}
-        </div>
-      </div>
+          </div>
+        )}
+      </main>
 
       {/* Footer */}
-      <div className="text-center text-xs text-[#7A7267]">
-        Sena Hospitality Operating System · Clean, efficient hotel onboarding
-      </div>
+      <footer className="max-w-2xl mx-auto w-full pt-6 border-t border-[#E8E1D5] text-center text-xs text-[#8C8275]">
+        &copy; 2026 Sena Operating System &middot; Your progress is saved.
+      </footer>
     </div>
   );
 }
