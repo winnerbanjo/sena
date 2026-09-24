@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { usePathname } from 'next/navigation';
 import { Sidebar } from './sidebar';
 import { CommandPalette } from './command-palette';
 import { NotificationsPopover } from './notifications-popover';
@@ -62,6 +63,15 @@ export function useDashboard() {
 }
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const isAuthOrOnboarding =
+    pathname === '/login' ||
+    pathname === '/signup' ||
+    pathname === '/onboarding' ||
+    pathname?.startsWith('/login') ||
+    pathname?.startsWith('/signup') ||
+    pathname?.startsWith('/onboarding');
+
   const [isOpen, setIsOpen] = React.useState(false);
   const [isSearchOpen, setIsSearchOpen] = React.useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = React.useState(false);
@@ -94,6 +104,10 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
+
+  if (isAuthOrOnboarding) {
+    return <main className="min-h-screen bg-white text-[#191816] w-full">{children}</main>;
+  }
 
   return (
     <DashboardContext.Provider

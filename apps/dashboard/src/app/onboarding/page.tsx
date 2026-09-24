@@ -3,10 +3,12 @@
 import * as React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import { Button, Input, Label } from '@sena/ui';
 import { ArrowRight, Check, ChevronRight, Globe, Layers, ShieldCheck } from 'lucide-react';
 
 export default function OnboardingPage() {
+  const router = useRouter();
   const [step, setStep] = React.useState(1);
 
   // Form State
@@ -21,6 +23,32 @@ export default function OnboardingPage() {
   const [numRooms, setNumRooms] = React.useState('12');
 
   const [selectedTheme, setSelectedTheme] = React.useState('sena_one');
+
+  // Load from draft if available
+  React.useEffect(() => {
+    try {
+      const draft = localStorage.getItem('sena_onboarding_draft');
+      if (draft) {
+        const parsed = JSON.parse(draft);
+        if (parsed.propName) setPropName(parsed.propName);
+        if (parsed.propType) setPropType(parsed.propType);
+        if (parsed.email) setEmail(parsed.email);
+        if (parsed.phone) setPhone(parsed.phone);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }, []);
+
+  function handleComplete() {
+    try {
+      localStorage.setItem('sena_onboarding_completed', 'true');
+      localStorage.setItem('sena_property_name', propName);
+    } catch (e) {
+      console.error(e);
+    }
+    router.push('/');
+  }
 
   return (
     <div className="min-h-screen bg-white flex flex-col justify-between p-6 sm:p-12">
@@ -278,11 +306,9 @@ export default function OnboardingPage() {
               Continue <ChevronRight className="w-3.5 h-3.5 ml-1" />
             </Button>
           ) : (
-            <Link href="/">
-              <Button size="sm">
-                Open Sena <ArrowRight className="w-3.5 h-3.5 ml-1" />
-              </Button>
-            </Link>
+            <Button size="sm" onClick={handleComplete}>
+              Open Sena Operating System <ArrowRight className="w-3.5 h-3.5 ml-1" />
+            </Button>
           )}
         </div>
       </div>

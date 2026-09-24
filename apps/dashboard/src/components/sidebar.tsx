@@ -21,6 +21,7 @@ import {
   Bell,
   HelpCircle,
   ChevronDown,
+  LogOut,
   X,
 } from 'lucide-react';
 import { useMobileNav } from './dashboard-shell';
@@ -72,6 +73,7 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { label: 'Staff', href: '/staff', icon: Users },
       { label: 'Settings', href: '/settings', icon: Settings },
+      { label: 'Setup Wizard', href: '/onboarding', icon: HelpCircle },
     ],
   },
 ];
@@ -171,20 +173,29 @@ function SidebarNavItems({ onNavigate }: { onNavigate?: () => void }) {
       </div>
 
       {/* User profile footer */}
-      <div className="p-4 border-t border-[#E8E2DA] bg-white mt-auto">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-[#E5D4BC] text-[#71382D] flex items-center justify-center font-medium text-xs">
+      <div className="p-3.5 border-t border-[#E8E2DA] bg-white mt-auto flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="w-8 h-8 rounded-full bg-[#E5D4BC] text-[#71382D] flex items-center justify-center font-medium text-xs flex-shrink-0">
             AO
           </div>
           <div className="truncate">
             <span className="block text-xs font-semibold text-[#191816] truncate">
               Amara Okafor
             </span>
-            <span className="block text-[10px] text-[#7A7267]">
-              Property manager
+            <span className="block text-[10px] text-[#7A7267] truncate">
+              Stay Connect Lekki
             </span>
           </div>
         </div>
+
+        <Link
+          href="/login"
+          onClick={onNavigate}
+          title="Sign out"
+          className="p-1.5 text-[#7A7267] hover:text-[#B85C3E] hover:bg-[#FAF9F7] rounded transition-colors flex-shrink-0"
+        >
+          <LogOut className="w-3.5 h-3.5" />
+        </Link>
       </div>
     </>
   );
