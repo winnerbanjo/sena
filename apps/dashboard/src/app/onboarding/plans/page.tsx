@@ -7,10 +7,31 @@ import { useRouter } from 'next/navigation';
 
 export default function OnboardingPlansPage() {
   const router = useRouter();
-  const [billingCycle, setBillingCycle] = React.useState<'monthly' | 'yearly'>('monthly');
+  const [billingCycle, setBillingCycle] = React.useState<'monthly' | 'quarterly' | 'biannual' | 'yearly'>('monthly');
   const [selectedPlan, setSelectedPlan] = React.useState<'essential' | 'growth' | 'pro'>('growth');
   const [isLoading, setIsLoading] = React.useState(false);
   const [propertyName, setPropertyName] = React.useState('Your Property');
+
+  const getPrice = (plan: 'essential' | 'growth' | 'pro', cycle: string) => {
+    const base = { essential: 25000, growth: 50000, pro: 100000 }[plan];
+    switch (cycle) {
+      case 'quarterly': return base * 3;
+      case 'biannual': return base * 6;
+      case 'yearly': return base * 10;
+      default: return base;
+    }
+  };
+
+  const getCycleSuffix = (cycle: string) => {
+    switch (cycle) {
+      case 'quarterly': return ' / quarter';
+      case 'biannual': return ' / 6 mos';
+      case 'yearly': return ' / year';
+      default: return ' / month';
+    }
+  };
+
+  const formatPrice = (price: number) => `₦${price.toLocaleString()}`;
 
   React.useEffect(() => {
     try {
@@ -48,6 +69,11 @@ export default function OnboardingPlansPage() {
     }
   }
 
+  function handleChoosePlan(plan: 'essential' | 'growth' | 'pro') {
+    // Redirect to Paystack (or mock Paystack URL for now)
+    window.location.href = `https://paystack.com/pay/sena-${plan}-${billingCycle}`;
+  }
+
   return (
     <div className="min-h-screen bg-[#FAF7F2] text-[#191816] flex flex-col justify-between p-6 sm:p-12">
       {/* Top Header */}
@@ -63,9 +89,19 @@ export default function OnboardingPlansPage() {
           />
         </Link>
 
-        <span className="text-xs font-mono text-[#8C8275] tracking-wider uppercase">
-          Step 5 of 5 &middot; Operating Tier
-        </span>
+        <div className="flex items-center gap-4">
+          <span className="text-xs font-mono text-[#8C8275] tracking-wider uppercase hidden sm:inline-block">
+            Step 5 of 5 &middot; Operating Tier
+          </span>
+          <button
+            type="button"
+            disabled={isLoading}
+            onClick={() => handleSelectTrial('growth')}
+            className="px-4 py-2 rounded-md bg-[#71382D] hover:bg-[#5A2C23] text-white text-xs font-medium transition-colors shadow-sm disabled:opacity-50"
+          >
+            Start Free Trial
+          </button>
+        </div>
       </header>
 
       {/* Main Paywall Stage: Editorial & Restrained */}
@@ -83,7 +119,7 @@ export default function OnboardingPlansPage() {
 
           {/* Billing Cycle Toggle */}
           <div className="pt-4 flex items-center justify-center gap-2">
-            <div className="inline-flex items-center bg-[#EAE3D9]/60 p-1 rounded-lg text-xs">
+            <div className="inline-flex items-center bg-[#EAE3D9]/60 p-1 rounded-lg text-xs flex-wrap justify-center gap-1">
               <button
                 type="button"
                 onClick={() => setBillingCycle('monthly')}
@@ -93,7 +129,29 @@ export default function OnboardingPlansPage() {
                     : 'text-[#7A7267] hover:text-[#191816]'
                 }`}
               >
-                Monthly billing
+                Monthly
+              </button>
+              <button
+                type="button"
+                onClick={() => setBillingCycle('quarterly')}
+                className={`px-4 py-1.5 rounded-md transition-all ${
+                  billingCycle === 'quarterly'
+                    ? 'bg-white text-[#191816] font-medium shadow-xs'
+                    : 'text-[#7A7267] hover:text-[#191816]'
+                }`}
+              >
+                Quarterly
+              </button>
+              <button
+                type="button"
+                onClick={() => setBillingCycle('biannual')}
+                className={`px-4 py-1.5 rounded-md transition-all flex items-center gap-1.5 ${
+                  billingCycle === 'biannual'
+                    ? 'bg-white text-[#191816] font-medium shadow-xs'
+                    : 'text-[#7A7267] hover:text-[#191816]'
+                }`}
+              >
+                <span>6 Months</span>
               </button>
               <button
                 type="button"
@@ -104,9 +162,9 @@ export default function OnboardingPlansPage() {
                     : 'text-[#7A7267] hover:text-[#191816]'
                 }`}
               >
-                <span>Annual billing</span>
+                <span>Annual</span>
                 <span className="text-[10px] bg-[#FAF4EF] text-[#B85C3E] px-1.5 py-0.2 rounded font-medium border border-[#E5D4BC]">
-                  2 months free
+                  2 mos free
                 </span>
               </button>
             </div>
@@ -132,9 +190,9 @@ export default function OnboardingPlansPage() {
 
               <div className="pt-2 border-t border-[#F0ECE4]">
                 <div className="text-2xl font-serif text-[#191816]">
-                  {billingCycle === 'monthly' ? '₦25,000' : '₦250,000'}
+                  {formatPrice(getPrice('essential', billingCycle))}
                   <span className="text-xs font-sans text-[#7A7267] font-normal">
-                    {billingCycle === 'monthly' ? ' / month' : ' / year'}
+                    {getCycleSuffix(billingCycle)}
                   </span>
                 </div>
                 <span className="text-[11px] text-[#2E6B4F] font-medium block mt-1">
@@ -164,11 +222,10 @@ export default function OnboardingPlansPage() {
 
             <button
               type="button"
-              disabled={isLoading}
-              onClick={() => handleSelectTrial('essential')}
+              onClick={() => handleChoosePlan('essential')}
               className="w-full h-11 rounded-md border border-[#E8E1D5] hover:bg-[#FAF7F2] text-xs font-medium text-[#191816] transition-colors disabled:opacity-50"
             >
-              Start 3-Day Free Trial
+              Choose Plan
             </button>
           </div>
 
@@ -193,9 +250,9 @@ export default function OnboardingPlansPage() {
 
               <div className="pt-2 border-t border-[#E8E1D5]">
                 <div className="text-3xl font-serif text-[#191816]">
-                  {billingCycle === 'monthly' ? '₦50,000' : '₦500,000'}
+                  {formatPrice(getPrice('growth', billingCycle))}
                   <span className="text-xs font-sans text-[#7A7267] font-normal">
-                    {billingCycle === 'monthly' ? ' / month' : ' / year'}
+                    {getCycleSuffix(billingCycle)}
                   </span>
                 </div>
                 <span className="text-[11px] text-[#2E6B4F] font-semibold block mt-1">
@@ -229,11 +286,10 @@ export default function OnboardingPlansPage() {
 
             <button
               type="button"
-              disabled={isLoading}
-              onClick={() => handleSelectTrial('growth')}
+              onClick={() => handleChoosePlan('growth')}
               className="w-full h-11 rounded-md bg-[#B85C3E] hover:bg-[#A34E32] text-white text-xs font-semibold tracking-wide transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
             >
-              {isLoading && selectedPlan === 'growth' ? 'Activating Trial...' : 'Start 3-Day Free Trial →'}
+              Choose Plan →
             </button>
           </div>
 
@@ -254,9 +310,9 @@ export default function OnboardingPlansPage() {
 
               <div className="pt-2 border-t border-[#F0ECE4]">
                 <div className="text-2xl font-serif text-[#191816]">
-                  {billingCycle === 'monthly' ? '₦100,000' : '₦1,000,000'}
+                  {formatPrice(getPrice('pro', billingCycle))}
                   <span className="text-xs font-sans text-[#7A7267] font-normal">
-                    {billingCycle === 'monthly' ? ' / month' : ' / year'}
+                    {getCycleSuffix(billingCycle)}
                   </span>
                 </div>
                 <span className="text-[11px] text-[#2E6B4F] font-medium block mt-1">
@@ -286,11 +342,10 @@ export default function OnboardingPlansPage() {
 
             <button
               type="button"
-              disabled={isLoading}
-              onClick={() => handleSelectTrial('pro')}
+              onClick={() => handleChoosePlan('pro')}
               className="w-full h-11 rounded-md border border-[#E8E1D5] hover:bg-[#FAF7F2] text-xs font-medium text-[#191816] transition-colors disabled:opacity-50"
             >
-              Start 3-Day Free Trial
+              Choose Plan
             </button>
           </div>
         </div>
