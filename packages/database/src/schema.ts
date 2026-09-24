@@ -61,7 +61,7 @@ export const verificationTokens = pgTable(
   'verification_tokens',
   {
     identifier: varchar('identifier', { length: 255 }).notNull(),
-    token: varchar('token', { length: 255 }).notNull(),
+    token: text('token').notNull(),
     expires: timestamp('expires', { withTimezone: true }).notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },
