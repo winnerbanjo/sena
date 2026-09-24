@@ -1,5 +1,5 @@
 import { db, properties, users, subscriptions, rooms, reservations } from '@sena/database';
-import { sql } from 'drizzle-orm';
+import { sql, count } from 'drizzle-orm';
 import { MetricCard } from '@sena/ui';
 import { CheckCircle2, Server } from 'lucide-react';
 import Link from 'next/link';
@@ -16,11 +16,11 @@ export default async function AdminOverviewPage() {
     resCount,
     mrrResult
   ] = await Promise.all([
-    db.select({ count: sql<number>`count(*)` }).from(properties),
-    db.select({ count: sql<number>`count(*)` }).from(users),
-    db.select({ count: sql<number>`count(*)` }).from(subscriptions).where(sql`${subscriptions.status} = 'active'`),
-    db.select({ count: sql<number>`count(*)` }).from(rooms),
-    db.select({ count: sql<number>`count(*)` }).from(reservations),
+    db.select({ count: count() as any }).from(properties),
+    db.select({ count: count() as any }).from(users),
+    db.select({ count: count() as any }).from(subscriptions).where(sql`${subscriptions.status} = 'active'`),
+    db.select({ count: count() as any }).from(rooms),
+    db.select({ count: count() as any }).from(reservations),
     db.select({ totalAmount: sql<number>`sum(amount_minor_units)` }).from(subscriptions).where(sql`${subscriptions.status} = 'active'`),
   ]);
 

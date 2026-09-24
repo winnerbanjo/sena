@@ -55,7 +55,7 @@ export default async function PropertiesPage() {
                   </TableCell>
                   <TableCell className="text-sm text-gray-600">{prop.orgName || 'N/A'}</TableCell>
                   <TableCell>
-                    <Badge variant="outline" className="capitalize">{prop.type}</Badge>
+                    <Badge variant="default" className="capitalize">{prop.type}</Badge>
                   </TableCell>
                   <TableCell className="text-sm text-gray-600 max-w-[200px] truncate">{prop.city}</TableCell>
                   <TableCell className="text-xs text-gray-500">

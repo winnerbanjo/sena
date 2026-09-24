@@ -51,7 +51,7 @@ export default async function SubscriptionsPage() {
                     <div className="text-[10px] text-gray-400 font-mono mt-0.5">{sub.id}</div>
                   </TableCell>
                   <TableCell>
-                    <Badge variant="outline" className="capitalize">{sub.plan}</Badge>
+                    <Badge variant="default" className="capitalize">{sub.plan}</Badge>
                   </TableCell>
                   <TableCell className="text-sm capitalize">{sub.billingCycle}</TableCell>
                   <TableCell className="text-sm font-medium">
@@ -60,7 +60,7 @@ export default async function SubscriptionsPage() {
                   <TableCell>
                     <Badge variant={
                       sub.status === 'active' ? 'clean' : 
-                      sub.status === 'trialing' ? 'pending' : 'outline'
+                      sub.status === 'trialing' ? 'pending' : 'default'
                     }>
                       {sub.status}
                     </Badge>

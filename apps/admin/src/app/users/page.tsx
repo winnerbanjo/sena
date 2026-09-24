@@ -47,7 +47,7 @@ export default async function UsersPage() {
                   <TableCell className="text-sm text-gray-600">{user.email}</TableCell>
                   <TableCell className="text-sm text-gray-600">{user.phone || '-'}</TableCell>
                   <TableCell>
-                    <Badge variant={user.isActive ? 'clean' : 'outline'}>
+                    <Badge variant={user.isActive ? 'clean' : 'default'}>
                       {user.isActive ? 'Active' : 'Inactive'}
                     </Badge>
                   </TableCell>

@@ -1,5 +1,5 @@
 import { db, properties, rooms, reservations } from '@sena/database';
-import { eq, sql } from 'drizzle-orm';
+import { eq, sql, count } from 'drizzle-orm';
 import { notFound } from 'next/navigation';
 import { MetricCard, Table, TableHeader, TableRow, TableHead, TableBody, TableCell, Badge } from '@sena/ui';
 import Link from 'next/link';
@@ -12,8 +12,8 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
   const [property] = await db.select().from(properties).where(eq(properties.id, id));
   if (!property) return notFound();
 
-  const [roomsCount] = await db.select({ count: sql<number>`count(*)` }).from(rooms).where(eq(rooms.propertyId, id));
-  const [resCount] = await db.select({ count: sql<number>`count(*)` }).from(reservations).where(eq(reservations.propertyId, id));
+  const [roomsCount] = await db.select({ count: count() as any }).from(rooms).where(eq(rooms.propertyId, id));
+  const [resCount] = await db.select({ count: count() as any }).from(reservations).where(eq(reservations.propertyId, id));
   
   const recentReservations = await db.select()
     .from(reservations)
@@ -31,7 +31,7 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
           <div>
             <h1 className="text-xl font-serif text-[#191816] flex items-center gap-3">
               {property.name}
-              <Badge variant="outline">{property.code}</Badge>
+              <Badge variant="default">{property.code}</Badge>
             </h1>
             <p className="text-sm text-gray-600 mt-1">{property.address}, {property.country}</p>
           </div>
@@ -63,7 +63,7 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
               {recentReservations.map((res) => (
                 <TableRow key={res.id}>
                   <TableCell className="font-mono text-xs">{res.reference}</TableCell>
-                  <TableCell><Badge variant="outline">{res.status}</Badge></TableCell>
+                  <TableCell><Badge variant="default">{res.status}</Badge></TableCell>
                   <TableCell className="text-sm">{res.checkInDate}</TableCell>
                   <TableCell className="text-sm">{res.checkOutDate}</TableCell>
                   <TableCell className="text-sm font-medium">
