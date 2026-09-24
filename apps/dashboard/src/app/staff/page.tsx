@@ -309,7 +309,8 @@ export default function StaffPage() {
                       </td>
                     </tr>
                   ) : (
-                    filteredStaff.map((member) => {
+                    <>
+                    {filteredStaff.map((member) => {
                     const initials = member.name
                       .split(' ')
                       .map((n) => n[0])
@@ -373,6 +374,8 @@ export default function StaffPage() {
                       </tr>
                     );
                   })}
+                    </>
+                  )}
                 </tbody>
               </table>
             </div>
