@@ -233,7 +233,25 @@ export default function SignupPage() {
                   className="mt-0.5 rounded border-[#E8E2DA] text-[#B85C3E] focus:ring-[#B85C3E]"
                 />
                 <span>
-                  I agree to Sena's Terms of Service and Privacy Policy. All customer data remains securely hosted and encrypted.
+                  I agree to Sena's{' '}
+                  <a
+                    href="https://sena.ng/terms/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[#B85C3E] underline hover:text-[#71382D] transition-colors"
+                  >
+                    Terms of Service
+                  </a>{' '}
+                  and{' '}
+                  <a
+                    href="https://sena.ng/privacy/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[#B85C3E] underline hover:text-[#71382D] transition-colors"
+                  >
+                    Privacy Policy
+                  </a>
+                  . All customer data remains securely hosted and encrypted.
                 </span>
               </label>
             </div>

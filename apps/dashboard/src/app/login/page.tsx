@@ -210,8 +210,8 @@ export default function LoginPage() {
         <span>© 2026 Sena Hospitality Technologies. All rights reserved.</span>
         <div className="flex items-center gap-4">
           <Link href="/onboarding" className="hover:text-[#191816]">Onboarding Wizard</Link>
-          <Link href="/" className="hover:text-[#191816]">Overview</Link>
-          <span>Privacy & Security</span>
+          <a href="https://sena.ng/privacy/" target="_blank" rel="noopener noreferrer" className="hover:text-[#191816]">Privacy Policy</a>
+          <a href="https://sena.ng/terms/" target="_blank" rel="noopener noreferrer" className="hover:text-[#191816]">Terms of Service</a>
         </div>
       </div>
     </div>
