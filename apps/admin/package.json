@@ -11,9 +11,10 @@
   },
   "dependencies": {
     "@sena/config": "workspace:*",
+    "@sena/database": "workspace:*",
     "@sena/types": "workspace:*",
     "@sena/ui": "workspace:*",
-    "@sena/database": "workspace:*",
+    "drizzle-orm": "^0.45.3",
     "lucide-react": "^1.16.0",
     "next": "^15.1.7",
     "react": "^19.0.0",
@@ -29,4 +30,3 @@
     "typescript": "^5.7.3"
   }
 }
-
