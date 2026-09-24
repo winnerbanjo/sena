@@ -12,7 +12,8 @@ export interface WelcomeEmailParams {
 export declare function renderWelcomeEmail(params: WelcomeEmailParams): EmailRenderResult;
 export interface VerifyEmailParams {
     userName: string;
-    verificationUrl: string;
+    verificationUrl?: string;
+    otpCode?: string;
     expiresInMinutes?: number;
 }
 export declare function renderVerifyEmail(params: VerifyEmailParams): EmailRenderResult;

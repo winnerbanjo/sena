@@ -113,7 +113,6 @@ async function runAudit() {
         email: testEmail,
         fullName: `GM Eko Reserve ${runId}`,
         passwordHash,
-        role: 'owner',
       })
       .returning();
 
@@ -126,14 +125,14 @@ async function runAudit() {
       .where(eq(users.id, user.id))
       .limit(1);
 
-    const isBcrypt = verifiedUser.passwordHash.startsWith('$2a$') || verifiedUser.passwordHash.startsWith('$2b$');
+    const isBcrypt = !!(verifiedUser?.passwordHash && (verifiedUser.passwordHash.startsWith('$2a$') || verifiedUser.passwordHash.startsWith('$2b$')));
     if (verifiedUser && isBcrypt && verifiedUser.passwordHash !== rawPassword) {
       recordResult(
         1,
         'User Registration & Password Hashing',
         'PASS',
         `Insert user record into PostgreSQL users table and verify bcrypt hash`,
-        `User ID: ${user.id}, Email: ${user.email}, Hash Prefix: ${verifiedUser.passwordHash.slice(0, 10)}... (Length: ${verifiedUser.passwordHash.length})`
+        `User ID: ${user.id}, Email: ${user.email}, Hash Prefix: ${verifiedUser.passwordHash?.slice(0, 10)}... (Length: ${verifiedUser.passwordHash?.length})`
       );
     } else {
       throw new Error('User hash verification failed');
@@ -147,8 +146,8 @@ async function runAudit() {
   // --------------------------------------------------------------------
   try {
     const [user] = await db.select().from(users).where(eq(users.id, createdUserId)).limit(1);
-    const validMatch = await bcrypt.compare(rawPassword, user.passwordHash);
-    const invalidMatch = await bcrypt.compare('InvalidPassword123!', user.passwordHash);
+    const validMatch = user?.passwordHash ? await bcrypt.compare(rawPassword, user.passwordHash) : false;
+    const invalidMatch = user?.passwordHash ? await bcrypt.compare('InvalidPassword123!', user.passwordHash) : false;
 
     if (validMatch && !invalidMatch) {
       recordResult(
@@ -424,9 +423,10 @@ async function runAudit() {
           fullName: 'Adaobi Okonkwo',
           email: `adaobi.${runId}@example.com`,
           phone: '+234 803 555 0192',
+          preferences: [],
         },
         holdId: createdHoldId,
-      },
+      } as any,
       { id: createdUserId, name: 'Reservation Engine' }
     );
 
@@ -851,7 +851,6 @@ async function runAudit() {
         email: user2Email,
         fullName: `GM Palms Calabar ${runId}`,
         passwordHash: await bcrypt.hash('SenaP@ss2!', 10),
-        role: 'owner',
       })
       .returning();
 

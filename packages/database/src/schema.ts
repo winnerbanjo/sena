@@ -19,6 +19,7 @@ export const users = pgTable('users', {
   passwordHash: varchar('password_hash', { length: 255 }),
   phone: varchar('phone', { length: 50 }),
   avatarUrl: text('avatar_url'),
+  emailVerified: timestamp('email_verified', { withTimezone: true }),
   isActive: boolean('is_active').default(true).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
@@ -54,6 +55,20 @@ export const sessions = pgTable('sessions', {
     .notNull(),
   expires: timestamp('expires', { withTimezone: true }).notNull(),
 });
+
+// 1c. Verification Tokens / Email OTP
+export const verificationTokens = pgTable(
+  'verification_tokens',
+  {
+    identifier: varchar('identifier', { length: 255 }).notNull(),
+    token: varchar('token', { length: 255 }).notNull(),
+    expires: timestamp('expires', { withTimezone: true }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex('verification_tokens_identifier_token_idx').on(t.identifier, t.token),
+  ]
+);
 
 // 2. Organizations (multi-property parent)
 export const organizations = pgTable('organizations', {

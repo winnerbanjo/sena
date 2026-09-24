@@ -62,18 +62,53 @@ const NIGERIAN_BANKS = [
   'Other Commercial Bank',
 ];
 
+const CountrySelector = React.memo(function CountrySelector({
+  selected,
+  onSelect,
+}: {
+  selected: CountryOption;
+  onSelect: (c: CountryOption) => void;
+}) {
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+      {COUNTRIES.map((c) => (
+        <button
+          key={c.code}
+          type="button"
+          onClick={() => onSelect(c)}
+          className={`p-2.5 rounded border text-left flex items-center gap-2 transition-all cursor-pointer ${
+            selected.code === c.code
+              ? 'border-[#B85C3E] bg-[#FAF9F7] ring-1 ring-[#B85C3E]'
+              : 'border-[#E8E2DA] bg-white hover:border-[#7A7267]'
+          }`}
+        >
+          <span className="text-lg">{c.flag}</span>
+          <div className="truncate">
+            <span className="font-medium text-[#191816] block truncate text-xs">
+              {c.name}
+            </span>
+            <span className="text-[10px] text-[#7A7267] font-mono">
+              {c.currencySymbol} {c.currency}
+            </span>
+          </div>
+        </button>
+      ))}
+    </div>
+  );
+});
+
 export default function OnboardingPage() {
   const router = useRouter();
   const [step, setStep] = React.useState(1);
 
   // Step 1: Property Profile & Socials
   const [selectedCountry, setSelectedCountry] = React.useState<CountryOption>(COUNTRIES[0]);
-  const [propName, setPropName] = React.useState('Stay Connect Lekki');
+  const [propName, setPropName] = React.useState('');
   const [propType, setPropType] = React.useState('hotel');
-  const [city, setCity] = React.useState('Lekki Phase 1, Lagos');
-  const [address, setAddress] = React.useState('14 Admiralty Way');
-  const [whatsappPhone, setWhatsappPhone] = React.useState('+234 802 345 6789');
-  const [instagram, setInstagram] = React.useState('@stayconnectlekki');
+  const [city, setCity] = React.useState('');
+  const [address, setAddress] = React.useState('');
+  const [whatsappPhone, setWhatsappPhone] = React.useState('');
+  const [instagram, setInstagram] = React.useState('');
   const [websiteUrl, setWebsiteUrl] = React.useState('');
 
   // Step 2: Room Classes & Pricing
@@ -93,8 +128,8 @@ export default function OnboardingPage() {
 
   // Step 4: Direct Bank Transfer Details
   const [bankName, setBankName] = React.useState(NIGERIAN_BANKS[0]);
-  const [accountNumber, setAccountNumber] = React.useState('0123456789');
-  const [accountName, setAccountName] = React.useState('STAY CONNECT LEKKI HOSPITALITY LTD');
+  const [accountNumber, setAccountNumber] = React.useState('');
+  const [accountName, setAccountName] = React.useState('');
   const [transferInstructions, setTransferInstructions] = React.useState(
     'Please use your booking reference as payment narration and send transfer receipt via WhatsApp.'
   );
@@ -107,7 +142,11 @@ export default function OnboardingPage() {
         const parsed = JSON.parse(draft);
         if (parsed.propName) {
           setPropName(parsed.propName);
-          setAccountName(`${parsed.propName.toUpperCase()} LTD`);
+          setAccountName((prev) => prev || `${parsed.propName.toUpperCase()} LTD`);
+          const cleanHandle = parsed.propName.toLowerCase().replace(/[^a-z0-9]/g, '');
+          if (cleanHandle) {
+            setInstagram((prev) => prev || `@${cleanHandle}`);
+          }
         }
         if (parsed.propType) setPropType(parsed.propType);
         if (parsed.phone) setWhatsappPhone(parsed.phone);
@@ -117,12 +156,21 @@ export default function OnboardingPage() {
     }
   }, []);
 
-  // Update account name automatically when property name changes if default
+  // Update only propName on change to keep typing instant & snappy
   function handlePropNameChange(val: string) {
     setPropName(val);
-    setAccountName(`${val.toUpperCase()} HOSPITALITY LTD`);
-    const cleanHandle = val.toLowerCase().replace(/[^a-z0-9]/g, '');
-    setInstagram(`@${cleanHandle}`);
+  }
+
+  function handlePropNameBlur() {
+    if (propName.trim()) {
+      if (!accountName.trim()) {
+        setAccountName(`${propName.trim().toUpperCase()} LTD`);
+      }
+      if (!instagram.trim()) {
+        const cleanHandle = propName.toLowerCase().replace(/[^a-z0-9]/g, '');
+        if (cleanHandle) setInstagram(`@${cleanHandle}`);
+      }
+    }
   }
 
   // Regenerate rooms automatically when numRooms or startNumber changes
@@ -274,30 +322,10 @@ export default function OnboardingPage() {
                 <Label className="text-xs font-medium text-[#191816]">
                   Operating Country & Currency <span className="text-[#B85C3E]">*</span>
                 </Label>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  {COUNTRIES.map((c) => (
-                    <button
-                      key={c.code}
-                      type="button"
-                      onClick={() => setSelectedCountry(c)}
-                      className={`p-2.5 rounded border text-left flex items-center gap-2 transition-all cursor-pointer ${
-                        selectedCountry.code === c.code
-                          ? 'border-[#B85C3E] bg-[#FAF9F7] ring-1 ring-[#B85C3E]'
-                          : 'border-[#E8E2DA] bg-white hover:border-[#7A7267]'
-                      }`}
-                    >
-                      <span className="text-lg">{c.flag}</span>
-                      <div className="truncate">
-                        <span className="font-medium text-[#191816] block truncate text-xs">
-                          {c.name}
-                        </span>
-                        <span className="text-[10px] text-[#7A7267] font-mono">
-                          {c.currencySymbol} {c.currency}
-                        </span>
-                      </div>
-                    </button>
-                  ))}
-                </div>
+                <CountrySelector
+                  selected={selectedCountry}
+                  onSelect={setSelectedCountry}
+                />
               </div>
 
               {/* Property Name & Type */}
@@ -309,6 +337,7 @@ export default function OnboardingPage() {
                   <Input
                     value={propName}
                     onChange={(e) => handlePropNameChange(e.target.value)}
+                    onBlur={handlePropNameBlur}
                     placeholder="e.g. The Still House"
                     required
                     className="h-10 text-xs"
@@ -799,7 +828,10 @@ export default function OnboardingPage() {
             <Button
               type="button"
               size="sm"
-              onClick={() => setStep((s) => s + 1)}
+              onClick={() => {
+                if (step === 1) handlePropNameBlur();
+                setStep((s) => s + 1);
+              }}
               className="text-xs flex items-center gap-1"
             >
               <span>Continue</span>

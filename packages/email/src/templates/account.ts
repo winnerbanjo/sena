@@ -77,36 +77,61 @@ export function renderWelcomeEmail(params: WelcomeEmailParams): EmailRenderResul
 // ----------------------------------------------------------------------
 export interface VerifyEmailParams {
   userName: string;
-  verificationUrl: string;
+  verificationUrl?: string;
+  otpCode?: string;
   expiresInMinutes?: number;
 }
 
 export function renderVerifyEmail(params: VerifyEmailParams): EmailRenderResult {
-  const expiresIn = params.expiresInMinutes || 30;
-  const subject = 'Verify your email address for Sena';
+  const expiresIn = params.expiresInMinutes || 10;
+  const subject = params.otpCode
+    ? `${params.otpCode} is your Sena verification code`
+    : 'Verify your email address for Sena';
+
+  const otpBox = params.otpCode
+    ? `
+      <div style="background-color: #FAF7F2; border: 1px solid #E8E1D5; border-radius: 8px; padding: 28px 24px; text-align: center; margin: 24px 0;">
+        <span style="font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace; font-size: 34px; letter-spacing: 8px; font-weight: 700; color: #71382D; display: inline-block;">
+          ${escapeHtml(params.otpCode)}
+        </span>
+        <div style="font-size: 11px; font-family: monospace; color: #8C8275; margin-top: 10px; text-transform: uppercase; letter-spacing: 1px;">
+          Valid for ${expiresIn} minutes · Single-use code
+        </div>
+      </div>
+    `
+    : '';
+
+  const buttonSection = params.verificationUrl
+    ? `
+      ${renderButton('Verify Email Address', params.verificationUrl)}
+      <div style="font-size: 12px; color: ${SENA_BRAND.colors.inkLight}; word-break: break-all; margin-top: 24px; padding-top: 16px; border-top: 1px solid #ECE7DE;">
+        Or copy and paste this URL into your browser:<br/>
+        <a href="${escapeHtml(params.verificationUrl)}" style="color: ${SENA_BRAND.colors.deepClay};">${escapeHtml(params.verificationUrl)}</a>
+      </div>
+    `
+    : '';
 
   const content = `
     ${renderHeading('Verify your email address', 'One final step to secure your Sena account.')}
     ${renderParagraph(`Hello ${escapeHtml(params.userName)},`)}
     ${renderParagraph(
-      'Please click the button below to confirm that this email belongs to you. This verification link expires in <strong>' +
-        expiresIn +
-        ' minutes</strong>.'
+      params.otpCode
+        ? `Please enter the 6-digit security code below in your Sena setup screen to verify that this work email belongs to you:`
+        : `Please click the button below to confirm that this email belongs to you. This verification link expires in <strong>${expiresIn} minutes</strong>.`
     )}
-    ${renderButton('Verify Email Address', params.verificationUrl)}
+    ${otpBox}
+    ${buttonSection}
     ${renderParagraph(
-      'If you did not create a Sena account, you can safely ignore this message.',
+      'If you did not request this verification code, please ignore this email. Your account remains completely secure.',
       true
     )}
-    <div style="font-size: 12px; color: ${SENA_BRAND.colors.inkLight}; word-break: break-all; margin-top: 24px; padding-top: 16px; border-top: 1px solid #ECE7DE;">
-      Or copy and paste this URL into your browser:<br/>
-      <a href="${escapeHtml(params.verificationUrl)}" style="color: ${SENA_BRAND.colors.deepClay};">${escapeHtml(params.verificationUrl)}</a>
-    </div>
   `;
 
   const html = renderSenaEmailLayout(content, {
     title: subject,
-    previewText: 'Verify your email address to activate your Sena account.',
+    previewText: params.otpCode
+      ? `Your Sena verification code is ${params.otpCode}. Valid for ${expiresIn} minutes.`
+      : 'Verify your email address to activate your Sena account.',
     headerType: 'platform',
     footerType: 'platform',
   });

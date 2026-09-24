@@ -251,6 +251,19 @@ export default function LoginPage() {
               >
                 {isLoading ? 'Signing in...' : 'Sign in to Property'}
               </button>
+
+              {/* Prominent Create Account Section */}
+              <div className="pt-4 border-t border-[#F0ECE4] text-center">
+                <p className="text-xs text-[#7A7267] mb-2.5">
+                  New hotelier or property manager?
+                </p>
+                <Link
+                  href="/signup"
+                  className="w-full h-11 rounded-md border border-[#E5D4BC] bg-[#FAF7F2] hover:bg-[#F4ECE1] text-[#71382D] hover:text-[#5E2B21] text-xs font-semibold tracking-wide transition-all flex items-center justify-center gap-1.5 shadow-sm"
+                >
+                  <span>Create Property Account (3-Day Free Trial) &rarr;</span>
+                </Link>
+              </div>
             </form>
 
             {/* Quick Demo Access - Restrained & Human */}

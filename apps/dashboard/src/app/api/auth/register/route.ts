@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { db, users, organizations, organizationMembers } from '@sena/database';
+import crypto from 'crypto';
+import { db, users, organizations, organizationMembers, verificationTokens } from '@sena/database';
 import { eq } from 'drizzle-orm';
 import bcrypt from 'bcryptjs';
 import { sendSenaEmail } from '@sena/email';
@@ -83,6 +84,33 @@ export async function POST(request: Request) {
         organization: newOrg,
       };
     });
+
+    // Generate 6-digit OTP code and save verification token
+    const otpCode = crypto.randomInt(100000, 999999).toString();
+    try {
+      await db.delete(verificationTokens).where(eq(verificationTokens.identifier, cleanEmail));
+      await db.insert(verificationTokens).values({
+        identifier: cleanEmail,
+        token: otpCode,
+        expires: new Date(Date.now() + 10 * 60 * 1000),
+      });
+
+      // Dispatch OTP verification email via Resend
+      await sendSenaEmail(
+        'account.verify_email',
+        {
+          userName: result.user.fullName,
+          otpCode,
+          expiresInMinutes: 10,
+        },
+        {
+          to: result.user.email,
+          idempotencyKey: `otp_${cleanEmail}_${Date.now()}`,
+        }
+      );
+    } catch (otpErr) {
+      console.warn('[REGISTRATION OTP EMAIL ERROR]', otpErr);
+    }
 
     // Dispatch welcome email asynchronously (non-blocking)
     try {
