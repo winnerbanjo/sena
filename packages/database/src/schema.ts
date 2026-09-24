@@ -424,3 +424,63 @@ export const emailPreferences = pgTable(
   ]
 );
 
+// 18. Subscriptions (SaaS Billing & 3-Day Free Trial)
+export const subscriptions = pgTable(
+  'subscriptions',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    organizationId: uuid('organization_id')
+      .references(() => organizations.id, { onDelete: 'cascade' })
+      .notNull(),
+    propertyId: uuid('property_id').references(() => properties.id, { onDelete: 'set null' }),
+    plan: varchar('plan', { length: 50 }).notNull().default('growth'), // 'essential' | 'growth' | 'pro'
+    billingCycle: varchar('billing_cycle', { length: 20 }).notNull().default('monthly'), // 'monthly' | 'yearly'
+    status: varchar('status', { length: 50 }).notNull().default('trialing'), // 'trialing' | 'active' | 'past_due' | 'canceled' | 'expired'
+    trialStartDate: timestamp('trial_start_date', { withTimezone: true }).defaultNow().notNull(),
+    trialEndDate: timestamp('trial_end_date', { withTimezone: true }).notNull(), // exactly 3 days after start
+    currentPeriodStart: timestamp('current_period_start', { withTimezone: true }).defaultNow().notNull(),
+    currentPeriodEnd: timestamp('current_period_end', { withTimezone: true }).notNull(),
+    paystackSubscriptionCode: varchar('paystack_subscription_code', { length: 255 }),
+    paystackCustomerCode: varchar('paystack_customer_code', { length: 255 }),
+    paystackPlanCode: varchar('paystack_plan_code', { length: 255 }),
+    cancelAtPeriodEnd: boolean('cancel_at_period_end').default(false).notNull(),
+    roomLimit: integer('room_limit').notNull().default(30),
+    amountMinorUnits: integer('amount_minor_units').notNull().default(5000000), // ₦50,000 in kobo
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex('sub_org_idx').on(t.organizationId),
+    index('sub_status_idx').on(t.status),
+  ]
+);
+
+// 19. Subscription Invoices
+export const subscriptionInvoices = pgTable(
+  'subscription_invoices',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    subscriptionId: uuid('subscription_id')
+      .references(() => subscriptions.id, { onDelete: 'cascade' })
+      .notNull(),
+    organizationId: uuid('organization_id')
+      .references(() => organizations.id, { onDelete: 'cascade' })
+      .notNull(),
+    invoiceNumber: varchar('invoice_number', { length: 100 }).notNull().unique(),
+    amountMinorUnits: integer('amount_minor_units').notNull(),
+    currency: varchar('currency', { length: 10 }).notNull().default('NGN'),
+    status: varchar('status', { length: 50 }).notNull().default('paid'), // 'paid' | 'pending' | 'failed'
+    plan: varchar('plan', { length: 50 }).notNull(),
+    billingPeriod: varchar('billing_period', { length: 100 }).notNull(),
+    paymentMethod: varchar('payment_method', { length: 100 }),
+    paidAt: timestamp('paid_at', { withTimezone: true }),
+    pdfUrl: text('pdf_url'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    index('sub_inv_org_idx').on(t.organizationId),
+    index('sub_inv_num_idx').on(t.invoiceNumber),
+  ]
+);
+
+

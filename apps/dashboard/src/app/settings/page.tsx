@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import Link from 'next/link';
 import { Topbar } from '../../components/topbar';
 import { NewReservationDialog } from '../../components/new-reservation-dialog';
 import { Badge, Button } from '@sena/ui';
@@ -393,6 +394,24 @@ export default function SettingsPage() {
           {/* Tab 5: Subscription & Paywall */}
           {activeTab === 'subscription' && (
             <div className="space-y-6">
+              <div className="p-4 rounded-lg bg-[#FAF0E4]/60 border border-[#E5D4BC] flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                <div>
+                  <strong className="text-sm font-serif text-[#191816] block">
+                    Dedicated Billing & Invoices Portal
+                  </strong>
+                  <span className="text-[#7A7267] text-xs">
+                    View active trial status, download PDF invoices, and manage payment methods.
+                  </span>
+                </div>
+                <Link
+                  href="/billing"
+                  className="px-3.5 py-1.5 rounded bg-[#B85C3E] text-white font-medium hover:bg-[#A04F34] transition-colors inline-flex items-center gap-1.5 self-start sm:self-auto"
+                >
+                  <span>Open Billing Portal</span>
+                  <span>→</span>
+                </Link>
+              </div>
+
               {/* Current Active Plan Card */}
               <div className="bg-[#FAF9F7] border border-[#E8E2DA] rounded-lg p-5 sm:p-6 space-y-4">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">

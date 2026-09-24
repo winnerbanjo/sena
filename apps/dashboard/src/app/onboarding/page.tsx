@@ -211,7 +211,7 @@ export default function OnboardingPage() {
 
       localStorage.setItem('sena_onboarding_completed', 'true');
       localStorage.setItem('sena_property_name', propName);
-      router.push('/');
+      router.push('/onboarding/plans');
     } catch (e: any) {
       console.error('Failed to persist onboarding to PostgreSQL:', e);
       setErrorMsg(e.message || 'An error occurred while saving.');

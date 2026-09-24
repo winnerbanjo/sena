@@ -4,8 +4,6 @@ import * as React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { Button, Input, Label } from '@sena/ui';
-import { ArrowRight, CheckCircle2, Eye, EyeOff, Lock, Mail, ShieldCheck } from 'lucide-react';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -36,7 +34,7 @@ export default function LoginPage() {
       });
 
       if (res?.error) {
-        setError('Invalid email or password. Please check your credentials.');
+        setError('The email or password does not match our records.');
         setIsLoading(false);
         return;
       }
@@ -59,7 +57,7 @@ export default function LoginPage() {
       router.push('/');
     } catch (err: any) {
       console.error('Login error:', err);
-      setError('Failed to authenticate. Please check your network and try again.');
+      setError('Unable to sign in at the moment. Please verify your connection.');
       setIsLoading(false);
     }
   }
@@ -79,7 +77,7 @@ export default function LoginPage() {
       });
 
       if (res?.error) {
-        setError('Demo sign-in failed. Please verify demo user configuration.');
+        setError('Demo sign-in failed. Please verify credentials.');
         setIsLoading(false);
         return;
       }
@@ -108,149 +106,181 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white flex flex-col justify-between p-4 sm:p-8 lg:p-12">
-      {/* Top Header */}
-      <div className="max-w-6xl mx-auto w-full flex items-center justify-between">
-        <Link href="/" className="flex items-center">
+    <div className="min-h-screen bg-[#FAF7F2] text-[#191816] flex flex-col justify-between">
+      {/* Top Bar */}
+      <header className="px-6 sm:px-12 pt-8 pb-4 flex items-center justify-between max-w-7xl mx-auto w-full">
+        <Link href="https://sena.ng" className="opacity-90 hover:opacity-100 transition-opacity">
           <Image
             src="/assets/sena-logo.png"
             alt="Sena"
-            width={110}
-            height={36}
+            width={96}
+            height={32}
             priority
-            className="h-7 sm:h-8 w-auto object-contain"
+            className="h-6 sm:h-7 w-auto object-contain"
           />
         </Link>
 
-        <div className="flex items-center gap-2 text-xs text-[#7A7267]">
-          <span>Don't have an account?</span>
+        <div className="flex items-center gap-3 text-xs text-[#7A7267]">
+          <span>New to Sena?</span>
           <Link
             href="/signup"
-            className="font-medium text-[#B85C3E] hover:underline"
+            className="text-[#71382D] hover:text-[#B85C3E] font-medium transition-colors"
           >
-            Sign up
+            Create property account &rarr;
           </Link>
         </div>
-      </div>
+      </header>
 
-      {/* Main Content Area */}
-      <div className="max-w-md mx-auto w-full my-8">
-        <div className="bg-white border border-[#E8E2DA] rounded-lg p-6 sm:p-8 shadow-sm space-y-6">
-          <div className="space-y-1">
-            <span className="text-[10px] font-mono uppercase tracking-widest text-[#B85C3E] block">
-              Hotelier Portal
-            </span>
-            <h1 className="text-2xl sm:text-3xl font-serif font-normal text-[#191816]">
-              Sign in to Sena
-            </h1>
-            <p className="text-xs text-[#7A7267]">
-              Manage reservations, rooms, payments, and guest arrivals.
-            </p>
+      {/* Main Content: Asymmetrical Human Composition */}
+      <main className="flex-1 flex items-center justify-center px-6 sm:px-12 py-10">
+        <div className="max-w-5xl w-full grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-center">
+          {/* Left: Atmospheric Hospitality Editorial */}
+          <div className="hidden lg:flex lg:col-span-5 flex-col justify-between space-y-8">
+            <div className="space-y-4">
+              <span className="text-[11px] font-mono tracking-widest text-[#B85C3E] uppercase">
+                Hotelier Console
+              </span>
+              <h2 className="text-3xl font-serif font-normal text-[#71382D] leading-tight">
+                A quiet morning starts with a quiet system.
+              </h2>
+              <p className="text-sm text-[#7A7267] leading-relaxed">
+                Log in to review today&apos;s expected arrivals, coordinate housekeeping rooms, and monitor live room occupancy across your property.
+              </p>
+            </div>
+
+            <div className="relative rounded-lg overflow-hidden border border-[#E8E1D5] shadow-sm aspect-[4/3] bg-[#EAE3D9]">
+              <Image
+                src="/assets/pool.jpg"
+                alt="Boutique hotel courtyard"
+                fill
+                className="object-cover"
+                sizes="(max-width: 1024px) 100vw, 400px"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent flex items-end p-4">
+                <span className="text-[11px] text-white/90 tracking-wide font-mono">
+                  Stay Connect Lekki · Lagos
+                </span>
+              </div>
+            </div>
+
+            <div className="pt-2 text-xs text-[#8C8275] border-t border-[#E8E1D5]">
+              <em>&ldquo;The mark of hospitality is when everything seems to happen without effort.&rdquo;</em>
+            </div>
           </div>
 
-          {error && (
-            <div className="p-3 rounded bg-[#FBEBE8] border border-[#F0BCB0] text-[#71382D] text-xs">
-              {error}
+          {/* Right: The Sign-in Ledger */}
+          <div className="lg:col-span-7 bg-white rounded-xl border border-[#E8E1D5] p-8 sm:p-10 shadow-[0_4px_24px_rgba(25,24,22,0.03)]">
+            <div className="mb-8">
+              <h1 className="text-2xl font-serif font-normal text-[#191816]">
+                Welcome back
+              </h1>
+              <p className="text-xs text-[#7A7267] mt-1.5">
+                Enter your work credentials to open your property workspace.
+              </p>
             </div>
-          )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium text-[#191816]">Work Email</Label>
-              <div className="relative">
-                <Mail className="w-4 h-4 text-[#7A7267] absolute left-3 top-2.5" />
-                <Input
+            {error && (
+              <div className="mb-6 p-3 rounded-md bg-[#FAF4EF] border border-[#E5D4BC] text-[#71382D] text-xs leading-relaxed">
+                {error}
+              </div>
+            )}
+
+            <form onSubmit={handleSubmit} className="space-y-5">
+              <div>
+                <label className="block text-xs font-medium text-[#191816] mb-1.5">
+                  Work Email
+                </label>
+                <input
                   type="email"
-                  placeholder="name@yourhotel.com"
+                  placeholder="amara@stayconnect.ng"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="pl-9 h-10 text-xs"
+                  className="w-full h-11 px-3.5 rounded-md border border-[#E8E1D5] bg-[#FAF7F2]/40 text-[#191816] text-sm focus:bg-white focus:outline-none focus:border-[#71382D] transition-all placeholder:text-[#A69E92]"
                   required
                 />
               </div>
-            </div>
 
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <Label className="text-xs font-medium text-[#191816]">Password</Label>
-                <button
-                  type="button"
-                  onClick={() => alert('Password reset link sent to your work email.')}
-                  className="text-[11px] text-[#7A7267] hover:text-[#B85C3E] hover:underline"
-                >
-                  Forgot password?
-                </button>
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-medium text-[#191816]">
+                    Password
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => alert('Password reset instructions have been forwarded to your email address.')}
+                    className="text-[11px] text-[#8C8275] hover:text-[#71382D] transition-colors"
+                  >
+                    Forgot password?
+                  </button>
+                </div>
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="••••••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full h-11 px-3.5 pr-11 rounded-md border border-[#E8E1D5] bg-[#FAF7F2]/40 text-[#191816] text-sm focus:bg-white focus:outline-none focus:border-[#71382D] transition-all placeholder:text-[#A69E92]"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-3 text-xs text-[#8C8275] hover:text-[#191816]"
+                  >
+                    {showPassword ? 'Hide' : 'Show'}
+                  </button>
+                </div>
               </div>
-              <div className="relative">
-                <Lock className="w-4 h-4 text-[#7A7267] absolute left-3 top-2.5" />
-                <Input
-                  type={showPassword ? 'text' : 'password'}
-                  placeholder="Enter your password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="pl-9 pr-9 h-10 text-xs"
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-2.5 text-[#7A7267] hover:text-[#191816]"
-                >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
+
+              <div className="flex items-center justify-between pt-1">
+                <label className="flex items-center gap-2 cursor-pointer text-xs text-[#7A7267]">
+                  <input
+                    type="checkbox"
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
+                    className="rounded border-[#E8E1D5] text-[#71382D] focus:ring-[#71382D]"
+                  />
+                  <span>Keep me signed in on this device</span>
+                </label>
               </div>
+
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="w-full h-11 rounded-md bg-[#B85C3E] hover:bg-[#A34E32] text-white text-xs font-semibold tracking-wide transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {isLoading ? 'Signing in...' : 'Sign in to Property'}
+              </button>
+            </form>
+
+            {/* Quick Demo Access - Restrained & Human */}
+            <div className="mt-8 pt-6 border-t border-[#F0ECE4] flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+              <span className="text-[#8C8275]">Reviewing as an evaluator?</span>
+              <button
+                type="button"
+                onClick={handleDemoLogin}
+                disabled={isLoading}
+                className="text-[#71382D] hover:text-[#B85C3E] font-medium underline underline-offset-4 decoration-[#E5D4BC] hover:decoration-[#B85C3E] transition-all"
+              >
+                Sign in with demo property &rarr;
+              </button>
             </div>
-
-            <div className="flex items-center justify-between pt-1">
-              <label className="flex items-center gap-2 cursor-pointer text-xs text-[#7A7267]">
-                <input
-                  type="checkbox"
-                  checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
-                  className="rounded border-[#E8E2DA] text-[#B85C3E] focus:ring-[#B85C3E]"
-                />
-                <span>Remember me for 30 days</span>
-              </label>
-            </div>
-
-            <Button
-              type="submit"
-              disabled={isLoading}
-              className="w-full h-10 text-xs font-medium flex items-center justify-center gap-1.5"
-            >
-              {isLoading ? 'Signing in...' : 'Sign in to Operating System'}
-              {!isLoading && <ArrowRight className="w-4 h-4" />}
-            </Button>
-          </form>
-
-          {/* Quick Demo Button */}
-          <div className="pt-4 border-t border-[#E8E2DA] space-y-2">
-            <span className="text-[10px] font-mono uppercase tracking-wider text-[#7A7267] block text-center">
-              Quick Preview Access
-            </span>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={handleDemoLogin}
-              disabled={isLoading}
-              className="w-full h-9 text-xs flex items-center justify-center gap-1.5 bg-[#FAF9F7] hover:bg-[#F2EFE9] border-[#E8E2DA]"
-            >
-              <ShieldCheck className="w-3.5 h-3.5 text-[#2E6B4F]" />
-              <span>Demo Login as Hotel General Manager</span>
-            </Button>
           </div>
         </div>
-      </div>
+      </main>
 
       {/* Footer */}
-      <div className="max-w-6xl mx-auto w-full pt-6 border-t border-[#E8E2DA] flex flex-col sm:flex-row items-center justify-between text-[11px] text-[#7A7267] gap-2">
-        <span>© 2026 Sena Hospitality Technologies. All rights reserved.</span>
-        <div className="flex items-center gap-4">
-          <Link href="/onboarding" className="hover:text-[#191816]">Onboarding Wizard</Link>
-          <a href="https://sena.ng/privacy/" target="_blank" rel="noopener noreferrer" className="hover:text-[#191816]">Privacy Policy</a>
-          <a href="https://sena.ng/terms/" target="_blank" rel="noopener noreferrer" className="hover:text-[#191816]">Terms of Service</a>
+      <footer className="px-6 sm:px-12 py-6 text-center text-xs text-[#8C8275] border-t border-[#EAE3D9]">
+        <div className="flex items-center justify-center gap-6">
+          <Link href="https://sena.ng" className="hover:text-[#191816] transition-colors">sena.ng</Link>
+          <span>&middot;</span>
+          <Link href="https://sena.ng/privacy" className="hover:text-[#191816] transition-colors">Privacy</Link>
+          <span>&middot;</span>
+          <Link href="https://sena.ng/terms" className="hover:text-[#191816] transition-colors">Terms of Service</Link>
+          <span>&middot;</span>
+          <span>&copy; 2026 Sena Operating System</span>
         </div>
-      </div>
+      </footer>
     </div>
   );
 }

@@ -288,36 +288,58 @@ export default function RoomsPage() {
 
         {/* TAB 1: ALL ROOMS */}
         {activeTab === 'rooms' && (
-          <div className="space-y-4">
-            {/* Filter Chips */}
-            <div className="flex items-center gap-2 text-xs overflow-x-auto whitespace-nowrap pb-1">
-              {[
-                { id: 'all', label: `All Rooms (${rooms.length})` },
-                { id: 'available', label: `Available (${rooms.filter((r) => r.operational === 'available').length})` },
-                { id: 'occupied', label: `Occupied (${rooms.filter((r) => r.operational === 'occupied').length})` },
-                { id: 'dirty', label: `Needs Cleaning (${rooms.filter((r) => r.housekeeping === 'dirty').length})` },
-                { id: 'maintenance', label: `Maintenance (${rooms.filter((r) => r.operational === 'maintenance').length})` },
-              ].map((f) => (
-                <button
-                  key={f.id}
-                  onClick={() => setFilter(f.id)}
-                  className={`px-3 py-1.5 rounded font-medium transition-colors flex-shrink-0 ${
-                    filter === f.id
-                      ? 'bg-[#71382D] text-white'
-                      : 'text-[#7A7267] bg-[#FAFAFA] border border-[#E8E2DA] hover:bg-white'
-                  }`}
-                >
-                  {f.label}
-                </button>
-              ))}
+          <div className="space-y-6">
+            {/* Editorial Inventory Status Bar */}
+            <div className="flex flex-wrap items-center gap-2 sm:gap-6 py-2.5 px-4 rounded-lg bg-[#FAF9F6] border border-[#E8E2DA] text-xs">
+              <span className="text-[10px] font-mono uppercase tracking-wider text-[#7A7267] hidden sm:inline">
+                Inventory Pulse:
+              </span>
+              <button
+                onClick={() => setFilter('all')}
+                className={`transition-colors ${filter === 'all' ? 'text-[#191816] font-semibold underline underline-offset-4 decoration-[#B85C3E]' : 'text-[#7A7267] hover:text-[#191816]'}`}
+              >
+                All ({rooms.length})
+              </button>
+              <span className="text-[#E8E2DA]">·</span>
+              <button
+                onClick={() => setFilter('available')}
+                className={`inline-flex items-center gap-1.5 transition-colors ${filter === 'available' ? 'text-[#191816] font-semibold underline underline-offset-4 decoration-[#2E6B4F]' : 'text-[#7A7267] hover:text-[#191816]'}`}
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-[#2E6B4F]" />
+                Ready ({rooms.filter((r) => r.operational === 'available').length})
+              </button>
+              <span className="text-[#E8E2DA]">·</span>
+              <button
+                onClick={() => setFilter('occupied')}
+                className={`inline-flex items-center gap-1.5 transition-colors ${filter === 'occupied' ? 'text-[#191816] font-semibold underline underline-offset-4 decoration-[#71382D]' : 'text-[#7A7267] hover:text-[#191816]'}`}
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-[#71382D]" />
+                Occupied ({rooms.filter((r) => r.operational === 'occupied').length})
+              </button>
+              <span className="text-[#E8E2DA]">·</span>
+              <button
+                onClick={() => setFilter('dirty')}
+                className={`inline-flex items-center gap-1.5 transition-colors ${filter === 'dirty' ? 'text-[#191816] font-semibold underline underline-offset-4 decoration-[#B85C3E]' : 'text-[#7A7267] hover:text-[#191816]'}`}
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-[#B85C3E]" />
+                Turnover ({rooms.filter((r) => r.housekeeping === 'dirty' || r.housekeeping === 'cleaning').length})
+              </button>
+              <span className="text-[#E8E2DA]">·</span>
+              <button
+                onClick={() => setFilter('maintenance')}
+                className={`inline-flex items-center gap-1.5 transition-colors ${filter === 'maintenance' ? 'text-[#191816] font-semibold underline underline-offset-4 decoration-[#7A7267]' : 'text-[#7A7267] hover:text-[#191816]'}`}
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-[#7A7267]" />
+                Service ({rooms.filter((r) => r.operational === 'maintenance').length})
+              </button>
             </div>
 
-            {/* Room Cards Grid */}
+            {/* Room Matrix Grouped by Floor */}
             {filteredRooms.length === 0 ? (
-              <div className="p-12 text-center border border-dashed border-[#E8E2DA] rounded-md bg-[#FAFAFA] space-y-3">
+              <div className="p-12 text-center border border-dashed border-[#E8E2DA] rounded-lg bg-[#FAF9F6] space-y-3">
                 <p className="text-sm font-serif text-[#191816]">No matching rooms found</p>
                 <p className="text-xs text-[#7A7267]">
-                  Try clearing your search or add a new room to this view.
+                  Try clearing your search or add a new room to this floor.
                 </p>
                 <Button
                   size="sm"
@@ -333,94 +355,109 @@ export default function RoomsPage() {
                 </Button>
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {filteredRooms.map((room) => (
-                  <div
-                    key={room.id}
-                    className="bg-white border border-[#E8E2DA] p-4 rounded-md space-y-3 hover:border-[#7A7267] transition-all group relative flex flex-col justify-between"
-                  >
-                    <div>
-                      <div className="flex items-center justify-between mb-1.5">
-                        <strong className="text-xl font-serif text-[#191816]">
-                          Room {room.number}
-                        </strong>
-                        <div className="flex items-center gap-1.5">
-                          <Badge
-                            variant={
-                              room.operational === 'occupied'
-                                ? 'occupied'
-                                : room.operational === 'maintenance'
-                                ? 'danger'
-                                : 'available'
-                            }
-                          >
-                            {room.operational}
-                          </Badge>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteRoom(room.id, room.number)}
-                            title="Delete room"
-                            className="p-1 text-[#7A7267] hover:text-[#B85C3E] rounded opacity-0 group-hover:opacity-100 transition-opacity"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+              <div className="space-y-8">
+                {Array.from(new Set(filteredRooms.map((r) => r.floor || 'Ground Floor'))).map((floorName) => {
+                  const floorRooms = filteredRooms.filter((r) => (r.floor || 'Ground Floor') === floorName);
+                  return (
+                    <div key={floorName} className="space-y-3">
+                      <div className="flex items-baseline justify-between border-b border-[#E8E2DA] pb-2">
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-serif text-base text-[#191816] font-normal">
+                            {floorName}
+                          </h3>
+                          <span className="text-[11px] font-mono text-[#7A7267]">
+                            · {floorRooms.length} {floorRooms.length === 1 ? 'room' : 'rooms'}
+                          </span>
                         </div>
-                      </div>
-
-                      <div className="space-y-0.5">
-                        <span className="text-xs font-medium text-[#191816] block">
-                          {room.type}
-                        </span>
-                        <span className="text-[11px] text-[#7A7267] block">
-                          {room.floor}
+                        <span className="text-[10px] uppercase font-mono text-[#7A7267]">
+                          {floorRooms.filter(r => r.operational === 'available').length} Available
                         </span>
                       </div>
-                    </div>
 
-                    <div className="space-y-2 pt-2 border-t border-[#E8E2DA]">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-[#7A7267]">Housekeeping:</span>
-                        <Badge
-                          variant={
-                            room.housekeeping === 'clean'
-                              ? 'clean'
-                              : room.housekeeping === 'cleaning'
-                              ? 'cleaning'
-                              : 'dirty'
-                          }
-                        >
-                          {room.housekeeping}
-                        </Badge>
-                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3.5">
+                        {floorRooms.map((room) => {
+                          const isOccupied = room.operational === 'occupied';
+                          const isDirty = room.housekeeping === 'dirty';
+                          const isCleaning = room.housekeeping === 'cleaning';
+                          const isMaintenance = room.operational === 'maintenance';
 
-                      {/* Cross-module contextual shortcuts */}
-                      <div className="pt-1 flex items-center justify-between text-[11px] font-mono">
-                        {room.housekeeping === 'dirty' ? (
-                          <Link
-                            href="/housekeeping"
-                            className="text-[#B85C3E] hover:underline flex items-center gap-1 font-sans"
-                          >
-                            Open Housekeeping Board →
-                          </Link>
-                        ) : room.operational === 'occupied' ? (
-                          <Link
-                            href={`/reservations?search=${room.number}`}
-                            className="text-[#71382D] hover:underline flex items-center gap-1 font-sans"
-                          >
-                            View Reservation →
-                          </Link>
-                        ) : (
-                          <Link
-                            href={`/front-desk`}
-                            className="text-[#7A7267] hover:text-[#191816] hover:underline flex items-center gap-1 font-sans"
-                          >
-                            Assign in Front Desk →
-                          </Link>
-                        )}
+                          return (
+                            <div
+                              key={room.id}
+                              className={`bg-white border rounded-lg p-4 transition-all hover:shadow-xs group relative flex flex-col justify-between space-y-3 ${
+                                isOccupied
+                                  ? 'border-[#E8E2DA] bg-[#FAF9F6]/50'
+                                  : isDirty
+                                  ? 'border-[#E5D4BC]'
+                                  : 'border-[#E8E2DA]'
+                              }`}
+                            >
+                              <div>
+                                <div className="flex items-center justify-between mb-1">
+                                  <div className="flex items-center gap-2">
+                                    <span
+                                      className={`w-2 h-2 rounded-full ${
+                                        isOccupied
+                                          ? 'bg-[#71382D]'
+                                          : isMaintenance
+                                          ? 'bg-[#7A7267]'
+                                          : isDirty
+                                          ? 'bg-[#B85C3E]'
+                                          : 'bg-[#2E6B4F]'
+                                      }`}
+                                    />
+                                    <strong className="text-base font-serif font-normal text-[#191816]">
+                                      Room {room.number}
+                                    </strong>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteRoom(room.id, room.number)}
+                                    title="Delete room"
+                                    className="p-1 text-[#7A7267] hover:text-[#B85C3E] rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                                <span className="text-xs text-[#7A7267] block">
+                                  {room.type}
+                                </span>
+                              </div>
+
+                              <div className="pt-2 border-t border-[#E8E2DA] flex items-center justify-between text-[11px]">
+                                <span className="font-mono text-[#7A7267]">
+                                  {isDirty ? 'Turnover' : isCleaning ? 'Cleaning' : isOccupied ? 'In-house' : 'Clean & Ready'}
+                                </span>
+                                {isDirty ? (
+                                  <Link
+                                    href="/housekeeping"
+                                    className="text-[#B85C3E] hover:underline font-medium"
+                                  >
+                                    Service →
+                                  </Link>
+                                ) : isOccupied ? (
+                                  <Link
+                                    href={`/reservations?search=${room.number}`}
+                                    className="text-[#71382D] hover:underline font-medium"
+                                  >
+                                    Folio →
+                                  </Link>
+                                ) : (
+                                  <Link
+                                    href="/front-desk"
+                                    className="text-[#7A7267] hover:text-[#191816] hover:underline"
+                                  >
+                                    Assign →
+                                  </Link>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

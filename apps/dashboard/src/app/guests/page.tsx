@@ -149,53 +149,74 @@ export default function GuestsPage() {
           </div>
         </div>
 
-        <div className="bg-white border border-[#E8E2DA] rounded-md overflow-x-auto">
-          <Table className="min-w-[650px]">
+        <div className="bg-white border border-[#E8E2DA] rounded-lg overflow-x-auto">
+          <Table className="min-w-[750px]">
             <TableHeader>
-              <TableRow>
-                <TableHead>Guest Name</TableHead>
-                <TableHead>Contact</TableHead>
-                <TableHead>Total Stays</TableHead>
-                <TableHead>Nights</TableHead>
-                <TableHead>Last Stay</TableHead>
-                <TableHead>Lifetime Value</TableHead>
+              <TableRow className="bg-[#FAF9F6] border-b border-[#E8E2DA]">
+                <TableHead className="font-serif font-normal text-[#7A7267] text-xs">Guest</TableHead>
+                <TableHead className="font-serif font-normal text-[#7A7267] text-xs">Contact</TableHead>
+                <TableHead className="font-serif font-normal text-[#7A7267] text-xs">History</TableHead>
+                <TableHead className="font-serif font-normal text-[#7A7267] text-xs">Preferences</TableHead>
+                <TableHead className="font-serif font-normal text-[#7A7267] text-xs text-right">Lifetime Folio</TableHead>
               </TableRow>
             </TableHeader>
-            <TableBody>
+            <TableBody className="divide-y divide-[#E8E2DA]">
               {filtered.map((guest) => (
                 <TableRow
                   key={guest.id}
                   onClick={() => setSelectedGuest(guest)}
-                  className="cursor-pointer"
+                  className="cursor-pointer hover:bg-[#FAF9F6]/60 transition-colors"
                 >
-                  <TableCell>
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-full bg-[#E5D4BC] text-[#71382D] flex items-center justify-center font-serif text-xs font-bold">
+                  <TableCell className="py-3.5">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-[#FAF0E4] text-[#71382D] flex items-center justify-center font-serif text-xs font-medium border border-[#E5D4BC]">
                         {guest.name
                           .split(' ')
                           .map((n) => n[0])
+                          .slice(0, 2)
                           .join('')}
                       </div>
                       <div>
-                        <strong className="text-sm font-serif text-[#191816] block">
+                        <strong className="text-sm font-serif font-normal text-[#191816] block">
                           {guest.name}
                         </strong>
-                        {guest.stays > 1 && (
+                        {guest.stays > 1 ? (
                           <span className="text-[10px] text-[#B85C3E] font-medium flex items-center gap-1">
-                            <Star className="w-3 h-3 fill-current" /> Returning guest
+                            <Star className="w-2.5 h-2.5 fill-current" /> Returning guest · {guest.stays} stays
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-[#7A7267]">
+                            First visit · 1 stay
                           </span>
                         )}
                       </div>
                     </div>
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="py-3.5">
                     <span className="block text-xs text-[#191816]">{guest.phone}</span>
                     <span className="block text-[11px] text-[#7A7267]">{guest.email}</span>
                   </TableCell>
-                  <TableCell className="text-xs font-medium">{guest.stays} stays</TableCell>
-                  <TableCell className="text-xs">{guest.nights} nights</TableCell>
-                  <TableCell className="text-xs text-[#7A7267]">{guest.lastStay}</TableCell>
-                  <TableCell className="font-serif font-medium text-sm text-[#191816]">
+                  <TableCell className="py-3.5">
+                    <span className="text-xs text-[#191816] block">{guest.nights} nights total</span>
+                    <span className="text-[10px] text-[#7A7267] block">Last: {guest.lastStay}</span>
+                  </TableCell>
+                  <TableCell className="py-3.5">
+                    <div className="flex items-center gap-1.5 flex-wrap max-w-xs">
+                      {guest.preferences && guest.preferences.length > 0 ? (
+                        guest.preferences.map((p, idx) => (
+                          <span
+                            key={idx}
+                            className="px-2 py-0.5 rounded text-[10px] bg-[#FAF9F6] border border-[#E8E2DA] text-[#7A7267]"
+                          >
+                            {p}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-[11px] text-[#7A7267] italic">—</span>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell className="py-3.5 text-right font-serif text-sm text-[#191816]">
                     {formatNaira(guest.lifetimeValueMinorUnits)}
                   </TableCell>
                 </TableRow>

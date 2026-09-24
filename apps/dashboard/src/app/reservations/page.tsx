@@ -3,9 +3,8 @@
 import * as React from 'react';
 import { useSearchParams } from 'next/navigation';
 import { formatNaira, formatStayDates } from '@sena/config';
-import { Badge, Button, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@sena/ui';
-import { Plus, Search } from 'lucide-react';
-import { INITIAL_RESERVATIONS, type ReservationItem } from '../../components/mock-data';
+import { Search } from 'lucide-react';
+import { type ReservationItem } from '../../components/mock-data';
 import { NewReservationDialog } from '../../components/new-reservation-dialog';
 import { ReservationDrawer } from '../../components/reservation-drawer';
 import { Topbar } from '../../components/topbar';
@@ -67,13 +66,11 @@ function ReservationsContent() {
   }, [urlSearch]);
 
   const filtered = reservations.filter((r) => {
-    // Tab filter
     if (activeTab === 'upcoming' && r.status !== 'confirmed') return false;
     if (activeTab === 'in_house' && r.status !== 'checked_in') return false;
     if (activeTab === 'completed' && r.status !== 'checked_out') return false;
     if (activeTab === 'cancelled' && r.status !== 'cancelled') return false;
 
-    // Search query
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       return (
@@ -86,129 +83,152 @@ function ReservationsContent() {
   });
 
   return (
-    <div className="flex-1 flex flex-col h-screen overflow-hidden bg-white">
+    <div className="flex-1 flex flex-col h-screen overflow-hidden bg-white text-[#191816]">
       <Topbar
         title="Reservations"
         onOpenNewReservation={() => setNewResOpen(true)}
       />
 
-      <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6 bg-white">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#E8E2DA] pb-4">
+      <main className="flex-1 overflow-y-auto p-6 sm:p-10 space-y-8 max-w-7xl w-full mx-auto">
+        {/* Editorial Ledger Header */}
+        <div className="border-b border-[#E8E1D5] pb-6 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
           <div>
-            <h2 className="text-xl sm:text-2xl font-serif font-normal text-[#191816]">
-              All Reservations
-            </h2>
+            <span className="text-[11px] font-mono tracking-widest uppercase text-[#8C8275] block mb-1">
+              Guest Ledger
+            </span>
+            <h1 className="text-2xl sm:text-3xl font-serif font-normal text-[#71382D]">
+              Master Reservations
+            </h1>
             <p className="text-xs text-[#7A7267] mt-1">
-              Manage every stay at Stay Connect Lekki.
+              Complete chronological register of all past, in-house, and upcoming guest stays.
             </p>
           </div>
 
           <div className="flex items-center gap-3 w-full sm:w-auto">
-            <div className="relative w-full sm:w-auto">
-              <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-[#7A7267]" />
+            <div className="relative w-full sm:w-72">
+              <Search className="w-3.5 h-3.5 absolute left-3.5 top-3 text-[#8C8275]" />
               <input
                 type="text"
-                placeholder="Filter by guest, ref, room..."
+                placeholder="Search guest, code, or room..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-8 pr-3 py-1.5 rounded border border-[#E8E2DA] bg-white text-xs text-[#191816] w-full sm:w-64 focus:outline-none focus:ring-1 focus:ring-[#B85C3E]"
+                className="w-full pl-9 pr-3.5 py-2 rounded-md border border-[#E8E1D5] bg-[#FAF7F2]/40 text-xs text-[#191816] placeholder:text-[#A69E92] focus:bg-white focus:outline-none focus:border-[#71382D] transition-colors"
               />
             </div>
           </div>
         </div>
 
-        {/* Tabs: All, Upcoming, In house, Completed, Cancelled */}
-        <div className="flex items-center gap-2 border-b border-[#E8E2DA] pb-2 text-xs overflow-x-auto whitespace-nowrap">
+        {/* Quiet, Editorial Tabs */}
+        <div className="flex items-center gap-6 border-b border-[#E8E1D5] text-xs">
           {[
             { id: 'all', label: 'All Stays' },
-            { id: 'upcoming', label: 'Upcoming' },
-            { id: 'in_house', label: 'In house' },
-            { id: 'completed', label: 'Completed' },
+            { id: 'upcoming', label: 'Upcoming Arrivals' },
+            { id: 'in_house', label: 'Currently In-House' },
+            { id: 'completed', label: 'Departed' },
             { id: 'cancelled', label: 'Cancelled' },
           ].map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`px-3 py-1.5 rounded font-medium transition-colors flex-shrink-0 ${
+              className={`pb-3 font-medium transition-colors relative ${
                 activeTab === tab.id
-                  ? 'bg-[#71382D] text-white'
-                  : 'text-[#7A7267] hover:bg-[#FAFAFA]'
+                  ? 'text-[#71382D]'
+                  : 'text-[#8C8275] hover:text-[#191816]'
               }`}
             >
               {tab.label}
+              {activeTab === tab.id && (
+                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#71382D]" />
+              )}
             </button>
           ))}
         </div>
 
-        {/* Reservations Data Table */}
-        <div className="bg-white border border-[#E8E2DA] rounded-md overflow-x-auto shadow-none">
-          <Table className="min-w-[750px]">
-            <TableHeader>
-              <TableRow>
-                <TableHead>Reference</TableHead>
-                <TableHead>Guest</TableHead>
-                <TableHead>Room</TableHead>
-                <TableHead>Dates</TableHead>
-                <TableHead>Nights</TableHead>
-                <TableHead>Source</TableHead>
-                <TableHead>Payment</TableHead>
-                <TableHead>Status</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered.map((res) => (
-                <TableRow
-                  key={res.id}
-                  onClick={() => {
-                    setSelectedRes(res);
-                    setDrawerOpen(true);
-                  }}
-                  className="cursor-pointer"
-                >
-                  <TableCell className="font-mono text-xs font-semibold text-[#B85C3E]">
-                    {res.reference}
-                  </TableCell>
-                  <TableCell>
-                    <strong className="block font-medium text-sm text-[#191816]">
-                      {res.guestName}
-                    </strong>
-                    <span className="text-xs text-[#7A7267]">{res.guestPhone}</span>
-                  </TableCell>
-                  <TableCell>
-                    <span className="block text-xs font-semibold text-[#191816]">
-                      Room {res.roomNumber}
-                    </span>
-                    <span className="text-[11px] text-[#7A7267]">{res.roomType}</span>
-                  </TableCell>
-                  <TableCell className="text-xs">
-                    {formatStayDates(res.checkInDate, res.checkOutDate)}
-                  </TableCell>
-                  <TableCell className="text-xs">{res.nights}n</TableCell>
-                  <TableCell className="capitalize text-xs text-[#7A7267]">
-                    {res.source.replace('_', ' ')}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={res.paymentStatus === 'paid' ? 'paid' : 'pending'}>
-                      {res.paymentStatus.replace('_', ' ')}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge
-                      variant={
-                        res.status === 'checked_in'
-                          ? 'occupied'
-                          : res.status === 'checked_out'
-                          ? 'clean'
-                          : 'available'
-                      }
-                    >
-                      {res.status.replace('_', ' ')}
-                    </Badge>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+        {/* The Guest Folio Ledger */}
+        <div className="border border-[#E8E1D5] rounded-xl overflow-hidden bg-white shadow-xs">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse min-w-[760px]">
+              <thead>
+                <tr className="border-b border-[#E8E1D5] bg-[#FAF7F2]/60 text-[11px] font-mono uppercase tracking-wider text-[#8C8275]">
+                  <th className="py-3 px-5 font-medium">Folio Ref</th>
+                  <th className="py-3 px-5 font-medium">Guest</th>
+                  <th className="py-3 px-5 font-medium">Room Assigned</th>
+                  <th className="py-3 px-5 font-medium">Stay Window</th>
+                  <th className="py-3 px-5 font-medium">Channel</th>
+                  <th className="py-3 px-5 font-medium">Settlement</th>
+                  <th className="py-3 px-5 font-medium">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#E8E1D5] text-xs">
+                {filtered.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="py-16 text-center text-[#8C8275]">
+                      <p className="font-serif text-sm text-[#71382D]">No stays found in this view</p>
+                      <p className="text-xs mt-1">Try switching tabs or adjusting your search term.</p>
+                    </td>
+                  </tr>
+                ) : (
+                  filtered.map((res) => {
+                    const isPaid = res.paymentStatus === 'paid';
+                    return (
+                      <tr
+                        key={res.id}
+                        onClick={() => {
+                          setSelectedRes(res);
+                          setDrawerOpen(true);
+                        }}
+                        className="hover:bg-[#FAF7F2]/60 transition-colors cursor-pointer group"
+                      >
+                        <td className="py-4 px-5 font-mono text-xs text-[#71382D] font-medium">
+                          {res.reference}
+                        </td>
+                        <td className="py-4 px-5">
+                          <strong className="block font-serif text-sm text-[#191816] group-hover:text-[#B85C3E] transition-colors">
+                            {res.guestName}
+                          </strong>
+                          <span className="text-[11px] text-[#8C8275]">{res.guestPhone || res.guestEmail}</span>
+                        </td>
+                        <td className="py-4 px-5">
+                          <span className="font-medium text-[#191816] block">
+                            Room {res.roomNumber}
+                          </span>
+                          <span className="text-[11px] text-[#8C8275]">{res.roomType}</span>
+                        </td>
+                        <td className="py-4 px-5 font-mono">
+                          <span className="text-[#191816] block">
+                            {formatStayDates(res.checkInDate, res.checkOutDate)}
+                          </span>
+                          <span className="text-[11px] text-[#8C8275]">
+                            {res.nights} {res.nights === 1 ? 'night' : 'nights'}
+                          </span>
+                        </td>
+                        <td className="py-4 px-5 capitalize text-[#7A7267]">
+                          {res.source === 'direct' ? (
+                            <span className="text-[#71382D] font-medium">Direct (0% fee)</span>
+                          ) : (
+                            res.source.replace('_', ' ')
+                          )}
+                        </td>
+                        <td className="py-4 px-5">
+                          <span className="inline-flex items-center gap-1.5 font-mono text-[11px]">
+                            <span className={`w-1.5 h-1.5 rounded-full ${isPaid ? 'bg-[#2E6B4F]' : 'bg-[#A3681F]'}`} />
+                            <span className={isPaid ? 'text-[#2E6B4F]' : 'text-[#A3681F]'}>
+                              {isPaid ? 'Settled' : 'Balance Due'}
+                            </span>
+                          </span>
+                        </td>
+                        <td className="py-4 px-5">
+                          <span className="px-2 py-0.5 rounded text-[11px] font-mono tracking-wide uppercase bg-[#FAF4EF] text-[#71382D] border border-[#E5D4BC]">
+                            {res.status.replace('_', ' ')}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </main>
 
@@ -218,12 +238,11 @@ function ReservationsContent() {
         onOpenChange={setDrawerOpen}
         onCheckIn={async (id) => {
           try {
-            // Fetch available rooms to assign
             const roomRes = await fetch('/api/rooms');
             const roomData = await roomRes.json();
             const availableRoom = roomData.rooms?.find((rm: any) => rm.operational === 'available');
             if (!availableRoom) {
-              alert('No available room found in database to assign for check-in');
+              alert('No available rooms marked clean to assign for check-in.');
               return;
             }
             const res = await fetch(`/api/reservations/${id}/check-in`, {
@@ -236,12 +255,9 @@ function ReservationsContent() {
               if (selectedRes && selectedRes.id === id) {
                 setSelectedRes((prev) => (prev ? { ...prev, status: 'checked_in', roomNumber: availableRoom.number } : null));
               }
-            } else {
-              const err = await res.json();
-              alert(err.error || 'Failed to check in');
             }
           } catch (e: any) {
-            alert(e.message || 'Check-in error');
+            console.error(e);
           }
         }}
         onCheckOut={async (id) => {
@@ -256,12 +272,9 @@ function ReservationsContent() {
               if (selectedRes && selectedRes.id === id) {
                 setSelectedRes((prev) => (prev ? { ...prev, status: 'checked_out' } : null));
               }
-            } else {
-              const err = await res.json();
-              alert(err.error || 'Failed to check out');
             }
           } catch (e: any) {
-            alert(e.message || 'Check-out error');
+            console.error(e);
           }
         }}
       />
@@ -269,7 +282,7 @@ function ReservationsContent() {
       <NewReservationDialog
         open={newResOpen}
         onOpenChange={setNewResOpen}
-        onCreateReservation={(newRes) => setReservations((prev) => [newRes, ...prev])}
+        onCreateReservation={() => fetchReservations()}
       />
     </div>
   );
@@ -277,7 +290,7 @@ function ReservationsContent() {
 
 export default function ReservationsPage() {
   return (
-    <React.Suspense fallback={<div className="flex-1 bg-white p-8 text-xs text-[#7A7267]">Loading reservations...</div>}>
+    <React.Suspense fallback={<div className="p-8 text-xs text-[#8C8275]">Loading reservations...</div>}>
       <ReservationsContent />
     </React.Suspense>
   );

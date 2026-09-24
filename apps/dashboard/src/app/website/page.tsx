@@ -205,8 +205,7 @@ export default function WebsitePage() {
                   <div
                     className="absolute inset-0 bg-cover bg-center opacity-40"
                     style={{
-                      backgroundImage:
-                        'url("https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=1200&q=80")',
+                      backgroundImage: 'url("/assets/room.jpg")',
                     }}
                   />
                   <div className="relative z-20 max-w-2xl mx-auto space-y-4">

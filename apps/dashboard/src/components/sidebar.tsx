@@ -72,6 +72,7 @@ const NAV_SECTIONS: NavSection[] = [
     title: 'MANAGE',
     items: [
       { label: 'Staff', href: '/staff', icon: Users },
+      { label: 'Billing & Plan', href: '/billing', icon: CreditCard },
       { label: 'Settings', href: '/settings', icon: Settings },
       { label: 'Setup Wizard', href: '/onboarding', icon: HelpCircle },
     ],

@@ -28,6 +28,7 @@ function generateDates(baseDate = new Date(), numDays = 7) {
 }
 
 export default function CalendarPage() {
+  const [baseDate, setBaseDate] = React.useState(new Date());
   const [calendarDates, setCalendarDates] = React.useState(() => generateDates(new Date(), 7));
   const [rooms, setRooms] = React.useState<any[]>([]);
   const [reservations, setReservations] = React.useState<ReservationItem[]>([]);
@@ -35,6 +36,32 @@ export default function CalendarPage() {
   const [selectedRes, setSelectedRes] = React.useState<ReservationItem | null>(null);
   const [drawerOpen, setDrawerOpen] = React.useState(false);
   const [newResOpen, setNewResOpen] = React.useState(false);
+
+  const handlePrevWeek = () => {
+    setBaseDate((prev) => {
+      const next = new Date(prev);
+      next.setDate(prev.getDate() - 7);
+      setCalendarDates(generateDates(next, 7));
+      return next;
+    });
+  };
+
+  const handleNextWeek = () => {
+    setBaseDate((prev) => {
+      const next = new Date(prev);
+      next.setDate(prev.getDate() + 7);
+      setCalendarDates(generateDates(next, 7));
+      return next;
+    });
+  };
+
+  const handleToday = () => {
+    const today = new Date();
+    setBaseDate(today);
+    setCalendarDates(generateDates(today, 7));
+  };
+
+  const monthYearString = baseDate.toLocaleString('en-US', { month: 'long', year: 'numeric' });
 
   const fetchCalendar = React.useCallback(async () => {
     try {
@@ -91,16 +118,27 @@ export default function CalendarPage() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#E8E2DA] pb-4">
           <div className="flex items-center gap-3">
             <h2 className="text-xl font-serif text-[#191816]">
-              September 2026
+              {monthYearString}
             </h2>
             <div className="flex items-center gap-1 border border-[#E8E2DA] rounded bg-white p-0.5">
-              <button className="p-1 hover:bg-[#FAFAFA] rounded text-[#7A7267]">
+              <button
+                onClick={handlePrevWeek}
+                className="p-1 hover:bg-[#FAF7F2] rounded text-[#7A7267] transition-colors"
+                title="Previous 7 days"
+              >
                 <ChevronLeft className="w-4 h-4" />
               </button>
-              <button className="px-2 py-0.5 text-xs font-semibold text-[#191816] hover:bg-[#FAFAFA] rounded">
+              <button
+                onClick={handleToday}
+                className="px-2 py-0.5 text-xs font-semibold text-[#191816] hover:bg-[#FAF7F2] rounded transition-colors"
+              >
                 Today
               </button>
-              <button className="p-1 hover:bg-[#FAFAFA] rounded text-[#7A7267]">
+              <button
+                onClick={handleNextWeek}
+                className="p-1 hover:bg-[#FAF7F2] rounded text-[#7A7267] transition-colors"
+                title="Next 7 days"
+              >
                 <ChevronRight className="w-4 h-4" />
               </button>
             </div>
@@ -116,7 +154,7 @@ export default function CalendarPage() {
               Checked In
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-sm bg-[#FAFAFA] border border-[#E8E2DA]" />
+              <span className="w-2.5 h-2.5 rounded-sm bg-[#FAF7F2] border border-[#E8E2DA]" />
               Available
             </span>
           </div>
@@ -155,85 +193,96 @@ export default function CalendarPage() {
                   const res = reservations.find((r) => (r as any).roomId === room.id || r.roomNumber === room.roomNumber);
 
                   return (
-                    <tr key={room.id} className="hover:bg-[#FAFAFA] transition-colors">
+                    <tr key={room.id} className="hover:bg-[#FAF7F2]/40 transition-colors">
                       {/* Room title */}
-                      <td className="p-3 border-r border-[#E8E2DA] bg-[#FAFAFA]/50">
-                        <strong className="block text-sm font-serif text-[#191816]">
-                          Room {room.roomNumber}
-                        </strong>
-                        <span className="text-[11px] text-[#7A7267]">
-                          {room.roomTypeName}
+                      <td className="p-3 border-r border-[#E8E2DA] bg-[#FAF9F6]">
+                        <div className="flex items-baseline justify-between">
+                          <strong className="text-sm font-serif text-[#191816]">
+                            Room {room.roomNumber}
+                          </strong>
+                          <span className="text-[10px] font-mono text-[#7A7267] uppercase">
+                            {room.floor || 'FL 1'}
+                          </span>
+                        </div>
+                        <span className="text-[11px] text-[#7A7267] block truncate">
+                          {room.roomTypeName || 'Deluxe'}
                         </span>
                       </td>
 
                       {/* Timeline columns */}
                       {calendarDates.map((dateObj) => {
-                      const isOccupied =
-                        res &&
-                        dateObj.full >= res.checkInDate &&
-                        dateObj.full < res.checkOutDate;
+                        const isOccupied =
+                          res &&
+                          dateObj.full >= res.checkInDate &&
+                          dateObj.full < res.checkOutDate;
 
-                      const isCheckInDay = res && dateObj.full === res.checkInDate;
+                        const isCheckInDay = res && dateObj.full === res.checkInDate;
+                        const isWeekend = dateObj.day === 'SAT' || dateObj.day === 'SUN';
 
-                      if (isOccupied && isCheckInDay) {
+                        if (isOccupied && isCheckInDay) {
+                          return (
+                            <td
+                              key={dateObj.full}
+                              colSpan={res.nights}
+                              onClick={() => {
+                                setSelectedRes(res);
+                                setDrawerOpen(true);
+                              }}
+                              className="p-1 border-r border-[#E8E2DA] cursor-pointer"
+                            >
+                              <div
+                                className={`h-10 px-3 rounded-md flex items-center justify-between text-xs text-white shadow-xs transition-transform active:scale-[0.99] hover:brightness-105 ${
+                                  res.status === 'checked_in'
+                                    ? 'bg-[#71382D]'
+                                    : 'bg-[#B85C3E]'
+                                }`}
+                              >
+                                <div className="truncate flex items-center gap-2">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-white/70" />
+                                  <strong className="font-serif tracking-tight font-normal text-xs">
+                                    {res.guestName}
+                                  </strong>
+                                  <span className="opacity-75 text-[10px] font-sans">
+                                    · {res.nights} {res.nights === 1 ? 'night' : 'nights'}
+                                  </span>
+                                </div>
+                                <span className="text-[9px] uppercase tracking-wider font-mono px-1.5 py-0.5 rounded bg-black/25 text-white/90">
+                                  {res.paymentStatus === 'paid' ? 'Settled' : 'Unpaid'}
+                                </span>
+                              </div>
+                            </td>
+                          );
+                        }
+
+                        if (
+                          res &&
+                          dateObj.full > res.checkInDate &&
+                          dateObj.full < res.checkOutDate
+                        ) {
+                          return null;
+                        }
+
                         return (
                           <td
                             key={dateObj.full}
-                            colSpan={res.nights}
-                            onClick={() => {
-                              setSelectedRes(res);
-                              setDrawerOpen(true);
-                            }}
-                            className="p-1 border-r border-[#E8E2DA] cursor-pointer"
+                            onClick={() => setNewResOpen(true)}
+                            className={`p-2 text-center border-r border-[#E8E2DA] hover:bg-[#FAF0E4]/40 cursor-pointer group transition-colors ${
+                              dateObj.isToday
+                                ? 'bg-[#FAF0E4]/30'
+                                : isWeekend
+                                ? 'bg-[#FAF7F2]/40'
+                                : ''
+                            }`}
                           >
-                            <div
-                              className={`h-9 px-3 rounded flex items-center justify-between text-xs text-white shadow-none transition-opacity hover:opacity-90 ${
-                                res.status === 'checked_in'
-                                  ? 'bg-[#71382D]'
-                                  : 'bg-[#B85C3E]'
-                              }`}
-                            >
-                              <div className="truncate">
-                                <strong className="font-medium mr-2">
-                                  {res.guestName}
-                                </strong>
-                                <span className="opacity-80 text-[11px]">
-                                  {res.nights}n · {res.source}
-                                </span>
-                              </div>
-                              <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-black/20">
-                                {res.paymentStatus}
-                              </span>
-                            </div>
+                            <span className="opacity-0 group-hover:opacity-100 text-[11px] text-[#B85C3E] font-medium transition-opacity">
+                              + book
+                            </span>
                           </td>
                         );
-                      }
-
-                      if (
-                        res &&
-                        dateObj.full > res.checkInDate &&
-                        dateObj.full < res.checkOutDate
-                      ) {
-                        return null;
-                      }
-
-                      return (
-                        <td
-                          key={dateObj.full}
-                          onClick={() => setNewResOpen(true)}
-                          className={`p-3 text-center border-r border-[#E8E2DA] hover:bg-[#FAFAFA] cursor-pointer text-[#7A7267]/40 ${
-                            dateObj.isToday ? 'bg-[#FAF0E4]/30' : ''
-                          }`}
-                        >
-                          <span className="text-[10px] text-[#7A7267]/40 font-mono">
-                            Available
-                          </span>
-                        </td>
-                      );
-                    })}
-                  </tr>
-                );
-              }))}
+                      })}
+                    </tr>
+                  );
+                }))}
             </tbody>
           </table>
         </div>
