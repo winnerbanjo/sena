@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db, verificationTokens, users, organizations, organizationMembers, eq, and, gt } from '@sena/database';
+import { db, verificationTokens, users, organizations, organizationMembers, properties, propertyMembers, eq, and, gt } from '@sena/database';
 import { sendSenaEmail } from '@sena/email';
 
 /**

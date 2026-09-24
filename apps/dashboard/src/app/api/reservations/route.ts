@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
-import { db, reservations, guests, rooms, roomTypes, properties, reservationEvents } from '@sena/database';
+import { db, reservations, guests, rooms, roomTypes, properties, reservationEvents , propertyMembers, organizationMembers } from '@sena/database';
 import { ReservationService } from '@sena/reservations';
 import { sendBookingConfirmationEmail, sendSenaEmail } from '@sena/email';
 import { formatNaira } from '@sena/config';
@@ -12,8 +12,27 @@ export async function GET(req: NextRequest) {
     let propertyId = (session?.user as any)?.propertyId;
 
     if (!propertyId) {
-      const firstProp = await db.query.properties.findFirst();
-      if (firstProp) propertyId = firstProp.id;
+      // Securely fetch property for this user instead of leaking firstProp
+      const userId = session?.user?.id;
+      if (userId) {
+        const membership = await db.query.propertyMembers.findFirst({
+          where: eq(propertyMembers.userId, userId)
+        });
+        if (membership) {
+          propertyId = membership.propertyId;
+        } else {
+          // Try organization fallback
+          const orgMembership = await db.query.organizationMembers.findFirst({
+            where: eq(organizationMembers.userId, userId)
+          });
+          if (orgMembership) {
+            const orgProp = await db.query.properties.findFirst({
+              where: eq(properties.organizationId, orgMembership.organizationId)
+            });
+            if (orgProp) propertyId = orgProp.id;
+          }
+        }
+      }
     }
 
     if (!propertyId) {
@@ -90,8 +109,27 @@ export async function POST(req: NextRequest) {
     let propertyId = (session?.user as any)?.propertyId;
 
     if (!propertyId) {
-      const firstProp = await db.query.properties.findFirst();
-      if (firstProp) propertyId = firstProp.id;
+      // Securely fetch property for this user instead of leaking firstProp
+      const userId = session?.user?.id;
+      if (userId) {
+        const membership = await db.query.propertyMembers.findFirst({
+          where: eq(propertyMembers.userId, userId)
+        });
+        if (membership) {
+          propertyId = membership.propertyId;
+        } else {
+          // Try organization fallback
+          const orgMembership = await db.query.organizationMembers.findFirst({
+            where: eq(organizationMembers.userId, userId)
+          });
+          if (orgMembership) {
+            const orgProp = await db.query.properties.findFirst({
+              where: eq(properties.organizationId, orgMembership.organizationId)
+            });
+            if (orgProp) propertyId = orgProp.id;
+          }
+        }
+      }
     }
 
     if (!propertyId) {

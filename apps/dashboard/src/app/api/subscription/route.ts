@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
-import { db, subscriptions, subscriptionInvoices, organizations, properties, rooms, eq, desc } from '@sena/database';
+import { db, subscriptions, subscriptionInvoices, organizations, properties, rooms, propertyMembers, organizationMembers, eq, desc } from '@sena/database';
 import { sendSenaEmail } from '@sena/email';
 
 export async function GET(req: NextRequest) {

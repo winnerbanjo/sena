@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
-import { db, payments, reservations, guests } from '@sena/database';
+import { db, properties, payments, reservations, guests , propertyMembers, organizationMembers } from '@sena/database';
 import { PaymentService } from '@sena/payments';
 import { eq, desc } from 'drizzle-orm';
 
@@ -10,8 +10,27 @@ export async function GET(req: NextRequest) {
     let propertyId = (session?.user as any)?.propertyId;
 
     if (!propertyId) {
-      const firstProp = await db.query.properties.findFirst();
-      if (firstProp) propertyId = firstProp.id;
+      // Securely fetch property for this user instead of leaking firstProp
+      const userId = session?.user?.id;
+      if (userId) {
+        const membership = await db.query.propertyMembers.findFirst({
+          where: eq(propertyMembers.userId, userId)
+        });
+        if (membership) {
+          propertyId = membership.propertyId;
+        } else {
+          // Try organization fallback
+          const orgMembership = await db.query.organizationMembers.findFirst({
+            where: eq(organizationMembers.userId, userId)
+          });
+          if (orgMembership) {
+            const orgProp = await db.query.properties.findFirst({
+              where: eq(properties.organizationId, orgMembership.organizationId)
+            });
+            if (orgProp) propertyId = orgProp.id;
+          }
+        }
+      }
     }
 
     if (!propertyId) {
