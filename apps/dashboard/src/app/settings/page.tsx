@@ -20,7 +20,8 @@ import {
 
 export default function SettingsPage() {
   const [newResOpen, setNewResOpen] = React.useState(false);
-  const [activeTab, setActiveTab] = React.useState<'general' | 'policies' | 'payments' | 'notifications'>('general');
+  const [activeTab, setActiveTab] = React.useState<'general' | 'policies' | 'payments' | 'notifications' | 'subscription'>('general');
+  const [billingCycle, setBillingCycle] = React.useState<'monthly' | 'yearly'>('monthly');
   const [saveSuccess, setSaveSuccess] = React.useState(false);
 
   // Form states
@@ -90,6 +91,7 @@ export default function SettingsPage() {
             { id: 'policies', label: 'Policies & Check-in Times', icon: Clock },
             { id: 'payments', label: 'Payments & Settlement Bank', icon: CreditCard },
             { id: 'notifications', label: 'Guest & Staff Notifications', icon: Bell },
+            { id: 'subscription', label: 'Subscription & Plan', icon: ShieldCheck },
           ].map((tab) => {
             const Icon = tab.icon;
             return (
@@ -383,6 +385,181 @@ export default function SettingsPage() {
                     onChange={(e) => setEmailBookingDigest(e.target.checked)}
                     className="w-4 h-4 accent-[#B85C3E] rounded cursor-pointer"
                   />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Tab 5: Subscription & Paywall */}
+          {activeTab === 'subscription' && (
+            <div className="space-y-6">
+              {/* Current Active Plan Card */}
+              <div className="bg-[#FAF9F7] border border-[#E8E2DA] rounded-lg p-5 sm:p-6 space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <span className="text-[10px] tracking-wider uppercase font-semibold text-[#B85C3E]">
+                      Current Active Plan
+                    </span>
+                    <h3 className="text-xl font-serif text-[#191816] flex items-center gap-2 mt-0.5">
+                      <span>Growth Plan</span>
+                      <span className="text-xs font-sans px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-medium">
+                        Active · Renews 24 Oct 2026
+                      </span>
+                    </h3>
+                  </div>
+                  <div className="text-left sm:text-right">
+                    <span className="text-2xl font-serif font-medium text-[#191816]">₦50,000</span>
+                    <span className="text-xs text-[#7A7267]"> / month</span>
+                  </div>
+                </div>
+
+                {/* Quota Usage Bars */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3 border-t border-[#E8E2DA]">
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between text-xs">
+                      <span className="text-[#7A7267]">Room Inventory Limit</span>
+                      <span className="font-semibold text-[#191816]">24 / 30 rooms (80%)</span>
+                    </div>
+                    <div className="w-full bg-[#E8E2DA] h-2 rounded-full overflow-hidden">
+                      <div className="bg-[#B85C3E] h-2 rounded-full w-[80%] transition-all"></div>
+                    </div>
+                    <span className="text-[10px] text-[#7A7267]">6 rooms available before needing Pro</span>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between text-xs">
+                      <span className="text-[#7A7267]">Team Staff Accounts</span>
+                      <span className="font-semibold text-[#191816]">3 / 5 seats (60%)</span>
+                    </div>
+                    <div className="w-full bg-[#E8E2DA] h-2 rounded-full overflow-hidden">
+                      <div className="bg-[#71382D] h-2 rounded-full w-[60%] transition-all"></div>
+                    </div>
+                    <span className="text-[10px] text-[#7A7267]">2 seats remaining under Growth</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Plans Comparison / Upgrade Tier */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="text-sm font-semibold text-[#191816]">Sena Subscription Tiers</h4>
+                    <p className="text-xs text-[#7A7267]">Choose the right foundation for your property scale.</p>
+                  </div>
+
+                  {/* Monthly / Yearly Switch */}
+                  <div className="flex items-center gap-1 bg-[#F5F2EB] p-1 rounded-md text-xs">
+                    <button
+                      type="button"
+                      onClick={() => setBillingCycle('monthly')}
+                      className={`px-3 py-1 rounded transition-colors ${
+                        billingCycle === 'monthly' ? 'bg-white font-medium text-[#191816] shadow-xs' : 'text-[#7A7267]'
+                      }`}
+                    >
+                      Monthly
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setBillingCycle('yearly')}
+                      className={`px-3 py-1 rounded transition-colors ${
+                        billingCycle === 'yearly' ? 'bg-white font-medium text-[#191816] shadow-xs' : 'text-[#7A7267]'
+                      }`}
+                    >
+                      Yearly (2 mo free)
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* Essential */}
+                  <div className="p-4 rounded-lg border border-[#E8E2DA] bg-white flex flex-col justify-between space-y-4">
+                    <div className="space-y-2">
+                      <span className="text-[10px] font-semibold text-[#7A7267] uppercase tracking-wider">The Foundations</span>
+                      <h5 className="text-base font-serif text-[#191816]">Essential</h5>
+                      <p className="text-xs text-[#7A7267]">Up to 10 rooms. Ideal for boutique guest houses.</p>
+                      <div className="pt-2">
+                        <span className="text-xl font-serif text-[#191816]">
+                          {billingCycle === 'monthly' ? '₦25,000' : '₦250,000'}
+                        </span>
+                        <span className="text-xs text-[#7A7267]"> / {billingCycle === 'monthly' ? 'month' : 'year'}</span>
+                      </div>
+                    </div>
+                    <Button variant="secondary" size="sm" type="button" className="w-full text-xs">
+                      Switch to Essential
+                    </Button>
+                  </div>
+
+                  {/* Growth (Current) */}
+                  <div className="p-4 rounded-lg border-2 border-[#B85C3E] bg-[#FDFBF7] flex flex-col justify-between space-y-4 relative">
+                    <span className="absolute -top-2.5 right-3 px-2 py-0.5 bg-[#B85C3E] text-white text-[10px] rounded-full font-medium">
+                      Current Plan
+                    </span>
+                    <div className="space-y-2">
+                      <span className="text-[10px] font-semibold text-[#B85C3E] uppercase tracking-wider">Most Popular</span>
+                      <h5 className="text-base font-serif text-[#191816]">Growth</h5>
+                      <p className="text-xs text-[#7A7267]">Up to 30 rooms. Multi-rate plans & 5 staff accounts.</p>
+                      <div className="pt-2">
+                        <span className="text-xl font-serif text-[#191816]">
+                          {billingCycle === 'monthly' ? '₦50,000' : '₦500,000'}
+                        </span>
+                        <span className="text-xs text-[#7A7267]"> / {billingCycle === 'monthly' ? 'month' : 'year'}</span>
+                      </div>
+                    </div>
+                    <div className="w-full py-1.5 text-center text-xs font-semibold text-[#B85C3E] bg-white rounded border border-[#B85C3E]/30">
+                      Active Plan
+                    </div>
+                  </div>
+
+                  {/* Pro */}
+                  <div className="p-4 rounded-lg border border-[#E8E2DA] bg-white flex flex-col justify-between space-y-4">
+                    <div className="space-y-2">
+                      <span className="text-[10px] font-semibold text-[#7A7267] uppercase tracking-wider">Room To Grow</span>
+                      <h5 className="text-base font-serif text-[#191816]">Pro</h5>
+                      <p className="text-xs text-[#7A7267]">Up to 100 rooms. 15 staff, API & multi-property.</p>
+                      <div className="pt-2">
+                        <span className="text-xl font-serif text-[#191816]">
+                          {billingCycle === 'monthly' ? '₦100,000' : '₦1,000,000'}
+                        </span>
+                        <span className="text-xs text-[#7A7267]"> / {billingCycle === 'monthly' ? 'month' : 'year'}</span>
+                      </div>
+                    </div>
+                    <Button size="sm" type="button" className="w-full text-xs">
+                      Upgrade to Pro →
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Billing History & Invoices */}
+              <div className="bg-white border border-[#E8E2DA] rounded-lg p-5 space-y-3">
+                <h4 className="text-xs font-semibold text-[#191816] uppercase tracking-wider">
+                  Subscription Invoices
+                </h4>
+                <div className="divide-y divide-[#E8E2DA] text-xs">
+                  <div className="py-2.5 flex items-center justify-between">
+                    <div>
+                      <span className="font-mono font-medium text-[#191816]">INV-2026-09-24</span>
+                      <span className="text-[#7A7267] block text-[11px]">Growth Subscription · 24 Sep 2026</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="font-serif font-medium text-[#191816]">₦50,000</span>
+                      <span className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 text-[10px] font-medium border border-emerald-200">
+                        Paid
+                      </span>
+                    </div>
+                  </div>
+                  <div className="py-2.5 flex items-center justify-between">
+                    <div>
+                      <span className="font-mono font-medium text-[#191816]">INV-2026-08-24</span>
+                      <span className="text-[#7A7267] block text-[11px]">Growth Subscription · 24 Aug 2026</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="font-serif font-medium text-[#191816]">₦50,000</span>
+                      <span className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 text-[10px] font-medium border border-emerald-200">
+                        Paid
+                      </span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
