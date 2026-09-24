@@ -1,4 +1,3 @@
-import { Button } from '@sena/ui';
 import { loginAdmin } from '../actions';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
@@ -17,32 +16,98 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   const error = resolvedParams.error;
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#F7F5F2]">
-      <div className="w-full max-w-sm p-8 bg-white border border-[#E8E2DA] rounded-lg shadow-sm">
-        <div className="mb-6 text-center">
-          <h1 className="text-2xl font-serif text-[#191816]">Sena Control Plane</h1>
-          <p className="text-sm text-gray-500 mt-1">Enter master password</p>
+    <div className="min-h-screen flex flex-col bg-[#FAF7F2] text-[#191816] font-sans selection:bg-[#71382D]/20">
+      <header className="px-6 sm:px-12 h-20 flex items-center justify-between border-b border-[#EAE3D9] bg-white/50 backdrop-blur-md sticky top-0 z-50">
+        <div className="flex items-center">
+          <img
+            src="/assets/sena-logo.png"
+            alt="Sena"
+            width={96}
+            height={32}
+            className="h-6 sm:h-7 w-auto object-contain"
+          />
         </div>
-        <form action={loginAdmin} className="space-y-4">
-          {error && (
-            <div className="p-3 text-sm text-red-600 bg-red-50 rounded-md border border-red-100 text-center">
-              Invalid password
+      </header>
+
+      <main className="flex-1 flex items-center justify-center px-6 sm:px-12 py-10">
+        <div className="max-w-5xl w-full grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-center">
+          {/* Left: Atmospheric Hospitality Editorial */}
+          <div className="hidden lg:flex lg:col-span-5 flex-col justify-between space-y-8">
+            <div className="space-y-4">
+              <span className="text-[11px] font-mono tracking-widest text-[#B85C3E] uppercase">
+                Sena Internal
+              </span>
+              <h2 className="text-3xl font-serif font-normal text-[#71382D] leading-tight">
+                Control plane for the hospitality OS.
+              </h2>
+              <p className="text-sm text-[#7A7267] leading-relaxed">
+                Log in to the internal dashboard to manage tenant properties, monitor active subscriptions, and oversee master administrative logs.
+              </p>
             </div>
-          )}
-          <div>
-            <input 
-              type="password" 
-              name="password" 
-              placeholder="Password" 
-              required 
-              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-[#191816] focus:border-[#191816]"
-            />
+
+            <div className="relative rounded-lg overflow-hidden border border-[#E8E1D5] shadow-sm aspect-[4/3] bg-[#EAE3D9]">
+              <img
+                src="https://images.unsplash.com/photo-1542314831-c6a4d1409e50?q=80&w=1000&auto=format&fit=crop"
+                alt="Internal architecture"
+                className="object-cover w-full h-full"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent flex items-end p-4">
+                <span className="text-[11px] text-white/90 tracking-wide font-mono">
+                  Sena Infrastructure · Superadmin
+                </span>
+              </div>
+            </div>
           </div>
-          <Button type="submit" className="w-full bg-[#191816] text-white hover:bg-black">
-            Access System
-          </Button>
-        </form>
-      </div>
+
+          {/* Right: The Sign-in Ledger */}
+          <div className="lg:col-span-7 bg-white rounded-xl border border-[#E8E1D5] p-8 sm:p-10 shadow-[0_4px_24px_rgba(25,24,22,0.03)]">
+            <div className="mb-8">
+              <h1 className="text-2xl font-serif font-normal text-[#191816]">
+                Administrator Login
+              </h1>
+              <p className="text-xs text-[#7A7267] mt-1.5">
+                Enter the master password to access internal property operations.
+              </p>
+            </div>
+
+            <form action={loginAdmin} className="space-y-5">
+              {error && (
+                <div className="p-3 rounded-md bg-[#FAF4EF] border border-[#E5D4BC] text-[#71382D] text-xs leading-relaxed">
+                  Incorrect master password. Please try again.
+                </div>
+              )}
+              
+              <div>
+                <label className="block text-xs font-medium text-[#191816] mb-1.5">
+                  Internal Clearance Code
+                </label>
+                <div className="relative">
+                  <input
+                    type="password"
+                    name="password"
+                    placeholder="••••••••••••"
+                    className="w-full h-11 px-3.5 rounded-md border border-[#E8E1D5] bg-[#FAF7F2]/40 text-[#191816] text-sm focus:bg-white focus:outline-none focus:border-[#71382D] transition-all placeholder:text-[#A69E92]"
+                    required
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                className="w-full h-11 rounded-md bg-[#B85C3E] hover:bg-[#A34E32] text-white text-xs font-semibold tracking-wide transition-colors flex items-center justify-center gap-2"
+              >
+                Access Control Plane &rarr;
+              </button>
+
+              <div className="pt-4 border-t border-[#F0ECE4] text-center mt-6">
+                <p className="text-xs text-[#7A7267]">
+                  This area is strictly for Sena engineering and administration.
+                </p>
+              </div>
+            </form>
+          </div>
+        </div>
+      </main>
     </div>
   );
 }
