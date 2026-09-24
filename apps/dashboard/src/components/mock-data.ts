@@ -129,7 +129,60 @@ export const INITIAL_RESERVATIONS: ReservationItem[] = [
   },
 ];
 
-export const INITIAL_ROOMS = [
+export interface RoomCategory {
+  id: string;
+  name: string;
+  code: string;
+  baseRateMinorUnits: number;
+  maxGuests: number;
+  bedType: string;
+  description: string;
+  amenities: string[];
+}
+
+export interface RoomItem {
+  id: string;
+  number: string;
+  type: string;
+  floor: string;
+  operational: 'available' | 'occupied' | 'maintenance';
+  housekeeping: 'clean' | 'cleaning' | 'dirty' | 'inspection';
+}
+
+export const DEFAULT_ROOM_CATEGORIES: RoomCategory[] = [
+  {
+    id: 'cat-dlx',
+    name: 'Deluxe Room',
+    code: 'DLX',
+    baseRateMinorUnits: 8000000, // ₦80,000
+    maxGuests: 2,
+    bedType: '1 Queen Bed',
+    description: 'Serene garden-view rooms featuring artisan woodwork and en-suite rainfall shower.',
+    amenities: ['High-speed Wi-Fi', 'Air Conditioning', 'Smart TV', 'Balcony', 'Breakfast Included'],
+  },
+  {
+    id: 'cat-exec',
+    name: 'Executive Room',
+    code: 'EXE',
+    baseRateMinorUnits: 12000000, // ₦120,000
+    maxGuests: 2,
+    bedType: '1 King Bed',
+    description: 'Spacious upper-floor suite with a dedicated work lounge, espresso station, and soaking tub.',
+    amenities: ['Work Desk', 'Espresso Machine', 'Bathtub', 'High-speed Wi-Fi', 'City View', 'Breakfast Included'],
+  },
+  {
+    id: 'cat-suite',
+    name: 'Saffron Suite',
+    code: 'SAF',
+    baseRateMinorUnits: 18000000, // ₦180,000
+    maxGuests: 4,
+    bedType: '2 King Beds',
+    description: 'Penthouse master residence with private terrace, dual vanity, and full living parlor.',
+    amenities: ['Private Terrace', 'Living Parlor', 'Dual Vanity', 'Mini Bar', 'Butler Service', 'High-speed Wi-Fi'],
+  },
+];
+
+export const INITIAL_ROOMS: RoomItem[] = [
   { id: 'rm-101', number: '101', type: 'Deluxe Room', floor: 'Floor 1', operational: 'available', housekeeping: 'clean' },
   { id: 'rm-102', number: '102', type: 'Deluxe Room', floor: 'Floor 1', operational: 'available', housekeeping: 'dirty' },
   { id: 'rm-103', number: '103', type: 'Deluxe Room', floor: 'Floor 1', operational: 'available', housekeeping: 'cleaning' },
