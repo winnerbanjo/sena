@@ -258,8 +258,9 @@ export function renderAlertCallout(
   `;
 }
 
-function escapeHtml(str: string): string {
-  return str
+function escapeHtml(str: any): string {
+  if (str === null || str === undefined) return '';
+  return String(str)
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
