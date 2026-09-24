@@ -378,3 +378,49 @@ export const activityLogs = pgTable(
     index('activity_prop_idx').on(t.propertyId, t.createdAt),
   ]
 );
+
+// 16. Email Delivery Logs (Transactional Email System Audit)
+export const emailLogs = pgTable(
+  'email_logs',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    organizationId: uuid('organization_id').references(() => organizations.id, { onDelete: 'set null' }),
+    propertyId: uuid('property_id').references(() => properties.id, { onDelete: 'set null' }),
+    recipient: varchar('recipient', { length: 255 }).notNull(),
+    emailType: varchar('email_type', { length: 100 }).notNull(),
+    subject: text('subject').notNull(),
+    idempotencyKey: varchar('idempotency_key', { length: 255 }),
+    resendMessageId: varchar('resend_message_id', { length: 255 }),
+    status: varchar('status', { length: 50 }).notNull().default('sent'), // 'sent' | 'failed' | 'suppressed'
+    relatedEntity: varchar('related_entity', { length: 50 }),
+    relatedId: varchar('related_id', { length: 255 }),
+    error: text('error'),
+    metadata: jsonb('metadata'),
+    sentAt: timestamp('sent_at', { withTimezone: true }).defaultNow().notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    index('email_log_recipient_idx').on(t.recipient),
+    index('email_log_type_idx').on(t.emailType),
+    index('email_log_property_idx').on(t.propertyId),
+    index('email_log_idempotency_idx').on(t.idempotencyKey),
+  ]
+);
+
+// 17. Email Preferences
+export const emailPreferences = pgTable(
+  'email_preferences',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }),
+    email: varchar('email', { length: 255 }).notNull(),
+    marketingUnsubscribed: boolean('marketing_unsubscribed').default(false).notNull(),
+    operationalDisabled: boolean('operational_disabled').default(false).notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex('email_pref_email_idx').on(t.email),
+    index('email_pref_user_idx').on(t.userId),
+  ]
+);
+

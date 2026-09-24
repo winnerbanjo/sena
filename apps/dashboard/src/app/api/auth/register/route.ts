@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { db, users, organizations, organizationMembers } from '@sena/database';
 import { eq } from 'drizzle-orm';
 import bcrypt from 'bcryptjs';
+import { sendSenaEmail } from '@sena/email';
 
 export async function POST(request: Request) {
   try {
@@ -82,6 +83,25 @@ export async function POST(request: Request) {
         organization: newOrg,
       };
     });
+
+    // Dispatch welcome email asynchronously (non-blocking)
+    try {
+      await sendSenaEmail(
+        'account.welcome',
+        {
+          userName: result.user.fullName,
+          organizationName: result.organization.name,
+          propertyName: propertyName.trim(),
+        },
+        {
+          to: result.user.email,
+          organizationId: result.organization.id,
+          idempotencyKey: `welcome_${result.user.id}`,
+        }
+      );
+    } catch (emailErr) {
+      console.warn('[WELCOME EMAIL ERROR]', emailErr);
+    }
 
     return NextResponse.json({
       success: true,

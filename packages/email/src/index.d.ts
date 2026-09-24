@@ -1,6 +1,19 @@
-import { Resend } from 'resend';
-export declare const resend: Resend | null;
-export interface BookingConfirmationEmailParams {
+export * from './components/brand';
+export * from './components/layout';
+export * from './components/elements';
+export * from './templates/account';
+export * from './templates/reservation';
+export * from './templates/payment';
+export * from './templates/stay';
+export * from './templates/staff';
+export * from './templates/operations';
+export * from './templates/subscription';
+export * from './templates/security';
+export * from './templates/support';
+export * from './templates/editorial';
+export * from './registry';
+export * from './sender';
+export declare function sendBookingConfirmationEmail(params: {
     guestEmail: string;
     guestName: string;
     reference: string;
@@ -10,8 +23,10 @@ export interface BookingConfirmationEmailParams {
     checkOutDate: string;
     nights: number;
     totalAmountFormatted: string;
-}
-export interface BankTransferInstructionsParams {
+    propertyAddress?: string;
+    propertyPhone?: string;
+}): Promise<import("./sender").SendEmailResult>;
+export declare function sendBankTransferInstructionsEmail(params: {
     guestEmail: string;
     guestName: string;
     reference: string;
@@ -21,51 +36,16 @@ export interface BankTransferInstructionsParams {
     accountName: string;
     amountFormatted: string;
     whatsappContact?: string;
-}
-export interface PaymentReceiptParams {
+    propertyPhone?: string;
+}): Promise<import("./sender").SendEmailResult>;
+export declare function sendPaymentReceiptEmail(params: {
     guestEmail: string;
     guestName: string;
     reference: string;
+    paymentReference: string;
     propertyName: string;
     amountFormatted: string;
+    paymentMethod: string;
     paidAt: string;
-}
-/**
- * Send an official booking confirmation email to the guest
- */
-export declare function sendBookingConfirmationEmail(params: BookingConfirmationEmailParams): Promise<{
-    success: boolean;
-    simulated: boolean;
-    data?: undefined;
-    error?: undefined;
-} | {
-    success: boolean;
-    data: import("resend").CreateEmailResponse;
-    simulated?: undefined;
-    error?: undefined;
-} | {
-    success: boolean;
-    error: unknown;
-    simulated?: undefined;
-    data?: undefined;
-}>;
-/**
- * Send direct bank transfer instructions for reservation settlement
- */
-export declare function sendBankTransferInstructionsEmail(params: BankTransferInstructionsParams): Promise<{
-    success: boolean;
-    simulated: boolean;
-    data?: undefined;
-    error?: undefined;
-} | {
-    success: boolean;
-    data: import("resend").CreateEmailResponse;
-    simulated?: undefined;
-    error?: undefined;
-} | {
-    success: boolean;
-    error: unknown;
-    simulated?: undefined;
-    data?: undefined;
-}>;
+}): Promise<import("./sender").SendEmailResult>;
 //# sourceMappingURL=index.d.ts.map

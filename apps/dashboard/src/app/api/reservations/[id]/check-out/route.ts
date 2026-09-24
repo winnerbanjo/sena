@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { ReservationService } from '@sena/reservations';
+import { db, reservations, guests, properties, eq } from '@sena/database';
+import { sendSenaEmail } from '@sena/email';
 
 export async function POST(
   req: NextRequest,
@@ -28,6 +30,48 @@ export async function POST(
         },
         { status: 400 }
       );
+    }
+
+    // Non-blocking checkout thank you email
+    try {
+      const [stayData] = await db
+        .select({
+          reference: reservations.reference,
+          guestName: guests.fullName,
+          guestEmail: guests.email,
+          propertyName: properties.name,
+          propertyAddress: properties.address,
+          propertyPhone: properties.phone,
+          propertyEmail: properties.email,
+        })
+        .from(reservations)
+        .innerJoin(guests, eq(reservations.guestId, guests.id))
+        .innerJoin(properties, eq(reservations.propertyId, properties.id))
+        .where(eq(reservations.id, reservationId))
+        .limit(1);
+
+      if (stayData?.guestEmail) {
+        await sendSenaEmail(
+          'stay.checkout_thank_you',
+          {
+            guestName: stayData.guestName,
+            reference: stayData.reference,
+            propertyName: stayData.propertyName,
+            propertyAddress: stayData.propertyAddress,
+            propertyPhone: stayData.propertyPhone,
+            propertyEmail: stayData.propertyEmail,
+            bookAgainUrl: 'https://sena.ng',
+          },
+          {
+            to: stayData.guestEmail,
+            idempotencyKey: `checkout_${reservationId}`,
+            relatedEntity: 'reservation',
+            relatedId: reservationId,
+          }
+        );
+      }
+    } catch (emailErr) {
+      console.warn('[CHECKOUT EMAIL ERROR]', emailErr);
     }
 
     return NextResponse.json({

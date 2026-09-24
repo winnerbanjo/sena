@@ -3,6 +3,7 @@ import postgres from 'postgres';
 import * as schema from './schema';
 
 export * from './schema';
+export * from 'drizzle-orm';
 
 /**
  * Sena PostgreSQL Connection with Connection Pooling

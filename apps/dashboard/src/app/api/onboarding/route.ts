@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { db, properties, propertyMembers, roomTypes, rooms, organizations, organizationMembers } from '@sena/database';
 import { eq } from 'drizzle-orm';
+import { sendSenaEmail } from '@sena/email';
 
 export async function POST(req: NextRequest) {
   try {
@@ -157,6 +158,31 @@ export async function POST(req: NextRequest) {
         rooms: createdRooms,
       };
     });
+
+    // Non-blocking email dispatch to notify owner property is live
+    const recipientEmail = session?.user?.email || email;
+    if (recipientEmail) {
+      try {
+        await sendSenaEmail(
+          'account.property_setup_complete',
+          {
+            userName: session?.user?.name || 'General Manager',
+            propertyName: name,
+            propertyCode: result.property.code,
+            bookingUrl: `https://book.sena.ng/${result.property.code.toLowerCase()}`,
+            roomCount: result.rooms.length,
+          },
+          {
+            to: recipientEmail,
+            organizationId: result.property.organizationId,
+            propertyId: result.property.id,
+            idempotencyKey: `property_setup_${result.property.id}`,
+          }
+        );
+      } catch (emailErr) {
+        console.warn('[PROPERTY SETUP EMAIL ERROR]', emailErr);
+      }
+    }
 
     return NextResponse.json({
       success: true,

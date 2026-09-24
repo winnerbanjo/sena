@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PaymentService } from '@sena/payments';
-import { db, idempotencyKeys } from '@sena/database';
-import { eq } from 'drizzle-orm';
+import { db, idempotencyKeys, reservations, guests, properties, eq } from '@sena/database';
+import { sendPaymentReceiptEmail } from '@sena/email';
 
 const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY || '';
 
@@ -62,6 +62,39 @@ export async function POST(req: NextRequest) {
           idempotencyKey,
           { id: 'system', name: 'Paystack Webhook' }
         );
+
+        // Send payment receipt to guest
+        try {
+          const [resRecord] = await db
+            .select({
+              reference: reservations.reference,
+              guestName: guests.fullName,
+              guestEmail: guests.email,
+              propertyName: properties.name,
+              propertyPhone: properties.phone,
+              propertyEmail: properties.email,
+            })
+            .from(reservations)
+            .innerJoin(guests, eq(reservations.guestId, guests.id))
+            .innerJoin(properties, eq(reservations.propertyId, properties.id))
+            .where(eq(reservations.id, reservationId))
+            .limit(1);
+
+          if (resRecord?.guestEmail) {
+            await sendPaymentReceiptEmail({
+              guestEmail: resRecord.guestEmail,
+              guestName: resRecord.guestName,
+              reference: resRecord.reference,
+              paymentReference: data.reference,
+              propertyName: resRecord.propertyName,
+              amountFormatted: `₦${(amountMinorUnits / 100).toLocaleString('en-NG', { minimumFractionDigits: 2 })}`,
+              paymentMethod: `Card (Paystack · ${data.channel || 'online'})`,
+              paidAt: new Date(data.paid_at || Date.now()).toLocaleString('en-NG'),
+            });
+          }
+        } catch (receiptErr) {
+          console.warn('[PAYSTACK RECEIPT EMAIL ERROR]', receiptErr);
+        }
       }
     }
 

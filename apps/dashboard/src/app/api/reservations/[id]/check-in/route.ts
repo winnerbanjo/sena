@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { ReservationService } from '@sena/reservations';
+import { db, reservations, guests, rooms, roomTypes, properties, eq } from '@sena/database';
+import { sendSenaEmail } from '@sena/email';
 
 export async function POST(
   req: NextRequest,
@@ -22,6 +24,55 @@ export async function POST(
     };
 
     await ReservationService.checkIn(reservationId, roomId, actor);
+
+    // Non-blocking stay checkin email
+    try {
+      const [stayData] = await db
+        .select({
+          reference: reservations.reference,
+          checkoutDate: reservations.checkOutDate,
+          guestName: guests.fullName,
+          guestEmail: guests.email,
+          roomNumber: rooms.roomNumber,
+          roomTypeName: roomTypes.name,
+          propertyName: properties.name,
+          propertyAddress: properties.address,
+          propertyPhone: properties.phone,
+          propertyEmail: properties.email,
+        })
+        .from(reservations)
+        .innerJoin(guests, eq(reservations.guestId, guests.id))
+        .innerJoin(rooms, eq(rooms.id, roomId))
+        .innerJoin(roomTypes, eq(rooms.roomTypeId, roomTypes.id))
+        .innerJoin(properties, eq(reservations.propertyId, properties.id))
+        .where(eq(reservations.id, reservationId))
+        .limit(1);
+
+      if (stayData?.guestEmail) {
+        await sendSenaEmail(
+          'stay.checkin_confirmation',
+          {
+            guestName: stayData.guestName,
+            reference: stayData.reference,
+            propertyName: stayData.propertyName,
+            propertyAddress: stayData.propertyAddress,
+            propertyPhone: stayData.propertyPhone,
+            propertyEmail: stayData.propertyEmail,
+            roomNumber: stayData.roomNumber,
+            roomType: stayData.roomTypeName,
+            checkoutDate: stayData.checkoutDate,
+          },
+          {
+            to: stayData.guestEmail,
+            idempotencyKey: `checkin_${reservationId}`,
+            relatedEntity: 'reservation',
+            relatedId: reservationId,
+          }
+        );
+      }
+    } catch (emailErr) {
+      console.warn('[CHECKIN EMAIL ERROR]', emailErr);
+    }
 
     return NextResponse.json({
       success: true,

@@ -9,6 +9,7 @@
     "check-types": "tsc --noEmit"
   },
   "dependencies": {
+    "@sena/database": "workspace:*",
     "resend": "^4.1.2"
   },
   "devDependencies": {

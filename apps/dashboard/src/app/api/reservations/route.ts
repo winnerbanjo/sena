@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { db, reservations, guests, rooms, roomTypes, properties, reservationEvents } from '@sena/database';
 import { ReservationService } from '@sena/reservations';
-import { sendBookingConfirmationEmail } from '@sena/email';
+import { sendBookingConfirmationEmail, sendSenaEmail } from '@sena/email';
 import { formatNaira } from '@sena/config';
 import { eq, desc } from 'drizzle-orm';
 
@@ -125,7 +125,13 @@ export async function POST(req: NextRequest) {
 
     // Fetch property details for email
     const [prop] = await db
-      .select({ name: properties.name })
+      .select({
+        name: properties.name,
+        email: properties.email,
+        phone: properties.phone,
+        address: properties.address,
+        organizationId: properties.organizationId,
+      })
       .from(properties)
       .where(eq(properties.id, propertyId))
       .limit(1);
@@ -136,7 +142,7 @@ export async function POST(req: NextRequest) {
       .where(eq(roomTypes.id, body.roomTypeId))
       .limit(1);
 
-    // Send transactional booking confirmation email via Resend
+    // Send transactional booking confirmation email to guest
     if (body.guest?.email) {
       try {
         await sendBookingConfirmationEmail({
@@ -149,9 +155,41 @@ export async function POST(req: NextRequest) {
           checkOutDate: body.checkOutDate,
           nights: reservation.nights,
           totalAmountFormatted: formatNaira(reservation.totalAmountMinorUnits),
+          propertyAddress: prop?.address,
+          propertyPhone: prop?.phone,
         });
       } catch (emailErr) {
         console.warn('Booking confirmation email sending skipped or failed:', emailErr);
+      }
+    }
+
+    // Send direct booking alert (0% commission) to hotelier
+    if (prop?.email && (body.source === 'direct' || !body.source)) {
+      try {
+        await sendSenaEmail(
+          'operations.direct_booking_alert',
+          {
+            recipientName: 'General Manager',
+            propertyName: prop.name,
+            reference: reservation.reference,
+            guestName: body.guest?.fullName || 'Guest',
+            roomType: rt?.name || 'Selected Room',
+            checkInDate: body.checkInDate,
+            checkOutDate: body.checkOutDate,
+            nights: reservation.nights,
+            totalAmountFormatted: formatNaira(reservation.totalAmountMinorUnits),
+          },
+          {
+            to: prop.email,
+            organizationId: prop.organizationId,
+            propertyId,
+            idempotencyKey: `direct_alert_${reservation.reference}`,
+            relatedEntity: 'reservation',
+            relatedId: reservation.reference,
+          }
+        );
+      } catch (alertErr) {
+        console.warn('Direct booking alert email skipped or failed:', alertErr);
       }
     }
 

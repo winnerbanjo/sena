@@ -1,0 +1,58 @@
+import * as account from './templates/account';
+import * as reservation from './templates/reservation';
+import * as payment from './templates/payment';
+import * as stay from './templates/stay';
+import * as staff from './templates/staff';
+import * as operations from './templates/operations';
+import * as subscription from './templates/subscription';
+import * as security from './templates/security';
+import * as support from './templates/support';
+import * as editorial from './templates/editorial';
+export type SenaEmailType = 'account.welcome' | 'account.verify_email' | 'account.property_setup_complete' | 'account.sign_in_alert' | 'account.password_reset' | 'account.password_changed' | 'reservation.booking_confirmation' | 'reservation.new_booking_hotel' | 'reservation.booking_modified' | 'reservation.booking_cancelled' | 'payment.payment_received' | 'payment.bank_transfer_instructions' | 'payment.payment_pending' | 'payment.payment_failed' | 'payment.refund_confirmation' | 'stay.upcoming_stay' | 'stay.checkin_confirmation' | 'stay.checkout_thank_you' | 'stay.stay_receipt' | 'staff.invitation' | 'staff.invitation_accepted' | 'staff.access_removed' | 'operations.daily_brief' | 'operations.end_of_day_summary' | 'operations.direct_booking_alert' | 'subscription.activated' | 'subscription.upgraded' | 'subscription.renewal_reminder' | 'subscription.invoice_receipt' | 'subscription.payment_failed' | 'subscription.limit_approaching' | 'subscription.cancelled' | 'security.email_changed' | 'security.new_device_session' | 'security.suspicious_login' | 'security.mfa_enabled' | 'security.mfa_disabled' | 'support.request_received' | 'support.staff_reply' | 'support.ticket_resolved' | 'editorial.product_update';
+export interface EmailParamMap {
+    'account.welcome': account.WelcomeEmailParams;
+    'account.verify_email': account.VerifyEmailParams;
+    'account.property_setup_complete': account.PropertySetupCompleteParams;
+    'account.sign_in_alert': account.SignInAlertParams;
+    'account.password_reset': account.PasswordResetParams;
+    'account.password_changed': account.PasswordChangedParams;
+    'reservation.booking_confirmation': reservation.BookingConfirmationParams;
+    'reservation.new_booking_hotel': reservation.NewBookingHotelParams;
+    'reservation.booking_modified': reservation.BookingModifiedParams;
+    'reservation.booking_cancelled': reservation.BookingCancelledParams;
+    'payment.payment_received': payment.PaymentReceivedParams;
+    'payment.bank_transfer_instructions': payment.BankTransferInstructionsParams;
+    'payment.payment_pending': payment.PaymentPendingParams;
+    'payment.payment_failed': payment.PaymentFailedParams;
+    'payment.refund_confirmation': payment.RefundConfirmationParams;
+    'stay.upcoming_stay': stay.UpcomingStayParams;
+    'stay.checkin_confirmation': stay.CheckinConfirmationParams;
+    'stay.checkout_thank_you': stay.CheckoutThankYouParams;
+    'stay.stay_receipt': stay.StayReceiptParams;
+    'staff.invitation': staff.StaffInvitationParams;
+    'staff.invitation_accepted': staff.StaffInvitationAcceptedParams;
+    'staff.access_removed': staff.StaffAccessRemovedParams;
+    'operations.daily_brief': operations.DailyBriefParams;
+    'operations.end_of_day_summary': operations.EndOfDaySummaryParams;
+    'operations.direct_booking_alert': operations.DirectBookingAlertParams;
+    'subscription.activated': subscription.SubscriptionActivatedParams;
+    'subscription.upgraded': subscription.SubscriptionUpgradedParams;
+    'subscription.renewal_reminder': subscription.SubscriptionRenewalParams;
+    'subscription.invoice_receipt': subscription.SubscriptionInvoiceParams;
+    'subscription.payment_failed': subscription.SubscriptionPaymentFailedParams;
+    'subscription.limit_approaching': subscription.SubscriptionLimitApproachingParams;
+    'subscription.cancelled': subscription.SubscriptionCancelledParams;
+    'security.email_changed': security.SecurityEmailChangedParams;
+    'security.new_device_session': security.SecurityNewDeviceParams;
+    'security.suspicious_login': security.SecuritySuspiciousLoginParams;
+    'security.mfa_enabled': security.SecurityMfaEnabledParams;
+    'security.mfa_disabled': security.SecurityMfaDisabledParams;
+    'support.request_received': support.SupportRequestReceivedParams;
+    'support.staff_reply': support.SupportStaffReplyParams;
+    'support.ticket_resolved': support.SupportTicketResolvedParams;
+    'editorial.product_update': editorial.EditorialProductEmailParams;
+}
+export declare const EMAIL_RENDERERS: {
+    [K in SenaEmailType]: (params: EmailParamMap[K]) => account.EmailRenderResult;
+};
+//# sourceMappingURL=registry.d.ts.map
