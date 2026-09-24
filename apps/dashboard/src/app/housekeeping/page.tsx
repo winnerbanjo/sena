@@ -7,19 +7,66 @@ import { INITIAL_ROOMS } from '../../components/mock-data';
 import { Topbar } from '../../components/topbar';
 
 export default function HousekeepingPage() {
-  const [rooms, setRooms] = React.useState(INITIAL_ROOMS);
+  const [rooms, setRooms] = React.useState<any[]>([]);
+  const [loading, setLoading] = React.useState(true);
 
-  // Transitions: Dirty -> Cleaning -> Clean
-  function startCleaning(id: string) {
-    setRooms((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, housekeeping: 'cleaning' } : r))
-    );
+  const fetchHousekeeping = React.useCallback(async () => {
+    try {
+      const res = await fetch('/api/housekeeping');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.rooms) {
+          const mapped = data.rooms.map((r: any) => ({
+            id: r.id,
+            number: r.roomNumber,
+            type: r.roomTypeName,
+            floor: r.floor || 'Floor 1',
+            operational: r.operationalStatus,
+            housekeeping: r.housekeepingStatus,
+          }));
+          setRooms(mapped);
+        }
+      }
+    } catch (e) {
+      console.error('Failed to load housekeeping rooms:', e);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    fetchHousekeeping();
+  }, [fetchHousekeeping]);
+
+  // Transitions: Dirty -> Cleaning -> Clean via PostgreSQL
+  async function startCleaning(id: string) {
+    try {
+      const res = await fetch('/api/housekeeping', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ roomId: id, status: 'cleaning' }),
+      });
+      if (res.ok) {
+        fetchHousekeeping();
+      }
+    } catch (e) {
+      console.error(e);
+    }
   }
 
-  function markClean(id: string) {
-    setRooms((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, housekeeping: 'clean' } : r))
-    );
+  async function markClean(id: string) {
+    try {
+      const res = await fetch('/api/housekeeping', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ roomId: id, status: 'clean' }),
+      });
+      if (res.ok) {
+        fetchHousekeeping();
+      }
+    } catch (e) {
+      console.error(e);
+    }
   }
 
   const dirtyCount = rooms.filter((r) => r.housekeeping === 'dirty').length;

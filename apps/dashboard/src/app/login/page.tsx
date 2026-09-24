@@ -16,7 +16,7 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = React.useState(false);
   const [error, setError] = React.useState('');
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
 
@@ -27,8 +27,20 @@ export default function LoginPage() {
 
     setIsLoading(true);
 
-    // Simulate secure authentication & store session state
-    setTimeout(() => {
+    try {
+      const { signIn } = await import('next-auth/react');
+      const res = await signIn('credentials', {
+        email: email.trim().toLowerCase(),
+        password,
+        redirect: false,
+      });
+
+      if (res?.error) {
+        setError('Invalid email or password. Please check your credentials.');
+        setIsLoading(false);
+        return;
+      }
+
       try {
         localStorage.setItem(
           'sena_auth_user',
@@ -42,21 +54,41 @@ export default function LoginPage() {
       } catch (err) {
         console.error(err);
       }
+
       setIsLoading(false);
       router.push('/');
-    }, 600);
+    } catch (err: any) {
+      console.error('Login error:', err);
+      setError('Failed to authenticate. Please check your network and try again.');
+      setIsLoading(false);
+    }
   }
 
-  function handleDemoLogin() {
-    setEmail('amara.okafor@stayconnect.ng');
-    setPassword('••••••••••••');
+  async function handleDemoLogin() {
+    setEmail('amara@stayconnect.ng');
+    setPassword('Password123!');
     setIsLoading(true);
-    setTimeout(() => {
+    setError('');
+
+    try {
+      const { signIn } = await import('next-auth/react');
+      const res = await signIn('credentials', {
+        email: 'amara@stayconnect.ng',
+        password: 'Password123!',
+        redirect: false,
+      });
+
+      if (res?.error) {
+        setError('Demo sign-in failed. Please verify demo user configuration.');
+        setIsLoading(false);
+        return;
+      }
+
       try {
         localStorage.setItem(
           'sena_auth_user',
           JSON.stringify({
-            email: 'amara.okafor@stayconnect.ng',
+            email: 'amara@stayconnect.ng',
             name: 'Amara Okafor',
             role: 'General Manager',
             property: 'Stay Connect Lekki',
@@ -65,9 +97,14 @@ export default function LoginPage() {
       } catch (err) {
         console.error(err);
       }
+
       setIsLoading(false);
       router.push('/');
-    }, 400);
+    } catch (err: any) {
+      console.error('Demo login error:', err);
+      setError('Failed to connect to demo account.');
+      setIsLoading(false);
+    }
   }
 
   return (

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { DashboardShell } from '../components/dashboard-shell';
+import { PostHogProvider } from '../components/posthog-provider';
 
 export const metadata: Metadata = {
   title: 'Sena — Hospitality, Simplified',
@@ -21,7 +22,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="bg-white text-[#191816] antialiased">
-        <DashboardShell>{children}</DashboardShell>
+        <PostHogProvider>
+          <DashboardShell>{children}</DashboardShell>
+        </PostHogProvider>
       </body>
     </html>
   );

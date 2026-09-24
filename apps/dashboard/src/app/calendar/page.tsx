@@ -8,21 +8,76 @@ import { NewReservationDialog } from '../../components/new-reservation-dialog';
 import { ReservationDrawer } from '../../components/reservation-drawer';
 import { Topbar } from '../../components/topbar';
 
-const CALENDAR_DATES = [
-  { day: 'TUE', date: '22', full: '2026-09-22' },
-  { day: 'WED', date: '23', full: '2026-09-23', isToday: true },
-  { day: 'THU', date: '24', full: '2026-09-24' },
-  { day: 'FRI', date: '25', full: '2026-09-25' },
-  { day: 'SAT', date: '26', full: '2026-09-26' },
-  { day: 'SUN', date: '27', full: '2026-09-27' },
-  { day: 'MON', date: '28', full: '2026-09-28' },
-];
+function generateDates(baseDate = new Date(), numDays = 7) {
+  const days = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+  const dates = [];
+  const todayStr = new Date().toISOString().split('T')[0];
+
+  for (let i = 0; i < numDays; i++) {
+    const d = new Date(baseDate);
+    d.setDate(baseDate.getDate() + i);
+    const full = d.toISOString().split('T')[0];
+    dates.push({
+      day: days[d.getDay()],
+      date: String(d.getDate()).padStart(2, '0'),
+      full,
+      isToday: full === todayStr,
+    });
+  }
+  return dates;
+}
 
 export default function CalendarPage() {
-  const [reservations, setReservations] = React.useState<ReservationItem[]>(INITIAL_RESERVATIONS);
+  const [calendarDates, setCalendarDates] = React.useState(() => generateDates(new Date(), 7));
+  const [rooms, setRooms] = React.useState<any[]>([]);
+  const [reservations, setReservations] = React.useState<ReservationItem[]>([]);
+  const [loading, setLoading] = React.useState(true);
   const [selectedRes, setSelectedRes] = React.useState<ReservationItem | null>(null);
   const [drawerOpen, setDrawerOpen] = React.useState(false);
   const [newResOpen, setNewResOpen] = React.useState(false);
+
+  const fetchCalendar = React.useCallback(async () => {
+    try {
+      const startDate = calendarDates[0]?.full || new Date().toISOString().split('T')[0];
+      const endDate = calendarDates[calendarDates.length - 1]?.full || new Date().toISOString().split('T')[0];
+      const res = await fetch(`/api/calendar?startDate=${startDate}&endDate=${endDate}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.rooms) setRooms(data.rooms);
+        if (data.reservations) {
+          const mapped: ReservationItem[] = data.reservations.map((r: any) => ({
+            id: r.id,
+            reference: r.reference,
+            guestName: r.guestName || 'Unnamed Guest',
+            guestEmail: '',
+            guestPhone: '',
+            roomType: '',
+            roomNumber: '',
+            roomId: r.roomId,
+            checkInDate: r.checkInDate,
+            checkOutDate: r.checkOutDate,
+            nights: 1,
+            numGuests: 1,
+            source: r.source || 'direct',
+            status: r.status,
+            paymentStatus: r.paymentStatus,
+            totalAmountMinorUnits: 0,
+            paidAmountMinorUnits: 0,
+            timeline: [],
+          }));
+          setReservations(mapped);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load calendar data:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [calendarDates]);
+
+  React.useEffect(() => {
+    fetchCalendar();
+  }, [fetchCalendar]);
 
   return (
     <div className="flex-1 flex flex-col h-screen overflow-hidden bg-white">
@@ -75,7 +130,7 @@ export default function CalendarPage() {
                 <th className="p-3 text-left font-serif font-normal text-[#7A7267] w-48 border-r border-[#E8E2DA]">
                   ROOM / CATEGORY
                 </th>
-                {CALENDAR_DATES.map((d) => (
+                {calendarDates.map((d) => (
                   <th
                     key={d.full}
                     className={`p-3 text-center font-medium border-r border-[#E8E2DA] ${
@@ -89,23 +144,30 @@ export default function CalendarPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-[#E8E2DA] text-xs">
-              {INITIAL_ROOMS.map((room) => {
-                const res = reservations.find((r) => r.roomNumber === room.number);
+              {rooms.length === 0 ? (
+                <tr>
+                  <td colSpan={calendarDates.length + 1} className="p-8 text-center text-[#7A7267]">
+                    {loading ? 'Loading rooms from PostgreSQL...' : 'No rooms configured yet. Onboard rooms in Settings or Rooms tab.'}
+                  </td>
+                </tr>
+              ) : (
+                rooms.map((room) => {
+                  const res = reservations.find((r) => (r as any).roomId === room.id || r.roomNumber === room.roomNumber);
 
-                return (
-                  <tr key={room.id} className="hover:bg-[#FAFAFA] transition-colors">
-                    {/* Room title */}
-                    <td className="p-3 border-r border-[#E8E2DA] bg-[#FAFAFA]/50">
-                      <strong className="block text-sm font-serif text-[#191816]">
-                        Room {room.number}
-                      </strong>
-                      <span className="text-[11px] text-[#7A7267]">
-                        {room.type}
-                      </span>
-                    </td>
+                  return (
+                    <tr key={room.id} className="hover:bg-[#FAFAFA] transition-colors">
+                      {/* Room title */}
+                      <td className="p-3 border-r border-[#E8E2DA] bg-[#FAFAFA]/50">
+                        <strong className="block text-sm font-serif text-[#191816]">
+                          Room {room.roomNumber}
+                        </strong>
+                        <span className="text-[11px] text-[#7A7267]">
+                          {room.roomTypeName}
+                        </span>
+                      </td>
 
-                    {/* Timeline columns */}
-                    {CALENDAR_DATES.map((dateObj) => {
+                      {/* Timeline columns */}
+                      {calendarDates.map((dateObj) => {
                       const isOccupied =
                         res &&
                         dateObj.full >= res.checkInDate &&
@@ -171,7 +233,7 @@ export default function CalendarPage() {
                     })}
                   </tr>
                 );
-              })}
+              }))}
             </tbody>
           </table>
         </div>

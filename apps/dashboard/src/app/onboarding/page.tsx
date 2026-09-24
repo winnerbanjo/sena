@@ -170,37 +170,54 @@ export default function OnboardingPage() {
     setEditingIndex(null);
   }
 
-  // Final Launch & Save
-  function handleComplete() {
+  const [saving, setSaving] = React.useState(false);
+  const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
+
+  // Final Launch & Save to PostgreSQL
+  async function handleComplete() {
+    setSaving(true);
+    setErrorMsg(null);
     try {
+      const res = await fetch('/api/onboarding', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: propName,
+          propertyType: propType,
+          country: selectedCountry.name,
+          currency: selectedCountry.currency,
+          address: `${address}, ${city}`,
+          phone: whatsappPhone,
+          email: 'stay@sena.ng',
+          roomTypeName,
+          bedType,
+          priceMinorUnits: Number(price) * 100,
+          numRooms: Number(numRooms),
+          floorNumber,
+          roomsList,
+          bankDetails: {
+            bankName,
+            accountNumber,
+            accountName,
+            instructions: transferInstructions,
+          },
+        }),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || 'Failed to complete onboarding');
+      }
+
       localStorage.setItem('sena_onboarding_completed', 'true');
       localStorage.setItem('sena_property_name', propName);
-      localStorage.setItem('sena_country', JSON.stringify(selectedCountry));
-      localStorage.setItem(
-        'sena_bank_details',
-        JSON.stringify({
-          bankName,
-          accountNumber,
-          accountName,
-          instructions: transferInstructions,
-        })
-      );
-
-      // Generate initial room records for the inventory
-      const formattedRooms: RoomItem[] = roomsList.map((num, idx) => ({
-        id: `rm-${num.toLowerCase().replace(/\s+/g, '-')}`,
-        number: num,
-        type: roomTypeName,
-        floor: `Floor ${floorNumber}`,
-        operational: 'available',
-        housekeeping: idx % 4 === 1 ? 'dirty' : 'clean',
-      }));
-
-      localStorage.setItem('sena_rooms_v1', JSON.stringify(formattedRooms));
-    } catch (e) {
-      console.error(e);
+      router.push('/');
+    } catch (e: any) {
+      console.error('Failed to persist onboarding to PostgreSQL:', e);
+      setErrorMsg(e.message || 'An error occurred while saving.');
+    } finally {
+      setSaving(false);
     }
-    router.push('/');
   }
 
   return (
@@ -789,15 +806,19 @@ export default function OnboardingPage() {
               <ChevronRight className="w-3.5 h-3.5" />
             </Button>
           ) : (
-            <Button
-              type="button"
-              size="sm"
-              onClick={handleComplete}
-              className="text-xs flex items-center gap-1.5 bg-[#2E6B4F] hover:bg-[#255740]"
-            >
-              <span>Launch Sena Operating System</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </Button>
+            <div className="flex flex-col items-end gap-1">
+              {errorMsg && <p className="text-[11px] text-red-600 font-medium">{errorMsg}</p>}
+              <Button
+                type="button"
+                size="sm"
+                disabled={saving}
+                onClick={handleComplete}
+                className="text-xs flex items-center gap-1.5 bg-[#2E6B4F] hover:bg-[#255740] disabled:opacity-50"
+              >
+                <span>{saving ? 'Persisting to PostgreSQL...' : 'Launch Sena Operating System'}</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Button>
+            </div>
           )}
         </div>
       </div>

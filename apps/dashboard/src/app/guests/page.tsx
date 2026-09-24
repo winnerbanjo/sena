@@ -83,10 +83,36 @@ const GUESTS_DATA: GuestProfile[] = [
 ];
 
 export default function GuestsPage() {
+  const [guests, setGuests] = React.useState<GuestProfile[]>([]);
+  const [loading, setLoading] = React.useState(true);
   const [search, setSearch] = React.useState('');
   const [selectedGuest, setSelectedGuest] = React.useState<GuestProfile | null>(null);
 
-  const filtered = GUESTS_DATA.filter((g) => {
+  React.useEffect(() => {
+    fetch('/api/guests')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.guests) {
+          const mapped: GuestProfile[] = data.guests.map((g: any) => ({
+            id: g.id,
+            name: g.fullName,
+            phone: g.phone || '—',
+            email: g.email || '—',
+            stays: g.totalStays || 0,
+            nights: g.totalStays * 2 || 0,
+            lastStay: g.lastStayDate ? new Date(g.lastStayDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Recent',
+            lifetimeValueMinorUnits: g.totalSpendMinorUnits || 0,
+            preferences: g.preferences || [],
+            notes: g.notes || 'Guest record in PostgreSQL.',
+          }));
+          setGuests(mapped);
+        }
+      })
+      .catch((e) => console.error('Failed to load guests:', e))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const filtered = guests.filter((g) => {
     if (!search) return true;
     const q = search.toLowerCase();
     return (

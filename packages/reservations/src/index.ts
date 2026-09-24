@@ -4,6 +4,7 @@ import {
   db,
   guests,
   housekeepingTasks,
+  properties,
   reservationEvents,
   reservations,
   rooms,
@@ -80,10 +81,22 @@ export class ReservationService {
         if (existing.length > 0) {
           resolvedGuestId = existing[0].id;
         } else {
+          // Resolve property organizationId
+          const propList = await tx
+            .select({ organizationId: properties.organizationId })
+            .from(properties)
+            .where(eq(properties.id, input.propertyId))
+            .limit(1);
+
+          const organizationId = propList[0]?.organizationId;
+          if (!organizationId) {
+            throw new Error(`Property ${input.propertyId} has no parent organization`);
+          }
+
           const inserted = await tx
             .insert(guests)
             .values({
-              organizationId: input.propertyId, // Default scope
+              organizationId,
               propertyId: input.propertyId,
               fullName: input.guest.fullName,
               email: input.guest.email,

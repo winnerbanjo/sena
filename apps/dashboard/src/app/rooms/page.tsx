@@ -38,70 +38,121 @@ export default function RoomsPage() {
   // Success alert message
   const [toastMessage, setToastMessage] = React.useState<string | null>(null);
 
-  // Persistent Rooms & Categories state
-  const [rooms, setRooms] = React.useState<RoomItem[]>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const saved = localStorage.getItem('sena_rooms_v1');
-        if (saved) return JSON.parse(saved);
-      } catch (e) {
-        console.error(e);
-      }
-    }
-    return INITIAL_ROOMS;
-  });
+  // Persistent Rooms & Categories state from PostgreSQL
+  const [rooms, setRooms] = React.useState<RoomItem[]>([]);
+  const [categories, setCategories] = React.useState<RoomCategory[]>([]);
+  const [loading, setLoading] = React.useState(true);
 
-  const [categories, setCategories] = React.useState<RoomCategory[]>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const saved = localStorage.getItem('sena_room_categories_v1');
-        if (saved) return JSON.parse(saved);
-      } catch (e) {
-        console.error(e);
-      }
-    }
-    return DEFAULT_ROOM_CATEGORIES;
-  });
-
-  // Sync to local storage
-  React.useEffect(() => {
+  const fetchRoomsData = React.useCallback(async () => {
     try {
-      localStorage.setItem('sena_rooms_v1', JSON.stringify(rooms));
-    } catch (e) {
-      console.error(e);
+      const res = await fetch('/api/rooms');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.rooms && data.roomTypes) {
+          const mappedRooms: RoomItem[] = data.rooms.map((r: any) => ({
+            id: r.id,
+            number: r.roomNumber,
+            type: r.roomTypeName,
+            floor: r.floor || 'Floor 1',
+            operational: r.operationalStatus || 'available',
+            housekeeping: r.housekeepingStatus || 'clean',
+          }));
+          const mappedCats: RoomCategory[] = data.roomTypes.map((rt: any) => ({
+            id: rt.id,
+            name: rt.name,
+            code: rt.name.slice(0, 3).toUpperCase(),
+            bedType: rt.bedType,
+            baseRateMinorUnits: rt.basePriceMinorUnits,
+            maxGuests: rt.capacity || 2,
+            amenities: rt.amenities || [],
+            description: rt.description || '',
+          }));
+          setRooms(mappedRooms);
+          setCategories(mappedCats);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load rooms from DB:', err);
+    } finally {
+      setLoading(false);
     }
-  }, [rooms]);
+  }, []);
 
   React.useEffect(() => {
-    try {
-      localStorage.setItem('sena_room_categories_v1', JSON.stringify(categories));
-    } catch (e) {
-      console.error(e);
-    }
-  }, [categories]);
+    fetchRoomsData();
+  }, [fetchRoomsData]);
 
   function showToast(msg: string) {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 4000);
   }
 
-  // Handle Add Room
-  function handleAddRoom(newRoom: RoomItem) {
-    setRooms((prev) => [newRoom, ...prev]);
-    showToast(`Room ${newRoom.number} added to inventory successfully!`);
+  // Handle Add Room (persists to PostgreSQL)
+  async function handleAddRoom(newRoom: RoomItem) {
+    try {
+      const matchedCategory = categories.find((c) => c.name === newRoom.type);
+      const res = await fetch('/api/rooms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'create_room',
+          roomNumber: newRoom.number,
+          roomTypeId: matchedCategory?.id,
+          floor: newRoom.floor,
+        }),
+      });
+      if (res.ok) {
+        showToast(`Room ${newRoom.number} added to inventory successfully!`);
+        fetchRoomsData();
+      } else {
+        const err = await res.json();
+        alert(err.error || 'Failed to add room');
+      }
+    } catch (e: any) {
+      alert(e.message || 'Error saving room');
+    }
   }
 
-  // Handle Add Category
-  function handleAddCategory(newCategory: RoomCategory) {
-    setCategories((prev) => [...prev, newCategory]);
-    showToast(`Category "${newCategory.name}" created! You can now add rooms to it.`);
+  // Handle Add Category (persists to PostgreSQL)
+  async function handleAddCategory(newCategory: RoomCategory) {
+    try {
+      const res = await fetch('/api/rooms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'create_category',
+          name: newCategory.name,
+          bedType: newCategory.bedType,
+          basePriceMinorUnits: newCategory.baseRateMinorUnits,
+          description: newCategory.description,
+          capacity: newCategory.maxGuests,
+          amenities: newCategory.amenities,
+        }),
+      });
+      if (res.ok) {
+        showToast(`Category "${newCategory.name}" created! You can now add rooms to it.`);
+        fetchRoomsData();
+      } else {
+        const err = await res.json();
+        alert(err.error || 'Failed to add category');
+      }
+    } catch (e: any) {
+      alert(e.message || 'Error saving category');
+    }
   }
 
-  // Handle Delete Room
-  function handleDeleteRoom(id: string, num: string) {
+  // Handle Delete Room (deletes from PostgreSQL)
+  async function handleDeleteRoom(id: string, num: string) {
     if (confirm(`Are you sure you want to remove Room ${num} from inventory?`)) {
-      setRooms((prev) => prev.filter((r) => r.id !== id));
-      showToast(`Room ${num} removed.`);
+      try {
+        const res = await fetch(`/api/rooms?id=${id}`, { method: 'DELETE' });
+        if (res.ok) {
+          showToast(`Room ${num} removed.`);
+          fetchRoomsData();
+        }
+      } catch (e: any) {
+        alert(e.message || 'Failed to delete room');
+      }
     }
   }
 
@@ -117,7 +168,6 @@ export default function RoomsPage() {
       showToast(`Category "${name}" removed.`);
     }
   }
-
   // Filtered rooms
   const filteredRooms = rooms.filter((r) => {
     if (filter === 'occupied' && r.operational !== 'occupied') return false;

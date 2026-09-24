@@ -20,7 +20,7 @@ export default function SignupPage() {
   const [isLoading, setIsLoading] = React.useState(false);
   const [error, setError] = React.useState('');
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
 
@@ -36,16 +36,39 @@ export default function SignupPage() {
 
     setIsLoading(true);
 
-    // Persist new user state and initialize onboarding data
-    setTimeout(() => {
+    try {
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fullName,
+          email,
+          password,
+          phone,
+          propertyName,
+          propertyCategory: propertyType,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error || 'Failed to create account. Please try again.');
+        setIsLoading(false);
+        return;
+      }
+
+      // Persist draft context for onboarding wizard
       try {
         localStorage.setItem(
           'sena_auth_user',
           JSON.stringify({
-            email,
+            id: data.data?.user?.id,
+            email: data.data?.user?.email,
             name: fullName,
             phone,
-            role: 'Owner / General Manager',
+            role: 'owner',
+            organizationId: data.data?.organization?.id,
             property: propertyName,
             propertyType,
           })
@@ -53,6 +76,8 @@ export default function SignupPage() {
         localStorage.setItem(
           'sena_onboarding_draft',
           JSON.stringify({
+            userId: data.data?.user?.id,
+            organizationId: data.data?.organization?.id,
             propName: propertyName,
             propType: propertyType,
             email,
@@ -62,10 +87,27 @@ export default function SignupPage() {
       } catch (err) {
         console.error(err);
       }
+
+      // Attempt automatic sign-in
+      try {
+        const { signIn } = await import('next-auth/react');
+        await signIn('credentials', {
+          email,
+          password,
+          redirect: false,
+        });
+      } catch (err) {
+        console.warn('Sign-in after registration warning:', err);
+      }
+
       setIsLoading(false);
-      // Route immediately into the guided onboarding wizard!
+      // Route immediately into the guided onboarding wizard
       router.push('/onboarding');
-    }, 600);
+    } catch (err: any) {
+      console.error('Registration network error:', err);
+      setError('A network error occurred. Please check your connection and try again.');
+      setIsLoading(false);
+    }
   }
 
   return (

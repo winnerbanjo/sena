@@ -18,10 +18,50 @@ import { ReservationDrawer } from '../../components/reservation-drawer';
 import { Topbar } from '../../components/topbar';
 
 export default function FrontDeskPage() {
-  const [reservations, setReservations] = React.useState<ReservationItem[]>(INITIAL_RESERVATIONS);
+  const [reservations, setReservations] = React.useState<ReservationItem[]>([]);
+  const [loading, setLoading] = React.useState(true);
   const [activeTab, setActiveTab] = React.useState<'arriving' | 'in_house' | 'departing'>('arriving');
   const [selectedRes, setSelectedRes] = React.useState<ReservationItem | null>(null);
   const [drawerOpen, setDrawerOpen] = React.useState(false);
+
+  const fetchReservations = React.useCallback(async () => {
+    try {
+      const res = await fetch('/api/reservations');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.reservations) {
+          const mapped: ReservationItem[] = data.reservations.map((r: any) => ({
+            id: r.id,
+            reference: r.reference,
+            guestName: r.guestName || 'Unnamed Guest',
+            guestEmail: r.guestEmail || '',
+            guestPhone: r.guestPhone || '',
+            roomType: r.roomTypeName || 'Standard Room',
+            roomNumber: r.roomNumber || 'Unassigned',
+            checkInDate: r.checkInDate,
+            checkOutDate: r.checkOutDate,
+            nights: r.nights,
+            numGuests: r.numGuests || 1,
+            source: r.source || 'direct',
+            status: r.status,
+            paymentStatus: r.paymentStatus,
+            totalAmountMinorUnits: r.totalAmountMinorUnits,
+            paidAmountMinorUnits: r.paidAmountMinorUnits,
+            timeline: r.timeline || [],
+          }));
+          setReservations(mapped);
+        }
+      }
+    } catch (e) {
+      console.error('Failed to load reservations in front desk:', e);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    fetchReservations();
+  }, [fetchReservations]);
 
   // Balance checkout warning dialog
   const [checkoutWarning, setCheckoutWarning] = React.useState<{
@@ -29,11 +69,30 @@ export default function FrontDeskPage() {
     balanceMinorUnits: number;
   } | null>(null);
 
-  // Check In
-  function handleCheckIn(id: string) {
-    setReservations((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, status: 'checked_in' } : r))
-    );
+  // Check In via PostgreSQL
+  async function handleCheckIn(id: string) {
+    try {
+      const roomRes = await fetch('/api/rooms');
+      const roomData = await roomRes.json();
+      const availableRoom = roomData.rooms?.find((rm: any) => rm.operational === 'available');
+      if (!availableRoom) {
+        alert('No available rooms found in database to assign for check-in');
+        return;
+      }
+      const res = await fetch(`/api/reservations/${id}/check-in`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ roomId: availableRoom.id }),
+      });
+      if (res.ok) {
+        fetchReservations();
+      } else {
+        const err = await res.json();
+        alert(err.error || 'Failed to check in');
+      }
+    } catch (err: any) {
+      alert(err.message || 'Check in failed');
+    }
   }
 
   // Check Out
@@ -42,23 +101,37 @@ export default function FrontDeskPage() {
     if (balance > 0) {
       setCheckoutWarning({ res, balanceMinorUnits: balance });
     } else {
-      executeCheckOut(res.id);
+      executeCheckOut(res.id, false);
     }
   }
 
-  function executeCheckOut(id: string) {
-    setReservations((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, status: 'checked_out' } : r))
-    );
-    setCheckoutWarning(null);
+  // Check Out via PostgreSQL
+  async function executeCheckOut(id: string, force = true) {
+    try {
+      const res = await fetch(`/api/reservations/${id}/check-out`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ force }),
+      });
+      if (res.ok) {
+        setCheckoutWarning(null);
+        fetchReservations();
+      } else {
+        const err = await res.json();
+        alert(err.error || 'Failed to check out');
+      }
+    } catch (err: any) {
+      alert(err.message || 'Check out failed');
+    }
   }
 
+  const todayStr = new Date().toISOString().split('T')[0];
   const arrivingList = reservations.filter(
-    (r) => r.checkInDate === '2026-09-23' && r.status === 'confirmed'
+    (r) => r.status === 'confirmed'
   );
   const inHouseList = reservations.filter((r) => r.status === 'checked_in');
   const departingList = reservations.filter(
-    (r) => r.checkOutDate === '2026-09-23' && r.status === 'checked_in'
+    (r) => r.status === 'checked_in'
   );
 
   const currentList =

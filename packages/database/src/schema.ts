@@ -16,11 +16,43 @@ export const users = pgTable('users', {
   id: uuid('id').defaultRandom().primaryKey(),
   email: varchar('email', { length: 255 }).notNull().unique(),
   fullName: varchar('full_name', { length: 255 }).notNull(),
+  passwordHash: varchar('password_hash', { length: 255 }),
   phone: varchar('phone', { length: 50 }),
   avatarUrl: text('avatar_url'),
   isActive: boolean('is_active').default(true).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+// 1b. Auth.js Accounts & Sessions
+export const accounts = pgTable(
+  'accounts',
+  {
+    userId: uuid('user_id')
+      .references(() => users.id, { onDelete: 'cascade' })
+      .notNull(),
+    type: varchar('type', { length: 255 }).notNull(),
+    provider: varchar('provider', { length: 255 }).notNull(),
+    providerAccountId: varchar('provider_account_id', { length: 255 }).notNull(),
+    refreshToken: text('refresh_token'),
+    accessToken: text('access_token'),
+    expiresAt: integer('expires_at'),
+    tokenType: varchar('token_type', { length: 255 }),
+    scope: varchar('scope', { length: 255 }),
+    idToken: text('id_token'),
+    sessionState: varchar('session_state', { length: 255 }),
+  },
+  (t) => [
+    uniqueIndex('account_provider_idx').on(t.provider, t.providerAccountId),
+  ]
+);
+
+export const sessions = pgTable('sessions', {
+  sessionToken: varchar('session_token', { length: 255 }).notNull().primaryKey(),
+  userId: uuid('user_id')
+    .references(() => users.id, { onDelete: 'cascade' })
+    .notNull(),
+  expires: timestamp('expires', { withTimezone: true }).notNull(),
 });
 
 // 2. Organizations (multi-property parent)

@@ -21,11 +21,12 @@ interface NewReservationDialogProps {
   onCreateReservation: (reservation: ReservationItem) => void;
 }
 
-const ROOM_OPTIONS = [
-  { id: 'rt-exec', name: 'Executive Room', price: 12000000, available: 4 },
-  { id: 'rt-dlx', name: 'Deluxe Room', price: 8000000, available: 2 },
-  { id: 'rt-suite', name: 'Saffron Suite', price: 18000000, available: 1 },
-];
+interface RoomTypeOption {
+  id: string;
+  name: string;
+  price: number;
+  available: number;
+}
 
 export function NewReservationDialog({
   open,
@@ -34,55 +35,116 @@ export function NewReservationDialog({
 }: NewReservationDialogProps) {
   const [checkIn, setCheckIn] = React.useState('2026-09-24');
   const [checkOut, setCheckOut] = React.useState('2026-09-27');
-  const [selectedRoom, setSelectedRoom] = React.useState(ROOM_OPTIONS[0].name);
+  const [roomOptions, setRoomOptions] = React.useState<RoomTypeOption[]>([]);
+  const [selectedRoomId, setSelectedRoomId] = React.useState<string>('');
   const [guestName, setGuestName] = React.useState('');
   const [guestPhone, setGuestPhone] = React.useState('');
   const [guestEmail, setGuestEmail] = React.useState('');
   const [paymentStatus, setPaymentStatus] = React.useState<'paid' | 'part_payment' | 'pay_later'>('pay_later');
   const [source, setSource] = React.useState<'walk_in' | 'phone' | 'direct' | 'whatsapp'>('walk_in');
+  const [submitting, setSubmitting] = React.useState(false);
+  const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (open) {
+      fetch('/api/rooms')
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.roomTypes && data.roomTypes.length > 0) {
+            const mapped = data.roomTypes.map((rt: any) => ({
+              id: rt.id,
+              name: rt.name,
+              price: rt.basePriceMinorUnits,
+              available: rt.totalInventory || 1,
+            }));
+            setRoomOptions(mapped);
+            setSelectedRoomId(mapped[0].id);
+          }
+        })
+        .catch(console.error);
+    }
+  }, [open]);
 
   const nights = calculateNights(checkIn, checkOut);
-  const selectedRoomObj = ROOM_OPTIONS.find((r) => r.name === selectedRoom) || ROOM_OPTIONS[0];
+  const selectedRoomObj = roomOptions.find((r) => r.id === selectedRoomId) || roomOptions[0] || {
+    id: 'default',
+    name: 'Standard Room',
+    price: 8500000,
+    available: 1,
+  };
   const totalAmountMinorUnits = selectedRoomObj.price * nights;
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!guestName) return;
+    if (!guestName || !selectedRoomId) return;
 
-    const reference = `SEN-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+    setSubmitting(true);
+    setErrorMsg(null);
 
-    const newRes: ReservationItem = {
-      id: `res-${Date.now()}`,
-      reference,
-      guestName,
-      guestEmail: guestEmail || `${guestName.toLowerCase().replace(/\s+/g, '.')}@example.com`,
-      guestPhone: guestPhone || '+234 800 000 0000',
-      roomType: selectedRoomObj.name,
-      roomNumber: selectedRoomObj.name.includes('Executive') ? '203' : '104',
-      checkInDate: checkIn,
-      checkOutDate: checkOut,
-      nights,
-      numGuests: 2,
-      source,
-      status: 'confirmed',
-      paymentStatus,
-      totalAmountMinorUnits,
-      paidAmountMinorUnits: paymentStatus === 'paid' ? totalAmountMinorUnits : 0,
-      timeline: [
-        {
-          time: 'Just now',
-          text: `Reservation ${reference} created by Front Desk (${source})`,
-          actor: 'Front Desk',
-        },
-      ],
-    };
+    try {
+      const res = await fetch('/api/reservations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          roomTypeId: selectedRoomId,
+          checkInDate: checkIn,
+          checkOutDate: checkOut,
+          numGuests: 2,
+          source,
+          paymentStatus,
+          paidAmountMinorUnits: paymentStatus === 'paid' ? totalAmountMinorUnits : 0,
+          guest: {
+            fullName: guestName,
+            email: guestEmail || `${guestName.toLowerCase().replace(/\s+/g, '.')}@example.com`,
+            phone: guestPhone || '+234 800 000 0000',
+          },
+        }),
+      });
 
-    onCreateReservation(newRes);
-    onOpenChange(false);
-    // Reset form
-    setGuestName('');
-    setGuestPhone('');
-    setGuestEmail('');
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to create reservation');
+      }
+
+      const data = await res.json();
+      const created = data.reservation;
+
+      onCreateReservation({
+        id: created.id,
+        reference: created.reference,
+        guestName,
+        guestEmail: guestEmail || `${guestName.toLowerCase().replace(/\s+/g, '.')}@example.com`,
+        guestPhone: guestPhone || '+234 800 000 0000',
+        roomType: selectedRoomObj.name,
+        roomNumber: 'Unassigned',
+        checkInDate: checkIn,
+        checkOutDate: checkOut,
+        nights,
+        numGuests: 2,
+        source,
+        status: 'confirmed',
+        paymentStatus,
+        totalAmountMinorUnits,
+        paidAmountMinorUnits: paymentStatus === 'paid' ? totalAmountMinorUnits : 0,
+        timeline: [
+          {
+            time: 'Just now',
+            text: `Reservation ${created.reference} created in PostgreSQL (${source})`,
+            actor: 'Staff',
+          },
+        ],
+      });
+
+      onOpenChange(false);
+      setGuestName('');
+      setGuestPhone('');
+      setGuestEmail('');
+    } catch (err: any) {
+      console.error(err);
+      setErrorMsg(err.message || 'Error creating reservation');
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -123,28 +185,34 @@ export function NewReservationDialog({
             <div>
               <Label>Room Category</Label>
               <div className="grid grid-cols-3 gap-2">
-                {ROOM_OPTIONS.map((rm) => (
-                  <button
-                    key={rm.id}
-                    type="button"
-                    onClick={() => setSelectedRoom(rm.name)}
-                    className={`p-2.5 rounded border text-left text-xs transition-all ${
-                      selectedRoom === rm.name
-                        ? 'border-[#B85C3E] bg-[#FAFAFA] ring-1 ring-[#B85C3E]'
-                        : 'border-[#E8E2DA] bg-white hover:border-[#7A7267]'
-                    }`}
-                  >
-                    <span className="font-semibold text-[#191816] block truncate">
-                      {rm.name}
-                    </span>
-                    <span className="text-[11px] text-[#7A7267] block">
-                      {formatNaira(rm.price)}/nt
-                    </span>
-                    <span className="text-[10px] text-[#2E6B4F] mt-1 block">
-                      {rm.available} available
-                    </span>
-                  </button>
-                ))}
+                {roomOptions.length === 0 ? (
+                  <div className="col-span-3 text-xs text-[#7A7267] p-2 bg-[#FAFAFA] rounded border border-[#E8E2DA]">
+                    Loading categories from PostgreSQL...
+                  </div>
+                ) : (
+                  roomOptions.map((rm) => (
+                    <button
+                      key={rm.id}
+                      type="button"
+                      onClick={() => setSelectedRoomId(rm.id)}
+                      className={`p-2.5 rounded border text-left text-xs transition-all ${
+                        selectedRoomId === rm.id
+                          ? 'border-[#B85C3E] bg-[#FAFAFA] ring-1 ring-[#B85C3E]'
+                          : 'border-[#E8E2DA] bg-white hover:border-[#7A7267]'
+                      }`}
+                    >
+                      <span className="font-semibold text-[#191816] block truncate">
+                        {rm.name}
+                      </span>
+                      <span className="text-[11px] text-[#7A7267] block">
+                        {formatNaira(rm.price)}/nt
+                      </span>
+                      <span className="text-[10px] text-[#2E6B4F] mt-1 block">
+                        {rm.available} in inventory
+                      </span>
+                    </button>
+                  ))
+                )}
               </div>
             </div>
 
@@ -214,6 +282,12 @@ export function NewReservationDialog({
             </div>
           </div>
 
+          {errorMsg && (
+            <div className="p-2.5 mx-6 mb-2 rounded bg-red-50 text-red-700 text-xs font-medium">
+              {errorMsg}
+            </div>
+          )}
+
           <DialogFooter>
             <Button
               type="button"
@@ -222,7 +296,9 @@ export function NewReservationDialog({
             >
               Cancel
             </Button>
-            <Button type="submit">Create reservation</Button>
+            <Button type="submit" disabled={submitting} className="bg-[#71382D] hover:bg-[#5D2E25] text-white">
+              {submitting ? 'Creating in PostgreSQL...' : 'Create reservation'}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>

@@ -16,77 +16,116 @@ import { ReservationDrawer } from '../components/reservation-drawer';
 import { Topbar } from '../components/topbar';
 
 export default function OverviewPage() {
-  const [reservations, setReservations] = React.useState<ReservationItem[]>(
-    INITIAL_RESERVATIONS
-  );
-  const [selectedRes, setSelectedRes] = React.useState<ReservationItem | null>(
-    null
-  );
+  const [reservations, setReservations] = React.useState<ReservationItem[]>([]);
+  const [rooms, setRooms] = React.useState<any[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const [selectedRes, setSelectedRes] = React.useState<ReservationItem | null>(null);
   const [drawerOpen, setDrawerOpen] = React.useState(false);
   const [newResOpen, setNewResOpen] = React.useState(false);
-  const [activity, setActivity] = React.useState(INITIAL_ACTIVITY);
+  const [activity, setActivity] = React.useState<any[]>([]);
 
-  // Check In handler
-  function handleCheckIn(id: string) {
-    setReservations((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, status: 'checked_in' } : r))
-    );
-    if (selectedRes && selectedRes.id === id) {
-      setSelectedRes((prev) =>
-        prev ? { ...prev, status: 'checked_in' } : null
-      );
-    }
-    const target = reservations.find((r) => r.id === id);
-    if (target) {
-      setActivity((prev) => [
-        {
-          id: `act-${Date.now()}`,
-          text: `${target.guestName} checked into Room ${target.roomNumber}`,
-          time: 'Just now',
-        },
-        ...prev,
+  const fetchData = React.useCallback(async () => {
+    try {
+      const [resRes, roomRes] = await Promise.all([
+        fetch('/api/reservations'),
+        fetch('/api/rooms'),
       ]);
+
+      if (resRes.ok) {
+        const data = await resRes.json();
+        if (data.reservations) {
+          const mapped: ReservationItem[] = data.reservations.map((r: any) => ({
+            id: r.id,
+            reference: r.reference,
+            guestName: r.guestName || 'Unnamed Guest',
+            guestEmail: r.guestEmail || '',
+            guestPhone: r.guestPhone || '',
+            roomType: r.roomTypeName || 'Standard Room',
+            roomNumber: r.roomNumber || 'Unassigned',
+            checkInDate: r.checkInDate,
+            checkOutDate: r.checkOutDate,
+            nights: r.nights,
+            numGuests: r.numGuests || 1,
+            source: r.source || 'direct',
+            status: r.status,
+            paymentStatus: r.paymentStatus,
+            totalAmountMinorUnits: r.totalAmountMinorUnits,
+            paidAmountMinorUnits: r.paidAmountMinorUnits,
+            timeline: r.timeline || [],
+          }));
+          setReservations(mapped);
+        }
+      }
+
+      if (roomRes.ok) {
+        const roomData = await roomRes.json();
+        if (roomData.rooms) setRooms(roomData.rooms);
+      }
+    } catch (e) {
+      console.error('Failed to load overview data from DB:', e);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  // Check In handler via PostgreSQL
+  async function handleCheckIn(id: string) {
+    try {
+      const availableRoom = rooms.find((rm) => rm.operational === 'available' || rm.operationalStatus === 'available');
+      if (!availableRoom) {
+        alert('No available rooms found in database to assign for check-in');
+        return;
+      }
+      const res = await fetch(`/api/reservations/${id}/check-in`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ roomId: availableRoom.id }),
+      });
+      if (res.ok) {
+        fetchData();
+        if (selectedRes && selectedRes.id === id) {
+          setSelectedRes((prev) => prev ? { ...prev, status: 'checked_in' } : null);
+        }
+      }
+    } catch (e) {
+      console.error(e);
     }
   }
 
-  // Check Out handler
-  function handleCheckOut(id: string) {
-    setReservations((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, status: 'checked_out' } : r))
-    );
-    if (selectedRes && selectedRes.id === id) {
-      setSelectedRes((prev) =>
-        prev ? { ...prev, status: 'checked_out' } : null
-      );
-    }
-    const target = reservations.find((r) => r.id === id);
-    if (target) {
-      setActivity((prev) => [
-        {
-          id: `act-${Date.now()}`,
-          text: `${target.guestName} checked out of Room ${target.roomNumber} (Room marked dirty)`,
-          time: 'Just now',
-        },
-        ...prev,
-      ]);
+  // Check Out handler via PostgreSQL
+  async function handleCheckOut(id: string) {
+    try {
+      const res = await fetch(`/api/reservations/${id}/check-out`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ force: true }),
+      });
+      if (res.ok) {
+        fetchData();
+        if (selectedRes && selectedRes.id === id) {
+          setSelectedRes((prev) => prev ? { ...prev, status: 'checked_out' } : null);
+        }
+      }
+    } catch (e) {
+      console.error(e);
     }
   }
 
   // Add newly created reservation
   function handleCreateReservation(newRes: ReservationItem) {
     setReservations((prev) => [newRes, ...prev]);
-    setActivity((prev) => [
-      {
-        id: `act-${Date.now()}`,
-        text: `New reservation ${newRes.reference} for ${newRes.guestName}`,
-        time: 'Just now',
-      },
-      ...prev,
-    ]);
+    fetchData();
   }
 
   // Filter today's arrivals
-  const arrivals = reservations.filter((r) => r.checkInDate === '2026-09-23');
+  const arrivals = reservations.filter((r) => r.status === 'confirmed');
+  const occupiedCount = rooms.filter((r) => r.operational === 'occupied' || r.operationalStatus === 'occupied').length;
+  const totalRoomsCount = rooms.length || 1;
+  const occupancyRate = Math.round((occupiedCount / totalRoomsCount) * 100);
 
   return (
     <div className="flex-1 flex flex-col h-screen overflow-hidden bg-white">
@@ -131,8 +170,8 @@ export default function OverviewPage() {
           <Link href="/calendar" className="block focus:outline-none focus:ring-1 focus:ring-[#B85C3E]">
             <MetricCard
               label="Occupancy"
-              value="84%"
-              subtext="26 of 31 rooms occupied"
+              value={`${occupancyRate}%`}
+              subtext={`${occupiedCount} of ${rooms.length} rooms occupied`}
               subValue="Calendar →"
               className="hover:border-[#B85C3E]/60 hover:bg-[#FAFAFA] transition-all cursor-pointer h-full"
             />

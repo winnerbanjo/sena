@@ -13,12 +13,52 @@ import { Topbar } from '../../components/topbar';
 function ReservationsContent() {
   const searchParams = useSearchParams();
   const urlSearch = searchParams.get('search');
-  const [reservations, setReservations] = React.useState<ReservationItem[]>(INITIAL_RESERVATIONS);
+  const [reservations, setReservations] = React.useState<ReservationItem[]>([]);
+  const [loading, setLoading] = React.useState(true);
   const [activeTab, setActiveTab] = React.useState('all');
   const [searchQuery, setSearchQuery] = React.useState(urlSearch || '');
   const [selectedRes, setSelectedRes] = React.useState<ReservationItem | null>(null);
   const [drawerOpen, setDrawerOpen] = React.useState(false);
   const [newResOpen, setNewResOpen] = React.useState(false);
+
+  const fetchReservations = React.useCallback(async () => {
+    try {
+      const res = await fetch('/api/reservations');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.reservations) {
+          const mapped: ReservationItem[] = data.reservations.map((r: any) => ({
+            id: r.id,
+            reference: r.reference,
+            guestName: r.guestName || 'Unnamed Guest',
+            guestEmail: r.guestEmail || '',
+            guestPhone: r.guestPhone || '',
+            roomType: r.roomTypeName || 'Standard Room',
+            roomNumber: r.roomNumber || 'Unassigned',
+            checkInDate: r.checkInDate,
+            checkOutDate: r.checkOutDate,
+            nights: r.nights,
+            numGuests: r.numGuests || 1,
+            source: r.source || 'direct',
+            status: r.status,
+            paymentStatus: r.paymentStatus,
+            totalAmountMinorUnits: r.totalAmountMinorUnits,
+            paidAmountMinorUnits: r.paidAmountMinorUnits,
+            timeline: r.timeline || [],
+          }));
+          setReservations(mapped);
+        }
+      }
+    } catch (e) {
+      console.error('Failed to load reservations:', e);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    fetchReservations();
+  }, [fetchReservations]);
 
   React.useEffect(() => {
     if (urlSearch) {
@@ -176,20 +216,52 @@ function ReservationsContent() {
         reservation={selectedRes}
         open={drawerOpen}
         onOpenChange={setDrawerOpen}
-        onCheckIn={(id) => {
-          setReservations((prev) =>
-            prev.map((r) => (r.id === id ? { ...r, status: 'checked_in' } : r))
-          );
-          if (selectedRes && selectedRes.id === id) {
-            setSelectedRes((prev) => prev ? { ...prev, status: 'checked_in' } : null);
+        onCheckIn={async (id) => {
+          try {
+            // Fetch available rooms to assign
+            const roomRes = await fetch('/api/rooms');
+            const roomData = await roomRes.json();
+            const availableRoom = roomData.rooms?.find((rm: any) => rm.operational === 'available');
+            if (!availableRoom) {
+              alert('No available room found in database to assign for check-in');
+              return;
+            }
+            const res = await fetch(`/api/reservations/${id}/check-in`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ roomId: availableRoom.id }),
+            });
+            if (res.ok) {
+              fetchReservations();
+              if (selectedRes && selectedRes.id === id) {
+                setSelectedRes((prev) => (prev ? { ...prev, status: 'checked_in', roomNumber: availableRoom.number } : null));
+              }
+            } else {
+              const err = await res.json();
+              alert(err.error || 'Failed to check in');
+            }
+          } catch (e: any) {
+            alert(e.message || 'Check-in error');
           }
         }}
-        onCheckOut={(id) => {
-          setReservations((prev) =>
-            prev.map((r) => (r.id === id ? { ...r, status: 'checked_out' } : r))
-          );
-          if (selectedRes && selectedRes.id === id) {
-            setSelectedRes((prev) => prev ? { ...prev, status: 'checked_out' } : null);
+        onCheckOut={async (id) => {
+          try {
+            const res = await fetch(`/api/reservations/${id}/check-out`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ force: true }),
+            });
+            if (res.ok) {
+              fetchReservations();
+              if (selectedRes && selectedRes.id === id) {
+                setSelectedRes((prev) => (prev ? { ...prev, status: 'checked_out' } : null));
+              }
+            } else {
+              const err = await res.json();
+              alert(err.error || 'Failed to check out');
+            }
+          } catch (e: any) {
+            alert(e.message || 'Check-out error');
           }
         }}
       />

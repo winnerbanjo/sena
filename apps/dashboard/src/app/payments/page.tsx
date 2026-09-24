@@ -27,50 +27,40 @@ interface PaymentItem {
   date: string;
 }
 
-const PAYMENTS_DATA: PaymentItem[] = [
-  {
-    id: 'pay-1',
-    reference: 'SEN-PAY-8821',
-    guestName: 'Ada James',
-    amountMinorUnits: 36000000,
-    provider: 'paystack',
-    method: 'card',
-    status: 'successful',
-    date: '23 Sep 2026, 10:43',
-  },
-  {
-    id: 'pay-2',
-    reference: 'SEN-PAY-7714',
-    guestName: 'Tobi Ade',
-    amountMinorUnits: 36000000,
-    provider: 'paystack',
-    method: 'bank_transfer',
-    status: 'successful',
-    date: '22 Sep 2026, 16:16',
-  },
-  {
-    id: 'pay-3',
-    reference: 'SEN-PAY-4409',
-    guestName: 'Sarah Bello',
-    amountMinorUnits: 12000000,
-    provider: 'manual',
-    method: 'pos',
-    status: 'successful',
-    date: '21 Sep 2026, 15:05',
-  },
-  {
-    id: 'pay-4',
-    reference: 'SEN-PAY-1190',
-    guestName: 'David Okoro',
-    amountMinorUnits: 48000000,
-    provider: 'paystack',
-    method: 'card',
-    status: 'successful',
-    date: '22 Sep 2026, 14:12',
-  },
-];
-
 export default function PaymentsPage() {
+  const [payments, setPayments] = React.useState<PaymentItem[]>([]);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    fetch('/api/payments')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.payments) {
+          const mapped: PaymentItem[] = data.payments.map((p: any) => ({
+            id: p.id,
+            reference: p.providerReference || `PAY-${p.id.slice(0, 6)}`,
+            guestName: p.guestName || 'Walk-in Guest',
+            amountMinorUnits: p.amountMinorUnits,
+            provider: p.provider || 'manual',
+            method: p.method || 'cash',
+            status: p.status || 'successful',
+            date: new Date(p.createdAt).toLocaleString('en-GB', {
+              day: '2-digit',
+              month: 'short',
+              hour: '2-digit',
+              minute: '2-digit',
+            }),
+          }));
+          setPayments(mapped);
+        }
+      })
+      .catch((e) => console.error('Failed to load payments:', e))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const totalCollectedMinorUnits = payments
+    .filter((p) => p.status === 'successful')
+    .reduce((sum, p) => sum + p.amountMinorUnits, 0);
   return (
     <div className="flex-1 flex flex-col h-screen overflow-hidden">
       <Topbar title="Payments" />
@@ -102,9 +92,9 @@ export default function PaymentsPage() {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
           <MetricCard
             label="Collected Revenue"
-            value="₦2.48m"
-            subtext="Confirmed payments this month"
-            subValue="September"
+            value={formatNaira(totalCollectedMinorUnits)}
+            subtext="Confirmed payments from PostgreSQL"
+            subValue="Realtime"
           />
           <MetricCard
             label="Outstanding Balances"
@@ -144,10 +134,17 @@ export default function PaymentsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {PAYMENTS_DATA.map((pay) => (
-                <TableRow key={pay.id}>
-                  <TableCell className="font-mono text-xs font-semibold text-[#B85C3E]">
-                    {pay.reference}
+              {payments.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="p-8 text-center text-[#7A7267] text-xs">
+                    {loading ? 'Loading payments from PostgreSQL...' : 'No transactions recorded yet.'}
+                  </TableCell>
+                </TableRow>
+              ) : (
+                payments.map((pay) => (
+                  <TableRow key={pay.id}>
+                    <TableCell className="font-mono text-xs font-semibold text-[#B85C3E]">
+                      {pay.reference}
                   </TableCell>
                   <TableCell className="font-medium text-sm text-[#191816]">
                     {pay.guestName}
@@ -168,7 +165,7 @@ export default function PaymentsPage() {
                   </TableCell>
                   <TableCell className="text-xs text-[#7A7267]">{pay.date}</TableCell>
                 </TableRow>
-              ))}
+              )))}
             </TableBody>
           </Table>
         </div>
