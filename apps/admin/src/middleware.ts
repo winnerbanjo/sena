@@ -2,35 +2,26 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 export function middleware(req: NextRequest) {
-  const basicAuth = req.headers.get('authorization');
+  const authCookie = req.cookies.get('sena_admin_auth');
   const url = req.nextUrl;
 
-  // Extremely simple check for an admin app
-  // Use env var ADMIN_PASSWORD or fallback to 'admin' for demo
-  const password = process.env.ADMIN_PASSWORD || 'admin';
-  const expectedAuth = `Basic ${Buffer.from(`admin:${password}`).toString('base64')}`;
+  // Allow next.js internal assets and images
+  if (url.pathname.startsWith('/_next') || url.pathname.startsWith('/assets') || url.pathname === '/favicon.ico') {
+    return NextResponse.next();
+  }
 
-  if (basicAuth !== expectedAuth) {
-    return new NextResponse('Authentication required', {
-      status: 401,
-      headers: {
-        'WWW-Authenticate': 'Basic realm="Sena Admin", charset="UTF-8"',
-      },
-    });
+  if (url.pathname === '/login') {
+    return NextResponse.next();
+  }
+
+  if (authCookie?.value !== 'authenticated') {
+    const loginUrl = new URL('/login', req.url);
+    return NextResponse.redirect(loginUrl);
   }
 
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - api (API routes)
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico, sitemap.xml, robots.txt (metadata files)
-     */
-    '/((?!api|_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|assets).*)',
-  ],
+  matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
 };
