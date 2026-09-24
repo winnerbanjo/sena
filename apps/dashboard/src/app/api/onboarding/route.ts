@@ -38,9 +38,13 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Resolve or create organization
-    let org = await db.query.organizations.findFirst();
-    if (!org) {
+    // Resolve or create organization scoped to user
+    let membership = await db.query.organizationMembers.findFirst({
+      where: eq(organizationMembers.userId, userId),
+    });
+
+    let orgId = membership?.organizationId;
+    if (!orgId) {
       const [newOrg] = await db
         .insert(organizations)
         .values({
@@ -48,13 +52,13 @@ export async function POST(req: NextRequest) {
           slug: `${name.toLowerCase().replace(/[^a-z0-9]/g, '-')}-group-${Date.now()}`,
         })
         .returning();
-      org = newOrg;
 
       await db.insert(organizationMembers).values({
-        organizationId: org.id,
+        organizationId: newOrg.id,
         userId,
         role: 'owner',
       });
+      orgId = newOrg.id;
     }
 
     const code = name
@@ -91,7 +95,7 @@ export async function POST(req: NextRequest) {
         const [created] = await tx
           .insert(properties)
           .values({
-            organizationId: org.id,
+            organizationId: orgId,
             name,
             code,
             propertyType,

@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { Badge, Button } from '@sena/ui';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { INITIAL_RESERVATIONS, INITIAL_ROOMS, type ReservationItem } from '../../components/mock-data';
+import { type ReservationItem } from '../../components/mock-data';
 import { NewReservationDialog } from '../../components/new-reservation-dialog';
 import { ReservationDrawer } from '../../components/reservation-drawer';
 import { Topbar } from '../../components/topbar';

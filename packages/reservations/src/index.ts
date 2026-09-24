@@ -1,6 +1,7 @@
 import { calculateNights, getDatesBetween } from '@sena/config';
 import {
   activityLogs,
+  bookingHolds,
   db,
   guests,
   housekeepingTasks,
@@ -62,6 +63,14 @@ export class ReservationService {
         stayDates,
         1
       );
+
+      // Convert server-side hold if one was passed
+      if ((input as any).holdId) {
+        await tx
+          .update(bookingHolds)
+          .set({ status: 'converted' })
+          .where(eq(bookingHolds.id, (input as any).holdId));
+      }
 
       // 3. Resolve Guest ID (find existing or create new)
       let resolvedGuestId = input.guestId;

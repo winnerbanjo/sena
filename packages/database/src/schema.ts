@@ -196,6 +196,31 @@ export const inventory = pgTable(
   ]
 );
 
+// 8b. Booking Holds (10-minute temporary inventory holds during guest checkout)
+export const bookingHolds = pgTable(
+  'booking_holds',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    propertyId: uuid('property_id')
+      .references(() => properties.id, { onDelete: 'cascade' })
+      .notNull(),
+    roomTypeId: uuid('room_type_id')
+      .references(() => roomTypes.id, { onDelete: 'cascade' })
+      .notNull(),
+    checkInDate: varchar('check_in_date', { length: 10 }).notNull(), // YYYY-MM-DD
+    checkOutDate: varchar('check_out_date', { length: 10 }).notNull(), // YYYY-MM-DD
+    quantity: integer('quantity').notNull().default(1),
+    guestEmail: varchar('guest_email', { length: 255 }),
+    guestName: varchar('guest_name', { length: 255 }),
+    status: varchar('status', { length: 30 }).notNull().default('active'), // 'active', 'converted', 'released', 'expired'
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    index('holds_prop_rt_status_idx').on(t.propertyId, t.roomTypeId, t.status, t.expiresAt),
+  ]
+);
+
 // 9. Guests
 export const guests = pgTable(
   'guests',

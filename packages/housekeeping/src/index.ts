@@ -1,4 +1,4 @@
-import { activityLogs, db, housekeepingTasks, rooms } from '@sena/database';
+import { activityLogs, db, housekeepingTasks, properties, rooms } from '@sena/database';
 import type { HousekeepingStatus } from '@sena/types';
 import { and, eq } from 'drizzle-orm';
 
@@ -14,10 +14,16 @@ export class HousekeepingService {
     actor = { id: '', name: 'Housekeeper' }
   ) {
     return await db.transaction(async (tx) => {
-      // 1. Fetch current room
+      // 1. Fetch current room and property organization
       const roomList = await tx
-        .select()
+        .select({
+          id: rooms.id,
+          roomNumber: rooms.roomNumber,
+          housekeepingStatus: rooms.housekeepingStatus,
+          organizationId: properties.organizationId,
+        })
         .from(rooms)
+        .innerJoin(properties, eq(rooms.propertyId, properties.id))
         .where(and(eq(rooms.id, roomId), eq(rooms.propertyId, propertyId)))
         .limit(1);
 
@@ -25,7 +31,8 @@ export class HousekeepingService {
         throw new Error('Room not found');
       }
 
-      const prevStatus = roomList[0].housekeepingStatus;
+      const room = roomList[0];
+      const prevStatus = room.housekeepingStatus;
 
       // 2. Update Room Housekeeping Status
       await tx
@@ -71,11 +78,11 @@ export class HousekeepingService {
 
       // 4. Activity Log
       await tx.insert(activityLogs).values({
-        organizationId: propertyId,
+        organizationId: room.organizationId,
         propertyId,
-        actorId: actor.id || undefined,
+        actorId: actor.id && actor.id.length > 0 ? actor.id : undefined,
         actorName: actor.name,
-        action: `Room ${roomList[0].roomNumber} marked ${newStatus}`,
+        action: `Room ${room.roomNumber} marked ${newStatus}`,
         resource: 'rooms',
         resourceId: roomId,
         previousValue: { housekeepingStatus: prevStatus },

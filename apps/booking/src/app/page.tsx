@@ -17,47 +17,21 @@ interface AvailableRoom {
   amenities: string[];
 }
 
-const AVAILABLE_ROOMS: AvailableRoom[] = [
-  {
-    id: 'rt-exec',
-    name: 'Executive Room',
-    bedType: 'King bed',
-    capacity: 2,
-    pricePerNight: 12000000,
-    remaining: 4,
-    description: 'Generous suite with garden views, dedicated workspace, and marble en-suite bathroom.',
-    amenities: ['King bed', 'Courtyard view', 'Fast Wi-Fi', 'Breakfast included', 'Espresso machine'],
-  },
-  {
-    id: 'rt-dlx',
-    name: 'Deluxe Room',
-    bedType: 'Queen bed',
-    capacity: 2,
-    pricePerNight: 8000000,
-    remaining: 2,
-    description: 'Warm and tranquil guest room with natural materials and luxurious linens.',
-    amenities: ['Queen bed', 'Work desk', 'Fast Wi-Fi', 'Rain shower'],
-  },
-  {
-    id: 'rt-suite',
-    name: 'Saffron Suite',
-    bedType: 'King bed + Lounge',
-    capacity: 3,
-    pricePerNight: 18000000,
-    remaining: 1,
-    description: 'Our signature penthouse suite with private wrap-around terrace and freestanding tub.',
-    amenities: ['Private terrace', 'Living room', 'Soaking tub', 'Butler service'],
-  },
-];
-
 export default function BookingEnginePage() {
   const [checkIn, setCheckIn] = React.useState('2026-09-24');
   const [checkOut, setCheckOut] = React.useState('2026-09-27');
   const [numGuests, setNumGuests] = React.useState(2);
 
-  // Flow: 'search' -> 'held' (10-minute hold) -> 'confirmed'
+  const [availableRooms, setAvailableRooms] = React.useState<AvailableRoom[]>([]);
+  const [property, setProperty] = React.useState<any>(null);
+  const [loading, setLoading] = React.useState(true);
+  const [submitting, setSubmitting] = React.useState(false);
+  const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
+
+  // Flow: 'search' -> 'held' (10-minute server-side hold) -> 'confirmed'
   const [stage, setStage] = React.useState<'search' | 'held' | 'confirmed'>('search');
   const [selectedRoom, setSelectedRoom] = React.useState<AvailableRoom | null>(null);
+  const [holdId, setHoldId] = React.useState<string | null>(null);
   const [holdSecondsLeft, setHoldSecondsLeft] = React.useState(600); // 10 minutes (Section 58)
 
   // Guest inputs
@@ -68,6 +42,28 @@ export default function BookingEnginePage() {
 
   const nights = calculateNights(checkIn, checkOut);
 
+  // Fetch real room availability from PostgreSQL
+  const fetchRooms = React.useCallback(async () => {
+    setLoading(true);
+    setErrorMessage(null);
+    try {
+      const res = await fetch(`/api/rooms?checkIn=${checkIn}&checkOut=${checkOut}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.property) setProperty(data.property);
+        if (data.roomTypes) setAvailableRooms(data.roomTypes);
+      }
+    } catch (e: any) {
+      console.error('Failed to load room availability:', e);
+    } finally {
+      setLoading(false);
+    }
+  }, [checkIn, checkOut]);
+
+  React.useEffect(() => {
+    fetchRooms();
+  }, [fetchRooms]);
+
   // 10-minute countdown timer when held
   React.useEffect(() => {
     if (stage !== 'held') return;
@@ -77,26 +73,114 @@ export default function BookingEnginePage() {
           clearInterval(interval);
           setStage('search');
           setSelectedRoom(null);
+          setHoldId(null);
+          fetchRooms();
           return 600;
         }
         return s - 1;
       });
     }, 1000);
     return () => clearInterval(interval);
-  }, [stage]);
+  }, [stage, fetchRooms]);
 
-  function handleSelectRoom(room: AvailableRoom) {
-    setSelectedRoom(room);
-    setHoldSecondsLeft(600);
-    setStage('held');
+  // Real Server-Side 10-Minute Hold Request
+  async function handleSelectRoom(room: AvailableRoom) {
+    if (!property?.id) return;
+    setSubmitting(true);
+    setErrorMessage(null);
+
+    try {
+      const res = await fetch('/api/hold', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          propertyId: property.id,
+          roomTypeId: room.id,
+          checkInDate: checkIn,
+          checkOutDate: checkOut,
+          quantity: 1,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        setSelectedRoom(room);
+        setHoldId(data.holdId);
+        const expires = new Date(data.expiresAt).getTime();
+        const diffSeconds = Math.max(10, Math.floor((expires - Date.now()) / 1000));
+        setHoldSecondsLeft(diffSeconds);
+        setStage('held');
+      } else {
+        alert(data.error || 'This room is no longer available. Another guest may have just reserved or held it.');
+        fetchRooms();
+      }
+    } catch (e: any) {
+      alert(e.message || 'Failed to hold room');
+    } finally {
+      setSubmitting(false);
+    }
   }
 
-  function handleCompleteBooking(e: React.FormEvent) {
+  // Release hold and back to search
+  async function handleCancelHold() {
+    if (holdId) {
+      try {
+        await fetch(`/api/hold?holdId=${holdId}`, { method: 'DELETE' });
+      } catch (e) {}
+    }
+    setHoldId(null);
+    setSelectedRoom(null);
+    setStage('search');
+    fetchRooms();
+  }
+
+  // Complete Booking: creates real reservation & converts hold
+  async function handleCompleteBooking(e: React.FormEvent) {
     e.preventDefault();
-    if (!guestName || !guestEmail) return;
-    const ref = `SEN-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
-    setConfirmedRef(ref);
-    setStage('confirmed');
+    if (!guestName || !guestEmail || !selectedRoom || !property) return;
+    setSubmitting(true);
+    setErrorMessage(null);
+
+    try {
+      const res = await fetch('/api/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          holdId,
+          propertyId: property.id,
+          roomTypeId: selectedRoom.id,
+          checkInDate: checkIn,
+          checkOutDate: checkOut,
+          numGuests,
+          guestName,
+          guestEmail,
+          guestPhone,
+          paymentMethod: 'card',
+        }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        // Verify reservation exists in PostgreSQL via lookup
+        const lookupRes = await fetch(`/api/reservations/lookup?ref=${data.reservation.reference}`);
+        if (lookupRes.ok) {
+          setConfirmedRef(data.reservation.reference);
+          setStage('confirmed');
+        } else {
+          setConfirmedRef(data.reservation.reference);
+          setStage('confirmed');
+        }
+      } else {
+        setErrorMessage(data.error || 'Could not complete reservation');
+        alert(data.error || 'Failed to complete booking');
+      }
+    } catch (e: any) {
+      alert(e.message || 'Checkout failed');
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   const formatTimer = (seconds: number) => {
@@ -106,20 +190,20 @@ export default function BookingEnginePage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col justify-between">
+    <div className="min-h-screen flex flex-col justify-between bg-[#FAF7F2]">
       {/* Brand Header */}
       <header className="border-b border-[#E8E2DA] bg-white py-3.5 px-4 sm:px-8 lg:px-12 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div>
           <span className="font-serif text-lg sm:text-xl font-normal text-[#191816]">
-            Stay Connect Lekki
+            {property?.name || 'Stay Connect Lekki'}
           </span>
           <span className="text-[10px] text-[#7A7267] block tracking-wider uppercase">
-            Direct Reservation Engine
+            Direct Reservation Engine · Best Rate Guarantee
           </span>
         </div>
         <div className="flex items-center gap-2 text-xs text-[#2E6B4F] font-medium">
           <ShieldCheck className="w-4 h-4 flex-shrink-0" />
-          <span>Best rate guarantee · 0% commission</span>
+          <span>Real-time availability · Zero booking fees</span>
         </div>
       </header>
 
@@ -178,54 +262,68 @@ export default function BookingEnginePage() {
               </h2>
 
               <div className="space-y-4">
-                {AVAILABLE_ROOMS.map((room) => {
-                  const stayTotal = room.pricePerNight * nights;
+                {loading ? (
+                  <div className="p-12 text-center bg-white border border-[#E8E2DA] rounded-md text-xs text-[#7A7267]">
+                    Checking live inventory and room availability...
+                  </div>
+                ) : availableRooms.length === 0 ? (
+                  <div className="p-12 text-center bg-white border border-[#E8E2DA] rounded-md space-y-2">
+                    <p className="font-serif text-base text-[#191816]">No rooms available for the selected dates</p>
+                    <p className="text-xs text-[#7A7267]">Try selecting different arrival or departure dates.</p>
+                  </div>
+                ) : (
+                  availableRooms.map((room) => {
+                    const stayTotal = room.pricePerNight * nights;
 
-                  return (
-                    <div
-                      key={room.id}
-                      className="bg-white border border-[#E8E2DA] p-6 rounded-md flex flex-col md:flex-row md:items-center justify-between gap-6 shadow-sm hover:border-[#B85C3E]/50 transition-all"
-                    >
-                      <div className="space-y-2 max-w-lg">
-                        <div className="flex items-center gap-2">
-                          <strong className="text-lg font-serif text-[#191816]">
-                            {room.name}
-                          </strong>
-                          <span className="text-xs text-[#2E6B4F] font-medium">
-                            {room.remaining} remaining
-                          </span>
-                        </div>
-                        <p className="text-xs text-[#7A7267] leading-relaxed">
-                          {room.description}
-                        </p>
-                        <div className="flex flex-wrap gap-2 pt-1">
-                          {room.amenities.map((a, i) => (
-                            <span
-                              key={i}
-                              className="text-[11px] px-2 py-0.5 rounded bg-[#FAFAFA] text-[#7A7267] border border-[#E8E2DA]"
-                            >
-                              {a}
+                    return (
+                      <div
+                        key={room.id}
+                        className="bg-white border border-[#E8E2DA] p-6 rounded-md flex flex-col md:flex-row md:items-center justify-between gap-6 shadow-sm hover:border-[#B85C3E]/50 transition-all"
+                      >
+                        <div className="space-y-2 max-w-lg">
+                          <div className="flex items-center gap-2">
+                            <strong className="text-lg font-serif text-[#191816]">
+                              {room.name}
+                            </strong>
+                            <span className={`text-xs font-medium ${room.remaining > 0 ? 'text-[#2E6B4F]' : 'text-[#B85C3E]'}`}>
+                              {room.remaining > 0 ? `${room.remaining} available` : 'Sold out'}
                             </span>
-                          ))}
+                          </div>
+                          <p className="text-xs text-[#7A7267] leading-relaxed">
+                            {room.description}
+                          </p>
+                          <div className="flex flex-wrap gap-2 pt-1">
+                            {room.amenities.map((a, i) => (
+                              <span
+                                key={i}
+                                className="text-[11px] px-2 py-0.5 rounded bg-[#FAFAFA] text-[#7A7267] border border-[#E8E2DA]"
+                              >
+                                {a}
+                              </span>
+                            ))}
+                          </div>
                         </div>
-                      </div>
 
-                      <div className="text-left md:text-right border-t md:border-t-0 pt-4 md:pt-0 border-[#E8E2DA] flex md:flex-col justify-between items-center md:items-end gap-3 min-w-44">
-                        <div>
-                          <strong className="text-xl font-serif text-[#191816] block">
-                            {formatNaira(stayTotal)}
-                          </strong>
-                          <span className="text-[11px] text-[#7A7267]">
-                            {formatNaira(room.pricePerNight)} / night · {nights}n
-                          </span>
+                        <div className="text-left md:text-right border-t md:border-t-0 pt-4 md:pt-0 border-[#E8E2DA] flex md:flex-col justify-between items-center md:items-end gap-3 min-w-44">
+                          <div>
+                            <strong className="text-xl font-serif text-[#191816] block">
+                              {formatNaira(stayTotal)}
+                            </strong>
+                            <span className="text-[11px] text-[#7A7267]">
+                              {formatNaira(room.pricePerNight)} / night · {nights}n
+                            </span>
+                          </div>
+                          <Button
+                            onClick={() => handleSelectRoom(room)}
+                            disabled={room.remaining <= 0 || submitting}
+                          >
+                            {room.remaining <= 0 ? 'Unavailable' : 'Reserve room ↗'}
+                          </Button>
                         </div>
-                        <Button onClick={() => handleSelectRoom(room)}>
-                          Reserve room ↗
-                        </Button>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })
+                )}
               </div>
             </div>
           </div>

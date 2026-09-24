@@ -68,7 +68,7 @@ export default function FrontDeskPage() {
     try {
       const roomRes = await fetch('/api/rooms');
       const roomData = await roomRes.json();
-      const availableRoom = roomData.rooms?.find((rm: any) => rm.operational === 'available');
+      const availableRoom = roomData.rooms?.find((rm: any) => (rm.operationalStatus || rm.operational) === 'available');
       if (!availableRoom) {
         alert('No clean available room found in database to assign for check-in.');
         return;

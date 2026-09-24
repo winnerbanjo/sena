@@ -31,56 +31,7 @@ interface GuestProfile {
   notes: string;
 }
 
-const GUESTS_DATA: GuestProfile[] = [
-  {
-    id: 'g-1',
-    name: 'Ada James',
-    phone: '+234 802 345 6789',
-    email: 'ada.james@example.com',
-    stays: 4,
-    nights: 12,
-    lastStay: '12 Aug 2026',
-    lifetimeValueMinorUnits: 142000000, // ₦1.42m
-    preferences: ['Late checkout', 'Upper floor', 'Extra quiet'],
-    notes: 'Prefers quiet rooms facing the courtyard. Long-time loyal guest.',
-  },
-  {
-    id: 'g-2',
-    name: 'Tobi Ade',
-    phone: '+234 813 987 6543',
-    email: 'tobi.ade@example.com',
-    stays: 2,
-    nights: 5,
-    lastStay: '05 Jul 2026',
-    lifetimeValueMinorUnits: 62000000,
-    preferences: ['High speed Wi-Fi', 'King bed'],
-    notes: 'Business traveler from Abuja.',
-  },
-  {
-    id: 'g-3',
-    name: 'David Okoro',
-    phone: '+234 701 444 5566',
-    email: 'david.okoro@example.com',
-    stays: 3,
-    nights: 9,
-    lastStay: '22 Sep 2026',
-    lifetimeValueMinorUnits: 98000000,
-    preferences: ['Airport pickup', 'Breakfast included'],
-    notes: 'Bookings usually come through Booking.com.',
-  },
-  {
-    id: 'g-4',
-    name: 'Sarah Bello',
-    phone: '+234 809 777 8899',
-    email: 'sarah.bello@example.com',
-    stays: 1,
-    nights: 2,
-    lastStay: '21 Sep 2026',
-    lifetimeValueMinorUnits: 16000000,
-    preferences: ['Extra pillows'],
-    notes: 'Walk-in guest.',
-  },
-];
+
 
 export default function GuestsPage() {
   const [guests, setGuests] = React.useState<GuestProfile[]>([]);

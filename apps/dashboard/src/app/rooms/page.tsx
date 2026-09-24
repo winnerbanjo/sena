@@ -16,8 +16,6 @@ import {
   Users,
 } from 'lucide-react';
 import {
-  DEFAULT_ROOM_CATEGORIES,
-  INITIAL_ROOMS,
   type RoomCategory,
   type RoomItem,
 } from '../../components/mock-data';

@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { Badge, Button } from '@sena/ui';
 import { Brush, CheckCircle2, Play } from 'lucide-react';
-import { INITIAL_ROOMS } from '../../components/mock-data';
+
 import { Topbar } from '../../components/topbar';
 
 export default function HousekeepingPage() {

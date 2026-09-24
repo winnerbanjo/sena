@@ -22,9 +22,8 @@ import {
   BedDouble,
   User,
   Plus,
-  FileSpreadsheet
+  FileSpreadsheet,
 } from 'lucide-react';
-import { INITIAL_RESERVATIONS, INITIAL_ROOMS } from './mock-data';
 
 interface CommandPaletteProps {
   open: boolean;
@@ -46,6 +45,8 @@ export function CommandPalette({ open, onClose, onOpenNewReservation }: CommandP
   const router = useRouter();
   const [query, setQuery] = React.useState('');
   const [selectedIndex, setSelectedIndex] = React.useState(0);
+  const [liveReservations, setLiveReservations] = React.useState<any[]>([]);
+  const [liveRooms, setLiveRooms] = React.useState<any[]>([]);
   const inputRef = React.useRef<HTMLInputElement>(null);
 
   React.useEffect(() => {
@@ -53,6 +54,21 @@ export function CommandPalette({ open, onClose, onOpenNewReservation }: CommandP
       setTimeout(() => inputRef.current?.focus(), 50);
       setQuery('');
       setSelectedIndex(0);
+
+      // Fetch live data from PostgreSQL API
+      fetch('/api/reservations')
+        .then((res) => res.json())
+        .then((data) => {
+          if (data?.reservations) setLiveReservations(data.reservations);
+        })
+        .catch(() => {});
+
+      fetch('/api/rooms')
+        .then((res) => res.json())
+        .then((data) => {
+          if (data?.rooms) setLiveRooms(data.rooms);
+        })
+        .catch(() => {});
     }
   }, [open]);
 
@@ -128,26 +144,26 @@ export function CommandPalette({ open, onClose, onOpenNewReservation }: CommandP
     },
   ];
 
-  // Reservation items
-  const reservations: CommandItem[] = INITIAL_RESERVATIONS.map((r) => ({
+  // Reservation items from PostgreSQL
+  const reservations: CommandItem[] = liveReservations.map((r) => ({
     id: `res-${r.id}`,
     category: 'reservations',
-    title: `${r.guestName} (${r.reference})`,
-    subtitle: `${r.roomType} · Room ${r.roomNumber} · ${r.status.replace('_', ' ')}`,
+    title: `${r.guestName || 'Guest'} (${r.reference || ''})`,
+    subtitle: `${r.roomTypeName || 'Room'} · ${r.status ? r.status.replace('_', ' ') : 'confirmed'}`,
     badge: r.status === 'checked_in' ? 'In House' : 'Confirmed',
     icon: User,
-    action: () => router.push(`/reservations?search=${encodeURIComponent(r.guestName)}`),
+    action: () => router.push(`/reservations?search=${encodeURIComponent(r.guestName || '')}`),
   }));
 
-  // Room items
-  const rooms: CommandItem[] = INITIAL_ROOMS.map((rm) => ({
+  // Room items from PostgreSQL
+  const rooms: CommandItem[] = liveRooms.map((rm) => ({
     id: `room-${rm.id}`,
     category: 'rooms',
-    title: `Room ${rm.number} — ${rm.type}`,
-    subtitle: `${rm.floor} · Housekeeping: ${rm.housekeeping}`,
-    badge: rm.operational,
+    title: `Room ${rm.roomNumber || rm.number} — ${rm.roomTypeName || rm.type || 'Standard'}`,
+    subtitle: `${rm.floor || 'Floor 1'} · Housekeeping: ${rm.housekeepingStatus || rm.housekeeping || 'clean'}`,
+    badge: rm.operationalStatus || rm.operational || 'available',
     icon: BedDouble,
-    action: () => router.push(`/rooms?filter=${rm.operational}`),
+    action: () => router.push(`/rooms`),
   }));
 
   const allItems: CommandItem[] = [...actions, ...pages, ...reservations, ...rooms];
