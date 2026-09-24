@@ -11,7 +11,12 @@ export * from './schema';
 const connectionString = process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/sena';
 
 // For queries that use connection pooling
+const isRemoteDb =
+  connectionString.includes('ondigitalocean.com') ||
+  connectionString.includes('sslmode=require');
+
 const client = postgres(connectionString, {
+  ssl: isRemoteDb ? { rejectUnauthorized: false } : false,
   max: process.env.DB_MAX_CONNECTIONS ? Number(process.env.DB_MAX_CONNECTIONS) : 10,
   idle_timeout: 20,
   connect_timeout: 10,
