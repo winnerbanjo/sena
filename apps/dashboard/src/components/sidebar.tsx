@@ -114,6 +114,15 @@ function SidebarNavItems({ onNavigate }: { onNavigate?: () => void }) {
       const authUser = stored ? JSON.parse(stored) : null;
       const draftObj = draft ? JSON.parse(draft) : null;
 
+      // PURGE stale property keys that caused Amami to bleed across tenants
+      localStorage.removeItem('sena_property_name');
+      localStorage.removeItem('sena_property_address');
+      if (authUser?.property) {
+        // Remove stale property field from sena_auth_user without losing identity
+        const { property: _removed, ...cleanAuth } = authUser;
+        localStorage.setItem('sena_auth_user', JSON.stringify(cleanAuth));
+      }
+
       resolvedName = authUser?.fullName || authUser?.name || draftObj?.name || '';
       resolvedRole = authUser?.role || 'Owner';
       userEmail = authUser?.email || draftObj?.email || '';

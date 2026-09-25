@@ -44,35 +44,22 @@ export default function OverviewPage() {
   const [newResOpen, setNewResOpen] = React.useState(false);
   const [successReservation, setSuccessReservation] = React.useState<ReservationItem | null>(null);
   const [currentDateStr, setCurrentDateStr] = React.useState('');
-  const [userName, setUserName] = React.useState('Winner');
-  const [propertyName, setPropertyName] = React.useState('Amami');
-  const [propertySlug, setPropertySlug] = React.useState('amami');
+  const [userName, setUserName] = React.useState('');
+  const [propertyName, setPropertyName] = React.useState('');
+  const [propertySlug, setPropertySlug] = React.useState('');
 
   React.useEffect(() => {
+    // Read user identity from localStorage immediately (name/email only — NOT property)
     let activeEmail = '';
-    let activeProp = 'Stay Connect Solutions LTD';
-
     try {
       const user = JSON.parse(localStorage.getItem('sena_auth_user') || '{}');
-      const stored =
-        user?.property ||
-        localStorage.getItem('sena_property_name') ||
-        JSON.parse(localStorage.getItem('sena_onboarding_draft') || '{}')?.propName;
-      if (stored) {
-        setPropertyName(stored);
-        activeProp = stored;
-      }
-      if (user.fullName || user.name) {
-        setUserName(user.fullName || user.name);
-      }
+      if (user.fullName || user.name) setUserName(user.fullName || user.name);
       activeEmail = user.email || '';
     } catch {}
 
-    fetch(`/api/me?email=${encodeURIComponent(activeEmail)}&property=${encodeURIComponent(activeProp)}`, {
-      headers: {
-        'x-user-email': activeEmail,
-        'x-property-name': activeProp,
-      },
+    // Server is the ONLY source of truth for property name — never trust localStorage for it
+    fetch(`/api/me${activeEmail ? `?email=${encodeURIComponent(activeEmail)}` : ''}`, {
+      headers: activeEmail ? { 'x-user-email': activeEmail } : {},
     })
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
@@ -139,9 +126,11 @@ export default function OverviewPage() {
 
       if (webRes && webRes.ok) {
         const webData = await webRes.json();
-        if (webData.property) {
-          setPropertyName(webData.property.name || 'Amami');
-          setPropertySlug(webData.property.slug || 'amami');
+        // Only override property from website API if it returns a real name
+        // Never use a hardcoded fallback here — /api/me is the authoritative source
+        if (webData.property?.name) {
+          setPropertyName(webData.property.name);
+          if (webData.property.slug) setPropertySlug(webData.property.slug);
         }
       }
     } catch (e) {
@@ -256,10 +245,17 @@ export default function OverviewPage() {
               </div>
 
               <h1 className="text-2xl sm:text-3xl lg:text-4xl font-serif text-[#191816] font-normal tracking-tight">
-                Good day, {userName ? userName.split(' ')[0] : (propertyName || 'Winner')}
+                Good day,{' '}
+                {userName
+                  ? userName.split(' ')[0]
+                  : <span className="inline-block w-20 h-4 bg-[#E8E2DA] rounded animate-pulse align-middle" />}
               </h1>
               <p className="text-xs sm:text-sm text-[#7A7267] max-w-2xl leading-relaxed">
-                Here is today's real-time operational pulse for <strong className="text-[#71382D] font-semibold">{propertyName}</strong>. Direct website bookings, inventory allocation, and guest stays are fully active.
+                Here is today's real-time operational pulse for{' '}
+                <strong className="text-[#71382D] font-semibold">
+                  {propertyName || <span className="inline-block w-32 h-3.5 bg-[#E8E2DA] rounded animate-pulse align-middle" />}
+                </strong>
+                . Direct website bookings, inventory allocation, and guest stays are fully active.
               </p>
             </div>
 

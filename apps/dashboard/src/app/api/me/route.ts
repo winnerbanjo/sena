@@ -92,20 +92,14 @@ export async function GET(req: NextRequest) {
     // 2. Resolve Property
     let prop: any = null;
 
-    // A. From explicit header/query property ID or Name
+    // A. From explicit property ID header only (trusted)
     if (headerPropId) {
       prop = await db.query.properties.findFirst({
         where: eq(properties.id, headerPropId),
       });
     }
 
-    if (!prop && headerPropName) {
-      prop = await db.query.properties.findFirst({
-        where: ilike(properties.name, `%${headerPropName.trim()}%`),
-      });
-    }
-
-    // B. From User's Property Memberships
+    // B. From User's Property Memberships (most reliable — always use the user's own data)
     if (!prop && userObj?.id) {
       const pm = await db.query.propertyMembers.findFirst({
         where: eq(propertyMembers.userId, userObj.id),
@@ -131,15 +125,15 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // D. Email domain or special known mapping (e.g. stayconnectsuites2@gmail.com -> Stay Connect Solutions LTD)
+    // D. Email domain mapping for known customers (e.g. stayconnectsuites2@gmail.com → Stay Connect)
     if (!prop && userObj?.email?.includes('stayconnect')) {
       prop = await db.query.properties.findFirst({
         where: ilike(properties.name, '%Stay Connect%'),
       });
     }
 
-    // E. Canonical fallback to primary property
-    if (!prop) {
+    // E. Last resort: first property in DB (only if user cannot be resolved at all)
+    if (!prop && !userObj) {
       prop = await db.query.properties.findFirst();
     }
 

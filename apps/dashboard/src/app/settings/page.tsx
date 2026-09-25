@@ -32,13 +32,13 @@ export default function SettingsPage() {
   const { isInstallable, isInstalled, installApp, purgeAndLogout } = usePwa();
 
   // Form states
-  const [propertyName, setPropertyName] = React.useState('Amami');
+  const [propertyName, setPropertyName] = React.useState('');
   const [propertyType, setPropertyType] = React.useState('Boutique Hotel');
   const [tagline, setTagline] = React.useState('hospitality, simplified.');
-  const [contactEmail, setContactEmail] = React.useState('concierge@sena.ng');
-  const [contactPhone, setContactPhone] = React.useState('+234 800 000 0000');
-  const [address, setAddress] = React.useState('Central District');
-  const [city, setCity] = React.useState('Abuja');
+  const [contactEmail, setContactEmail] = React.useState('');
+  const [contactPhone, setContactPhone] = React.useState('');
+  const [address, setAddress] = React.useState('');
+  const [city, setCity] = React.useState('');
 
   // Bank states
   const [bankName, setBankName] = React.useState('Guaranty Trust Bank (GTBank)');
@@ -57,50 +57,48 @@ export default function SettingsPage() {
   const [smsHousekeepingAlerts, setSmsHousekeepingAlerts] = React.useState(true);
 
   React.useEffect(() => {
+    // Read user email from localStorage for the /api/me call
+    let activeEmail = '';
     try {
-      const storedName = localStorage.getItem('sena_property_name');
-      const draftStr = localStorage.getItem('sena_onboarding_draft');
       const authStr = localStorage.getItem('sena_auth_user');
-
-      let name = storedName || 'Amami';
       if (authStr) {
         const auth = JSON.parse(authStr);
-        if (auth.email) setContactEmail(auth.email);
+        if (auth.email) {
+          activeEmail = auth.email;
+          setContactEmail(auth.email);
+        }
       }
 
-      fetch('/api/me')
-        .then((res) => (res.ok ? res.json() : null))
-        .then((data) => {
-          if (!data) return;
-          if (data.property) {
-            setPropertyName(data.property.name || 'Amami');
-            if (data.property.address) setAddress(data.property.address);
-            if (data.property.city) setCity(data.property.city);
-          }
-          if (data.user?.email) setContactEmail(data.user.email);
-          if (data.user?.phone) setContactPhone(data.user.phone);
-        })
-        .catch(() => {});
-
+      // Apply draft-only fields (non-property data)
+      const draftStr = localStorage.getItem('sena_onboarding_draft');
       if (draftStr) {
         const draft = JSON.parse(draftStr);
-        if (!name && draft.propertyName) name = draft.propertyName;
         if (draft.propertyType) setPropertyType(draft.propertyType);
         if (draft.whatsapp) setContactPhone(draft.whatsapp);
-        if (draft.address) setAddress(draft.address);
-        if (draft.city) setCity(draft.city);
         if (draft.bankName) setBankName(draft.bankName);
         if (draft.accountNumber) setAccountNumber(draft.accountNumber);
         if (draft.beneficiaryName) setAccountName(draft.beneficiaryName);
       }
-
-      if (name) {
-        setPropertyName(name);
-        if (accountName === '—') setAccountName(name.toUpperCase());
-      }
     } catch (e) {
       console.error(e);
     }
+
+    // Server is the ONLY source of truth for property name and contact info
+    fetch(`/api/me${activeEmail ? `?email=${encodeURIComponent(activeEmail)}` : ''}`, {
+      headers: activeEmail ? { 'x-user-email': activeEmail } : {},
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!data) return;
+        if (data.property) {
+          if (data.property.name) setPropertyName(data.property.name);
+          if (data.property.address) setAddress(data.property.address);
+          if (data.property.city) setCity(data.property.city || '');
+        }
+        if (data.user?.email) setContactEmail(data.user.email);
+        if (data.user?.phone) setContactPhone(data.user.phone || '');
+      })
+      .catch(() => {});
   }, []);
 
   const handleSave = (e: React.FormEvent) => {
