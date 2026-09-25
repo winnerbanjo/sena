@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db, properties, reviews, reviewTokens, eq } from '@sena/database';
+import { db, properties, reviews, reservations, reviewTokens, eq, and } from '@sena/database';
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { slug, token, guestName, rating, title, body: reviewBody } = body;
+    const { slug, token, bookingReference, guestName, rating, title, body: reviewBody } = body;
 
     if (!slug || !guestName || !rating || !reviewBody) {
       return NextResponse.json(
@@ -24,6 +24,22 @@ export async function POST(req: NextRequest) {
 
     let isVerifiedStay = false;
     let reservationId: string | null = null;
+
+    // Check bookingReference if provided
+    if (bookingReference) {
+      const refClean = String(bookingReference).trim().toUpperCase();
+      const resRecord = await db.query.reservations.findFirst({
+        where: and(
+          eq(reservations.propertyId, property.id),
+          eq(reservations.reference, refClean)
+        ),
+      });
+
+      if (resRecord) {
+        isVerifiedStay = true;
+        reservationId = resRecord.id;
+      }
+    }
 
     // Check token if provided
     if (token) {
@@ -53,7 +69,7 @@ export async function POST(req: NextRequest) {
         rating: Math.min(5, Math.max(1, Number(rating))),
         title: title ? title.trim() : null,
         body: reviewBody.trim(),
-        source: 'sena',
+        source: isVerifiedStay ? 'direct_stay' : 'website',
         status: 'published',
         isVerifiedStay,
         submittedAt: new Date(),

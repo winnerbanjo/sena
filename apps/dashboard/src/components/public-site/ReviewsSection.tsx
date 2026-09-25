@@ -40,12 +40,20 @@ export function ReviewsSection({ data }: { data: WebsiteData }) {
             </div>
           </div>
 
-          <Link
-            href={`${base}/reviews`}
-            className="text-xs font-medium text-[#71382D] hover:text-[#B85C3E] inline-flex items-center gap-1"
-          >
-            <span>Read all reviews &rarr;</span>
-          </Link>
+          <div className="flex items-center gap-3">
+            <Link
+              href={`${base}/reviews?write=true`}
+              className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-[#71382D] text-[#71382D] hover:bg-[#71382D] hover:text-white transition-all shadow-2xs"
+            >
+              Write a Review
+            </Link>
+            <Link
+              href={`${base}/reviews`}
+              className="text-xs font-medium text-[#71382D] hover:text-[#B85C3E] inline-flex items-center gap-1"
+            >
+              <span>Read all ({reviews.totalCount}) &rarr;</span>
+            </Link>
+          </div>
         </div>
 
         {/* Review Cards Grid */}

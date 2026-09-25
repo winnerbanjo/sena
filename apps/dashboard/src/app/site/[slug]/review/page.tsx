@@ -21,6 +21,7 @@ export default function SubmitReviewPage({
 
   const [rating, setRating] = React.useState(5);
   const [guestName, setGuestName] = React.useState('');
+  const [bookingReference, setBookingReference] = React.useState('');
   const [title, setTitle] = React.useState('');
   const [body, setBody] = React.useState('');
   const [submitting, setSubmitting] = React.useState(false);
@@ -45,6 +46,7 @@ export default function SubmitReviewPage({
         body: JSON.stringify({
           slug,
           token,
+          bookingReference: bookingReference.trim() || undefined,
           guestName,
           rating,
           title,
@@ -144,6 +146,24 @@ export default function SubmitReviewPage({
               className="w-full px-3.5 py-2.5 rounded border border-[#E8E2DA] focus:outline-none focus:ring-1 focus:ring-[#71382D]"
             />
           </div>
+
+          {!token && (
+            <div>
+              <label className="block text-[#191816] font-medium mb-1">
+                Booking Reference (Optional)
+              </label>
+              <input
+                type="text"
+                value={bookingReference}
+                placeholder="e.g. SEN-ABC12345"
+                onChange={(e) => setBookingReference(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded border border-[#E8E2DA] focus:outline-none focus:ring-1 focus:ring-[#71382D] uppercase font-mono text-xs placeholder:normal-case placeholder:font-sans"
+              />
+              <p className="text-[10px] text-[#7A7267] mt-1">
+                Providing your reservation code gives your review a Verified Stay badge.
+              </p>
+            </div>
+          )}
 
           <div>
             <label className="block text-[#191816] font-medium mb-1">Review Headline (Optional)</label>
