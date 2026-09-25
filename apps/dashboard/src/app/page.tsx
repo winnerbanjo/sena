@@ -186,7 +186,7 @@ export default function OverviewPage() {
   const directWebsiteUrl = `https://${propertySlug}.sena.ng`;
 
   return (
-    <div className="flex-1 flex flex-col h-screen overflow-hidden bg-[#FAF8F5] text-[#191816]">
+    <div className="flex-1 flex flex-col h-screen overflow-hidden bg-white text-[#191816]">
       <Topbar
         title="Overview"
         onOpenNewReservation={() => setNewResOpen(true)}
@@ -263,13 +263,13 @@ export default function OverviewPage() {
         {/* 5 Distinct Colorful Operational KPI Stat Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           {/* 1. Live Occupancy */}
-          <div className="relative overflow-hidden bg-white border border-[#EADCCF] hover:border-[#C86D51] transition-all rounded-2xl p-5 shadow-xs hover:shadow-md group">
+          <div className="relative overflow-hidden bg-[#FAF8F5] border border-[#E8DACB] hover:border-[#C86D51] hover:bg-white transition-all rounded-2xl p-5 shadow-xs hover:shadow-md group">
             <div className="h-1 bg-gradient-to-r from-[#B85C3E] to-[#71382D] absolute top-0 left-0 right-0" />
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-mono uppercase tracking-wider text-[#A8583B] font-semibold">
                 Live Occupancy
               </span>
-              <div className="w-8 h-8 rounded-lg bg-[#FAF0E6] text-[#71382D] flex items-center justify-center">
+              <div className="w-8 h-8 rounded-lg bg-white border border-[#E8DACB]/60 text-[#71382D] flex items-center justify-center shadow-2xs">
                 <BedDouble className="w-4 h-4" />
               </div>
             </div>
@@ -282,7 +282,7 @@ export default function OverviewPage() {
               </span>
             </div>
             {/* Visual occupancy bar */}
-            <div className="mt-3 w-full bg-[#FAF0E6] h-1.5 rounded-full overflow-hidden">
+            <div className="mt-3 w-full bg-white border border-[#E8DACB]/60 h-1.5 rounded-full overflow-hidden">
               <div
                 className="h-full bg-gradient-to-r from-[#B85C3E] to-[#71382D] rounded-full transition-all duration-500"
                 style={{ width: `${Math.max(occupancyRate, 3)}%` }}
@@ -296,14 +296,14 @@ export default function OverviewPage() {
           {/* 2. Arrivals Today */}
           <Link
             href="/front-desk"
-            className="relative overflow-hidden bg-white border border-[#EADCCF] hover:border-amber-400 transition-all rounded-2xl p-5 shadow-xs hover:shadow-md group block"
+            className="relative overflow-hidden bg-[#FAF8F5] border border-[#E8DACB] hover:border-amber-400 hover:bg-white transition-all rounded-2xl p-5 shadow-xs hover:shadow-md group block"
           >
             <div className="h-1 bg-gradient-to-r from-amber-400 to-amber-600 absolute top-0 left-0 right-0" />
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-mono uppercase tracking-wider text-[#9E6E17] font-semibold group-hover:text-amber-800 transition-colors">
                 Arrivals Today
               </span>
-              <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-800 flex items-center justify-center">
+              <div className="w-8 h-8 rounded-lg bg-white border border-amber-200/60 text-amber-800 flex items-center justify-center shadow-2xs">
                 <KeyRound className="w-4 h-4" />
               </div>
             </div>
@@ -311,7 +311,7 @@ export default function OverviewPage() {
               <span className="text-3xl sm:text-4xl font-serif text-[#191816] font-normal group-hover:text-[#71382D] transition-colors">
                 {arrivals.length}
               </span>
-              <span className="text-[11px] px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200/60 font-medium">
+              <span className="text-[11px] px-2 py-0.5 rounded-full bg-white text-amber-800 border border-amber-200/80 font-medium">
                 {inHouse.length} in-house
               </span>
             </div>
@@ -323,14 +323,14 @@ export default function OverviewPage() {
           {/* 3. Departures */}
           <Link
             href="/front-desk"
-            className="relative overflow-hidden bg-white border border-[#EADCCF] hover:border-sky-400 transition-all rounded-2xl p-5 shadow-xs hover:shadow-md group block"
+            className="relative overflow-hidden bg-[#FAF8F5] border border-[#E8DACB] hover:border-sky-400 hover:bg-white transition-all rounded-2xl p-5 shadow-xs hover:shadow-md group block"
           >
             <div className="h-1 bg-gradient-to-r from-sky-400 to-blue-600 absolute top-0 left-0 right-0" />
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-mono uppercase tracking-wider text-[#3B66A8] font-semibold group-hover:text-blue-800 transition-colors">
                 Departures
               </span>
-              <div className="w-8 h-8 rounded-lg bg-sky-50 text-sky-800 flex items-center justify-center">
+              <div className="w-8 h-8 rounded-lg bg-white border border-sky-200/60 text-sky-800 flex items-center justify-center shadow-2xs">
                 <LogOut className="w-4 h-4" />
               </div>
             </div>
@@ -338,7 +338,7 @@ export default function OverviewPage() {
               <span className="text-3xl sm:text-4xl font-serif text-[#191816] font-normal group-hover:text-[#71382D] transition-colors">
                 {departures.length}
               </span>
-              <span className="text-[11px] px-2 py-0.5 rounded-full bg-sky-50 text-sky-800 border border-sky-200/60 font-medium">
+              <span className="text-[11px] px-2 py-0.5 rounded-full bg-white text-sky-800 border border-sky-200/80 font-medium">
                 Checkout 11:00
               </span>
             </div>
@@ -350,14 +350,14 @@ export default function OverviewPage() {
           {/* 4. Housekeeping */}
           <Link
             href="/housekeeping"
-            className="relative overflow-hidden bg-white border border-[#EADCCF] hover:border-[#71382D] transition-all rounded-2xl p-5 shadow-xs hover:shadow-md group block"
+            className="relative overflow-hidden bg-[#FAF8F5] border border-[#E8DACB] hover:border-[#71382D] hover:bg-white transition-all rounded-2xl p-5 shadow-xs hover:shadow-md group block"
           >
             <div className="h-1 bg-gradient-to-r from-[#8C7A6B] to-[#71382D] absolute top-0 left-0 right-0" />
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-mono uppercase tracking-wider text-[#7A7267] font-semibold group-hover:text-[#71382D] transition-colors">
                 Housekeeping
               </span>
-              <div className="w-8 h-8 rounded-lg bg-[#FAF4ED] text-[#71382D] flex items-center justify-center">
+              <div className="w-8 h-8 rounded-lg bg-white border border-[#E8DACB]/60 text-[#71382D] flex items-center justify-center shadow-2xs">
                 <Brush className="w-4 h-4" />
               </div>
             </div>
@@ -365,7 +365,7 @@ export default function OverviewPage() {
               <span className="text-3xl sm:text-4xl font-serif text-[#191816] font-normal group-hover:text-[#71382D] transition-colors">
                 {dirtyRooms.length}
               </span>
-              <span className="text-[11px] px-2 py-0.5 rounded-full bg-stone-100 text-[#5C564D] border border-[#E8DFD5] font-medium font-mono">
+              <span className="text-[11px] px-2 py-0.5 rounded-full bg-white text-[#5C564D] border border-[#E8DFD5] font-medium font-mono">
                 {rooms.length - dirtyRooms.length} clean &amp; ready
               </span>
             </div>
@@ -377,14 +377,14 @@ export default function OverviewPage() {
           {/* 5. Month Revenue */}
           <Link
             href="/payments"
-            className="relative overflow-hidden bg-white border border-[#EADCCF] hover:border-emerald-400 transition-all rounded-2xl p-5 shadow-xs hover:shadow-md group block"
+            className="relative overflow-hidden bg-[#FAF8F5] border border-[#E8DACB] hover:border-emerald-400 hover:bg-white transition-all rounded-2xl p-5 shadow-xs hover:shadow-md group block"
           >
             <div className="h-1 bg-gradient-to-r from-emerald-400 to-emerald-600 absolute top-0 left-0 right-0" />
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-mono uppercase tracking-wider text-[#1F7A46] font-semibold group-hover:text-emerald-900 transition-colors">
                 Month Revenue
               </span>
-              <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-800 flex items-center justify-center">
+              <div className="w-8 h-8 rounded-lg bg-white border border-emerald-200/60 text-emerald-800 flex items-center justify-center shadow-2xs">
                 <TrendingUp className="w-4 h-4" />
               </div>
             </div>
@@ -401,7 +401,7 @@ export default function OverviewPage() {
 
         {/* Live Room Key Rack / Real Inventory Strip */}
         {rooms.length > 0 && (
-          <div className="bg-white border border-[#E8DACB] rounded-2xl p-5 sm:p-6 space-y-4 shadow-xs">
+          <div className="bg-[#FAF8F5] border border-[#E8DACB] rounded-2xl p-5 sm:p-6 space-y-4 shadow-xs">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#E8DACB]/80 pb-3">
               <div>
                 <h3 className="font-serif text-base text-[#191816] font-medium flex items-center gap-2">
@@ -430,7 +430,7 @@ export default function OverviewPage() {
                 return (
                   <div
                     key={rm.id}
-                    className="p-3.5 rounded-xl border border-[#E8DFD5] bg-[#FAF8F5]/60 hover:bg-white hover:border-[#D5CFC7] hover:shadow-xs transition-all space-y-2"
+                    className="p-3.5 rounded-xl border border-[#E8DFD5] bg-white hover:border-[#71382D]/40 hover:shadow-xs transition-all space-y-2"
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
@@ -528,7 +528,7 @@ export default function OverviewPage() {
                 </div>
               </div>
             ) : (
-              <div className="border border-[#E8DACB] rounded-2xl overflow-hidden divide-y divide-[#E8DACB] bg-white shadow-xs">
+              <div className="border border-[#E8DACB] rounded-2xl overflow-hidden divide-y divide-[#E8DACB] bg-[#FAF8F5] shadow-xs">
                 {arrivals.map((res) => {
                   const isPaid = res.paymentStatus === 'paid';
                   return (
@@ -538,7 +538,7 @@ export default function OverviewPage() {
                         setSelectedRes(res);
                         setDrawerOpen(true);
                       }}
-                      className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-[#FAF4ED]/50 transition-colors cursor-pointer group"
+                      className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-white transition-colors cursor-pointer group"
                     >
                       <div className="flex items-center gap-3.5 min-w-0">
                         <div className="w-10 h-10 rounded-full bg-[#FAF0E6] text-[#71382D] border border-[#E8D5C2] flex items-center justify-center font-serif text-sm font-semibold flex-shrink-0 shadow-2xs">
@@ -601,7 +601,7 @@ export default function OverviewPage() {
           {/* Operational Side Column (4 Cols) */}
           <div className="lg:col-span-4 space-y-6">
             {/* Quick Turnaround Desk */}
-            <div className="bg-white rounded-2xl border border-[#E8DACB] p-6 space-y-4 shadow-xs">
+            <div className="bg-[#FAF8F5] rounded-2xl border border-[#E8DACB] p-6 space-y-4 shadow-xs">
               <div className="flex items-center justify-between border-b border-[#E8DACB]/80 pb-3">
                 <span className="text-[11px] font-mono uppercase tracking-wider text-[#71382D] font-semibold flex items-center gap-1.5">
                   <Brush className="w-3.5 h-3.5 text-[#B85C3E]" />

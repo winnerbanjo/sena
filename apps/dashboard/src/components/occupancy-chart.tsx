@@ -114,9 +114,9 @@ export function OccupancyChart({
   const weeklyTotalRev = days.reduce((sum, d) => sum + d.revenueMinorUnits, 0);
 
   return (
-    <div className="bg-white border border-[#E8E2DA] rounded-lg p-6 space-y-6 shadow-xs">
+    <div className="bg-[#FAF8F5] border border-[#E8DACB] rounded-2xl p-6 space-y-6 shadow-xs">
       {/* Top Header & Dynamic Controls */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#E8E2DA] pb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#E8DACB] pb-4">
         <div>
           <div className="flex items-center gap-2">
             {activeTab === 'occupancy' ? (
@@ -149,13 +149,13 @@ export function OccupancyChart({
 
         {/* Dynamic Mode Switcher Pills */}
         <div className="flex items-center gap-2">
-          <div className="flex bg-[#F5F2ED] p-1 rounded-md text-xs border border-[#E8E2DA]">
+          <div className="flex bg-white p-1 rounded-md text-xs border border-[#E8DACB]">
             <button
               type="button"
               onClick={() => setActiveTab('occupancy')}
               className={`px-3.5 py-1.5 rounded-md font-medium transition-all duration-200 cursor-pointer ${
                 activeTab === 'occupancy'
-                  ? 'bg-white text-[#B85C3E] shadow-sm font-semibold'
+                  ? 'bg-[#FAF8F5] text-[#71382D] border border-[#E8DACB]/80 shadow-2xs font-semibold'
                   : 'text-[#7A7267] hover:text-[#191816]'
               }`}
             >
@@ -166,7 +166,7 @@ export function OccupancyChart({
               onClick={() => setActiveTab('revenue')}
               className={`px-3.5 py-1.5 rounded-md font-medium transition-all duration-200 cursor-pointer ${
                 activeTab === 'revenue'
-                  ? 'bg-white text-[#2E6B4F] shadow-sm font-semibold'
+                  ? 'bg-[#FAF8F5] text-[#2E6B4F] border border-[#E8DACB]/80 shadow-2xs font-semibold'
                   : 'text-[#7A7267] hover:text-[#191816]'
               }`}
             >
@@ -177,7 +177,7 @@ export function OccupancyChart({
       </div>
 
       {/* Unified Executive Metrics Ledger Strip */}
-      <div className="bg-[#FAF8F5]/80 border border-[#E8DACB] rounded-xl overflow-hidden grid grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-[#E8DACB] shadow-2xs">
+      <div className="bg-white border border-[#E8DACB] rounded-xl overflow-hidden grid grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-[#E8DACB] shadow-2xs">
         <div className="p-4 space-y-1">
           <span className="text-[10px] text-[#7A7267] font-mono uppercase tracking-wider block font-medium">
             {activeTab === 'occupancy' ? "Today's Occupancy" : "Today's Revenue"}

@@ -287,7 +287,7 @@ export default function InvoicesPage() {
   }
 
   return (
-    <div className="flex-1 flex flex-col h-screen overflow-hidden bg-[#FAF7F2]">
+    <div className="flex-1 flex flex-col h-screen overflow-hidden bg-white text-[#191816]">
       <Topbar title="Invoices & Folios" />
 
       <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6">
