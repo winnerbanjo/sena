@@ -21,6 +21,7 @@ import {
   CheckCircle2,
   ChevronRight,
   ArrowRight,
+  ArrowLeft,
   Plus,
   Star,
   MessageSquare,
@@ -31,8 +32,35 @@ import {
   Send,
   MessageCircle,
   AlertCircle,
+  Camera,
+  Upload,
+  Trash2,
+  Edit2,
+  Layers,
+  ZoomIn,
 } from 'lucide-react';
 import Link from 'next/link';
+
+export interface GalleryItem {
+  url: string;
+  caption?: string;
+  category?: string;
+}
+
+const PRESET_GALLERY_PHOTOS: GalleryItem[] = [
+  { url: 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=1200&q=80', caption: 'Master Executive Suite', category: 'Rooms' },
+  { url: 'https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&w=1200&q=80', caption: 'Deluxe Residence Living Area', category: 'Rooms' },
+  { url: 'https://images.unsplash.com/photo-1618773928121-c32242e63f39?auto=format&fit=crop&w=1200&q=80', caption: 'Sunlit King Bedroom & Terrace', category: 'Rooms' },
+  { url: 'https://images.unsplash.com/photo-1571896349842-33c89424de2d?auto=format&fit=crop&w=1200&q=80', caption: 'Courtyard Pool & Sun Loungers', category: 'Property' },
+  { url: 'https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?auto=format&fit=crop&w=1200&q=80', caption: 'Grand Hotel Entrance & Portico', category: 'Property' },
+  { url: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=1200&q=80', caption: 'Lush Tropical Grounds & Walkways', category: 'Property' },
+  { url: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1200&q=80', caption: 'The Atrium Bistro & Cocktail Bar', category: 'Dining' },
+  { url: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=1200&q=80', caption: 'Artisanal Breakfast Buffet & Pastries', category: 'Dining' },
+  { url: 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=1200&q=80', caption: 'Evening Rooftop Sunset Lounge', category: 'Experiences' },
+  { url: 'https://images.unsplash.com/photo-1544161515-4ab6ce6db874?auto=format&fit=crop&w=1200&q=80', caption: 'Serenity Spa & Aromatherapy Suite', category: 'Wellness' },
+];
+
+const STANDARD_GALLERY_CATEGORIES = ['Rooms', 'Property', 'Dining', 'Experiences', 'Wellness', 'Exterior'];
 
 function WebsiteContent() {
   const searchParams = useSearchParams();
@@ -40,7 +68,7 @@ function WebsiteContent() {
 
   const [newResOpen, setNewResOpen] = React.useState(false);
   const [previewDevice, setPreviewDevice] = React.useState<'desktop' | 'mobile'>('desktop');
-  const [activeTab, setActiveTab] = React.useState<'preview' | 'brand' | 'sections' | 'reviews' | 'domain' | 'seo'>(
+  const [activeTab, setActiveTab] = React.useState<'preview' | 'brand' | 'sections' | 'gallery' | 'reviews' | 'domain' | 'seo'>(
     initialTab || 'preview'
   );
   const [copied, setCopied] = React.useState(false);
@@ -83,6 +111,20 @@ function WebsiteContent() {
   // SEO config
   const [seoTitle, setSeoTitle] = React.useState('');
   const [seoDescription, setSeoDescription] = React.useState('');
+
+  // Photo Gallery state
+  const [galleryImages, setGalleryImages] = React.useState<GalleryItem[]>([]);
+  const [galleryCategoryFilter, setGalleryCategoryFilter] = React.useState<string>('All');
+  const [galleryModalOpen, setGalleryModalOpen] = React.useState(false);
+  const [editingGalleryIdx, setEditingGalleryIdx] = React.useState<number | null>(null);
+  const [galleryInputSource, setGalleryInputSource] = React.useState<'upload' | 'url' | 'presets'>('upload');
+  const [galleryItemUrl, setGalleryItemUrl] = React.useState('');
+  const [galleryItemCaption, setGalleryItemCaption] = React.useState('');
+  const [galleryItemCategory, setGalleryItemCategory] = React.useState('Rooms');
+  const [customCategoryInput, setCustomCategoryInput] = React.useState('');
+  const [uploadingGallery, setUploadingGallery] = React.useState(false);
+  const [uploadError, setUploadError] = React.useState<string | null>(null);
+  const [starterModalOpen, setStarterModalOpen] = React.useState(false);
 
   // Reviews state
   const [reviewsList, setReviewsList] = React.useState<any[]>([]);
@@ -131,6 +173,16 @@ function WebsiteContent() {
           setWelcomeTitle(c.welcomeTitle || 'A Tranquil Sanctuary in the City');
           setWelcomeBody(c.welcomeBody || '');
           setAboutStory(c.aboutStory || '');
+          if (c.galleryImages && Array.isArray(c.galleryImages) && c.galleryImages.length > 0) {
+            setGalleryImages(c.galleryImages);
+          } else {
+            setGalleryImages([
+              { url: 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=1000&q=80', category: 'Rooms', caption: 'Executive Suite' },
+              { url: 'https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&w=1000&q=80', category: 'Rooms', caption: 'Deluxe Residence' },
+              { url: 'https://images.unsplash.com/photo-1571896349842-33c89424de2d?auto=format&fit=crop&w=1000&q=80', category: 'Property', caption: 'Garden & Pool' },
+              { url: 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=1000&q=80', category: 'Experiences', caption: 'Evening Lounge' },
+            ]);
+          }
           setContactPhone(c.contactPhone || p?.phone || '');
           setContactEmail(c.contactEmail || p?.email || '');
           setContactWhatsapp(c.contactWhatsapp || p?.phone || '');
@@ -182,6 +234,7 @@ function WebsiteContent() {
         welcomeTitle,
         welcomeBody,
         aboutStory,
+        galleryImages,
         contactPhone,
         contactEmail,
         contactWhatsapp,
@@ -207,6 +260,153 @@ function WebsiteContent() {
     } finally {
       setSaving(false);
     }
+  };
+
+  // Gallery Management Handlers
+  const handleOpenAddGallery = () => {
+    setEditingGalleryIdx(null);
+    setGalleryItemUrl('');
+    setGalleryItemCaption('');
+    setGalleryItemCategory('Rooms');
+    setCustomCategoryInput('');
+    setUploadError(null);
+    setGalleryInputSource('upload');
+    setGalleryModalOpen(true);
+  };
+
+  const handleOpenEditGallery = (idx: number) => {
+    const item = galleryImages[idx];
+    if (!item) return;
+    setEditingGalleryIdx(idx);
+    setGalleryItemUrl(item.url);
+    setGalleryItemCaption(item.caption || '');
+    const cat = item.category || 'Rooms';
+    if (STANDARD_GALLERY_CATEGORIES.includes(cat)) {
+      setGalleryItemCategory(cat);
+      setCustomCategoryInput('');
+    } else {
+      setGalleryItemCategory('Custom');
+      setCustomCategoryInput(cat);
+    }
+    setUploadError(null);
+    setGalleryInputSource('url');
+    setGalleryModalOpen(true);
+  };
+
+  const handleSaveGalleryItem = async () => {
+    if (!galleryItemUrl.trim()) {
+      alert('Please provide an image by uploading a file, entering a URL, or choosing a preset.');
+      return;
+    }
+    const finalCategory =
+      galleryItemCategory === 'Custom'
+        ? (customCategoryInput.trim() || 'Property')
+        : galleryItemCategory;
+
+    let updated: GalleryItem[];
+    if (editingGalleryIdx !== null) {
+      updated = [...galleryImages];
+      updated[editingGalleryIdx] = {
+        url: galleryItemUrl.trim(),
+        caption: galleryItemCaption.trim() || undefined,
+        category: finalCategory,
+      };
+    } else {
+      updated = [
+        ...galleryImages,
+        {
+          url: galleryItemUrl.trim(),
+          caption: galleryItemCaption.trim() || undefined,
+          category: finalCategory,
+        },
+      ];
+    }
+
+    setGalleryImages(updated);
+    setGalleryModalOpen(false);
+    await handleSaveGallery(updated);
+  };
+
+  const handleDeleteGalleryItem = async (idx: number) => {
+    if (!confirm('Are you sure you want to remove this photo from your gallery?')) return;
+    const updated = galleryImages.filter((_, i) => i !== idx);
+    setGalleryImages(updated);
+    await handleSaveGallery(updated);
+  };
+
+  const handleMoveGalleryItem = async (idx: number, direction: 'left' | 'right') => {
+    const targetIdx = direction === 'left' ? idx - 1 : idx + 1;
+    if (targetIdx < 0 || targetIdx >= galleryImages.length) return;
+    const updated = [...galleryImages];
+    const [moved] = updated.splice(idx, 1);
+    updated.splice(targetIdx, 0, moved);
+    setGalleryImages(updated);
+    await handleSaveGallery(updated);
+  };
+
+  const handleUploadGalleryFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingGallery(true);
+    setUploadError(null);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+      const data = await res.json();
+      if (res.ok && data.url) {
+        setGalleryItemUrl(data.url);
+      } else {
+        setUploadError(data.error || 'Upload failed. You can paste an image URL instead.');
+      }
+    } catch (err: any) {
+      setUploadError(err.message || 'Upload failed. Please check connection.');
+    } finally {
+      setUploadingGallery(false);
+    }
+  };
+
+  const handleSaveGallery = async (imagesToSave?: GalleryItem[]) => {
+    setSaving(true);
+    try {
+      const payloadImages = imagesToSave || galleryImages;
+      const res = await fetch('/api/website', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          draftOnly: false,
+          galleryImages: payloadImages,
+        }),
+      });
+      if (res.ok) {
+        setSaveSuccess(true);
+        setTimeout(() => setSaveSuccess(false), 3000);
+      } else {
+        alert('Failed to save gallery changes');
+      }
+    } catch {
+      alert('Error saving gallery');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleApplyPreset = (preset: GalleryItem) => {
+    setGalleryItemUrl(preset.url);
+    if (!galleryItemCaption) setGalleryItemCaption(preset.caption || '');
+    if (preset.category) setGalleryItemCategory(preset.category);
+    setGalleryInputSource('presets');
+  };
+
+  const handleLoadStarterPack = async () => {
+    const starterItems = PRESET_GALLERY_PHOTOS.slice(0, 6);
+    const updated = [...galleryImages, ...starterItems];
+    setGalleryImages(updated);
+    setStarterModalOpen(false);
+    await handleSaveGallery(updated);
   };
 
   // Publish to Live
@@ -462,6 +662,7 @@ function WebsiteContent() {
               { id: 'preview', label: 'Live Preview', icon: Eye },
               { id: 'brand', label: 'Brand & Themes', icon: Palette },
               { id: 'sections', label: 'Page Content', icon: Layout },
+              { id: 'gallery', label: 'Photo Gallery', icon: Camera },
               { id: 'reviews', label: 'Guest Reviews', icon: Star },
               { id: 'domain', label: 'Subdomain & SSL', icon: Globe },
               { id: 'seo', label: 'SEO & Social Cards', icon: ShieldCheck },
@@ -835,6 +1036,249 @@ function WebsiteContent() {
                 </div>
               </div>
             </div>
+
+            {/* Visual Tour & Photo Gallery Section Callout */}
+            <div className="bg-white border border-[#E8E2DA] rounded-xl p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <Camera className="w-4 h-4 text-[#71382D]" />
+                  <h3 className="text-base font-semibold text-[#191816]">Visual Tour: A Glimpse Inside</h3>
+                </div>
+                <p className="text-xs text-[#7A7267]">
+                  Curate the photos shown in the &apos;Visual Tour: A Glimpse Inside&apos; section. Organize your imagery into Rooms, Property, Dining, and Experiences so guests can tour before booking.
+                </p>
+                <div className="text-[11px] font-mono text-[#B85C3E] pt-1">
+                  Currently {galleryImages.length} {galleryImages.length === 1 ? 'photo' : 'photos'} in gallery
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setActiveTab('gallery')}
+                className="shrink-0 text-xs font-semibold text-[#71382D] border-[#71382D]/30 hover:bg-[#FAF7F2] gap-1.5"
+              >
+                <span>Manage Photo Gallery</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* TAB: PHOTO GALLERY MANAGEMENT */}
+        {activeTab === 'gallery' && (
+          <div className="space-y-6 max-w-6xl">
+            {/* Gallery Header Card */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white border border-[#E8E2DA] p-6 rounded-xl shadow-2xs">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-lg bg-[#FAF7F2] border border-[#E8DACB] flex items-center justify-center text-[#71382D]">
+                    <Camera className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-semibold text-[#191816]">Visual Tour &amp; Photo Gallery</h3>
+                    <p className="text-xs text-[#7A7267]">
+                      Manage the photos displayed in the &ldquo;Visual Tour: A Glimpse Inside {propertyName}&rdquo; section on your direct website.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 pt-2 text-xs">
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#FAF7F2] border border-[#E8DACB] text-[11px] font-medium text-[#71382D]">
+                    <Layers className="w-3 h-3" />
+                    {galleryImages.length} {galleryImages.length === 1 ? 'Photo' : 'Photos'}
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-stone-100 border border-stone-200 text-[11px] font-medium text-stone-700">
+                    {Array.from(new Set(galleryImages.map((g) => g.category || 'Property'))).length} Categories
+                  </span>
+                  <span className="text-[11px] text-[#A39B90]">
+                    &middot; Instant sync with live site
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => setStarterModalOpen(true)}
+                  className="px-3.5 py-2 rounded-lg border border-[#E8E2DA] bg-white text-xs font-semibold text-[#191816] hover:bg-[#FAF7F2] transition-colors flex items-center gap-1.5 shadow-2xs"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-[#B85C3E]" />
+                  <span>Curated Library</span>
+                </button>
+                <Button
+                  onClick={handleOpenAddGallery}
+                  className="text-xs font-semibold bg-[#71382D] hover:bg-[#5A2C23] text-white gap-1.5 shadow-2xs"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Add Photo</span>
+                </Button>
+                <button
+                  type="button"
+                  onClick={() => handleSaveGallery()}
+                  disabled={saving}
+                  className="px-3.5 py-2 rounded-lg bg-[#FAF7F2] hover:bg-[#F2ECE3] border border-[#E8DACB] text-xs font-semibold text-[#71382D] transition-colors flex items-center gap-1.5 shadow-2xs"
+                >
+                  <Save className="w-3.5 h-3.5" />
+                  <span>{saving ? 'Saving...' : 'Save Gallery'}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Filter Tabs by Category */}
+            {galleryImages.length > 0 && (
+              <div className="flex items-center justify-between gap-4 flex-wrap bg-white border border-[#E8E2DA] px-4 py-3 rounded-xl shadow-2xs">
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5">
+                  <span className="text-xs font-medium text-[#7A7267] mr-1">Category:</span>
+                  {['All', ...Array.from(new Set(galleryImages.map((g) => g.category || 'Property')))].map((cat) => {
+                    const count =
+                      cat === 'All'
+                        ? galleryImages.length
+                        : galleryImages.filter((g) => (g.category || 'Property') === cat).length;
+                    return (
+                      <button
+                        key={cat}
+                        type="button"
+                        onClick={() => setGalleryCategoryFilter(cat)}
+                        className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${
+                          galleryCategoryFilter === cat
+                            ? 'bg-[#71382D] text-white shadow-2xs'
+                            : 'bg-[#FAF7F2] text-[#5C564D] hover:bg-[#F2ECE3] border border-[#E8DACB]'
+                        }`}
+                      >
+                        {cat} ({count})
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <span className="text-[11px] text-[#A39B90] font-mono">
+                  Showing {galleryCategoryFilter === 'All' ? galleryImages.length : galleryImages.filter((g) => (g.category || 'Property') === galleryCategoryFilter).length} of {galleryImages.length}
+                </span>
+              </div>
+            )}
+
+            {/* Gallery Grid */}
+            {galleryImages.length === 0 ? (
+              <div className="bg-white border border-[#E8E2DA] rounded-xl p-12 text-center space-y-4 shadow-2xs">
+                <div className="w-14 h-14 rounded-2xl bg-[#FAF7F2] border border-[#E8DACB] flex items-center justify-center text-[#71382D] mx-auto">
+                  <Camera className="w-7 h-7" />
+                </div>
+                <div className="max-w-md mx-auto space-y-1">
+                  <h4 className="text-base font-semibold text-[#191816]">Your gallery is currently empty</h4>
+                  <p className="text-xs text-[#7A7267]">
+                    Add high-resolution photography of your suites, property grounds, dining areas, and guest experiences to showcase your property.
+                  </p>
+                </div>
+                <div className="flex items-center justify-center gap-3 pt-2">
+                  <Button
+                    onClick={handleOpenAddGallery}
+                    className="text-xs font-semibold bg-[#71382D] hover:bg-[#5A2C23] text-white gap-1.5"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Add Your First Photo</span>
+                  </Button>
+                  <button
+                    type="button"
+                    onClick={() => setStarterModalOpen(true)}
+                    className="px-4 py-2 rounded-lg border border-[#E8DACB] bg-[#FAF7F2] text-xs font-semibold text-[#71382D] hover:bg-[#F2ECE3] transition-colors flex items-center gap-1.5"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-[#B85C3E]" />
+                    <span>Explore Hospitality Starter Pack</span>
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {galleryImages
+                  .map((img, idx) => ({ ...img, originalIdx: idx }))
+                  .filter(
+                    (img) =>
+                      galleryCategoryFilter === 'All' ||
+                      (img.category || 'Property') === galleryCategoryFilter
+                  )
+                  .map((img) => (
+                    <div
+                      key={img.originalIdx}
+                      className="bg-white border border-[#E8E2DA] rounded-xl overflow-hidden shadow-2xs hover:shadow-sm transition-all group flex flex-col justify-between"
+                    >
+                      {/* Image Thumbnail & Category */}
+                      <div className="relative aspect-[4/3] bg-stone-100 overflow-hidden">
+                        <img
+                          src={img.url}
+                          alt={img.caption || 'Gallery photo'}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        />
+                        <div className="absolute top-2.5 left-2.5">
+                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono uppercase tracking-wider font-semibold bg-black/60 text-white backdrop-blur-xs">
+                            {img.category || 'Property'}
+                          </span>
+                        </div>
+                        <div className="absolute top-2.5 right-2.5">
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-mono text-white/80 bg-black/40 backdrop-blur-xs">
+                            #{img.originalIdx + 1}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Caption & Metadata */}
+                      <div className="p-3.5 space-y-3 flex-1 flex flex-col justify-between">
+                        <div>
+                          <p className="text-xs font-medium text-[#191816] line-clamp-2">
+                            {img.caption || <span className="text-[#A39B90] italic">No caption set</span>}
+                          </p>
+                          <p className="text-[10px] font-mono text-[#A39B90] truncate mt-1">
+                            {img.url}
+                          </p>
+                        </div>
+
+                        {/* Actions Toolbar */}
+                        <div className="pt-2 border-t border-[#F2ECE3] flex items-center justify-between text-xs">
+                          {/* Reordering Buttons */}
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => handleMoveGalleryItem(img.originalIdx, 'left')}
+                              disabled={img.originalIdx === 0}
+                              title="Move photo earlier"
+                              className="p-1.5 rounded hover:bg-[#FAF7F2] text-[#7A7267] hover:text-[#191816] disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+                            >
+                              <ArrowLeft className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleMoveGalleryItem(img.originalIdx, 'right')}
+                              disabled={img.originalIdx === galleryImages.length - 1}
+                              title="Move photo later"
+                              className="p-1.5 rounded hover:bg-[#FAF7F2] text-[#7A7267] hover:text-[#191816] disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+                            >
+                              <ArrowRight className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+
+                          {/* Edit & Delete */}
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEditGallery(img.originalIdx)}
+                              title="Edit caption or category"
+                              className="p-1.5 rounded hover:bg-[#FAF7F2] text-[#5C564D] hover:text-[#191816] transition-colors"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteGalleryItem(img.originalIdx)}
+                              title="Delete photo"
+                              className="p-1.5 rounded hover:bg-rose-50 text-rose-600 hover:text-rose-700 transition-colors"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -1225,6 +1669,303 @@ function WebsiteContent() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Photo Gallery Add/Edit Modal */}
+      {galleryModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl border border-[#E8E2DA] max-w-lg w-full p-6 space-y-4 shadow-xl max-h-[90vh] overflow-y-auto">
+            <div className="border-b border-[#E8E2DA] pb-3 flex items-center justify-between">
+              <div>
+                <h3 className="font-serif text-lg text-[#191816]">
+                  {editingGalleryIdx !== null ? 'Edit Gallery Photo' : 'Add Photo to Visual Tour'}
+                </h3>
+                <p className="text-[11px] text-[#7A7267]">
+                  {editingGalleryIdx !== null
+                    ? 'Update photo category, caption, or image file.'
+                    : 'Add a new photo to showcase rooms, property grounds, dining, or amenities.'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setGalleryModalOpen(false)}
+                className="p-1 rounded-md text-[#7A7267] hover:text-[#191816] hover:bg-[#FAF7F2]"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-4 text-xs">
+              {/* Source Switcher */}
+              <div>
+                <label className="block font-medium mb-1.5 text-[#191816]">Photo Source</label>
+                <div className="grid grid-cols-2 gap-2 p-1 bg-[#FAF7F2] rounded-lg border border-[#E8DACB]">
+                  <button
+                    type="button"
+                    onClick={() => setGalleryInputSource('upload')}
+                    className={`py-1.5 rounded text-xs font-medium transition-all flex items-center justify-center gap-1.5 ${
+                      galleryInputSource === 'upload'
+                        ? 'bg-white text-[#71382D] shadow-2xs font-semibold'
+                        : 'text-[#7A7267] hover:text-[#191816]'
+                    }`}
+                  >
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>Upload File</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setGalleryInputSource('url')}
+                    className={`py-1.5 rounded text-xs font-medium transition-all flex items-center justify-center gap-1.5 ${
+                      galleryInputSource === 'url'
+                        ? 'bg-white text-[#71382D] shadow-2xs font-semibold'
+                        : 'text-[#7A7267] hover:text-[#191816]'
+                    }`}
+                  >
+                    <Globe className="w-3.5 h-3.5" />
+                    <span>Image URL</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Upload Dropzone */}
+              {galleryInputSource === 'upload' && (
+                <div className="space-y-2">
+                  <label className="block font-medium text-[#191816]">Upload Image</label>
+                  <div className="border-2 border-dashed border-[#E8E2DA] hover:border-[#71382D]/40 rounded-xl p-6 text-center space-y-2 bg-[#FAF7F2]/40 transition-colors">
+                    <div className="w-10 h-10 rounded-full bg-[#FAF7F2] border border-[#E8DACB] flex items-center justify-center text-[#71382D] mx-auto">
+                      <Upload className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <label className="cursor-pointer text-xs font-semibold text-[#71382D] hover:underline">
+                        <span>Click to choose file</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleUploadGalleryFile}
+                          className="hidden"
+                        />
+                      </label>
+                      <p className="text-[11px] text-[#A39B90]">PNG, JPG, or WebP up to 10MB</p>
+                    </div>
+                    {uploadingGallery && (
+                      <p className="text-xs font-medium text-[#B85C3E] animate-pulse">
+                        Uploading to secure storage...
+                      </p>
+                    )}
+                    {uploadError && (
+                      <p className="text-xs text-rose-600 font-medium">{uploadError}</p>
+                    )}
+                  </div>
+                  {galleryItemUrl && (
+                    <div className="flex items-center gap-2 text-[11px] text-[#2E6B4F] bg-emerald-50 px-3 py-1.5 rounded border border-emerald-200">
+                      <Check className="w-3.5 h-3.5 shrink-0" />
+                      <span className="truncate">Active Image URL: {galleryItemUrl}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* URL Input */}
+              {galleryInputSource === 'url' && (
+                <div>
+                  <label className="block font-medium mb-1 text-[#191816]">Image URL *</label>
+                  <input
+                    type="url"
+                    value={galleryItemUrl}
+                    onChange={(e) => setGalleryItemUrl(e.target.value)}
+                    placeholder="https://images.unsplash.com/..."
+                    className="w-full px-3 py-2 rounded border border-[#E8E2DA] font-mono focus:outline-none focus:ring-1 focus:ring-[#71382D]"
+                  />
+                  <p className="text-[11px] text-[#A39B90] mt-1">
+                    Direct public link to the image (JPG, PNG, WebP).
+                  </p>
+                </div>
+              )}
+
+              {/* Category Selector */}
+              <div>
+                <label className="block font-medium mb-1.5 text-[#191816]">Category Filter Tab *</label>
+                <div className="flex flex-wrap gap-1.5 pb-2">
+                  {[...STANDARD_GALLERY_CATEGORIES, 'Custom'].map((cat) => (
+                    <button
+                      key={cat}
+                      type="button"
+                      onClick={() => setGalleryItemCategory(cat)}
+                      className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${
+                        galleryItemCategory === cat
+                          ? 'bg-[#71382D] text-white shadow-2xs'
+                          : 'bg-[#FAF7F2] text-[#5C564D] hover:bg-[#F2ECE3] border border-[#E8DACB]'
+                      }`}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+                {galleryItemCategory === 'Custom' && (
+                  <input
+                    type="text"
+                    value={customCategoryInput}
+                    onChange={(e) => setCustomCategoryInput(e.target.value)}
+                    placeholder="Enter custom category (e.g. Penthouse, Rooftop, Spa)..."
+                    className="w-full px-3 py-2 rounded border border-[#E8E2DA] focus:outline-none focus:ring-1 focus:ring-[#71382D]"
+                  />
+                )}
+              </div>
+
+              {/* Caption */}
+              <div>
+                <label className="block font-medium mb-1 text-[#191816]">Photo Caption / Title</label>
+                <input
+                  type="text"
+                  value={galleryItemCaption}
+                  onChange={(e) => setGalleryItemCaption(e.target.value)}
+                  placeholder="e.g. Deluxe King Suite Living Area"
+                  className="w-full px-3 py-2 rounded border border-[#E8E2DA] focus:outline-none focus:ring-1 focus:ring-[#71382D]"
+                />
+                <p className="text-[11px] text-[#A39B90] mt-1">
+                  Shown in the hover overlay and full-screen lightbox.
+                </p>
+              </div>
+
+              {/* Live Preview Card */}
+              {galleryItemUrl && (
+                <div className="space-y-1.5 pt-1">
+                  <label className="block font-medium text-[#7A7267] text-[11px]">Preview</label>
+                  <div className="relative aspect-[16/9] rounded-xl overflow-hidden bg-stone-100 border border-[#E8E2DA] shadow-xs">
+                    <img
+                      src={galleryItemUrl}
+                      alt="Preview"
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        (e.target as any).style.display = 'none';
+                      }}
+                    />
+                    <div className="absolute top-2 left-2">
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono uppercase tracking-wider font-semibold bg-black/60 text-white backdrop-blur-xs">
+                        {galleryItemCategory === 'Custom' ? (customCategoryInput || 'Custom') : galleryItemCategory}
+                      </span>
+                    </div>
+                    {galleryItemCaption && (
+                      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-2.5 text-white text-xs">
+                        {galleryItemCaption}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Actions */}
+              <div className="flex gap-2 pt-2 border-t border-[#E8E2DA]">
+                <Button
+                  type="button"
+                  onClick={handleSaveGalleryItem}
+                  disabled={!galleryItemUrl.trim() || uploadingGallery}
+                  className="flex-1 text-xs bg-[#71382D] hover:bg-[#5A2C23] text-white"
+                >
+                  {editingGalleryIdx !== null ? 'Save Changes' : 'Add to Gallery'}
+                </Button>
+                <button
+                  type="button"
+                  onClick={() => setGalleryModalOpen(false)}
+                  className="px-4 py-2 rounded border border-[#E8E2DA] text-xs text-[#7A7267] hover:bg-[#FAF7F2]"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Curated Hospitality Starter Library Modal */}
+      {starterModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl border border-[#E8E2DA] max-w-2xl w-full p-6 space-y-4 shadow-xl max-h-[90vh] overflow-y-auto">
+            <div className="border-b border-[#E8E2DA] pb-3 flex items-center justify-between">
+              <div>
+                <h3 className="font-serif text-lg text-[#191816]">Curated Hospitality Photography</h3>
+                <p className="text-[11px] text-[#7A7267]">
+                  Select pre-curated 4K photography to instantly enrich your Visual Tour gallery.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setStarterModalOpen(false)}
+                className="p-1 rounded-md text-[#7A7267] hover:text-[#191816] hover:bg-[#FAF7F2]"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-4 text-xs">
+              <div className="flex items-center justify-between bg-[#FAF7F2] p-3 rounded-xl border border-[#E8DACB]">
+                <div>
+                  <h4 className="font-semibold text-[#191816]">Quick Starter Pack</h4>
+                  <p className="text-[11px] text-[#7A7267]">
+                    Add 6 high-res photos covering suites, pool, dining, and spa with 1 click.
+                  </p>
+                </div>
+                <Button
+                  onClick={handleLoadStarterPack}
+                  className="text-xs bg-[#71382D] text-white hover:bg-[#5A2C23] shrink-0"
+                >
+                  Install 6 Photos
+                </Button>
+              </div>
+
+              <div>
+                <h4 className="font-medium text-[#191816] mb-2">Or choose individual photos:</h4>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {PRESET_GALLERY_PHOTOS.map((preset, idx) => (
+                    <div
+                      key={idx}
+                      className="border border-[#E8E2DA] rounded-xl overflow-hidden bg-white shadow-2xs group flex flex-col justify-between"
+                    >
+                      <div className="relative aspect-[4/3] bg-stone-100 overflow-hidden">
+                        <img
+                          src={preset.url}
+                          alt={preset.caption || 'Preset'}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                        />
+                        <span className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[9px] font-mono uppercase bg-black/60 text-white backdrop-blur-xs">
+                          {preset.category}
+                        </span>
+                      </div>
+                      <div className="p-2.5 space-y-2 flex-1 flex flex-col justify-between">
+                        <p className="text-[11px] font-medium text-[#191816] line-clamp-1">
+                          {preset.caption}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            handleApplyPreset(preset);
+                            setStarterModalOpen(false);
+                            setEditingGalleryIdx(null);
+                            setGalleryModalOpen(true);
+                          }}
+                          className="w-full py-1.5 rounded bg-[#FAF7F2] hover:bg-[#71382D] hover:text-white text-[#71382D] border border-[#E8DACB] text-[11px] font-medium transition-colors flex items-center justify-center gap-1"
+                        >
+                          <Plus className="w-3 h-3" />
+                          <span>Use Photo</span>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="pt-2 text-right">
+                <button
+                  type="button"
+                  onClick={() => setStarterModalOpen(false)}
+                  className="px-4 py-2 rounded border border-[#E8E2DA] text-xs text-[#7A7267] hover:bg-[#FAF7F2]"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
