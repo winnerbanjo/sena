@@ -3,6 +3,8 @@ import { auth } from '@/auth';
 import { db, roomTypes, rooms, properties, propertyMembers, organizationMembers } from '@sena/database';
 import { eq, desc } from 'drizzle-orm';
 
+export const dynamic = 'force-dynamic';
+
 async function resolveProperty(session: any): Promise<string | null> {
   let propertyId = (session?.user as any)?.propertyId;
 

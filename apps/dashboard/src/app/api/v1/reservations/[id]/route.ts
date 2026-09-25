@@ -4,12 +4,14 @@ import { eq, or } from 'drizzle-orm';
 import { ReservationService } from '@sena/reservations';
 import { authenticateApiRequest, logApiRequest } from '@/lib/api-auth';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(
   req: NextRequest,
-  { params }: { params: Promise<{ reference: string }> }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const startTime = Date.now();
-  const { reference: refOrId } = await params;
+  const { id: refOrId } = await params;
 
   try {
     // Authenticate API key
@@ -95,7 +97,7 @@ export async function GET(
 
     return NextResponse.json(responsePayload, { status: 200 });
   } catch (error: any) {
-    console.error('API Error /v1/reservations/[reference]:', error);
+    console.error('API Error /v1/reservations/[id]:', error);
     return NextResponse.json(
       { error: { code: 'INTERNAL_SERVER_ERROR', message: error.message || 'Failed to fetch reservation.' } },
       { status: 500 }

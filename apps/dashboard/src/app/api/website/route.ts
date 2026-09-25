@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { db, properties, propertyMembers, organizationMembers, websiteConfigs, websiteDomains, eq } from '@sena/database';
 
+export const dynamic = 'force-dynamic';
+
 async function resolvePropertyForUser(userId: string) {
   const pm = await db.query.propertyMembers.findFirst({
     where: eq(propertyMembers.userId, userId),

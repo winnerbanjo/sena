@@ -6,6 +6,8 @@ import { sendBookingConfirmationEmail, sendSenaEmail } from '@sena/email';
 import { formatNaira } from '@sena/config';
 import { eq, desc } from 'drizzle-orm';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(req: NextRequest) {
   try {
     const session = await auth();

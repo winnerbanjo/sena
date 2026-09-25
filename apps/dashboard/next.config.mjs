@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  serverExternalPackages: ['postgres', 'bcryptjs'],
   transpilePackages: [
     '@sena/ui',
     '@sena/types',

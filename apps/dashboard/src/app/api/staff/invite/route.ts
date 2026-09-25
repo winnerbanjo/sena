@@ -3,6 +3,8 @@ import { auth } from '@/auth';
 import { db, users, properties, propertyMembers, eq, and } from '@sena/database';
 import { sendSenaEmail } from '@sena/email';
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(req: NextRequest) {
   try {
     const session = await auth();
