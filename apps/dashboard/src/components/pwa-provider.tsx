@@ -11,9 +11,19 @@ interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>;
 }
 
+export type PwaPlatform = 'ios' | 'mac-safari' | 'android' | 'chromium' | 'other';
+
 interface PwaContextType {
   isInstallable: boolean;
   isInstalled: boolean;
+  platform: PwaPlatform;
+  isIOS: boolean;
+  isMacSafari: boolean;
+  isAndroid: boolean;
+  isChromium: boolean;
+  isInstallGuideOpen: boolean;
+  openInstallGuide: () => void;
+  closeInstallGuide: () => void;
   installApp: () => Promise<'accepted' | 'dismissed' | null>;
   purgeAndLogout: () => Promise<void>;
 }
@@ -21,6 +31,14 @@ interface PwaContextType {
 const PwaContext = React.createContext<PwaContextType>({
   isInstallable: false,
   isInstalled: false,
+  platform: 'other',
+  isIOS: false,
+  isMacSafari: false,
+  isAndroid: false,
+  isChromium: false,
+  isInstallGuideOpen: false,
+  openInstallGuide: () => {},
+  closeInstallGuide: () => {},
   installApp: async () => null,
   purgeAndLogout: async () => {},
 });
@@ -32,9 +50,35 @@ export function usePwa() {
 export function PwaProvider({ children }: { children: React.ReactNode }) {
   const [deferredPrompt, setDeferredPrompt] = React.useState<BeforeInstallPromptEvent | null>(null);
   const [isInstalled, setIsInstalled] = React.useState(false);
+  const [platform, setPlatform] = React.useState<PwaPlatform>('other');
+  const [isInstallGuideOpen, setIsInstallGuideOpen] = React.useState(false);
 
   React.useEffect(() => {
     if (typeof window === 'undefined') return;
+
+    // Detect platform
+    const ua = navigator.userAgent || '';
+    const isIOSDevice =
+      /iPad|iPhone|iPod/.test(ua) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+    const isAndroidDevice = /Android/i.test(ua);
+    const isMacDevice = /Macintosh|Mac OS X/i.test(ua);
+    const isChromiumBrowser =
+      typeof (window as unknown as { chrome?: unknown }).chrome !== 'undefined' ||
+      /Chrome|Chromium|Edg|OPR/i.test(ua);
+
+    if (isIOSDevice) {
+      setPlatform('ios');
+    } else if (isAndroidDevice) {
+      setPlatform('android');
+    } else if (isMacDevice && !isChromiumBrowser && /Safari/i.test(ua)) {
+      setPlatform('mac-safari');
+    } else if (isChromiumBrowser) {
+      setPlatform('chromium');
+    } else {
+      setPlatform('other');
+    }
 
     // Check if running in standalone display mode
     const checkIsInstalled = () => {
@@ -60,15 +104,24 @@ export function PwaProvider({ children }: { children: React.ReactNode }) {
     const handleAppInstalled = () => {
       setIsInstalled(true);
       setDeferredPrompt(null);
+      setIsInstallGuideOpen(false);
     };
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstall);
     window.addEventListener('appinstalled', handleAppInstalled);
 
     // Register Service Worker conditionally (strictly for merchant host, never on tenant site)
-    if ('serviceWorker' in navigator && process.env.NODE_ENV === 'production') {
+    if ('serviceWorker' in navigator) {
       const host = window.location.hostname.toLowerCase();
-      const RESERVED_HOSTS = ['app.sena.ng', 'sena.ng', 'www.sena.ng', 'admin.sena.ng', 'api.sena.ng', 'localhost', 'app.localhost'];
+      const RESERVED_HOSTS = [
+        'app.sena.ng',
+        'sena.ng',
+        'www.sena.ng',
+        'admin.sena.ng',
+        'api.sena.ng',
+        'localhost',
+        'app.localhost',
+      ];
       const isPublicTenant =
         !RESERVED_HOSTS.includes(host) &&
         (host.endsWith('.sena.ng') ||
@@ -79,20 +132,19 @@ export function PwaProvider({ children }: { children: React.ReactNode }) {
         navigator.serviceWorker
           .register('/sw.js', { scope: '/' })
           .then((registration) => {
-            // Check for updates periodically
             registration.onupdatefound = () => {
               const installingWorker = registration.installing;
               if (installingWorker) {
                 installingWorker.onstatechange = () => {
                   if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                    console.log('[Sena PWA] New update available.');
+                    console.log('[Sena PWA] New update ready.');
                   }
                 };
               }
             };
           })
           .catch((err) => {
-            console.warn('[Sena PWA] Service Worker registration failed:', err);
+            console.warn('[Sena PWA] Service Worker registration note:', err);
           });
       }
     }
@@ -105,17 +157,23 @@ export function PwaProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const installApp = async (): Promise<'accepted' | 'dismissed' | null> => {
-    if (!deferredPrompt) return null;
+    if (!deferredPrompt) {
+      // If native prompt is not available, open guide modal
+      setIsInstallGuideOpen(true);
+      return null;
+    }
     try {
       await deferredPrompt.prompt();
       const choice = await deferredPrompt.userChoice;
       if (choice.outcome === 'accepted') {
         setIsInstalled(true);
+        setIsInstallGuideOpen(false);
       }
       setDeferredPrompt(null);
       return choice.outcome;
     } catch (err) {
       console.error('[Sena PWA] Install prompt failed:', err);
+      setIsInstallGuideOpen(true);
       return null;
     }
   };
@@ -130,9 +188,8 @@ export function PwaProvider({ children }: { children: React.ReactNode }) {
         await Promise.all(keys.map((k) => caches.delete(k)));
       }
     } catch (err) {
-      console.warn('[Sena PWA] Cache purge during signout error:', err);
+      console.warn('[Sena PWA] Cache purge error:', err);
     } finally {
-      // Clear all tenant / session state from local/session storage
       try {
         localStorage.clear();
         sessionStorage.clear();
@@ -146,6 +203,14 @@ export function PwaProvider({ children }: { children: React.ReactNode }) {
       value={{
         isInstallable: !!deferredPrompt && !isInstalled,
         isInstalled,
+        platform,
+        isIOS: platform === 'ios',
+        isMacSafari: platform === 'mac-safari',
+        isAndroid: platform === 'android',
+        isChromium: platform === 'chromium',
+        isInstallGuideOpen,
+        openInstallGuide: () => setIsInstallGuideOpen(true),
+        closeInstallGuide: () => setIsInstallGuideOpen(false),
         installApp,
         purgeAndLogout,
       }}

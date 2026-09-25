@@ -131,7 +131,7 @@ function SidebarNavItems({ onNavigate }: { onNavigate?: () => void }) {
     .map((w: string) => w[0]?.toUpperCase())
     .join('') || 'H';
 
-  const { isInstallable, installApp, purgeAndLogout } = usePwa();
+  const { isInstallable, isInstalled, installApp, openInstallGuide, purgeAndLogout } = usePwa();
 
   return (
     <>
@@ -224,16 +224,23 @@ function SidebarNavItems({ onNavigate }: { onNavigate?: () => void }) {
         </nav>
       </div>
 
-      {/* PWA Install Button when prompt is available */}
-      {isInstallable && (
+      {/* PWA Install Button (Permanent access until installed) */}
+      {!isInstalled && (
         <div className="px-3 pb-2">
           <button
             type="button"
-            onClick={installApp}
+            onClick={() => {
+              if (isInstallable) {
+                installApp();
+              } else {
+                openInstallGuide();
+              }
+            }}
             className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-lg border border-[#E8E2DA] bg-[#FAF8F5] text-xs font-medium text-[#71382D] hover:bg-[#F5EFE9] hover:border-[#B85C3E]/40 transition-colors shadow-none cursor-pointer"
+            title="Install Sena on your device"
           >
             <Download className="w-3.5 h-3.5 text-[#B85C3E]" />
-            <span>Install Sena App</span>
+            <span>Install Sena</span>
           </button>
         </div>
       )}

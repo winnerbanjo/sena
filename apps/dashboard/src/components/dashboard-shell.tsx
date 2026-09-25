@@ -9,6 +9,7 @@ import { NewReservationDialog } from './new-reservation-dialog';
 import { type ReservationItem } from './mock-data';
 import { PwaProvider } from './pwa-provider';
 import { NetworkStatusBanner } from './network-status';
+import { PwaInstallDialog } from './pwa-install-dialog';
 
 interface DashboardContextType {
   // Mobile Nav
@@ -186,6 +187,9 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
             alert(`Reservation ${newRes.reference} created successfully for ${newRes.guestName}!`);
           }}
         />
+
+        {/* Global PWA Install Guidance Dialog */}
+        <PwaInstallDialog />
       </DashboardContext.Provider>
     </PwaProvider>
   );

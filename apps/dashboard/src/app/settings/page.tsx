@@ -22,6 +22,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { usePwa } from '../../components/pwa-provider';
+import { PwaInstallCard } from '../../components/pwa-install-card';
 
 export default function SettingsPage() {
   const [newResOpen, setNewResOpen] = React.useState(false);
@@ -177,7 +178,8 @@ export default function SettingsPage() {
         <form onSubmit={handleSave} className="space-y-6 max-w-3xl">
           {/* Tab 1: General */}
           {activeTab === 'general' && (
-            <div className="bg-white border border-[#E8E2DA] rounded-lg p-4 sm:p-6 space-y-5">
+            <div className="space-y-6">
+              <div className="bg-white border border-[#E8E2DA] rounded-lg p-4 sm:p-6 space-y-5">
               <div>
                 <h3 className="text-base font-semibold text-[#191816]">Property Profile</h3>
                 <p className="text-xs text-[#7A7267]">Basic identifiers used across guest booking confirmation & receipts.</p>
@@ -287,64 +289,10 @@ export default function SettingsPage() {
                 </div>
               </div>
 
-              {/* Progressive Web App (PWA) Management */}
-              <div className="border-t border-[#E8E2DA] pt-5 mt-5">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div>
-                    <h4 className="text-sm font-semibold text-[#191816] flex items-center gap-2">
-                      <Smartphone className="w-4 h-4 text-[#B85C3E]" />
-                      <span>Desktop & Mobile Application</span>
-                    </h4>
-                    <p className="text-xs text-[#7A7267] mt-0.5">
-                      Install Sena as a fast, standalone desktop or mobile app on macOS, Windows, iOS, and Android.
-                    </p>
-                  </div>
-                  {isInstalled ? (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-[#E8F5E9] text-[#2E7D32] self-start sm:self-auto">
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                      Installed
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-[#FAF0EC] text-[#71382D] self-start sm:self-auto">
-                      Browser Mode
-                    </span>
-                  )}
-                </div>
-
-                <div className="mt-4 p-3 bg-[#FAF8F5] border border-[#E8E2DA] rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div className="text-xs text-[#7A7267] space-y-0.5">
-                    <p className="font-medium text-[#191816]">Real-Time Operational Safety</p>
-                    <p>
-                      Room rates, bookings, folios, and housekeeping are strictly synchronized with the live network to prevent double bookings.
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    {isInstallable && (
-                      <Button
-                        type="button"
-                        onClick={installApp}
-                        className="flex items-center gap-1.5 text-xs bg-[#191816] text-white hover:bg-[#2D2B28]"
-                      >
-                        <Download className="w-3.5 h-3.5" />
-                        <span>Install Sena App</span>
-                      </Button>
-                    )}
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => {
-                        if (confirm('Purge local application cache and reload fresh operational data?')) {
-                          purgeAndLogout();
-                        }
-                      }}
-                      className="flex items-center gap-1.5 text-xs text-[#71382D] border-[#E8E2DA] hover:bg-white"
-                    >
-                      <RefreshCw className="w-3.5 h-3.5" />
-                      <span>Purge Cache</span>
-                    </Button>
-                  </div>
-                </div>
               </div>
+
+              {/* Sena App Installation Card (Permanent) */}
+              <PwaInstallCard />
             </div>
           )}
 
