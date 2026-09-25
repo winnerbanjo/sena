@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import { Activity, Building, Users, CreditCard, LayoutDashboard } from 'lucide-react';
+import { Building, Users, CreditCard, LayoutDashboard, LogOut } from 'lucide-react';
+import { logoutAdmin } from '../actions';
 
 export default function DashboardLayout({
   children,
@@ -28,8 +29,15 @@ export default function DashboardLayout({
             <CreditCard className="w-4 h-4" /> Subscriptions
           </Link>
         </nav>
-        <div className="p-4 border-t border-[#E8E2DA] text-xs text-[#7A7267]">
-          v1.0.0 (Admin)
+        <div className="p-4 border-t border-[#E8E2DA] space-y-4">
+          <form action={logoutAdmin}>
+            <button type="submit" className="flex items-center gap-2 text-sm text-[#B85C3E] hover:text-[#71382D] w-full text-left p-2 rounded hover:bg-[#F2EFEA] transition-colors">
+              <LogOut className="w-4 h-4" /> Logout
+            </button>
+          </form>
+          <div className="text-xs text-[#7A7267] px-2">
+            v1.0.0 (Admin)
+          </div>
         </div>
       </aside>
 

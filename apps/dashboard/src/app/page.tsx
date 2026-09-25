@@ -19,6 +19,8 @@ export default function OverviewPage() {
   const [drawerOpen, setDrawerOpen] = React.useState(false);
   const [newResOpen, setNewResOpen] = React.useState(false);
   const [currentDateStr, setCurrentDateStr] = React.useState('');
+  const [userName, setUserName] = React.useState("");
+
   const [propertyName, setPropertyName] = React.useState('Your Property');
 
   React.useEffect(() => {
@@ -28,6 +30,8 @@ export default function OverviewPage() {
         JSON.parse(localStorage.getItem('sena_auth_user') || '{}')?.property ||
         JSON.parse(localStorage.getItem('sena_onboarding_draft') || '{}')?.propName;
       if (stored) setPropertyName(stored);
+      const user = JSON.parse(localStorage.getItem('sena_auth_user') || '{}');
+      if (user.fullName) setUserName(user.fullName);
     } catch {}
   }, []);
 
@@ -164,8 +168,9 @@ export default function OverviewPage() {
               {currentDateStr || 'Today'} &middot; Run of House
             </span>
             <h1 className="text-2xl sm:text-3xl font-serif font-normal text-[#71382D]">
-              {propertyName}
+              Hello, {userName ? userName.split(' ')[0] : 'Hotelier'}
             </h1>
+            <p className="text-sm text-[#7A7267] mt-1">Here is today's overview for {propertyName}.</p>
           </div>
 
           <div className="flex items-center gap-3 text-xs">

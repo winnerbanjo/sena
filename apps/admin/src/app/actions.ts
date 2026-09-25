@@ -20,3 +20,9 @@ export async function loginAdmin(formData: FormData) {
     redirect('/login?error=1');
   }
 }
+
+export async function logoutAdmin() {
+  const cookieStore = await cookies();
+  cookieStore.delete('sena_admin_auth');
+  redirect('/login');
+}

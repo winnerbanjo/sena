@@ -137,7 +137,7 @@ export function OccupancyChart({
               }`}
             >
               <ArrowUpRight className="w-3 h-3" />
-              {activeTab === 'occupancy' ? '+6.2% vs last week' : '+14.8% pacing'}
+              {activeTab === 'occupancy' ? (weeklyAvgOcc > 0 ? '+6.2% vs last week' : '0% vs last week') : (weeklyTotalRev > 0 ? '+14.8% pacing' : 'No revenue yet')}
             </span>
           </div>
           <p className="text-xs text-[#7A7267] mt-1">
@@ -199,7 +199,7 @@ export function OccupancyChart({
           </strong>
           <span className="text-[10px] text-[#2E6B4F] flex items-center font-medium">
             <ArrowUpRight className="w-3 h-3" />
-            {activeTab === 'occupancy' ? 'Above target (75%)' : 'Ahead of pace'}
+            {activeTab === 'occupancy' ? (weeklyAvgOcc >= 75 ? 'Above target (75%)' : weeklyAvgOcc > 0 ? 'Below target' : 'No data') : (weeklyTotalRev > 0 ? 'Ahead of pace' : 'No data')}
           </span>
         </div>
 
@@ -212,7 +212,7 @@ export function OccupancyChart({
               activeTab === 'occupancy' ? 'text-[#B85C3E]' : 'text-[#2E6B4F]'
             }`}
           >
-            {peakDay.dayName}
+            {peakDay.occupancy === 0 && activeTab === "occupancy" || peakDay.revenueMinorUnits === 0 && activeTab === "revenue" ? "None" : peakDay.dayName}
           </strong>
           <span className="text-[10px] text-[#7A7267] block">
             {activeTab === 'occupancy' ? `${peakDay.occupancy}% (${peakDay.roomsBooked} rooms)` : `${formatShortNaira(peakDay.revenueMinorUnits)} projected`}
