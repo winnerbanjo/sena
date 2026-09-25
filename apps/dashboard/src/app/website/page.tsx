@@ -345,7 +345,7 @@ function WebsiteContent() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const previewUrl = `http://localhost:3002/${propertySlug}`;
+  const previewUrl = `/site/${propertySlug}`;
   const productionUrl = `https://${propertySlug}.sena.ng`;
 
   return (
@@ -513,7 +513,7 @@ function WebsiteContent() {
 
               {/* Embedded Live Iframe or Visual Preview */}
               <iframe
-                src={`http://localhost:3002/${propertySlug}`}
+                src={previewUrl}
                 className="w-full h-[640px] border-0 bg-white"
                 title="Website Live Preview"
               />

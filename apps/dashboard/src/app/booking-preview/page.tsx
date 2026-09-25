@@ -138,12 +138,12 @@ export default function BookingPreviewPage() {
             <p className="text-xs text-[#7A7267] mt-1">
               Live direct checkout at{' '}
               <a
-                href="http://localhost:3002"
+                href={`/site/${propertySlug}/rooms`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-[#B85C3E] hover:underline font-mono font-medium"
               >
-                book.sena.ng/{propertySlug}
+                {propertySlug}.sena.ng/rooms
               </a>{' '}
               — Keep 100% of guest revenue without middleman fees.
             </p>
@@ -168,7 +168,7 @@ export default function BookingPreviewPage() {
             </button>
 
             <a
-              href="http://localhost:3002"
+              href={`/site/${propertySlug}/rooms`}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-1.5 px-3.5 py-1.5 rounded border border-[#E8E2DA] bg-[#FAFAFA] text-xs font-medium text-[#191816] hover:bg-white transition-colors"
