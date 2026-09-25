@@ -66,17 +66,17 @@ export function middleware(req: NextRequest) {
   let slug: string | null = null;
 
   // Case 1: Subdomain on *.sena.ng (e.g. sena-grand.sena.ng)
-  if (cleanHost.endsWith('.sena.ng')) {
-    const sub = cleanHost.replace('.sena.ng', '');
-    if (!RESERVED_SUBDOMAINS.has(sub)) {
+  if (cleanHost.endsWith('.sena.ng') && cleanHost !== 'sena.ng') {
+    const sub = cleanHost.slice(0, -'.sena.ng'.length);
+    if (sub && !RESERVED_SUBDOMAINS.has(sub)) {
       slug = sub;
     }
   }
 
   // Case 2: Subdomain on *.localhost (e.g. sena-grand.localhost:3000)
-  else if (cleanHost.endsWith('.localhost')) {
-    const sub = cleanHost.replace('.localhost', '');
-    if (!RESERVED_SUBDOMAINS.has(sub)) {
+  else if (cleanHost.endsWith('.localhost') && cleanHost !== 'localhost') {
+    const sub = cleanHost.slice(0, -'.localhost'.length);
+    if (sub && !RESERVED_SUBDOMAINS.has(sub)) {
       slug = sub;
     }
   }

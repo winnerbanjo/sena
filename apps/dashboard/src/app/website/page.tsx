@@ -356,95 +356,102 @@ function WebsiteContent() {
 
       <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6 bg-white">
         {/* Top Status & Action Bar */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#E8E2DA] pb-5">
-          <div>
-            <div className="flex items-center gap-3 flex-wrap">
-              <h2 className="text-xl sm:text-2xl font-serif font-normal text-[#191816]">
-                {propertyName} Direct Website
-              </h2>
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                Live &amp; Active
-              </span>
+        <div className="bg-[#FAF7F2] border border-[#E8E2DA] rounded-xl p-5 sm:p-6 space-y-4">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-3 flex-wrap">
+                <h2 className="text-xl sm:text-2xl font-serif font-normal text-[#191816]">
+                  {propertyName} Direct Website
+                </h2>
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-800 border border-emerald-200">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  Live &amp; Active
+                </span>
+              </div>
+              <p className="text-xs text-[#7A7267] mt-1">
+                Luxury direct booking website &middot; Instant confirmation &middot; Powered by Sena Engine
+              </p>
             </div>
-            <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2.5 text-xs text-[#7A7267] mt-1.5 flex-wrap">
-              <span className="font-medium text-[#191816]">Public address:</span>
+
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <Button
+                onClick={handleSaveDraft}
+                disabled={saving}
+                variant="outline"
+                className="flex items-center gap-1.5 text-xs bg-white hover:bg-stone-50 border-[#D5CFC7]"
+              >
+                <Save className="w-3.5 h-3.5 text-[#7A7267]" />
+                <span>{saveSuccess ? 'Draft Saved!' : saving ? 'Saving...' : 'Save Draft'}</span>
+              </Button>
+
+              <Button
+                onClick={handlePublish}
+                disabled={publishing}
+                className="flex items-center gap-1.5 text-xs bg-[#71382D] hover:bg-[#5A2C23] text-white shadow-xs font-medium"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>{publishSuccess ? 'Website Published Live!' : publishing ? 'Publishing...' : 'Publish Website'}</span>
+              </Button>
+            </div>
+          </div>
+
+          {/* Live Address & Quick Access Bar */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-[#E8E2DA]/80 bg-white/70 -mx-5 -mb-5 sm:-mx-6 sm:-mb-6 p-4 sm:px-6 rounded-b-xl">
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <div className="flex items-center gap-1.5 text-xs text-[#5C564D]">
+                <Globe className="w-3.5 h-3.5 text-[#71382D]" />
+                <span className="font-medium text-[#191816]">Live Address:</span>
+              </div>
               <a
                 href={subdomainUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-[#71382D] hover:underline font-mono font-medium inline-flex items-center gap-1"
-                title="Primary direct website address"
+                className="font-mono text-xs font-semibold text-[#71382D] hover:underline bg-[#FAF7F2] px-2.5 py-1 rounded border border-[#E8E2DA] inline-flex items-center gap-1.5"
+                title="Open live website in new tab"
               >
                 {propertySlug}.sena.ng
-                <ExternalLink className="w-3 h-3 inline text-[#71382D]" />
+                <ExternalLink className="w-3 h-3 text-[#B85C3E]" />
               </a>
-              <span className="text-[#D5CFC7]">·</span>
-              <a
-                href={workingDirectUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-[#7A7267] hover:underline font-mono text-[11px]"
-                title="Platform route"
-              >
-                app.sena.ng/{propertySlug}
-              </a>
+              <span className="inline-flex items-center gap-1 text-[10px] font-mono text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                <Check className="w-3 h-3" />
+                Wildcard SSL Active
+              </span>
               {lastPublished && (
-                <>
-                  <span className="text-[#D5CFC7]">·</span>
-                  <span className="text-[#A39B90]">Published: {lastPublished}</span>
-                </>
+                <span className="text-[11px] text-[#A39B90] hidden md:inline">
+                  &middot; Published: {lastPublished}
+                </span>
               )}
             </div>
-          </div>
 
-          <div className="flex items-center gap-2 sm:gap-2.5 flex-wrap">
-            <button
-              onClick={copyUrl}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-[#E8E2DA] bg-white text-xs text-[#191816] hover:bg-[#FAFAFA] transition-colors"
-              title="Copy direct website address"
-            >
-              {copied ? (
-                <>
-                  <Check className="w-3.5 h-3.5 text-emerald-600" />
-                  <span className="text-emerald-700 font-medium">Copied!</span>
-                </>
-              ) : (
-                <>
-                  <Copy className="w-3.5 h-3.5 text-[#7A7267]" />
-                  <span>Copy Link</span>
-                </>
-              )}
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={copyUrl}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-[#E8E2DA] bg-white text-xs font-medium text-[#191816] hover:bg-[#FAF7F2] hover:border-[#D5CFC7] transition-all cursor-pointer shadow-2xs"
+                title="Copy direct website address"
+              >
+                {copied ? (
+                  <>
+                    <Check className="w-3.5 h-3.5 text-emerald-600" />
+                    <span className="text-emerald-700 font-medium">Copied!</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3.5 h-3.5 text-[#7A7267]" />
+                    <span>Copy Link</span>
+                  </>
+                )}
+              </button>
 
-            <a
-              href={subdomainUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-[#E8E2DA] bg-[#FAFAFA] text-xs font-medium text-[#191816] hover:bg-white transition-colors"
-            >
-              <ExternalLink className="w-3.5 h-3.5 text-[#B85C3E]" />
-              <span>Open Website</span>
-            </a>
-
-            <Button
-              onClick={handleSaveDraft}
-              disabled={saving}
-              variant="outline"
-              className="flex items-center gap-1.5 text-xs"
-            >
-              <Save className="w-3.5 h-3.5" />
-              <span>{saveSuccess ? 'Draft Saved!' : saving ? 'Saving...' : 'Save Draft'}</span>
-            </Button>
-
-            <Button
-              onClick={handlePublish}
-              disabled={publishing}
-              className="flex items-center gap-1.5 text-xs bg-[#71382D] hover:bg-[#5A2C23] text-white"
-            >
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>{publishSuccess ? 'Website Published Live!' : publishing ? 'Publishing...' : 'Publish Website'}</span>
-            </Button>
+              <a
+                href={subdomainUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded bg-[#191816] text-white text-xs font-medium hover:bg-[#2C2A28] transition-colors shadow-2xs"
+              >
+                <span>Open Website</span>
+                <ExternalLink className="w-3.5 h-3.5 text-[#E8E2DA]" />
+              </a>
+            </div>
           </div>
         </div>
 
@@ -1000,40 +1007,47 @@ function WebsiteContent() {
 
                 {slugError && <p className="text-xs text-rose-600 font-medium">{slugError}</p>}
 
-                <div className="p-3 bg-stone-50 rounded-lg border border-[#E8E2DA] space-y-1.5 text-xs pt-3 mt-3 border-t">
+                <div className="p-3.5 bg-stone-50 rounded-lg border border-[#E8E2DA] space-y-2 text-xs pt-3 mt-3 border-t">
                   <div className="flex items-center justify-between">
-                    <span className="text-[#7A7267]">Primary Direct Link:</span>
-                    <a
-                      href={workingDirectUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="font-mono text-[#71382D] font-medium hover:underline inline-flex items-center gap-1"
-                    >
-                      {workingDirectUrl}
-                      <ExternalLink className="w-3 h-3" />
-                    </a>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-[#7A7267]">Subdomain Route:</span>
+                    <span className="text-[#5C564D] font-medium">Official Branded Address:</span>
                     <a
                       href={subdomainUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="font-mono text-[#B85C3E] hover:underline"
+                      className="font-mono text-[#71382D] font-semibold hover:underline inline-flex items-center gap-1.5"
                     >
                       {subdomainUrl}
+                      <ExternalLink className="w-3 h-3 text-[#B85C3E]" />
+                    </a>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[#7A7267]">SSL &amp; Wildcard Status:</span>
+                    <span className="inline-flex items-center gap-1 font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 text-[11px]">
+                      <Check className="w-3 h-3" />
+                      Live &amp; Verified
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-[11px] pt-1 border-t border-[#E8E2DA]">
+                    <span className="text-[#7A7267]">Platform Direct Route:</span>
+                    <a
+                      href={workingDirectUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-mono text-[#7A7267] hover:underline"
+                    >
+                      {workingDirectUrl}
                     </a>
                   </div>
                 </div>
 
-                <div className="p-3.5 bg-amber-50 rounded-lg border border-amber-200 text-xs text-amber-900 space-y-1">
-                  <div className="flex items-center gap-1.5 font-semibold text-amber-900">
-                    <AlertCircle className="w-3.5 h-3.5 text-amber-700" />
-                    <span>Subdomain Activation Note</span>
+                <div className="p-3.5 bg-[#FAF7F2] rounded-lg border border-[#E8E2DA] text-xs text-[#5C564D] space-y-1.5">
+                  <div className="flex items-center gap-1.5 font-medium text-[#191816]">
+                    <Sparkles className="w-3.5 h-3.5 text-[#71382D]" />
+                    <span>Instant Wildcard Routing Active</span>
                   </div>
-                  <p className="text-amber-800 text-[11px] leading-relaxed">
-                    Your website is instantly accessible anywhere via <strong className="font-mono">{workingDirectUrl}</strong>.
-                    For custom subdomains (<strong className="font-mono">{propertySlug}.sena.ng</strong>) to route on Vercel without a 404, ensure <strong className="font-mono">*.sena.ng</strong> is added under your Vercel Project Settings &rarr; Domains.
+                  <p className="text-[#7A7267] text-[11px] leading-relaxed">
+                    Your direct booking website is active at <strong className="font-mono text-[#191816]">{subdomainUrl}</strong> with automatic HTTPS encryption.
+                    If you recently tested this address before wildcard configuration and saw a 404, your web browser may have cached that response. Please perform a hard refresh (<code className="font-mono bg-white px-1 py-0.5 rounded border border-[#E8E2DA]">Cmd + Shift + R</code>) or open in a Private / Incognito window.
                   </p>
                 </div>
               </form>
