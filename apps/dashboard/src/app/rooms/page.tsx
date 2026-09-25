@@ -43,7 +43,20 @@ export default function RoomsPage() {
 
   const fetchRoomsData = React.useCallback(async () => {
     try {
-      const res = await fetch('/api/rooms');
+      let activeProp = '';
+      let activeEmail = '';
+      try {
+        const authUser = JSON.parse(localStorage.getItem('sena_auth_user') || '{}');
+        activeProp = authUser?.property || localStorage.getItem('sena_property_name') || '';
+        activeEmail = authUser?.email || '';
+      } catch {}
+
+      const res = await fetch(`/api/rooms?property=${encodeURIComponent(activeProp)}&email=${encodeURIComponent(activeEmail)}`, {
+        headers: {
+          'x-property-name': activeProp,
+          'x-user-email': activeEmail,
+        },
+      });
       if (res.ok) {
         let data: any = {};
         try {
@@ -140,6 +153,53 @@ export default function RoomsPage() {
       }
     } catch (e: any) {
       showToast(e.message || 'Error saving room');
+    }
+  }
+
+  // Handle Add Multiple Rooms (Batch)
+  async function handleAddRooms(newRooms: RoomItem[]) {
+    if (newRooms.length === 0) return;
+    if (newRooms.length === 1) return handleAddRoom(newRooms[0]);
+
+    try {
+      let activeProp = '';
+      try {
+        const authUser = JSON.parse(localStorage.getItem('sena_auth_user') || '{}');
+        activeProp = authUser?.property || localStorage.getItem('sena_property_name') || '';
+      } catch {}
+
+      const first = newRooms[0];
+      const matchedCategory = categories.find((c) => c.name === first.type);
+      const res = await fetch('/api/rooms', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-property-name': activeProp,
+        },
+        body: JSON.stringify({
+          action: 'create_bulk_rooms',
+          roomNumbers: newRooms.map((r) => r.number),
+          roomTypeId: matchedCategory?.id,
+          floor: first.floor,
+          imageUrl: first.imageUrl,
+        }),
+      });
+
+      if (res.ok) {
+        showToast(`${newRooms.length} rooms added to "${first.type}" category successfully!`);
+        fetchRoomsData();
+      } else {
+        let errMsg = 'Failed to add rooms';
+        try {
+          const err = await res.json();
+          if (err.error) errMsg = err.error;
+        } catch {
+          errMsg = `Server error (${res.status})`;
+        }
+        showToast(errMsg);
+      }
+    } catch (e: any) {
+      showToast(e.message || 'Error saving rooms');
     }
   }
 
@@ -664,6 +724,7 @@ export default function RoomsPage() {
         existingRooms={rooms}
         defaultCategory={preselectedCategory}
         onAddRoom={handleAddRoom}
+        onAddRooms={handleAddRooms}
         onOpenAddCategory={() => setAddCategoryOpen(true)}
       />
 

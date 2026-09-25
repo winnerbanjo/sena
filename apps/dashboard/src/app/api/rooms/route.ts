@@ -1,11 +1,38 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
-import { db, roomTypes, rooms, properties, propertyMembers, organizationMembers } from '@sena/database';
-import { eq, desc } from 'drizzle-orm';
+import { db, roomTypes, rooms, properties, propertyMembers, organizationMembers, users } from '@sena/database';
+import { eq, desc, ilike } from 'drizzle-orm';
 
 export const dynamic = 'force-dynamic';
 
-async function resolveProperty(session: any): Promise<string | null> {
+async function resolveProperty(session: any, req?: NextRequest): Promise<string | null> {
+  // 1. Check explicit client header or query param
+  if (req) {
+    const headerPropId = req.headers.get('x-property-id');
+    if (headerPropId) return headerPropId;
+
+    const headerPropName = req.headers.get('x-property-name') || req.nextUrl.searchParams.get('property');
+    if (headerPropName) {
+      const matched = await db.query.properties.findFirst({
+        where: ilike(properties.name, `%${String(headerPropName).trim()}%`),
+      });
+      if (matched) return matched.id;
+    }
+
+    const headerUserEmail = req.headers.get('x-user-email') || req.nextUrl.searchParams.get('email');
+    if (headerUserEmail) {
+      const u = await db.query.users.findFirst({
+        where: eq(users.email, String(headerUserEmail).toLowerCase().trim()),
+      });
+      if (u) {
+        const pm = await db.query.propertyMembers.findFirst({
+          where: eq(propertyMembers.userId, u.id),
+        });
+        if (pm?.propertyId) return pm.propertyId;
+      }
+    }
+  }
+
   let propertyId = (session?.user as any)?.propertyId;
 
   if (!propertyId) {
@@ -42,7 +69,7 @@ async function resolveProperty(session: any): Promise<string | null> {
 export async function GET(req: NextRequest) {
   try {
     const session = await auth();
-    const propertyId = await resolveProperty(session);
+    const propertyId = await resolveProperty(session, req);
 
     if (!propertyId) {
       return NextResponse.json({ roomTypes: [], rooms: [] });
@@ -86,7 +113,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const session = await auth();
-    const propertyId = await resolveProperty(session);
+    const propertyId = await resolveProperty(session, req);
 
     if (!propertyId) {
       return NextResponse.json({ error: 'Property not found' }, { status: 400 });
@@ -121,11 +148,32 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true, data: newType });
     }
 
-    if (action === 'create_room') {
-      const { roomNumber, roomTypeId, floor, imageUrl } = body;
+    if (action === 'create_room' || action === 'create_bulk_rooms') {
+      const { roomNumber, roomNumbers, roomTypeId, floor, imageUrl } = body;
 
-      if (!roomNumber) {
-        return NextResponse.json({ error: 'Room number is required' }, { status: 400 });
+      let roomList: string[] = [];
+      if (Array.isArray(roomNumbers) && roomNumbers.length > 0) {
+        roomList = roomNumbers.map((s: any) => String(s).trim()).filter(Boolean);
+      } else if (roomNumber) {
+        const raw = String(roomNumber).trim();
+        if (raw.includes(',')) {
+          roomList = raw.split(',').map((s) => s.trim()).filter(Boolean);
+        } else if (/^\d+\s*-\s*\d+$/.test(raw)) {
+          const [start, end] = raw.split('-').map((s) => parseInt(s.trim(), 10));
+          if (!isNaN(start) && !isNaN(end) && end >= start && end - start <= 100) {
+            for (let i = start; i <= end; i++) {
+              roomList.push(String(i));
+            }
+          } else {
+            roomList = [raw];
+          }
+        } else {
+          roomList = [raw];
+        }
+      }
+
+      if (roomList.length === 0) {
+        return NextResponse.json({ error: 'At least one room number is required' }, { status: 400 });
       }
 
       let targetRoomTypeId = roomTypeId;
@@ -154,19 +202,31 @@ export async function POST(req: NextRequest) {
       }
 
       const notesPayload = imageUrl ? JSON.stringify({ imageUrl }) : null;
+      const createdRooms: any[] = [];
 
-      const [newRoom] = await db
-        .insert(rooms)
-        .values({
-          propertyId,
-          roomTypeId: targetRoomTypeId,
-          roomNumber: String(roomNumber).trim(),
-          floor: floor || 'Floor 1',
-          operationalStatus: 'available',
-          housekeepingStatus: 'clean',
-          notes: notesPayload,
-        })
-        .returning();
+      for (const num of roomList) {
+        let roomFloor = floor;
+        if (!roomFloor || roomFloor === 'Floor 1') {
+          if (num.length >= 3 && /^\d+$/.test(num)) {
+            const digit = num[0];
+            roomFloor = `Floor ${digit}`;
+          }
+        }
+
+        const [newRoom] = await db
+          .insert(rooms)
+          .values({
+            propertyId,
+            roomTypeId: targetRoomTypeId,
+            roomNumber: num,
+            floor: roomFloor || 'Floor 1',
+            operationalStatus: 'available',
+            housekeepingStatus: 'clean',
+            notes: notesPayload,
+          })
+          .returning();
+        createdRooms.push(newRoom);
+      }
 
       // Update room type total inventory
       const count = await db.select().from(rooms).where(eq(rooms.roomTypeId, targetRoomTypeId));
@@ -175,7 +235,12 @@ export async function POST(req: NextRequest) {
         .set({ totalInventory: count.length })
         .where(eq(roomTypes.id, targetRoomTypeId));
 
-      return NextResponse.json({ success: true, data: newRoom });
+      return NextResponse.json({
+        success: true,
+        count: createdRooms.length,
+        data: createdRooms[0],
+        rooms: createdRooms,
+      });
     }
 
     return NextResponse.json({ error: 'Unknown action' }, { status: 400 });

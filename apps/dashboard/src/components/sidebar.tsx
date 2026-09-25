@@ -96,6 +96,12 @@ function SidebarNavItems({ onNavigate }: { onNavigate?: () => void }) {
   });
 
   React.useEffect(() => {
+    let resolvedProp = 'Stay Connect Solutions LTD';
+    let resolvedName = 'User';
+    let resolvedRole = 'Owner';
+    let resolvedCity = 'Central District';
+    let userEmail = '';
+
     try {
       const stored = localStorage.getItem('sena_auth_user');
       const draft = localStorage.getItem('sena_onboarding_draft');
@@ -104,34 +110,42 @@ function SidebarNavItems({ onNavigate }: { onNavigate?: () => void }) {
       const authUser = stored ? JSON.parse(stored) : null;
       const draftObj = draft ? JSON.parse(draft) : null;
 
-      const resolvedName = authUser?.fullName || authUser?.name || draftObj?.name || 'Winner';
-      const resolvedProp = propName || authUser?.property || draftObj?.propName || 'Amami';
-      const resolvedRole = authUser?.role || 'Owner';
-      const resolvedCity = propAddress || draftObj?.city || 'Central District';
+      // Always prioritize authUser property over outdated localStorage cache
+      resolvedProp = authUser?.property || propName || draftObj?.propName || 'Stay Connect Solutions LTD';
+      resolvedName = authUser?.fullName || authUser?.name || draftObj?.name || 'User';
+      resolvedRole = authUser?.role || 'Owner';
+      resolvedCity = propAddress || draftObj?.city || 'Central District';
+      userEmail = authUser?.email || draftObj?.email || '';
 
       setProfile({
         name: resolvedName,
-        email: authUser?.email || draftObj?.email || '',
+        email: userEmail,
         role: resolvedRole,
         property: resolvedProp,
         city: resolvedCity,
       });
     } catch {}
 
-    // Fetch fresh profile and property from /api/me
-    fetch('/api/me')
+    // Fetch fresh profile and property from /api/me with tenant hints
+    fetch(`/api/me?email=${encodeURIComponent(userEmail)}&property=${encodeURIComponent(resolvedProp)}`, {
+      headers: {
+        'x-user-email': userEmail,
+        'x-property-name': resolvedProp,
+      },
+    })
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (!data) return;
         const u = data.user;
         const p = data.property;
 
-        if (p?.name) {
-          localStorage.setItem('sena_property_name', p.name);
-          if (p.address || p.city) {
-            localStorage.setItem('sena_property_address', p.address || p.city);
-          }
-        }
+        const effectivePropName = p?.name || resolvedProp || 'Stay Connect Solutions LTD';
+        const effectiveCity = p?.address || p?.city || 'Central District';
+        const effectiveUserName = u?.name || resolvedName;
+        const effectiveRole = u?.role || resolvedRole;
+
+        localStorage.setItem('sena_property_name', effectivePropName);
+        localStorage.setItem('sena_property_address', effectiveCity);
 
         if (u?.name) {
           try {
@@ -140,26 +154,50 @@ function SidebarNavItems({ onNavigate }: { onNavigate?: () => void }) {
               'sena_auth_user',
               JSON.stringify({
                 ...currentAuth,
-                name: u.name,
-                fullName: u.name,
+                name: effectiveUserName,
+                fullName: effectiveUserName,
                 email: u.email || currentAuth.email,
-                role: u.role || 'Owner',
-                property: p?.name || 'Amami',
+                role: effectiveRole,
+                property: effectivePropName,
               })
             );
           } catch {}
         }
 
         setProfile({
-          name: u?.name || 'Winner',
-          email: u?.email || '',
-          role: u?.role || 'Owner',
-          property: p?.name || 'Amami',
-          city: p?.address || p?.city || 'Central District',
+          name: effectiveUserName,
+          email: u?.email || userEmail,
+          role: effectiveRole,
+          property: effectivePropName,
+          city: effectiveCity,
         });
       })
       .catch(() => {});
   }, []);
+
+  const roleLower = (profile.role || '').toLowerCase();
+  const isFrontDesk = roleLower.includes('front desk') || roleLower.includes('reception');
+  const isHousekeeping = roleLower.includes('housekeep');
+
+  const visibleNavSections = React.useMemo(() => {
+    return NAV_SECTIONS.map((section) => {
+      let items = section.items;
+      if (isFrontDesk) {
+        if (section.title === 'MANAGE') {
+          items = items.filter((i) => i.label === 'Settings');
+        } else if (section.title === 'SALES') {
+          items = items.filter((i) => ['Direct Booking', 'Reviews', 'Website'].includes(i.label));
+        }
+      } else if (isHousekeeping) {
+        if (section.title === 'OPERATIONS') {
+          items = items.filter((i) => ['Housekeeping', 'Rooms'].includes(i.label));
+        } else if (['SALES', 'INSIGHTS', 'MANAGE'].includes(section.title || '')) {
+          items = [];
+        }
+      }
+      return { ...section, items };
+    }).filter((section) => section.items.length > 0);
+  }, [isFrontDesk, isHousekeeping]);
 
   const propInitials = (profile.property || 'Amami')
     .split(' ')
@@ -220,7 +258,7 @@ function SidebarNavItems({ onNavigate }: { onNavigate?: () => void }) {
 
         {/* Navigation Sections */}
         <nav className="space-y-5">
-          {NAV_SECTIONS.map((section, idx) => (
+          {visibleNavSections.map((section, idx) => (
             <div key={idx}>
               {section.title && (
                 <div className="text-[10px] font-medium tracking-widest uppercase text-[#7A7267]/70 px-2 mb-1.5">

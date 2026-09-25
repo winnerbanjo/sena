@@ -11,7 +11,7 @@ import {
   DialogTitle,
   Input,
 } from '@sena/ui';
-import { Plus, Upload, Image as ImageIcon, X } from 'lucide-react';
+import { Plus, Upload, Image as ImageIcon, X, Layers, Hash } from 'lucide-react';
 import type { RoomCategory, RoomItem } from './mock-data';
 
 interface AddRoomDialogProps {
@@ -21,6 +21,7 @@ interface AddRoomDialogProps {
   existingRooms: RoomItem[];
   defaultCategory?: string;
   onAddRoom: (room: RoomItem) => void;
+  onAddRooms?: (rooms: RoomItem[]) => void;
   onOpenAddCategory: () => void;
 }
 
@@ -40,9 +41,17 @@ export function AddRoomDialog({
   existingRooms,
   defaultCategory,
   onAddRoom,
+  onAddRooms,
   onOpenAddCategory,
 }: AddRoomDialogProps) {
+  const [creationMode, setCreationMode] = React.useState<'single' | 'multiple'>('single');
   const [number, setNumber] = React.useState('');
+  
+  // Batch generator state
+  const [startNumber, setStartNumber] = React.useState('101');
+  const [roomCount, setRoomCount] = React.useState('5');
+  const [batchRawInput, setBatchRawInput] = React.useState('101, 102, 103, 104, 105');
+
   const [type, setType] = React.useState(defaultCategory || categories[0]?.name || 'Deluxe Room');
   const [floor, setFloor] = React.useState('Floor 1');
   const [operational, setOperational] = React.useState<'available' | 'occupied' | 'maintenance'>('available');
@@ -63,7 +72,45 @@ export function AddRoomDialog({
     }
   }, [defaultCategory, categories, open]);
 
-  // Suggest floor automatically based on room number prefix (e.g. 101 -> Floor 1, 201 -> Floor 2)
+  // When startNumber or roomCount changes in generator, update batchRawInput
+  function handleGenerateSequence(start: string, count: string) {
+    const s = parseInt(start, 10);
+    const c = parseInt(count, 10);
+    if (!isNaN(s) && !isNaN(c) && c > 0 && c <= 50) {
+      const generated: string[] = [];
+      for (let i = 0; i < c; i++) {
+        generated.push(String(s + i));
+      }
+      setBatchRawInput(generated.join(', '));
+    }
+  }
+
+  // Parse batch room numbers
+  const parsedBatchRooms = React.useMemo(() => {
+    if (creationMode === 'single') return [number.trim()].filter(Boolean);
+
+    const raw = batchRawInput.trim();
+    if (!raw) return [];
+
+    let list: string[] = [];
+    if (raw.includes(',')) {
+      list = raw.split(',').map((s) => s.trim()).filter(Boolean);
+    } else if (/^\d+\s*-\s*\d+$/.test(raw)) {
+      const [start, end] = raw.split('-').map((s) => parseInt(s.trim(), 10));
+      if (!isNaN(start) && !isNaN(end) && end >= start && end - start <= 50) {
+        for (let i = start; i <= end; i++) {
+          list.push(String(i));
+        }
+      } else {
+        list = [raw];
+      }
+    } else {
+      list = [raw];
+    }
+    // Remove duplicates
+    return Array.from(new Set(list));
+  }, [creationMode, number, batchRawInput]);
+
   function handleNumberChange(val: string) {
     setNumber(val);
     const trimmed = val.trim();
@@ -98,7 +145,6 @@ export function AddRoomDialog({
           setImageUrl(data.url);
         }
       } else {
-        // Fallback: use FileReader for immediate local data URL
         const reader = new FileReader();
         reader.onload = () => {
           if (typeof reader.result === 'string') {
@@ -108,7 +154,6 @@ export function AddRoomDialog({
         reader.readAsDataURL(file);
       }
     } catch {
-      // Fallback to local data URL preview
       const reader = new FileReader();
       reader.onload = () => {
         if (typeof reader.result === 'string') {
@@ -123,49 +168,101 @@ export function AddRoomDialog({
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const trimmedNumber = number.trim();
-    if (!trimmedNumber) {
-      setError('Please provide a room number.');
+    setError('');
+
+    const roomsToAdd = parsedBatchRooms;
+    if (roomsToAdd.length === 0) {
+      setError(creationMode === 'single' ? 'Please provide a room number.' : 'Please provide at least one room number.');
       return;
     }
 
-    if (existingRooms.some((r) => r.number.toLowerCase() === trimmedNumber.toLowerCase())) {
-      setError(`Room ${trimmedNumber} already exists in your property.`);
+    // Check for collisions with existing rooms
+    const existingCollisions = roomsToAdd.filter((num) =>
+      existingRooms.some((r) => r.number.toLowerCase() === num.toLowerCase())
+    );
+
+    if (existingCollisions.length > 0) {
+      setError(`Room(s) ${existingCollisions.join(', ')} already exist in your property.`);
       return;
     }
 
     const resolvedType = type || (categories[0]?.name || 'Deluxe Room');
 
-    const newRoom: RoomItem = {
-      id: `rm-${trimmedNumber.toLowerCase().replace(/\s+/g, '-')}-${Date.now().toString().slice(-4)}`,
-      number: trimmedNumber,
-      type: resolvedType,
-      floor,
-      operational,
-      housekeeping,
-      imageUrl: imageUrl.trim() || undefined,
-    };
+    const createdItems: RoomItem[] = roomsToAdd.map((rmNum) => {
+      let rmFloor = floor;
+      if (rmFloor === 'Floor 1' && rmNum.length >= 3 && /^\d+$/.test(rmNum)) {
+        rmFloor = `Floor ${rmNum[0]}`;
+      }
+      return {
+        id: `rm-${rmNum.toLowerCase().replace(/\s+/g, '-')}-${Date.now().toString().slice(-4)}`,
+        number: rmNum,
+        type: resolvedType,
+        floor: rmFloor,
+        operational,
+        housekeeping,
+        imageUrl: imageUrl.trim() || undefined,
+      };
+    });
 
-    onAddRoom(newRoom);
+    if (onAddRooms && createdItems.length > 1) {
+      onAddRooms(createdItems);
+    } else {
+      createdItems.forEach((r) => onAddRoom(r));
+    }
+
     onOpenChange(false);
 
     // Reset form
     setNumber('');
+    setBatchRawInput('');
     setImageUrl('');
     setError('');
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="font-serif text-xl sm:text-2xl text-[#191816]">
-            Add New Room
+            {creationMode === 'single' ? 'Add New Room' : 'Add Multiple Rooms to Category'}
           </DialogTitle>
           <DialogDescription className="text-xs text-[#7A7267]">
-            Register a physical room in your hotel inventory with photo and details.
+            Register rooms in your hotel inventory. Multiple rooms can share the same category & photo.
           </DialogDescription>
         </DialogHeader>
+
+        {/* Mode Toggle: Single vs Batch */}
+        <div className="flex bg-[#F5F2ED] p-1 rounded-lg border border-[#E8E2DA] my-1">
+          <button
+            type="button"
+            onClick={() => setCreationMode('single')}
+            className={`flex-1 py-1.5 px-3 rounded-md text-xs font-semibold transition-all flex items-center justify-center gap-1.5 ${
+              creationMode === 'single'
+                ? 'bg-white text-[#191816] shadow-2xs border border-[#E8E2DA]'
+                : 'text-[#7A7267] hover:text-[#191816]'
+            }`}
+          >
+            <Hash className="w-3.5 h-3.5" />
+            <span>Single Room</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setCreationMode('multiple');
+              if (!batchRawInput) {
+                setBatchRawInput('101, 102, 103, 104, 105');
+              }
+            }}
+            className={`flex-1 py-1.5 px-3 rounded-md text-xs font-semibold transition-all flex items-center justify-center gap-1.5 ${
+              creationMode === 'multiple'
+                ? 'bg-white text-[#71382D] shadow-2xs border border-[#E8E2DA]'
+                : 'text-[#7A7267] hover:text-[#191816]'
+            }`}
+          >
+            <Layers className="w-3.5 h-3.5" />
+            <span>Multiple Rooms (Batch)</span>
+          </button>
+        </div>
 
         <form onSubmit={handleSubmit} className="space-y-4 py-2 text-xs">
           {error && (
@@ -174,40 +271,11 @@ export function AddRoomDialog({
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <label className="font-medium text-[#191816]">
-                Room Number <span className="text-[#B85C3E]">*</span>
-              </label>
-              <Input
-                placeholder="e.g. 101, 204, PH-01"
-                value={number}
-                onChange={(e) => handleNumberChange(e.target.value)}
-                required
-                className="h-9 text-xs font-mono font-bold"
-              />
-            </div>
-
-            <div className="space-y-1">
-              <label className="font-medium text-[#191816]">Floor</label>
-              <select
-                value={floor}
-                onChange={(e) => setFloor(e.target.value)}
-                className="w-full h-9 rounded border border-[#E8E2DA] bg-white px-2.5 text-xs text-[#191816] focus:outline-none focus:ring-1 focus:ring-[#B85C3E]"
-              >
-                {DEFAULT_FLOORS.map((f) => (
-                  <option key={f} value={f}>
-                    {f}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
+          {/* Room Category Selection */}
           <div className="space-y-1">
             <div className="flex items-center justify-between">
               <label className="font-medium text-[#191816]">
-                Room Category <span className="text-[#B85C3E]">*</span>
+                Target Room Category <span className="text-[#B85C3E]">*</span>
               </label>
               <button
                 type="button"
@@ -223,7 +291,7 @@ export function AddRoomDialog({
             <select
               value={type}
               onChange={(e) => setType(e.target.value)}
-              className="w-full h-9 rounded border border-[#E8E2DA] bg-white px-2.5 text-xs text-[#191816] focus:outline-none focus:ring-1 focus:ring-[#B85C3E]"
+              className="w-full h-9 rounded border border-[#E8E2DA] bg-white px-2.5 text-xs text-[#191816] focus:outline-none focus:ring-1 focus:ring-[#B85C3E] font-medium"
             >
               {categories.length > 0 ? (
                 categories.map((c) => (
@@ -241,39 +309,178 @@ export function AddRoomDialog({
             </select>
           </div>
 
-          {/* Room Image Upload & Selection */}
-          <div className="space-y-1.5 pt-1">
-            <label className="font-medium text-[#191816] flex items-center justify-between">
-              <span>Room Image / Photo</span>
-              {uploading && <span className="text-[10px] text-[#B85C3E] animate-pulse">Uploading photo...</span>}
-            </label>
+          {/* Single Mode Input */}
+          {creationMode === 'single' ? (
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="font-medium text-[#191816]">
+                  Room Number <span className="text-[#B85C3E]">*</span>
+                </label>
+                <Input
+                  placeholder="e.g. 101, 204, PH-01"
+                  value={number}
+                  onChange={(e) => handleNumberChange(e.target.value)}
+                  required
+                  className="h-9 text-xs font-mono font-bold"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="font-medium text-[#191816]">Floor</label>
+                <select
+                  value={floor}
+                  onChange={(e) => setFloor(e.target.value)}
+                  className="w-full h-9 rounded border border-[#E8E2DA] bg-white px-2.5 text-xs text-[#191816] focus:outline-none focus:ring-1 focus:ring-[#B85C3E]"
+                >
+                  {DEFAULT_FLOORS.map((f) => (
+                    <option key={f} value={f}>
+                      {f}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          ) : (
+            /* Multiple Rooms Mode Inputs */
+            <div className="space-y-3 p-3.5 bg-[#FAF9F6] border border-[#E8E2DA] rounded-xl">
+              <div className="space-y-1.5">
+                <label className="font-medium text-[#191816]">
+                  Enter Room Numbers <span className="text-[#B85C3E]">*</span>
+                </label>
+                <Input
+                  placeholder="e.g. 101, 102, 103, 104, 105 or 201-210"
+                  value={batchRawInput}
+                  onChange={(e) => setBatchRawInput(e.target.value)}
+                  required
+                  className="h-9 text-xs font-mono font-bold"
+                />
+                <span className="text-[11px] text-[#7A7267]">
+                  Separate with commas (e.g. 101, 102, 103) or enter a numeric range (e.g. 201-208).
+                </span>
+              </div>
+
+              {/* Quick Sequence Helper */}
+              <div className="pt-2 border-t border-[#E8E2DA]/80">
+                <span className="text-[11px] font-semibold text-[#191816] block mb-1.5">
+                  Or auto-generate sequence:
+                </span>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <span className="text-[10px] text-[#7A7267] block mb-0.5">Start Number</span>
+                    <Input
+                      placeholder="e.g. 201"
+                      value={startNumber}
+                      onChange={(e) => {
+                        setStartNumber(e.target.value);
+                        handleGenerateSequence(e.target.value, roomCount);
+                      }}
+                      className="h-8 text-xs font-mono"
+                    />
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-[#7A7267] block mb-0.5">Quantity to Add</span>
+                    <Input
+                      type="number"
+                      min="1"
+                      max="50"
+                      placeholder="5"
+                      value={roomCount}
+                      onChange={(e) => {
+                        setRoomCount(e.target.value);
+                        handleGenerateSequence(startNumber, e.target.value);
+                      }}
+                      className="h-8 text-xs font-mono"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Preview Chips */}
+              {parsedBatchRooms.length > 0 && (
+                <div className="pt-2">
+                  <div className="flex items-center justify-between text-[11px] text-[#7A7267] mb-1.5">
+                    <span>Rooms to be created ({parsedBatchRooms.length}):</span>
+                    <span className="text-[#059669] font-semibold">Ready to add</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto p-1.5 bg-white rounded-lg border border-[#E8E2DA]">
+                    {parsedBatchRooms.map((rm) => (
+                      <span
+                        key={rm}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#FAF2EB] text-[#71382D] border border-[#F0D5C3] font-mono text-xs font-semibold"
+                      >
+                        {rm}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-1 pt-1">
+                <label className="font-medium text-[#191816]">Base Floor</label>
+                <select
+                  value={floor}
+                  onChange={(e) => setFloor(e.target.value)}
+                  className="w-full h-9 rounded border border-[#E8E2DA] bg-white px-2.5 text-xs text-[#191816] focus:outline-none focus:ring-1 focus:ring-[#B85C3E]"
+                >
+                  <option value="Floor 1">Auto-detect floor from number (e.g. 101→Floor 1, 201→Floor 2)</option>
+                  {DEFAULT_FLOORS.map((f) => (
+                    <option key={f} value={f}>
+                      {f}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
+
+          {/* Room Photo / Picture Upload & Presets */}
+          <div className="space-y-2 pt-2 border-t border-[#E8E2DA]">
+            <div className="flex items-center justify-between">
+              <label className="font-medium text-[#191816] flex items-center gap-1.5">
+                <ImageIcon className="w-3.5 h-3.5 text-[#B85C3E]" />
+                <span>Room Photo / Image</span>
+                {creationMode === 'multiple' && (
+                  <span className="text-[10px] text-[#7A7267] font-normal">(Shared across all {parsedBatchRooms.length} rooms)</span>
+                )}
+              </label>
+              {imageUrl && (
+                <button
+                  type="button"
+                  onClick={() => setImageUrl('')}
+                  className="text-[11px] text-[#B85C3E] hover:underline"
+                >
+                  Remove photo
+                </button>
+              )}
+            </div>
 
             {imageUrl ? (
-              <div className="relative rounded-lg overflow-hidden border border-[#E8E2DA] h-32 w-full group">
+              <div className="relative w-full h-32 rounded-lg overflow-hidden border border-[#E8E2DA] group bg-black/5">
                 <img
                   src={imageUrl}
-                  alt="Room preview"
+                  alt="Room Preview"
                   className="w-full h-full object-cover"
                 />
                 <button
                   type="button"
                   onClick={() => setImageUrl('')}
-                  className="absolute top-2 right-2 p-1 rounded-full bg-black/60 text-white hover:bg-black transition-colors"
-                  title="Remove image"
+                  className="absolute top-2 right-2 p-1 rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
               </div>
             ) : (
-              <div className="space-y-2">
-                <div
-                  onClick={() => fileInputRef.current?.click()}
-                  className="border-2 border-dashed border-[#E8E2DA] hover:border-[#B85C3E] rounded-lg p-3 text-center cursor-pointer bg-[#FAF8F5] transition-colors"
-                >
-                  <ImageIcon className="w-6 h-6 text-[#7A7267] mx-auto mb-1" />
-                  <p className="text-xs font-medium text-[#191816]">Upload Room Photo</p>
-                  <p className="text-[10px] text-[#7A7267]">Click to select PNG, JPG or WEBP</p>
-                </div>
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                className="w-full h-24 border-2 border-dashed border-[#E8E2DA] hover:border-[#B85C3E] rounded-lg flex flex-col items-center justify-center gap-1.5 cursor-pointer bg-[#FAF8F5] transition-colors p-3 text-center"
+              >
+                <Upload className="w-5 h-5 text-[#B85C3E]" />
+                <span className="text-xs font-medium text-[#191816]">
+                  {uploading ? 'Uploading to Spaces...' : 'Upload Room Photo'}
+                </span>
+                <span className="text-[10px] text-[#7A7267]">
+                  PNG, JPG or WebP up to 10MB
+                </span>
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -281,71 +488,50 @@ export function AddRoomDialog({
                   onChange={handleFileUpload}
                   className="hidden"
                 />
-
-                {/* Quick Presets */}
-                <div>
-                  <span className="text-[10px] text-[#7A7267] block mb-1">Or choose a preset room photo:</span>
-                  <div className="grid grid-cols-4 gap-1.5">
-                    {ROOM_PRESET_IMAGES.map((p, idx) => (
-                      <button
-                        key={idx}
-                        type="button"
-                        onClick={() => setImageUrl(p.url)}
-                        className="rounded border border-[#E8E2DA] overflow-hidden hover:border-[#B85C3E] transition-all text-left"
-                      >
-                        <img src={p.url} alt={p.label} className="w-full h-10 object-cover" />
-                        <span className="block text-[9px] text-[#7A7267] p-0.5 truncate text-center">
-                          {p.label}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
               </div>
             )}
-          </div>
 
-          <div className="grid grid-cols-2 gap-3 pt-1">
-            <div className="space-y-1">
-              <label className="font-medium text-[#191816]">Operational Status</label>
-              <select
-                value={operational}
-                onChange={(e) => setOperational(e.target.value as any)}
-                className="w-full h-9 rounded border border-[#E8E2DA] bg-white px-2.5 text-xs text-[#191816] focus:outline-none focus:ring-1 focus:ring-[#B85C3E]"
-              >
-                <option value="available">Available</option>
-                <option value="occupied">Occupied</option>
-                <option value="maintenance">Maintenance</option>
-              </select>
-            </div>
+            {/* Custom URL or Curated Presets */}
+            <div className="space-y-1.5 pt-1">
+              <Input
+                placeholder="Or paste external photo URL..."
+                value={imageUrl}
+                onChange={(e) => setImageUrl(e.target.value)}
+                className="h-8 text-[11px]"
+              />
 
-            <div className="space-y-1">
-              <label className="font-medium text-[#191816]">Housekeeping State</label>
-              <select
-                value={housekeeping}
-                onChange={(e) => setHousekeeping(e.target.value as any)}
-                className="w-full h-9 rounded border border-[#E8E2DA] bg-white px-2.5 text-xs text-[#191816] focus:outline-none focus:ring-1 focus:ring-[#B85C3E]"
-              >
-                <option value="clean">Clean</option>
-                <option value="dirty">Dirty (Needs cleaning)</option>
-                <option value="cleaning">Cleaning in progress</option>
-                <option value="inspection">Inspection required</option>
-              </select>
+              <div className="flex items-center gap-1.5 overflow-x-auto py-1">
+                <span className="text-[10px] text-[#7A7267] whitespace-nowrap">Presets:</span>
+                {ROOM_PRESET_IMAGES.map((preset) => (
+                  <button
+                    key={preset.label}
+                    type="button"
+                    onClick={() => setImageUrl(preset.url)}
+                    className="text-[10px] px-2 py-0.5 rounded border border-[#E8E2DA] bg-white hover:bg-[#F5F2ED] text-[#191816] whitespace-nowrap transition-colors"
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
-          <DialogFooter className="pt-4 border-t border-[#E8E2DA] flex items-center justify-end gap-2">
+          <DialogFooter className="pt-2">
             <Button
               type="button"
-              variant="secondary"
+              variant="outline"
               onClick={() => onOpenChange(false)}
               className="text-xs"
             >
               Cancel
             </Button>
-            <Button type="submit" className="text-xs" disabled={uploading}>
-              <Plus className="w-3.5 h-3.5 mr-1" />
-              Add Room
+            <Button
+              type="submit"
+              className="bg-[#B85C3E] hover:bg-[#A34E32] text-white text-xs font-semibold"
+            >
+              {creationMode === 'multiple'
+                ? `Add ${parsedBatchRooms.length} Rooms to ${type}`
+                : 'Add Room to Inventory'}
             </Button>
           </DialogFooter>
         </form>

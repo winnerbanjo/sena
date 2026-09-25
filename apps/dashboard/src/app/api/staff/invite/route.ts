@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
-import { db, users, properties, propertyMembers, eq, and } from '@sena/database';
+import { db, users, properties, propertyMembers, eq, and, ilike } from '@sena/database';
 import { sendSenaEmail } from '@sena/email';
 
 export const dynamic = 'force-dynamic';
@@ -18,8 +18,27 @@ export async function POST(req: NextRequest) {
     const cleanEmail = email.toLowerCase().trim();
     const cleanName = name.trim();
 
-    // 1. Resolve Property
-    const prop = await db.query.properties.findFirst();
+    // 1. Resolve Property dynamically
+    let prop: any = null;
+    const headerPropName = req.headers.get('x-property-name') || body.propertyName;
+    if (headerPropName) {
+      prop = await db.query.properties.findFirst({
+        where: ilike(properties.name, `%${String(headerPropName).trim()}%`),
+      });
+    }
+    if (!prop && session?.user?.id) {
+      const pm = await db.query.propertyMembers.findFirst({
+        where: eq(propertyMembers.userId, session.user.id),
+      });
+      if (pm?.propertyId) {
+        prop = await db.query.properties.findFirst({
+          where: eq(properties.id, pm.propertyId),
+        });
+      }
+    }
+    if (!prop) {
+      prop = await db.query.properties.findFirst();
+    }
     if (!prop) {
       return NextResponse.json({ error: 'No active property found.' }, { status: 400 });
     }

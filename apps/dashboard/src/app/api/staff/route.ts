@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
-import { db, users, properties, propertyMembers, eq, desc } from '@sena/database';
+import { db, users, properties, propertyMembers, eq, desc, ilike } from '@sena/database';
 
 export const dynamic = 'force-dynamic';
 
@@ -8,8 +8,27 @@ export async function GET(req: NextRequest) {
   try {
     const session = await auth();
 
-    // Resolve property (first property for current tenant)
-    const prop = await db.query.properties.findFirst();
+    // Resolve property dynamically
+    let prop: any = null;
+    const headerPropName = req.headers.get('x-property-name') || req.nextUrl.searchParams.get('property');
+    if (headerPropName) {
+      prop = await db.query.properties.findFirst({
+        where: ilike(properties.name, `%${String(headerPropName).trim()}%`),
+      });
+    }
+    if (!prop && session?.user?.id) {
+      const pm = await db.query.propertyMembers.findFirst({
+        where: eq(propertyMembers.userId, session.user.id),
+      });
+      if (pm?.propertyId) {
+        prop = await db.query.properties.findFirst({
+          where: eq(properties.id, pm.propertyId),
+        });
+      }
+    }
+    if (!prop) {
+      prop = await db.query.properties.findFirst();
+    }
     if (!prop) {
       return NextResponse.json({ staff: [] });
     }

@@ -49,17 +49,31 @@ export default function OverviewPage() {
   const [propertySlug, setPropertySlug] = React.useState('amami');
 
   React.useEffect(() => {
+    let activeEmail = '';
+    let activeProp = 'Stay Connect Solutions LTD';
+
     try {
-      const stored =
-        localStorage.getItem('sena_property_name') ||
-        JSON.parse(localStorage.getItem('sena_auth_user') || '{}')?.property ||
-        JSON.parse(localStorage.getItem('sena_onboarding_draft') || '{}')?.propName;
-      if (stored) setPropertyName(stored);
       const user = JSON.parse(localStorage.getItem('sena_auth_user') || '{}');
-      if (user.fullName || user.name) setUserName(user.fullName || user.name);
+      const stored =
+        user?.property ||
+        localStorage.getItem('sena_property_name') ||
+        JSON.parse(localStorage.getItem('sena_onboarding_draft') || '{}')?.propName;
+      if (stored) {
+        setPropertyName(stored);
+        activeProp = stored;
+      }
+      if (user.fullName || user.name) {
+        setUserName(user.fullName || user.name);
+      }
+      activeEmail = user.email || '';
     } catch {}
 
-    fetch('/api/me')
+    fetch(`/api/me?email=${encodeURIComponent(activeEmail)}&property=${encodeURIComponent(activeProp)}`, {
+      headers: {
+        'x-user-email': activeEmail,
+        'x-property-name': activeProp,
+      },
+    })
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (!data) return;
