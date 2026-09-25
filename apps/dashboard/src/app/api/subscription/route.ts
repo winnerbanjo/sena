@@ -107,43 +107,34 @@ export async function POST(req: NextRequest) {
       .where(eq(subscriptions.organizationId, org.id))
       .limit(1);
 
-    let savedSub;
-
+    // If subscription already exists, forbid free tier switching!
     if (existing.length > 0) {
-      const [updated] = await db
-        .update(subscriptions)
-        .set({
-          plan,
-          billingCycle,
-          status: 'trialing',
-          trialStartDate: now,
-          trialEndDate,
-          roomLimit,
-          amountMinorUnits,
-          updatedAt: now,
-        })
-        .where(eq(subscriptions.id, existing[0].id))
-        .returning();
-      savedSub = updated;
-    } else {
-      const [created] = await db
-        .insert(subscriptions)
-        .values({
-          organizationId: org.id,
-          propertyId: prop?.id || null,
-          plan,
-          billingCycle,
-          status: 'trialing',
-          trialStartDate: now,
-          trialEndDate,
-          currentPeriodStart: now,
-          currentPeriodEnd: periodEndDate,
-          roomLimit,
-          amountMinorUnits,
-        })
-        .returning();
-      savedSub = created;
+      return NextResponse.json(
+        {
+          error: 'Switching or upgrading your operating tier requires payment. Please use Paystack checkout.',
+          requiresPayment: true,
+        },
+        { status: 402 }
+      );
     }
+
+    // Only allow initial 3-day free trial on first setup
+    const [savedSub] = await db
+      .insert(subscriptions)
+      .values({
+        organizationId: org.id,
+        propertyId: prop?.id || null,
+        plan,
+        billingCycle,
+        status: 'trialing',
+        trialStartDate: now,
+        trialEndDate,
+        currentPeriodStart: now,
+        currentPeriodEnd: periodEndDate,
+        roomLimit,
+        amountMinorUnits,
+      })
+      .returning();
 
     // Send subscription activated transactional email asynchronously
     const userEmail = session?.user?.email || 'winner@sena.ng';

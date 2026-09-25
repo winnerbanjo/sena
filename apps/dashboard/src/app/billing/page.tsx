@@ -4,6 +4,7 @@ import * as React from 'react';
 import Link from 'next/link';
 import { Topbar } from '../../components/topbar';
 import { NewReservationDialog } from '../../components/new-reservation-dialog';
+import { CreditCard, CheckCircle2, AlertCircle, Loader2, ArrowRight, ShieldCheck, Zap } from 'lucide-react';
 
 export default function BillingPage() {
   const [newResOpen, setNewResOpen] = React.useState(false);
@@ -11,7 +12,8 @@ export default function BillingPage() {
   const [subData, setSubData] = React.useState<any>(null);
   const [loading, setLoading] = React.useState(true);
   const [switching, setSwitching] = React.useState(false);
-  const [actionMessage, setActionMessage] = React.useState('');
+  const [verifying, setVerifying] = React.useState(false);
+  const [actionMessage, setActionMessage] = React.useState<{ text: string; type: 'success' | 'error' | 'info' } | null>(null);
 
   const fetchSubscription = React.useCallback(async () => {
     try {
@@ -27,34 +29,83 @@ export default function BillingPage() {
     }
   }, []);
 
+  // Check for Paystack redirect callback: ?verified=true&reference=...
   React.useEffect(() => {
     fetchSubscription();
+
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const reference = params.get('reference') || params.get('trxref');
+      if (reference) {
+        setVerifying(true);
+        setActionMessage({ text: 'Verifying Paystack transaction and activating subscription...', type: 'info' });
+
+        fetch(`/api/subscription/verify?reference=${encodeURIComponent(reference)}`)
+          .then((r) => r.json())
+          .then((data) => {
+            if (data.success) {
+              setActionMessage({
+                text: data.message || 'Payment successfully verified! Your subscription is now active.',
+                type: 'success',
+              });
+              fetchSubscription();
+            } else {
+              setActionMessage({
+                text: data.error || 'Payment verification failed. Please contact support.',
+                type: 'error',
+              });
+            }
+          })
+          .catch((err) => {
+            setActionMessage({ text: err.message || 'Failed to verify transaction', type: 'error' });
+          })
+          .finally(() => {
+            setVerifying(false);
+            window.history.replaceState({}, '', '/billing');
+          });
+      }
+    }
   }, [fetchSubscription]);
 
+  // Initiate Paystack checkout for plan change or activation
   async function handleSwitchPlan(plan: string) {
+    if (subData?.subscription?.plan === plan && subData?.subscription?.status === 'active') {
+      return;
+    }
+
     setSwitching(true);
-    setActionMessage('');
+    setActionMessage({ text: `Connecting to Paystack secure checkout for ${plan.toUpperCase()} tier...`, type: 'info' });
+
     try {
-      const res = await fetch('/api/subscription', {
+      const res = await fetch('/api/subscription/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ plan, billingCycle }),
       });
-      if (res.ok) {
-        setActionMessage(`Successfully switched to ${plan.toUpperCase()} tier.`);
-        fetchSubscription();
+
+      const data = await res.json();
+
+      if (res.ok && data.authorizationUrl) {
+        // Redirect directly to Paystack payment page
+        window.location.href = data.authorizationUrl;
+      } else {
+        setActionMessage({
+          text: data.error || 'Failed to initialize Paystack checkout',
+          type: 'error',
+        });
+        setSwitching(false);
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-    } finally {
+      setActionMessage({ text: e.message || 'Network error initiating payment', type: 'error' });
       setSwitching(false);
-      setTimeout(() => setActionMessage(''), 4000);
     }
   }
 
   const currentPlan = subData?.subscription?.plan || 'growth';
   const isTrialing = subData?.isTrialing ?? true;
   const trialDaysLeft = subData?.trialDaysLeft ?? 3;
+  const isExpired = subData?.isExpired ?? false;
   const roomCount = subData?.roomCount ?? 0;
   const roomLimit = subData?.subscription?.roomLimit ?? 30;
 
@@ -90,9 +141,33 @@ export default function BillingPage() {
           </div>
         </div>
 
+        {/* Action/Verification Status Message */}
         {actionMessage && (
-          <div className="p-3.5 rounded-md bg-[#EFF7F2] border border-[#C6E4CC] text-[#2E6B4F] text-xs font-medium">
-            {actionMessage}
+          <div
+            className={`p-4 rounded-lg border text-xs font-medium flex items-center justify-between gap-3 ${
+              actionMessage.type === 'success'
+                ? 'bg-[#EFF7F2] border-[#C6E4CC] text-[#2E6B4F]'
+                : actionMessage.type === 'error'
+                ? 'bg-rose-50 border-rose-200 text-rose-800'
+                : 'bg-amber-50 border-amber-200 text-amber-800'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              {verifying || switching ? (
+                <Loader2 className="w-4 h-4 animate-spin flex-shrink-0" />
+              ) : actionMessage.type === 'success' ? (
+                <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
+              ) : (
+                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+              )}
+              <span>{actionMessage.text}</span>
+            </div>
+            <button
+              onClick={() => setActionMessage(null)}
+              className="text-xs opacity-60 hover:opacity-100 font-bold"
+            >
+              &times;
+            </button>
           </div>
         )}
 
@@ -104,7 +179,11 @@ export default function BillingPage() {
                 <h2 className="text-xl font-serif text-[#191816] capitalize">
                   {currentPlan} Tier
                 </h2>
-                {isTrialing ? (
+                {isExpired ? (
+                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono tracking-wide uppercase bg-rose-50 text-rose-700 border border-rose-200">
+                    Trial Expired
+                  </span>
+                ) : isTrialing ? (
                   <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono tracking-wide uppercase bg-[#FEF8EE] text-[#A3681F] border border-[#F2DAC0]">
                     3-Day Free Trial
                   </span>
@@ -115,24 +194,41 @@ export default function BillingPage() {
                 )}
               </div>
               <p className="text-xs text-[#7A7267] mt-1">
-                {isTrialing
+                {isExpired
+                  ? 'Your 3-day free trial has expired. Select an operating tier below to restore full operational features.'
+                  : isTrialing
                   ? `Your 3-day trial is currently active with full access to all features. ${trialDaysLeft} days remaining.`
-                  : `Next billing date: 24 October 2026 via Paystack.`}
+                  : `Active paid subscription managed securely via Paystack Direct.`}
               </p>
             </div>
 
-            <div className="text-left sm:text-right">
-              <span className="text-2xl font-serif text-[#71382D] block">
-                {currentPlan === 'essential'
-                  ? '₦25,000'
-                  : currentPlan === 'pro'
-                  ? '₦100,000'
-                  : '₦50,000'}
-                <span className="text-xs font-sans text-[#7A7267] font-normal"> / month</span>
-              </span>
-              <span className="text-[11px] text-[#8C8275]">
-                {isTrialing ? 'No charge during trial period' : 'Auto-renews monthly'}
-              </span>
+            <div className="flex flex-col sm:items-end gap-2">
+              <div className="text-left sm:text-right">
+                <span className="text-2xl font-serif text-[#71382D] block">
+                  {currentPlan === 'essential'
+                    ? '₦25,000'
+                    : currentPlan === 'pro'
+                    ? '₦100,000'
+                    : '₦50,000'}
+                  <span className="text-xs font-sans text-[#7A7267] font-normal"> / month</span>
+                </span>
+                <span className="text-[11px] text-[#8C8275]">
+                  {isTrialing ? 'No charge during trial period' : 'Auto-renews via Paystack'}
+                </span>
+              </div>
+
+              {/* Pay Now Button if in Trial or Expired */}
+              {(isTrialing || isExpired) && (
+                <button
+                  type="button"
+                  disabled={switching || verifying}
+                  onClick={() => handleSwitchPlan(currentPlan)}
+                  className="mt-1 inline-flex items-center gap-1.5 px-4 py-2 rounded bg-[#71382D] hover:bg-[#5A2C23] text-white text-xs font-semibold shadow-xs transition-colors"
+                >
+                  <CreditCard className="w-3.5 h-3.5" />
+                  <span>{isExpired ? 'Pay Now & Reactivate' : 'Activate with Paystack'}</span>
+                </button>
+              )}
             </div>
           </div>
 
@@ -147,12 +243,12 @@ export default function BillingPage() {
               </div>
               <div className="w-full bg-[#EAE3D9] h-1.5 rounded-full overflow-hidden mt-2">
                 <div
-                  className="bg-[#71382D] h-full"
-                  style={{ width: `${Math.min(100, Math.round((roomCount / roomLimit) * 100))}%` }}
+                  className="bg-[#71382D] h-full transition-all duration-500"
+                  style={{ width: `${Math.min(100, Math.round((roomCount / Math.max(1, roomLimit)) * 100))}%` }}
                 />
               </div>
               <span className="text-[11px] text-[#7A7267] mt-1 block">
-                {roomLimit - roomCount} rooms available on this tier
+                {Math.max(0, roomLimit - roomCount)} rooms available on this tier
               </span>
             </div>
 
@@ -172,17 +268,18 @@ export default function BillingPage() {
               <span className="text-[11px] font-mono uppercase tracking-wider text-[#8C8275] block">
                 Payment Channel
               </span>
-              <div className="text-lg font-serif text-[#191816] mt-1">
-                Paystack Direct
+              <div className="text-lg font-serif text-[#191816] mt-1 flex items-center gap-1.5">
+                <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                <span>Paystack Direct</span>
               </div>
               <span className="text-[11px] text-[#7A7267] mt-2 block">
-                Linked to official property bank account
+                Official encrypted Nigerian payment gateway
               </span>
             </div>
           </div>
         </div>
 
-        {/* Change / Upgrade Tier Section */}
+        {/* Change / Upgrade Tier Section with Real Paystack Gate */}
         <div className="space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
@@ -190,12 +287,12 @@ export default function BillingPage() {
                 Available Operating Tiers
               </h2>
               <p className="text-xs text-[#7A7267] mt-0.5">
-                Switch plan anytime to match your room capacity and operational needs.
+                Upgrade or switch plans anytime. All payments are securely processed by Paystack.
               </p>
             </div>
 
-            {/* Cadence switch */}
-            <div className="inline-flex items-center bg-[#FAF7F2] border border-[#E8E1D5] p-1 rounded-md text-xs">
+            {/* Monthly / Yearly Toggle */}
+            <div className="inline-flex items-center p-1 bg-[#F0EAE1] rounded-lg text-xs self-start sm:self-auto">
               <button
                 type="button"
                 onClick={() => setBillingCycle('monthly')}
@@ -232,18 +329,19 @@ export default function BillingPage() {
                 </div>
               </div>
 
-              {currentPlan === 'essential' ? (
+              {currentPlan === 'essential' && !isTrialing && !isExpired ? (
                 <div className="w-full py-2 text-center text-xs font-medium text-[#71382D] bg-[#FAF7F2] rounded border border-[#E8E1D5]">
-                  Current Tier
+                  Current Active Tier
                 </div>
               ) : (
                 <button
                   type="button"
-                  disabled={switching}
+                  disabled={switching || verifying}
                   onClick={() => handleSwitchPlan('essential')}
-                  className="w-full h-9 rounded border border-[#E8E1D5] hover:bg-[#FAF7F2] text-xs font-medium text-[#191816] transition-colors"
+                  className="w-full h-9 rounded border border-[#E8E1D5] hover:bg-[#FAF7F2] text-xs font-medium text-[#191816] transition-colors inline-flex items-center justify-center gap-1.5"
                 >
-                  Switch to Essential
+                  <CreditCard className="w-3.5 h-3.5 text-[#71382D]" />
+                  <span>{currentPlan === 'essential' ? 'Pay & Activate' : 'Switch to Essential'}</span>
                 </button>
               )}
             </div>
@@ -262,18 +360,19 @@ export default function BillingPage() {
                 </div>
               </div>
 
-              {currentPlan === 'growth' ? (
+              {currentPlan === 'growth' && !isTrialing && !isExpired ? (
                 <div className="w-full py-2 text-center text-xs font-medium text-[#71382D] bg-[#FAF7F2] rounded border border-[#71382D]/30">
-                  Current Tier
+                  Current Active Tier
                 </div>
               ) : (
                 <button
                   type="button"
-                  disabled={switching}
+                  disabled={switching || verifying}
                   onClick={() => handleSwitchPlan('growth')}
-                  className="w-full h-9 rounded bg-[#B85C3E] hover:bg-[#A34E32] text-white text-xs font-semibold tracking-wide transition-colors"
+                  className="w-full h-9 rounded bg-[#B85C3E] hover:bg-[#A34E32] text-white text-xs font-semibold tracking-wide transition-colors inline-flex items-center justify-center gap-1.5 shadow-sm"
                 >
-                  Select Growth Tier
+                  <CreditCard className="w-3.5 h-3.5" />
+                  <span>{currentPlan === 'growth' ? 'Pay & Activate' : 'Upgrade to Growth'}</span>
                 </button>
               )}
             </div>
@@ -292,18 +391,19 @@ export default function BillingPage() {
                 </div>
               </div>
 
-              {currentPlan === 'pro' ? (
+              {currentPlan === 'pro' && !isTrialing && !isExpired ? (
                 <div className="w-full py-2 text-center text-xs font-medium text-[#71382D] bg-[#FAF7F2] rounded border border-[#E8E1D5]">
-                  Current Tier
+                  Current Active Tier
                 </div>
               ) : (
                 <button
                   type="button"
-                  disabled={switching}
+                  disabled={switching || verifying}
                   onClick={() => handleSwitchPlan('pro')}
-                  className="w-full h-9 rounded border border-[#E8E1D5] hover:bg-[#FAF7F2] text-xs font-medium text-[#191816] transition-colors"
+                  className="w-full h-9 rounded bg-[#191816] hover:bg-stone-800 text-white text-xs font-medium transition-colors inline-flex items-center justify-center gap-1.5"
                 >
-                  Upgrade to Pro
+                  <Zap className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Upgrade to Pro</span>
                 </button>
               )}
             </div>
@@ -324,17 +424,37 @@ export default function BillingPage() {
               <span>Status</span>
             </div>
 
-            <div className="p-4 flex items-center justify-between text-xs hover:bg-[#FAF7F2]/50 transition-colors">
-              <div>
-                <span className="font-mono text-[#191816] font-medium">INV-2026-09-24</span>
-                <span className="text-[#8C8275] block text-[11px]">3-Day Free Trial Activation</span>
+            {subData?.invoices && subData.invoices.length > 0 ? (
+              subData.invoices.map((inv: any) => (
+                <div key={inv.id || inv.invoiceNumber} className="p-4 flex items-center justify-between text-xs hover:bg-[#FAF7F2]/50 transition-colors">
+                  <div>
+                    <span className="font-mono text-[#191816] font-medium">{inv.invoiceNumber}</span>
+                    <span className="text-[#8C8275] block text-[11px]">{inv.billingPeriod}</span>
+                  </div>
+                  <span className="text-[#7A7267]">
+                    {new Date(inv.paidAt || inv.createdAt).toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  </span>
+                  <span className="font-mono text-[#191816]">
+                    ₦{(inv.amountMinorUnits / 100).toLocaleString('en-NG', { minimumFractionDigits: 2 })}
+                  </span>
+                  <span className="px-2 py-0.5 rounded text-[10px] font-mono uppercase tracking-wide bg-[#EFF7F2] text-[#2E6B4F]">
+                    {inv.status}
+                  </span>
+                </div>
+              ))
+            ) : (
+              <div className="p-4 flex items-center justify-between text-xs hover:bg-[#FAF7F2]/50 transition-colors">
+                <div>
+                  <span className="font-mono text-[#191816] font-medium">INV-TRIAL-01</span>
+                  <span className="text-[#8C8275] block text-[11px]">3-Day Free Trial Activation</span>
+                </div>
+                <span className="text-[#7A7267]">{trialDaysLeft} days remaining</span>
+                <span className="font-mono text-[#191816]">₦0.00</span>
+                <span className="px-2 py-0.5 rounded text-[10px] font-mono uppercase tracking-wide bg-[#EFF7F2] text-[#2E6B4F]">
+                  Active Trial
+                </span>
               </div>
-              <span className="text-[#7A7267]">24 Sep &ndash; 27 Sep 2026</span>
-              <span className="font-mono text-[#191816]">₦0.00</span>
-              <span className="px-2 py-0.5 rounded text-[10px] font-mono uppercase tracking-wide bg-[#EFF7F2] text-[#2E6B4F]">
-                Active Trial
-              </span>
-            </div>
+            )}
           </div>
         </div>
       </main>
