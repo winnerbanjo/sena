@@ -12,11 +12,19 @@ export async function GET(req: NextRequest) {
     const defaultCheckOut = new Date(Date.now() + 2 * 86400000).toISOString().split('T')[0];
     const checkOut = searchParams.get('checkOut') || defaultCheckOut;
 
-    // Resolve property
+    // Resolve property by ID or slug
     let property;
-    if (propIdParam) {
+    const slugParam = searchParams.get('slug');
+    if (slugParam) {
       property = await db.query.properties.findFirst({
-        where: eq(properties.id, propIdParam),
+        where: eq(properties.slug, slugParam.toLowerCase().trim()),
+      });
+    }
+    if (!property && propIdParam) {
+      // Check if propIdParam is uuid or slug
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(propIdParam);
+      property = await db.query.properties.findFirst({
+        where: isUuid ? eq(properties.id, propIdParam) : eq(properties.slug, propIdParam.toLowerCase().trim()),
       });
     }
     if (!property) {

@@ -22,6 +22,7 @@ import {
   HelpCircle,
   ChevronDown,
   LogOut,
+  Star,
   X,
 } from 'lucide-react';
 import { useMobileNav } from './dashboard-shell';
@@ -55,6 +56,7 @@ const NAV_SECTIONS: NavSection[] = [
     title: 'SALES',
     items: [
       { label: 'Website', href: '/website', icon: Globe },
+      { label: 'Reviews', href: '/website?tab=reviews', icon: Star },
       { label: 'Direct Booking', href: '/booking-preview', icon: Compass },
       { label: 'Payments', href: '/payments', icon: CreditCard },
       { label: 'Offers', href: '/offers', icon: Tag },

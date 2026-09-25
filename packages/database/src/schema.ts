@@ -105,6 +105,7 @@ export const properties = pgTable('properties', {
     .references(() => organizations.id, { onDelete: 'cascade' })
     .notNull(),
   name: varchar('name', { length: 255 }).notNull(),
+  slug: varchar('slug', { length: 100 }),
   code: varchar('code', { length: 20 }).notNull(),
   propertyType: varchar('property_type', { length: 50 }).notNull().default('hotel'),
   country: varchar('country', { length: 100 }).notNull().default('Nigeria'),
@@ -522,5 +523,209 @@ export const subscriptionInvoices = pgTable(
     index('sub_inv_num_idx').on(t.invoiceNumber),
   ]
 );
+
+// 20. Website Configurations (Hospitality Website CMS & Brand Editor)
+export const websiteConfigs = pgTable(
+  'website_configs',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    propertyId: uuid('property_id')
+      .references(() => properties.id, { onDelete: 'cascade' })
+      .notNull()
+      .unique(),
+    theme: varchar('theme', { length: 50 }).notNull().default('sena_one'), // 'sena_one' | 'sena_two' | 'sena_three'
+    brandColors: jsonb('brand_colors').$type<{
+      primaryColor?: string;
+      accentColor?: string;
+      bgStyle?: string;
+      textDark?: string;
+      navStyle?: 'transparent' | 'solid_light' | 'solid_dark';
+    }>().default({
+      primaryColor: '#71382D',
+      accentColor: '#B85C3E',
+      navStyle: 'transparent',
+    }).notNull(),
+    typography: jsonb('typography').$type<{
+      headingFont?: string;
+      bodyFont?: string;
+    }>().default({
+      headingFont: 'serif',
+      bodyFont: 'sans',
+    }).notNull(),
+    buttonStyle: varchar('button_style', { length: 30 }).notNull().default('soft'), // 'square' | 'soft' | 'rounded'
+    logoUrl: text('logo_url'),
+    faviconUrl: text('favicon_url'),
+    heroHeadline: text('hero_headline'),
+    heroSubheading: text('hero_subheading'),
+    heroImageUrl: text('hero_image_url'),
+    heroCtaLabel: varchar('hero_cta_label', { length: 100 }).default('Reserve Your Stay'),
+    welcomeEyebrow: varchar('welcome_eyebrow', { length: 100 }),
+    welcomeTitle: text('welcome_title'),
+    welcomeBody: text('welcome_body'),
+    welcomeImageUrl: text('welcome_image_url'),
+    highlights: jsonb('highlights').$type<Array<{
+      title: string;
+      description: string;
+      icon?: string;
+    }>>().default([]).notNull(),
+    aboutStory: text('about_story'),
+    aboutImageUrl: text('about_image_url'),
+    galleryImages: jsonb('gallery_images').$type<Array<{
+      url: string;
+      caption?: string;
+      category?: string;
+    }>>().default([]).notNull(),
+    nearbyPlaces: jsonb('nearby_places').$type<Array<{
+      place: string;
+      distance: string;
+      category?: string;
+    }>>().default([]).notNull(),
+    amenities: jsonb('amenities').$type<Array<{
+      name: string;
+      category?: string;
+      icon?: string;
+      featured?: boolean;
+    }>>().default([]).notNull(),
+    policies: jsonb('policies').$type<{
+      checkInTime?: string;
+      checkOutTime?: string;
+      cancellation?: string;
+      children?: string;
+      pets?: string;
+      smoking?: string;
+      payment?: string;
+    }>().default({}).notNull(),
+    contactPhone: varchar('contact_phone', { length: 50 }),
+    contactEmail: varchar('contact_email', { length: 255 }),
+    contactWhatsapp: varchar('contact_whatsapp', { length: 50 }),
+    whatsappEnabled: boolean('whatsapp_enabled').default(false).notNull(),
+    socialLinks: jsonb('social_links').$type<{
+      instagram?: string;
+      facebook?: string;
+      twitter?: string;
+      linkedin?: string;
+    }>().default({}).notNull(),
+    seoTitle: varchar('seo_title', { length: 255 }),
+    seoDescription: text('seo_description'),
+    seoOgImage: text('seo_og_image'),
+    enabledSections: jsonb('enabled_sections').$type<{
+      hero?: boolean;
+      booking?: boolean;
+      intro?: boolean;
+      rooms?: boolean;
+      highlights?: boolean;
+      gallery?: boolean;
+      amenities?: boolean;
+      reviews?: boolean;
+      location?: boolean;
+      contact?: boolean;
+    }>().default({
+      hero: true,
+      booking: true,
+      intro: true,
+      rooms: true,
+      highlights: true,
+      gallery: true,
+      amenities: true,
+      reviews: true,
+      location: true,
+      contact: true,
+    }).notNull(),
+    sectionOrder: jsonb('section_order').$type<string[]>().default([
+      'hero',
+      'booking',
+      'intro',
+      'rooms',
+      'highlights',
+      'gallery',
+      'amenities',
+      'reviews',
+      'location',
+      'contact',
+    ]).notNull(),
+    isPublished: boolean('is_published').default(false).notNull(),
+    publishedAt: timestamp('published_at', { withTimezone: true }),
+    draftConfig: jsonb('draft_config'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    index('web_cfg_prop_idx').on(t.propertyId),
+  ]
+);
+
+// 21. Website Domains (Subdomain & Future Custom Domain Mapping)
+export const websiteDomains = pgTable(
+  'website_domains',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    propertyId: uuid('property_id')
+      .references(() => properties.id, { onDelete: 'cascade' })
+      .notNull(),
+    domain: varchar('domain', { length: 255 }).notNull().unique(), // e.g. 'stayconnect.sena.ng' or 'stayconnectglobal.com'
+    type: varchar('type', { length: 50 }).notNull().default('sena_subdomain'), // 'sena_subdomain' | 'custom_domain'
+    status: varchar('status', { length: 50 }).notNull().default('active'), // 'pending' | 'active' | 'failed'
+    isPrimary: boolean('is_primary').default(true).notNull(),
+    verifiedAt: timestamp('verified_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    index('web_dom_prop_idx').on(t.propertyId),
+    uniqueIndex('web_dom_domain_idx').on(t.domain),
+  ]
+);
+
+// 22. Guest Reviews
+export const reviews = pgTable(
+  'reviews',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    propertyId: uuid('property_id')
+      .references(() => properties.id, { onDelete: 'cascade' })
+      .notNull(),
+    reservationId: uuid('reservation_id').references(() => reservations.id, { onDelete: 'set null' }),
+    guestId: uuid('guest_id').references(() => guests.id, { onDelete: 'set null' }),
+    guestName: varchar('guest_name', { length: 255 }).notNull(),
+    rating: integer('rating').notNull(), // 1 to 5
+    title: varchar('title', { length: 255 }),
+    body: text('body').notNull(),
+    source: varchar('source', { length: 50 }).notNull().default('sena'), // 'sena' | 'google' | 'booking_com' | 'manual'
+    status: varchar('status', { length: 50 }).notNull().default('published'), // 'pending' | 'published' | 'hidden_for_policy' | 'reported'
+    isVerifiedStay: boolean('is_verified_stay').default(false).notNull(),
+    response: text('response'),
+    responseAt: timestamp('response_at', { withTimezone: true }),
+    submittedAt: timestamp('submitted_at', { withTimezone: true }).defaultNow().notNull(),
+    publishedAt: timestamp('published_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    index('reviews_prop_status_idx').on(t.propertyId, t.status),
+    index('reviews_res_idx').on(t.reservationId),
+  ]
+);
+
+// 23. Review Invitation Tokens (Secured one-time tokens for verified stay reviews)
+export const reviewTokens = pgTable(
+  'review_tokens',
+  {
+    token: varchar('token', { length: 100 }).primaryKey(),
+    reservationId: uuid('reservation_id')
+      .references(() => reservations.id, { onDelete: 'cascade' })
+      .notNull(),
+    propertyId: uuid('property_id')
+      .references(() => properties.id, { onDelete: 'cascade' })
+      .notNull(),
+    guestEmail: varchar('guest_email', { length: 255 }).notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    usedAt: timestamp('used_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    index('rev_token_prop_idx').on(t.propertyId),
+    index('rev_token_res_idx').on(t.reservationId),
+  ]
+);
+
 
 
