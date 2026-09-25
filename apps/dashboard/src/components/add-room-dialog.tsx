@@ -63,6 +63,12 @@ export function AddRoomDialog({
 
   // Update type if defaultCategory changes or dialog opens
   React.useEffect(() => {
+    if (!open) return;
+    // Reset mode to single on fresh open
+    setCreationMode('single');
+    setNumber('');
+    setError('');
+
     if (defaultCategory) {
       setType(defaultCategory);
     } else if (categories.length > 0 && !categories.some((c) => c.name === type)) {
