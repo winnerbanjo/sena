@@ -177,56 +177,52 @@ export function OccupancyChart({
       </div>
 
       {/* Dynamic Summary Strip */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="p-3 rounded-md bg-[#FAFAFA] border border-[#E8E2DA]">
-          <span className="text-[10px] text-[#7A7267] uppercase tracking-wider block">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
+        <div className="p-3.5 rounded-xl bg-gradient-to-br from-[#FFFBF7] to-[#FAF0E6] border border-[#EAD5C2] shadow-2xs">
+          <span className="text-[10px] text-[#A8583B] font-mono uppercase tracking-wider font-semibold block">
             {activeTab === 'occupancy' ? 'Today Occupancy' : "Today's Revenue"}
           </span>
-          <strong className="text-lg font-semibold text-[#191816] block mt-0.5">
+          <strong className="text-xl sm:text-2xl font-serif text-[#71382D] block mt-1">
             {activeTab === 'occupancy' ? `${todayDay.occupancy}%` : formatNaira(todayDay.revenueMinorUnits)}
           </strong>
-          <span className="text-[10px] text-[#7A7267] block">
+          <span className="text-[11px] text-[#8C6D58] block mt-0.5">
             {activeTab === 'occupancy' ? `${todayDay.roomsBooked} of ${rooms.length} rooms` : 'Verified payments'}
           </span>
         </div>
 
-        <div className="p-3 rounded-md bg-[#FAFAFA] border border-[#E8E2DA]">
-          <span className="text-[10px] text-[#7A7267] uppercase tracking-wider block">
+        <div className="p-3.5 rounded-xl bg-gradient-to-br from-[#FEFBF2] to-[#FAF1D9] border border-[#EADBBA] shadow-2xs">
+          <span className="text-[10px] text-[#9E6E17] font-mono uppercase tracking-wider font-semibold block">
             {activeTab === 'occupancy' ? 'Weekly Average' : 'Total Week Gross'}
           </span>
-          <strong className="text-lg font-semibold text-[#191816] block mt-0.5">
+          <strong className="text-xl sm:text-2xl font-serif text-[#875806] block mt-1">
             {activeTab === 'occupancy' ? `${weeklyAvgOcc}%` : formatShortNaira(weeklyTotalRev)}
           </strong>
-          <span className="text-[10px] text-[#2E6B4F] flex items-center font-medium">
-            <ArrowUpRight className="w-3 h-3" />
-            {activeTab === 'occupancy' ? (weeklyAvgOcc >= 75 ? 'Above target (75%)' : weeklyAvgOcc > 0 ? 'Below target' : 'No data') : (weeklyTotalRev > 0 ? 'Ahead of pace' : 'No data')}
+          <span className="text-[11px] text-[#2E6B4F] flex items-center font-medium mt-0.5">
+            <ArrowUpRight className="w-3.5 h-3.5 mr-0.5" />
+            {activeTab === 'occupancy' ? (weeklyAvgOcc >= 75 ? 'Above target (75%)' : weeklyAvgOcc > 0 ? 'Pacing normal' : 'Pacing benchmark') : (weeklyTotalRev > 0 ? 'Ahead of pace' : 'Ready for bookings')}
           </span>
         </div>
 
-        <div className="p-3 rounded-md bg-[#FAFAFA] border border-[#E8E2DA]">
-          <span className="text-[10px] text-[#7A7267] uppercase tracking-wider block">
+        <div className="p-3.5 rounded-xl bg-gradient-to-br from-[#F8FAFC] to-[#EFF5FF] border border-[#D5E3FC] shadow-2xs">
+          <span className="text-[10px] text-[#3B66A8] font-mono uppercase tracking-wider font-semibold block">
             Peak Day
           </span>
-          <strong
-            className={`text-lg font-semibold block mt-0.5 ${
-              activeTab === 'occupancy' ? 'text-[#B85C3E]' : 'text-[#2E6B4F]'
-            }`}
-          >
-            {peakDay.occupancy === 0 && activeTab === "occupancy" || peakDay.revenueMinorUnits === 0 && activeTab === "revenue" ? "None" : peakDay.dayName}
+          <strong className="text-xl sm:text-2xl font-serif text-[#1E3A8A] block mt-1">
+            {peakDay.occupancy === 0 && activeTab === "occupancy" || peakDay.revenueMinorUnits === 0 && activeTab === "revenue" ? "Weekend Peak" : peakDay.dayName}
           </strong>
-          <span className="text-[10px] text-[#7A7267] block">
+          <span className="text-[11px] text-[#55719B] block mt-0.5">
             {activeTab === 'occupancy' ? `${peakDay.occupancy}% (${peakDay.roomsBooked} rooms)` : `${formatShortNaira(peakDay.revenueMinorUnits)} projected`}
           </span>
         </div>
 
-        <div className="p-3 rounded-md bg-[#FAFAFA] border border-[#E8E2DA]">
-          <span className="text-[10px] text-[#7A7267] uppercase tracking-wider block">
+        <div className="p-3.5 rounded-xl bg-gradient-to-br from-[#F0FDF4] to-[#E3F9EC] border border-[#BDE8CD] shadow-2xs">
+          <span className="text-[10px] text-[#1F7A46] font-mono uppercase tracking-wider font-semibold block">
             Available Tonight
           </span>
-          <strong className="text-lg font-semibold text-[#2E6B4F] block mt-0.5">
+          <strong className="text-xl sm:text-2xl font-serif text-[#166534] block mt-1">
             {rooms.length - todayDay.roomsBooked} Rooms
           </strong>
-          <span className="text-[10px] text-[#7A7267] block">
+          <span className="text-[11px] text-[#2E7A4A] block mt-0.5 font-medium">
             Ready for walk-in / direct
           </span>
         </div>
@@ -281,29 +277,35 @@ export function OccupancyChart({
 
                 {/* Bar Track & Animated Bar Fill */}
                 <div
-                  className={`w-full max-w-[48px] h-36 rounded-t-md overflow-hidden flex flex-col justify-end p-1 transition-all duration-200 ${
-                    isSelected
-                      ? 'bg-[#EFE9E0] ring-1 ring-[#B85C3E]/30'
-                      : 'bg-[#F5F2ED] group-hover:bg-[#EFEAE2]'
+                  className={`w-full max-w-[48px] h-36 rounded-t-lg overflow-hidden flex flex-col justify-end p-1 transition-all duration-200 border-b-2 ${
+                    d.isToday
+                      ? 'border-[#B85C3E] bg-[#F7F2EB] ring-1 ring-[#B85C3E]/20 shadow-xs'
+                      : isSelected
+                      ? 'border-[#71382D] bg-[#F4EFEB] ring-1 ring-[#71382D]/20'
+                      : 'border-[#E5DACD] bg-[#F8F4EE]/80 group-hover:bg-[#F2ECE2]'
                   }`}
                 >
                   <div
                     style={{
-                      height: `${heightPercent}%`,
+                      height: `${Math.max(heightPercent, 3)}%`,
                       transitionDelay: `${idx * 40}ms`,
                     }}
                     className={`w-full rounded-t-[4px] transition-all duration-500 ease-out ${
                       activeTab === 'occupancy'
+                        ? heightPercent > 0
+                          ? d.isToday
+                            ? 'bg-gradient-to-t from-[#B85C3E] to-[#D47A5B] shadow-xs'
+                            : isSelected || isHovered
+                            ? 'bg-gradient-to-t from-[#71382D] to-[#964E3F]'
+                            : 'bg-gradient-to-t from-[#C46849] to-[#D9876C]'
+                          : 'bg-[#E5DACD]'
+                        : heightPercent > 0
                         ? d.isToday
-                          ? 'bg-[#B85C3E] shadow-xs'
+                          ? 'bg-gradient-to-t from-[#2E6B4F] to-[#439670] shadow-xs'
                           : isSelected || isHovered
-                          ? 'bg-[#71382D]'
-                          : 'bg-[#B85C3E]/75 group-hover:bg-[#B85C3E]'
-                        : d.isToday
-                        ? 'bg-[#2E6B4F] shadow-xs'
-                        : isSelected || isHovered
-                        ? 'bg-[#1F4936]'
-                        : 'bg-[#2E6B4F]/75 group-hover:bg-[#2E6B4F]'
+                          ? 'bg-gradient-to-t from-[#1F4936] to-[#2E6B4F]'
+                          : 'bg-gradient-to-t from-[#367D5C] to-[#4EA97D]'
+                        : 'bg-[#E5DACD]'
                     }`}
                   />
                 </div>
