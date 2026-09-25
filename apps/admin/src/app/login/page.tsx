@@ -47,7 +47,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
 
             <div className="relative rounded-lg overflow-hidden border border-[#E8E1D5] shadow-sm aspect-[4/3] bg-[#EAE3D9]">
               <img
-                src="/assets/room.jpg"
+                src="/assets/resort.jpg"
                 alt="Internal architecture"
                 className="object-cover w-full h-full"
               />
