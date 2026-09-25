@@ -345,7 +345,7 @@ function WebsiteContent() {
   const previewUrl = `/site/${propertySlug}`;
 
   const copyUrl = () => {
-    navigator.clipboard?.writeText(workingDirectUrl);
+    navigator.clipboard?.writeText(subdomainUrl);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -370,24 +370,24 @@ function WebsiteContent() {
             <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2.5 text-xs text-[#7A7267] mt-1.5 flex-wrap">
               <span className="font-medium text-[#191816]">Public address:</span>
               <a
-                href={workingDirectUrl}
+                href={subdomainUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-[#71382D] hover:underline font-mono font-medium inline-flex items-center gap-1"
-                title="Direct live address on Sena platform"
+                title="Primary direct website address"
               >
-                app.sena.ng/{propertySlug}
+                {propertySlug}.sena.ng
                 <ExternalLink className="w-3 h-3 inline text-[#71382D]" />
               </a>
               <span className="text-[#D5CFC7]">·</span>
               <a
-                href={subdomainUrl}
+                href={workingDirectUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-[#B85C3E] hover:underline font-mono"
-                title="Custom subdomain (requires *.sena.ng on Vercel)"
+                className="text-[#7A7267] hover:underline font-mono text-[11px]"
+                title="Platform route"
               >
-                {propertySlug}.sena.ng
+                app.sena.ng/{propertySlug}
               </a>
               {lastPublished && (
                 <>
@@ -402,12 +402,12 @@ function WebsiteContent() {
             <button
               onClick={copyUrl}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-[#E8E2DA] bg-white text-xs text-[#191816] hover:bg-[#FAFAFA] transition-colors"
-              title="Copy direct live address"
+              title="Copy direct website address"
             >
               {copied ? (
                 <>
                   <Check className="w-3.5 h-3.5 text-emerald-600" />
-                  <span className="text-emerald-700 font-medium">Copied Live Link!</span>
+                  <span className="text-emerald-700 font-medium">Copied!</span>
                 </>
               ) : (
                 <>
@@ -418,7 +418,7 @@ function WebsiteContent() {
             </button>
 
             <a
-              href={workingDirectUrl}
+              href={subdomainUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-[#E8E2DA] bg-[#FAFAFA] text-xs font-medium text-[#191816] hover:bg-white transition-colors"
