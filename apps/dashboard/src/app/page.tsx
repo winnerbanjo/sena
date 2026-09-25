@@ -7,7 +7,7 @@ import {
   BedDouble,
   KeyRound,
   LogOut,
-  Sparkles,
+  Brush,
   TrendingUp,
   Plus,
   Globe,
@@ -350,27 +350,27 @@ export default function OverviewPage() {
           {/* 4. Housekeeping */}
           <Link
             href="/housekeeping"
-            className="relative overflow-hidden bg-white border border-[#EADCCF] hover:border-purple-400 transition-all rounded-2xl p-5 shadow-xs hover:shadow-md group block"
+            className="relative overflow-hidden bg-white border border-[#EADCCF] hover:border-[#71382D] transition-all rounded-2xl p-5 shadow-xs hover:shadow-md group block"
           >
-            <div className="h-1 bg-gradient-to-r from-purple-400 to-indigo-600 absolute top-0 left-0 right-0" />
+            <div className="h-1 bg-gradient-to-r from-[#8C7A6B] to-[#71382D] absolute top-0 left-0 right-0" />
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-mono uppercase tracking-wider text-[#7C3AED] font-semibold group-hover:text-purple-900 transition-colors">
+              <span className="text-[11px] font-mono uppercase tracking-wider text-[#7A7267] font-semibold group-hover:text-[#71382D] transition-colors">
                 Housekeeping
               </span>
-              <div className="w-8 h-8 rounded-lg bg-purple-50 text-purple-800 flex items-center justify-center">
-                <Sparkles className="w-4 h-4" />
+              <div className="w-8 h-8 rounded-lg bg-[#FAF4ED] text-[#71382D] flex items-center justify-center">
+                <Brush className="w-4 h-4" />
               </div>
             </div>
             <div className="mt-3 flex items-baseline gap-2">
-              <span className="text-3xl sm:text-4xl font-serif text-[#B85C3E] font-normal group-hover:text-[#71382D] transition-colors">
+              <span className="text-3xl sm:text-4xl font-serif text-[#191816] font-normal group-hover:text-[#71382D] transition-colors">
                 {dirtyRooms.length}
               </span>
-              <span className="text-[11px] px-2 py-0.5 rounded-full bg-purple-50 text-purple-800 border border-purple-200/60 font-medium">
+              <span className="text-[11px] px-2 py-0.5 rounded-full bg-stone-100 text-[#5C564D] border border-[#E8DFD5] font-medium font-mono">
                 {rooms.length - dirtyRooms.length} clean &amp; ready
               </span>
             </div>
             <span className="text-[11px] text-[#7A7267] block mt-4">
-              {dirtyRooms.length === 0 ? 'All rooms inspected' : 'Rooms awaiting turnover'}
+              {dirtyRooms.length === 0 ? 'All rooms inspected & clean' : 'Rooms awaiting turnover'}
             </span>
           </Link>
 
@@ -603,8 +603,8 @@ export default function OverviewPage() {
             {/* Quick Turnaround Desk */}
             <div className="bg-white rounded-2xl border border-[#E8DACB] p-6 space-y-4 shadow-xs">
               <div className="flex items-center justify-between border-b border-[#E8DACB]/80 pb-3">
-                <span className="text-[11px] font-mono uppercase tracking-wider text-[#A8583B] font-semibold flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-[#B85C3E]" />
+                <span className="text-[11px] font-mono uppercase tracking-wider text-[#71382D] font-semibold flex items-center gap-1.5">
+                  <Brush className="w-3.5 h-3.5 text-[#B85C3E]" />
                   Housekeeping Status
                 </span>
                 <Link href="/housekeeping" className="text-xs text-[#71382D] hover:text-[#B85C3E] font-medium">

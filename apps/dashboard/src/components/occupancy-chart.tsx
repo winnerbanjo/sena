@@ -176,54 +176,66 @@ export function OccupancyChart({
         </div>
       </div>
 
-      {/* Dynamic Summary Strip */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
-        <div className="p-3.5 rounded-xl bg-gradient-to-br from-[#FFFBF7] to-[#FAF0E6] border border-[#EAD5C2] shadow-2xs">
-          <span className="text-[10px] text-[#A8583B] font-mono uppercase tracking-wider font-semibold block">
-            {activeTab === 'occupancy' ? 'Today Occupancy' : "Today's Revenue"}
+      {/* Unified Executive Metrics Ledger Strip */}
+      <div className="bg-[#FAF8F5]/80 border border-[#E8DACB] rounded-xl overflow-hidden grid grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-[#E8DACB] shadow-2xs">
+        <div className="p-4 space-y-1">
+          <span className="text-[10px] text-[#7A7267] font-mono uppercase tracking-wider block font-medium">
+            {activeTab === 'occupancy' ? "Today's Occupancy" : "Today's Revenue"}
           </span>
-          <strong className="text-xl sm:text-2xl font-serif text-[#71382D] block mt-1">
-            {activeTab === 'occupancy' ? `${todayDay.occupancy}%` : formatNaira(todayDay.revenueMinorUnits)}
-          </strong>
-          <span className="text-[11px] text-[#8C6D58] block mt-0.5">
-            {activeTab === 'occupancy' ? `${todayDay.roomsBooked} of ${rooms.length} rooms` : 'Verified payments'}
+          <div className="flex items-baseline gap-2">
+            <span className="text-xl sm:text-2xl font-serif text-[#191816] font-medium">
+              {activeTab === 'occupancy' ? `${todayDay.occupancy}%` : formatNaira(todayDay.revenueMinorUnits)}
+            </span>
+            {todayDay.occupancy > 0 && activeTab === 'occupancy' && (
+              <span className="w-1.5 h-1.5 rounded-full bg-[#B85C3E]" />
+            )}
+          </div>
+          <span className="text-[11px] text-[#7A7267] block">
+            {activeTab === 'occupancy' ? `${todayDay.roomsBooked} of ${rooms.length} rooms occupied` : 'Recorded direct payments'}
           </span>
         </div>
 
-        <div className="p-3.5 rounded-xl bg-gradient-to-br from-[#FEFBF2] to-[#FAF1D9] border border-[#EADBBA] shadow-2xs">
-          <span className="text-[10px] text-[#9E6E17] font-mono uppercase tracking-wider font-semibold block">
+        <div className="p-4 space-y-1">
+          <span className="text-[10px] text-[#7A7267] font-mono uppercase tracking-wider block font-medium">
             {activeTab === 'occupancy' ? 'Weekly Average' : 'Total Week Gross'}
           </span>
-          <strong className="text-xl sm:text-2xl font-serif text-[#875806] block mt-1">
-            {activeTab === 'occupancy' ? `${weeklyAvgOcc}%` : formatShortNaira(weeklyTotalRev)}
-          </strong>
-          <span className="text-[11px] text-[#2E6B4F] flex items-center font-medium mt-0.5">
+          <div className="flex items-baseline gap-2">
+            <span className="text-xl sm:text-2xl font-serif text-[#191816] font-medium">
+              {activeTab === 'occupancy' ? `${weeklyAvgOcc}%` : formatShortNaira(weeklyTotalRev)}
+            </span>
+          </div>
+          <span className="text-[11px] text-[#2E6B4F] flex items-center font-medium">
             <ArrowUpRight className="w-3.5 h-3.5 mr-0.5" />
             {activeTab === 'occupancy' ? (weeklyAvgOcc >= 75 ? 'Above target (75%)' : weeklyAvgOcc > 0 ? 'Pacing normal' : 'Pacing benchmark') : (weeklyTotalRev > 0 ? 'Ahead of pace' : 'Ready for bookings')}
           </span>
         </div>
 
-        <div className="p-3.5 rounded-xl bg-gradient-to-br from-[#F8FAFC] to-[#EFF5FF] border border-[#D5E3FC] shadow-2xs">
-          <span className="text-[10px] text-[#3B66A8] font-mono uppercase tracking-wider font-semibold block">
-            Peak Day
+        <div className="p-4 space-y-1">
+          <span className="text-[10px] text-[#7A7267] font-mono uppercase tracking-wider block font-medium">
+            Peak Demand Day
           </span>
-          <strong className="text-xl sm:text-2xl font-serif text-[#1E3A8A] block mt-1">
-            {peakDay.occupancy === 0 && activeTab === "occupancy" || peakDay.revenueMinorUnits === 0 && activeTab === "revenue" ? "Weekend Peak" : peakDay.dayName}
-          </strong>
-          <span className="text-[11px] text-[#55719B] block mt-0.5">
-            {activeTab === 'occupancy' ? `${peakDay.occupancy}% (${peakDay.roomsBooked} rooms)` : `${formatShortNaira(peakDay.revenueMinorUnits)} projected`}
+          <div className="flex items-baseline gap-2">
+            <span className="text-xl sm:text-2xl font-serif text-[#191816] font-medium">
+              {peakDay.occupancy === 0 && activeTab === "occupancy" || peakDay.revenueMinorUnits === 0 && activeTab === "revenue" ? "Friday / Weekend" : peakDay.dayName}
+            </span>
+          </div>
+          <span className="text-[11px] text-[#7A7267] block">
+            {activeTab === 'occupancy' ? `${peakDay.occupancy}% peak occupancy` : `${formatShortNaira(peakDay.revenueMinorUnits)} projected`}
           </span>
         </div>
 
-        <div className="p-3.5 rounded-xl bg-gradient-to-br from-[#F0FDF4] to-[#E3F9EC] border border-[#BDE8CD] shadow-2xs">
-          <span className="text-[10px] text-[#1F7A46] font-mono uppercase tracking-wider font-semibold block">
+        <div className="p-4 space-y-1">
+          <span className="text-[10px] text-[#7A7267] font-mono uppercase tracking-wider block font-medium">
             Available Tonight
           </span>
-          <strong className="text-xl sm:text-2xl font-serif text-[#166534] block mt-1">
-            {rooms.length - todayDay.roomsBooked} Rooms
-          </strong>
-          <span className="text-[11px] text-[#2E7A4A] block mt-0.5 font-medium">
-            Ready for walk-in / direct
+          <div className="flex items-baseline gap-2">
+            <span className="text-xl sm:text-2xl font-serif text-[#2E6B4F] font-medium">
+              {rooms.length - todayDay.roomsBooked} Rooms
+            </span>
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+          </div>
+          <span className="text-[11px] text-[#7A7267] block">
+            Clean and ready for guest walk-in
           </span>
         </div>
       </div>
