@@ -23,6 +23,7 @@ import {
   ChevronDown,
   LogOut,
   Star,
+  Receipt,
   X,
 } from 'lucide-react';
 import { useMobileNav } from './dashboard-shell';
@@ -59,6 +60,7 @@ const NAV_SECTIONS: NavSection[] = [
       { label: 'Reviews', href: '/website?tab=reviews', icon: Star },
       { label: 'Direct Booking', href: '/booking-preview', icon: Compass },
       { label: 'Payments', href: '/payments', icon: CreditCard },
+      { label: 'Invoices', href: '/invoices', icon: Receipt },
       { label: 'Offers', href: '/offers', icon: Tag },
       { label: 'Channels', href: '/channels', icon: Layers },
     ],

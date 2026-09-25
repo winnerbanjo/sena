@@ -727,5 +727,69 @@ export const reviewTokens = pgTable(
   ]
 );
 
+// 24. Property Invoices & Guest Folios
+export interface InvoiceLineItem {
+  id: string;
+  description: string;
+  category: 'room' | 'fb' | 'laundry' | 'transport' | 'service' | 'other';
+  quantity: number;
+  unitPriceMinorUnits: number;
+  totalMinorUnits: number;
+}
+
+export interface InvoiceBankDetails {
+  bankName: string;
+  accountName: string;
+  accountNumber: string;
+  sortCode?: string;
+}
+
+export const propertyInvoices = pgTable(
+  'property_invoices',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    propertyId: uuid('property_id')
+      .references(() => properties.id, { onDelete: 'cascade' })
+      .notNull(),
+    organizationId: uuid('organization_id')
+      .references(() => organizations.id, { onDelete: 'cascade' })
+      .notNull(),
+    reservationId: uuid('reservation_id')
+      .references(() => reservations.id, { onDelete: 'set null' }),
+    guestId: uuid('guest_id')
+      .references(() => guests.id, { onDelete: 'set null' }),
+    invoiceNumber: varchar('invoice_number', { length: 50 }).notNull().unique(), // e.g. INV-2026-0042
+    invoiceType: varchar('invoice_type', { length: 50 }).notNull().default('guest_folio'), // 'guest_folio' | 'corporate' | 'walk_in' | 'event_banquet' | 'proforma'
+    status: varchar('status', { length: 50 }).notNull().default('issued'), // 'draft' | 'issued' | 'partially_paid' | 'paid' | 'overdue' | 'void'
+    recipientName: varchar('recipient_name', { length: 255 }).notNull(),
+    recipientEmail: varchar('recipient_email', { length: 255 }),
+    recipientPhone: varchar('recipient_phone', { length: 50 }),
+    recipientAddress: text('recipient_address'),
+    companyTin: varchar('company_tin', { length: 100 }),
+    issueDate: varchar('issue_date', { length: 10 }).notNull(), // YYYY-MM-DD
+    dueDate: varchar('due_date', { length: 10 }).notNull(), // YYYY-MM-DD
+    currency: varchar('currency', { length: 10 }).notNull().default('NGN'),
+    subtotalMinorUnits: integer('subtotal_minor_units').notNull().default(0),
+    taxVatMinorUnits: integer('tax_vat_minor_units').notNull().default(0),
+    taxConsumptionMinorUnits: integer('tax_consumption_minor_units').notNull().default(0),
+    serviceChargeMinorUnits: integer('service_charge_minor_units').notNull().default(0),
+    discountMinorUnits: integer('discount_minor_units').notNull().default(0),
+    totalAmountMinorUnits: integer('total_amount_minor_units').notNull().default(0),
+    paidAmountMinorUnits: integer('paid_amount_minor_units').notNull().default(0),
+    items: jsonb('items').$type<InvoiceLineItem[]>().notNull().default([]),
+    bankDetails: jsonb('bank_details').$type<InvoiceBankDetails>(),
+    paymentTerms: text('payment_terms'),
+    notes: text('notes'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    index('prop_inv_prop_idx').on(t.propertyId),
+    index('prop_inv_num_idx').on(t.invoiceNumber),
+    index('prop_inv_res_idx').on(t.reservationId),
+    index('prop_inv_status_idx').on(t.status),
+  ]
+);
+
 
 

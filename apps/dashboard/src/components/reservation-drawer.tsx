@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import Link from 'next/link';
 import { formatNaira, formatStayDates } from '@sena/config';
 import {
   Badge,
@@ -209,6 +210,14 @@ export function ReservationDrawer({
                     </strong>
                   </div>
                 )}
+                <div className="pt-2 border-t border-[#E8E2DA]">
+                  <Link
+                    href={`/invoices?search=${encodeURIComponent(reservation.reference)}`}
+                    className="inline-flex items-center gap-1 text-xs text-[#71382D] hover:underline font-medium"
+                  >
+                    <span>View or issue official stay folio invoice &rarr;</span>
+                  </Link>
+                </div>
               </div>
             </TabsContent>
 

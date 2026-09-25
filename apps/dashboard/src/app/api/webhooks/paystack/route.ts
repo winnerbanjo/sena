@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PaymentService } from '@sena/payments';
-import { db, idempotencyKeys, reservations, guests, properties, subscriptions, subscriptionInvoices, eq } from '@sena/database';
+import { db, idempotencyKeys, reservations, guests, properties, subscriptions, subscriptionInvoices, propertyInvoices, payments, eq } from '@sena/database';
 import { sendPaymentReceiptEmail, sendSenaEmail } from '@sena/email';
 
 const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY || '';
@@ -171,6 +171,45 @@ export async function POST(req: NextRequest) {
               paidAt: new Date(data.paid_at || now),
             })
             .onConflictDoNothing();
+        }
+      }
+
+      // Handle Guest / Corporate Property Invoice Settlement
+      if (data.metadata?.type === 'invoice_settlement') {
+        const invoiceId = data.metadata.invoiceId;
+        const invoiceNum = data.metadata.invoiceNumber;
+        if (invoiceId || invoiceNum) {
+          const inv = await db.query.propertyInvoices.findFirst({
+            where: invoiceId
+              ? eq(propertyInvoices.id, invoiceId)
+              : eq(propertyInvoices.invoiceNumber, invoiceNum),
+          });
+          if (inv) {
+            const newPaid = inv.paidAmountMinorUnits + amountMinorUnits;
+            const newStatus = newPaid >= inv.totalAmountMinorUnits ? 'paid' : 'partially_paid';
+            await db
+              .update(propertyInvoices)
+              .set({
+                paidAmountMinorUnits: newPaid,
+                status: newStatus,
+                updatedAt: new Date(),
+              })
+              .where(eq(propertyInvoices.id, inv.id));
+
+            if (inv.reservationId) {
+              await db.insert(payments).values({
+                propertyId: inv.propertyId,
+                reservationId: inv.reservationId,
+                amountMinorUnits,
+                currency: inv.currency || 'NGN',
+                provider: 'paystack',
+                providerReference: data.reference,
+                method: 'card',
+                status: 'successful',
+                notes: `Online Paystack settlement for invoice ${inv.invoiceNumber}`,
+              });
+            }
+          }
         }
       }
     }
