@@ -65,11 +65,14 @@ export function Header({ data, currentPath }: { data: WebsiteData; currentPath?:
         <div className="hidden sm:flex items-center gap-3">
           <Link
             href={`${base}/rooms`}
-            className="px-4.5 py-2.5 rounded text-xs font-semibold text-white bg-[#71382D] hover:bg-[#5A2C23] shadow-xs transition-all inline-flex items-center gap-1.5"
-            style={{ borderRadius: 'var(--theme-radius, 6px)' }}
+            className="px-5 py-2.5 text-xs font-semibold text-white bg-[#71382D] hover:bg-[#5A2C23] shadow-xs hover:shadow-sm transition-all inline-flex items-center justify-center gap-2 whitespace-nowrap active:scale-[0.98]"
+            style={{
+              borderRadius: 'var(--theme-radius, 6px)',
+              backgroundColor: 'var(--theme-primary, #71382D)',
+            }}
           >
-            <span>{config.heroCtaLabel || 'Book Your Stay'}</span>
-            <ArrowRight className="w-3.5 h-3.5" />
+            <span>{config.heroCtaLabel || 'Reserve Your Stay'}</span>
+            <ArrowRight className="w-3.5 h-3.5 shrink-0" />
           </Link>
         </div>
 
@@ -103,10 +106,13 @@ export function Header({ data, currentPath }: { data: WebsiteData; currentPath?:
             <Link
               href={`${base}/rooms`}
               onClick={() => setMobileMenuOpen(false)}
-              className="w-full py-3 rounded text-center text-xs font-semibold text-white bg-[#71382D] hover:bg-[#5A2C23] block shadow-xs"
-              style={{ borderRadius: 'var(--theme-radius, 6px)' }}
+              className="w-full py-3 px-5 text-center text-xs font-semibold text-white bg-[#71382D] hover:bg-[#5A2C23] block shadow-xs transition-all"
+              style={{
+                borderRadius: 'var(--theme-radius, 6px)',
+                backgroundColor: 'var(--theme-primary, #71382D)',
+              }}
             >
-              {config.heroCtaLabel || 'Book Your Stay'}
+              {config.heroCtaLabel || 'Reserve Your Stay'}
             </Link>
           </div>
         </div>
