@@ -30,6 +30,7 @@ import {
   RefreshCw,
   Send,
   MessageCircle,
+  AlertCircle,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -339,14 +340,15 @@ function WebsiteContent() {
     }
   };
 
+  const workingDirectUrl = `https://app.sena.ng/${propertySlug}`;
+  const subdomainUrl = `https://${propertySlug}.sena.ng`;
+  const previewUrl = `/site/${propertySlug}`;
+
   const copyUrl = () => {
-    navigator.clipboard?.writeText(`https://${propertySlug}.sena.ng`);
+    navigator.clipboard?.writeText(workingDirectUrl);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
-
-  const previewUrl = `/site/${propertySlug}`;
-  const productionUrl = `https://${propertySlug}.sena.ng`;
 
   return (
     <div className="flex-1 flex flex-col h-screen overflow-hidden bg-white">
@@ -365,31 +367,47 @@ function WebsiteContent() {
                 Live &amp; Active
               </span>
             </div>
-            <p className="text-xs text-[#7A7267] mt-1">
-              Public address:{' '}
+            <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2.5 text-xs text-[#7A7267] mt-1.5 flex-wrap">
+              <span className="font-medium text-[#191816]">Public address:</span>
               <a
-                href={productionUrl}
+                href={workingDirectUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-[#B85C3E] hover:underline font-mono font-medium"
+                className="text-[#71382D] hover:underline font-mono font-medium inline-flex items-center gap-1"
+                title="Direct live address on Sena platform"
+              >
+                app.sena.ng/{propertySlug}
+                <ExternalLink className="w-3 h-3 inline text-[#71382D]" />
+              </a>
+              <span className="text-[#D5CFC7]">·</span>
+              <a
+                href={subdomainUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[#B85C3E] hover:underline font-mono"
+                title="Custom subdomain (requires *.sena.ng on Vercel)"
               >
                 {propertySlug}.sena.ng
-              </a>{' '}
+              </a>
               {lastPublished && (
-                <span className="text-[#A39B90] ml-2">&middot; Published: {lastPublished}</span>
+                <>
+                  <span className="text-[#D5CFC7]">·</span>
+                  <span className="text-[#A39B90]">Published: {lastPublished}</span>
+                </>
               )}
-            </p>
+            </div>
           </div>
 
           <div className="flex items-center gap-2 sm:gap-2.5 flex-wrap">
             <button
               onClick={copyUrl}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-[#E8E2DA] bg-white text-xs text-[#191816] hover:bg-[#FAFAFA] transition-colors"
+              title="Copy direct live address"
             >
               {copied ? (
                 <>
                   <Check className="w-3.5 h-3.5 text-emerald-600" />
-                  <span className="text-emerald-700 font-medium">Copied!</span>
+                  <span className="text-emerald-700 font-medium">Copied Live Link!</span>
                 </>
               ) : (
                 <>
@@ -400,7 +418,7 @@ function WebsiteContent() {
             </button>
 
             <a
-              href={previewUrl}
+              href={workingDirectUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-[#E8E2DA] bg-[#FAFAFA] text-xs font-medium text-[#191816] hover:bg-white transition-colors"
@@ -981,6 +999,43 @@ function WebsiteContent() {
                 </div>
 
                 {slugError && <p className="text-xs text-rose-600 font-medium">{slugError}</p>}
+
+                <div className="p-3 bg-stone-50 rounded-lg border border-[#E8E2DA] space-y-1.5 text-xs pt-3 mt-3 border-t">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[#7A7267]">Primary Direct Link:</span>
+                    <a
+                      href={workingDirectUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-mono text-[#71382D] font-medium hover:underline inline-flex items-center gap-1"
+                    >
+                      {workingDirectUrl}
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[#7A7267]">Subdomain Route:</span>
+                    <a
+                      href={subdomainUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-mono text-[#B85C3E] hover:underline"
+                    >
+                      {subdomainUrl}
+                    </a>
+                  </div>
+                </div>
+
+                <div className="p-3.5 bg-amber-50 rounded-lg border border-amber-200 text-xs text-amber-900 space-y-1">
+                  <div className="flex items-center gap-1.5 font-semibold text-amber-900">
+                    <AlertCircle className="w-3.5 h-3.5 text-amber-700" />
+                    <span>Subdomain Activation Note</span>
+                  </div>
+                  <p className="text-amber-800 text-[11px] leading-relaxed">
+                    Your website is instantly accessible anywhere via <strong className="font-mono">{workingDirectUrl}</strong>.
+                    For custom subdomains (<strong className="font-mono">{propertySlug}.sena.ng</strong>) to route on Vercel without a 404, ensure <strong className="font-mono">*.sena.ng</strong> is added under your Vercel Project Settings &rarr; Domains.
+                  </p>
+                </div>
               </form>
             </div>
 
