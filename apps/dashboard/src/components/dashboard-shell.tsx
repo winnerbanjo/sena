@@ -84,7 +84,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   const isPublicOrAuth =
     isTenantHost ||
     pathname?.startsWith('/site') ||
-    pathname?.startsWith('/invoice') ||
+    pathname?.startsWith('/invoice/') ||
     pathname === '/login' ||
     pathname === '/signup' ||
     pathname === '/onboarding' ||
