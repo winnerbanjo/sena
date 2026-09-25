@@ -185,7 +185,7 @@ export default function CalendarPage() {
               {rooms.length === 0 ? (
                 <tr>
                   <td colSpan={calendarDates.length + 1} className="p-8 text-center text-[#7A7267]">
-                    {loading ? 'Loading rooms from PostgreSQL...' : 'No rooms configured yet. Onboard rooms in Settings or Rooms tab.'}
+                    {loading ? 'Loading rooms...' : 'No rooms configured yet. Onboard rooms in Settings or Rooms tab.'}
                   </td>
                 </tr>
               ) : (

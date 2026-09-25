@@ -10,6 +10,8 @@ import { type ReservationItem } from './mock-data';
 import { PwaProvider } from './pwa-provider';
 import { NetworkStatusBanner } from './network-status';
 import { PwaInstallDialog } from './pwa-install-dialog';
+import { ToastProvider } from './toast-notification';
+import { ReservationSuccessModal } from './reservation-success-modal';
 
 interface DashboardContextType {
   // Mobile Nav
@@ -100,6 +102,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   const [isSearchOpen, setIsSearchOpen] = React.useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = React.useState(false);
   const [isNewResOpen, setIsNewResOpen] = React.useState(false);
+  const [successReservation, setSuccessReservation] = React.useState<ReservationItem | null>(null);
 
   // Global keyboard shortcuts
   React.useEffect(() => {
@@ -135,7 +138,8 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
 
   return (
     <PwaProvider>
-      <DashboardContext.Provider
+      <ToastProvider>
+        <DashboardContext.Provider
         value={{
           isOpen,
           openMobileNav: () => setIsOpen(true),
@@ -184,13 +188,21 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           onOpenChange={setIsNewResOpen}
           onCreateReservation={(newRes: ReservationItem) => {
             setIsNewResOpen(false);
-            alert(`Reservation ${newRes.reference} created successfully for ${newRes.guestName}!`);
+            setSuccessReservation(newRes);
           }}
+        />
+
+        {/* Customer-Facing In-App Confirmation Modal */}
+        <ReservationSuccessModal
+          reservation={successReservation}
+          open={!!successReservation}
+          onClose={() => setSuccessReservation(null)}
         />
 
         {/* Global PWA Install Guidance Dialog */}
         <PwaInstallDialog />
       </DashboardContext.Provider>
+      </ToastProvider>
     </PwaProvider>
   );
 }

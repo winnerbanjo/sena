@@ -28,17 +28,21 @@ import {
   type ReservationItem,
 } from '../components/mock-data';
 import { NewReservationDialog } from '../components/new-reservation-dialog';
+import { useToast } from '../components/toast-notification';
+import { ReservationSuccessModal } from '../components/reservation-success-modal';
 import { OccupancyChart } from '../components/occupancy-chart';
 import { ReservationDrawer } from '../components/reservation-drawer';
 import { Topbar } from '../components/topbar';
 
 export default function OverviewPage() {
+  const toast = useToast();
   const [reservations, setReservations] = React.useState<ReservationItem[]>([]);
   const [rooms, setRooms] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [selectedRes, setSelectedRes] = React.useState<ReservationItem | null>(null);
   const [drawerOpen, setDrawerOpen] = React.useState(false);
   const [newResOpen, setNewResOpen] = React.useState(false);
+  const [successReservation, setSuccessReservation] = React.useState<ReservationItem | null>(null);
   const [currentDateStr, setCurrentDateStr] = React.useState('');
   const [userName, setUserName] = React.useState('Winner');
   const [propertyName, setPropertyName] = React.useState('Amami');
@@ -137,12 +141,12 @@ export default function OverviewPage() {
     fetchData();
   }, [fetchData]);
 
-  // Check In handler via PostgreSQL
+  // Check In handler
   async function handleCheckIn(id: string) {
     try {
       const availableRoom = rooms.find((rm) => rm.operational === 'available' || rm.operationalStatus === 'available');
       if (!availableRoom) {
-        alert('No available rooms currently marked clean to assign for check-in.');
+        toast.error('No clean rooms available', 'Please assign or clean a room before checking in.');
         return;
       }
       const res = await fetch(`/api/reservations/${id}/check-in`, {
@@ -151,17 +155,18 @@ export default function OverviewPage() {
         body: JSON.stringify({ roomId: availableRoom.id }),
       });
       if (res.ok) {
+        toast.success('Guest Checked In', `Room ${availableRoom.number || availableRoom.roomNumber} assigned successfully.`);
         fetchData();
         if (selectedRes && selectedRes.id === id) {
           setSelectedRes((prev) => prev ? { ...prev, status: 'checked_in' } : null);
         }
       }
-    } catch (e) {
-      console.error(e);
+    } catch (e: any) {
+      toast.error('Check-in Error', e.message || 'Check in failed');
     }
   }
 
-  // Check Out handler via PostgreSQL
+  // Check Out handler
   async function handleCheckOut(id: string) {
     try {
       const res = await fetch(`/api/reservations/${id}/check-out`, {
@@ -170,19 +175,21 @@ export default function OverviewPage() {
         body: JSON.stringify({ force: true }),
       });
       if (res.ok) {
+        toast.success('Guest Checked Out', 'Reservation marked completed.');
         fetchData();
         if (selectedRes && selectedRes.id === id) {
           setSelectedRes((prev) => prev ? { ...prev, status: 'checked_out' } : null);
         }
       }
-    } catch (e) {
-      console.error(e);
+    } catch (e: any) {
+      toast.error('Check-out Error', e.message || 'Check out failed');
     }
   }
 
   function handleCreateReservation(newRes: ReservationItem) {
     setReservations((prev) => [newRes, ...prev]);
     fetchData();
+    setSuccessReservation(newRes);
   }
 
   const arrivals = reservations.filter((r) => r.status === 'confirmed');
@@ -717,6 +724,13 @@ export default function OverviewPage() {
         open={newResOpen}
         onOpenChange={setNewResOpen}
         onCreateReservation={handleCreateReservation}
+      />
+
+      {/* Customer-Facing In-App Confirmation Modal */}
+      <ReservationSuccessModal
+        reservation={successReservation}
+        open={!!successReservation}
+        onClose={() => setSuccessReservation(null)}
       />
     </div>
   );

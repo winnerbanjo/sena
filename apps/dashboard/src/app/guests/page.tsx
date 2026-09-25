@@ -54,7 +54,7 @@ export default function GuestsPage() {
             lastStay: g.lastStayDate ? new Date(g.lastStayDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Recent',
             lifetimeValueMinorUnits: g.totalSpendMinorUnits || 0,
             preferences: g.preferences || [],
-            notes: g.notes || 'Guest record in PostgreSQL.',
+            notes: g.notes || 'Verified guest profile.',
           }));
           setGuests(mapped);
         }

@@ -8,8 +8,11 @@ import { type ReservationItem } from '../../components/mock-data';
 import { NewReservationDialog } from '../../components/new-reservation-dialog';
 import { ReservationDrawer } from '../../components/reservation-drawer';
 import { Topbar } from '../../components/topbar';
+import { useToast } from '../../components/toast-notification';
+import { ReservationSuccessModal } from '../../components/reservation-success-modal';
 
 function ReservationsContent() {
+  const toast = useToast();
   const searchParams = useSearchParams();
   const urlSearch = searchParams.get('search');
   const [reservations, setReservations] = React.useState<ReservationItem[]>([]);
@@ -19,6 +22,7 @@ function ReservationsContent() {
   const [selectedRes, setSelectedRes] = React.useState<ReservationItem | null>(null);
   const [drawerOpen, setDrawerOpen] = React.useState(false);
   const [newResOpen, setNewResOpen] = React.useState(false);
+  const [successReservation, setSuccessReservation] = React.useState<ReservationItem | null>(null);
 
   const fetchReservations = React.useCallback(async () => {
     try {
@@ -270,7 +274,7 @@ function ReservationsContent() {
             const roomData = await roomRes.json();
             const availableRoom = roomData.rooms?.find((rm: any) => rm.operational === 'available');
             if (!availableRoom) {
-              alert('No available rooms marked clean to assign for check-in.');
+              toast.error('No clean rooms available', 'Please assign or clean a room before checking in.');
               return;
             }
             const res = await fetch(`/api/reservations/${id}/check-in`, {
@@ -279,13 +283,14 @@ function ReservationsContent() {
               body: JSON.stringify({ roomId: availableRoom.id }),
             });
             if (res.ok) {
+              toast.success('Guest Checked In', `Room ${availableRoom.number} assigned.`);
               fetchReservations();
               if (selectedRes && selectedRes.id === id) {
                 setSelectedRes((prev) => (prev ? { ...prev, status: 'checked_in', roomNumber: availableRoom.number } : null));
               }
             }
           } catch (e: any) {
-            console.error(e);
+            toast.error('Check-in Error', e.message || 'Check in failed');
           }
         }}
         onCheckOut={async (id) => {
@@ -296,13 +301,14 @@ function ReservationsContent() {
               body: JSON.stringify({ force: true }),
             });
             if (res.ok) {
+              toast.success('Guest Checked Out', 'Reservation marked complete.');
               fetchReservations();
               if (selectedRes && selectedRes.id === id) {
                 setSelectedRes((prev) => (prev ? { ...prev, status: 'checked_out' } : null));
               }
             }
           } catch (e: any) {
-            console.error(e);
+            toast.error('Check-out Error', e.message || 'Check out failed');
           }
         }}
       />
@@ -310,7 +316,16 @@ function ReservationsContent() {
       <NewReservationDialog
         open={newResOpen}
         onOpenChange={setNewResOpen}
-        onCreateReservation={() => fetchReservations()}
+        onCreateReservation={(newRes) => {
+          fetchReservations();
+          setSuccessReservation(newRes);
+        }}
+      />
+
+      <ReservationSuccessModal
+        reservation={successReservation}
+        open={!!successReservation}
+        onClose={() => setSuccessReservation(null)}
       />
     </div>
   );

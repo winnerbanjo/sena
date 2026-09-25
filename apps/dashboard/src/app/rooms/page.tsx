@@ -136,10 +136,10 @@ export default function RoomsPage() {
         } catch {
           errMsg = `Server error (${res.status})`;
         }
-        alert(errMsg);
+        showToast(errMsg);
       }
     } catch (e: any) {
-      alert(e.message || 'Error saving room');
+      showToast(e.message || 'Error saving room');
     }
   }
 
@@ -173,10 +173,10 @@ export default function RoomsPage() {
         } catch {
           errMsg = `Server error (${res.status})`;
         }
-        alert(errMsg);
+        showToast(errMsg);
       }
     } catch (e: any) {
-      alert(e.message || 'Error saving category');
+      showToast(e.message || 'Error saving category');
     }
   }
 
@@ -190,7 +190,7 @@ export default function RoomsPage() {
           fetchRoomsData();
         }
       } catch (e: any) {
-        alert(e.message || 'Failed to delete room');
+        showToast(e.message || 'Failed to delete room');
       }
     }
   }
@@ -199,7 +199,7 @@ export default function RoomsPage() {
   function handleDeleteCategory(id: string, name: string) {
     const assignedCount = rooms.filter((r) => r.type === name).length;
     if (assignedCount > 0) {
-      alert(`Cannot delete category "${name}" because ${assignedCount} room(s) are currently assigned to it.`);
+      showToast(`Cannot delete "${name}" because ${assignedCount} room(s) are currently assigned to it.`);
       return;
     }
     if (confirm(`Delete room category "${name}"?`)) {

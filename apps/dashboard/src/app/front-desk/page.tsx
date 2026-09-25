@@ -13,8 +13,10 @@ import {
 import { type ReservationItem } from '../../components/mock-data';
 import { ReservationDrawer } from '../../components/reservation-drawer';
 import { Topbar } from '../../components/topbar';
+import { useToast } from '../../components/toast-notification';
 
 export default function FrontDeskPage() {
+  const toast = useToast();
   const [reservations, setReservations] = React.useState<ReservationItem[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [activeTab, setActiveTab] = React.useState<'arriving' | 'in_house' | 'departing'>('arriving');
@@ -70,7 +72,7 @@ export default function FrontDeskPage() {
       const roomData = await roomRes.json();
       const availableRoom = roomData.rooms?.find((rm: any) => (rm.operationalStatus || rm.operational) === 'available');
       if (!availableRoom) {
-        alert('No clean available room found in database to assign for check-in.');
+        toast.error('No clean rooms available', 'Please mark an inspected room as clean before checking in.');
         return;
       }
       const res = await fetch(`/api/reservations/${id}/check-in`, {
@@ -79,6 +81,7 @@ export default function FrontDeskPage() {
         body: JSON.stringify({ roomId: availableRoom.id }),
       });
       if (res.ok) {
+        toast.success('Guest Checked In', `Room ${availableRoom.roomNumber} assigned successfully.`);
         fetchReservations();
       } else {
         let errMsg = 'Failed to check in';
@@ -88,10 +91,10 @@ export default function FrontDeskPage() {
         } catch {
           errMsg = `Server error (${res.status})`;
         }
-        alert(errMsg);
+        toast.error('Check-in Failed', errMsg);
       }
     } catch (err: any) {
-      alert(err.message || 'Check in failed');
+      toast.error('Check-in Error', err.message || 'Check in failed');
     }
   }
 
@@ -112,6 +115,7 @@ export default function FrontDeskPage() {
         body: JSON.stringify({ force }),
       });
       if (res.ok) {
+        toast.success('Guest Checked Out', 'Reservation marked completed and room queued for housekeeping.');
         setCheckoutWarning(null);
         fetchReservations();
       } else {
@@ -122,10 +126,10 @@ export default function FrontDeskPage() {
         } catch {
           errMsg = `Server error (${res.status})`;
         }
-        alert(errMsg);
+        toast.error('Check-out Failed', errMsg);
       }
     } catch (err: any) {
-      alert(err.message || 'Check out failed');
+      toast.error('Check-out Error', err.message || 'Check out failed');
     }
   }
 

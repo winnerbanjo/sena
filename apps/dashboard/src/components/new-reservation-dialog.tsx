@@ -12,8 +12,8 @@ import {
   DialogTitle,
   Input,
   Label,
-} from '@sena/ui';
 import type { ReservationItem } from './mock-data';
+import { Loader2 } from 'lucide-react';
 
 interface NewReservationDialogProps {
   open: boolean;
@@ -156,7 +156,7 @@ export function NewReservationDialog({
         timeline: [
           {
             time: 'Just now',
-            text: `Reservation ${created.reference} created in PostgreSQL (${source})`,
+            text: `Reservation ${created.reference} confirmed (${source === 'walk_in' ? 'Walk-in' : 'Direct'})`,
             actor: 'Staff',
           },
         ],
@@ -324,7 +324,14 @@ export function NewReservationDialog({
               Cancel
             </Button>
             <Button type="submit" disabled={submitting} className="bg-[#71382D] hover:bg-[#5D2E25] text-white">
-              {submitting ? 'Creating in PostgreSQL...' : 'Create reservation'}
+              {submitting ? (
+                <span className="flex items-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Confirming reservation...
+                </span>
+              ) : (
+                'Create reservation'
+              )}
             </Button>
           </DialogFooter>
         </form>
