@@ -16,14 +16,19 @@ import {
   Save,
   CheckCircle2,
   Check,
-  AlertCircle
+  AlertCircle,
+  Download,
+  Smartphone,
+  RefreshCw
 } from 'lucide-react';
+import { usePwa } from '../../components/pwa-provider';
 
 export default function SettingsPage() {
   const [newResOpen, setNewResOpen] = React.useState(false);
   const [activeTab, setActiveTab] = React.useState<'general' | 'policies' | 'payments' | 'notifications' | 'subscription'>('general');
   const [billingCycle, setBillingCycle] = React.useState<'monthly' | 'yearly'>('monthly');
   const [saveSuccess, setSaveSuccess] = React.useState(false);
+  const { isInstallable, isInstalled, installApp, purgeAndLogout } = usePwa();
 
   // Form states
   const [propertyName, setPropertyName] = React.useState('Your Property');
@@ -279,6 +284,65 @@ export default function SettingsPage() {
                     disabled
                     className="w-full px-3 py-2 rounded border border-[#E8E2DA] bg-[#FAFAFA] text-xs text-[#7A7267]"
                   />
+                </div>
+              </div>
+
+              {/* Progressive Web App (PWA) Management */}
+              <div className="border-t border-[#E8E2DA] pt-5 mt-5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <h4 className="text-sm font-semibold text-[#191816] flex items-center gap-2">
+                      <Smartphone className="w-4 h-4 text-[#B85C3E]" />
+                      <span>Desktop & Mobile Application</span>
+                    </h4>
+                    <p className="text-xs text-[#7A7267] mt-0.5">
+                      Install Sena as a fast, standalone desktop or mobile app on macOS, Windows, iOS, and Android.
+                    </p>
+                  </div>
+                  {isInstalled ? (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-[#E8F5E9] text-[#2E7D32] self-start sm:self-auto">
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      Installed
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-[#FAF0EC] text-[#71382D] self-start sm:self-auto">
+                      Browser Mode
+                    </span>
+                  )}
+                </div>
+
+                <div className="mt-4 p-3 bg-[#FAF8F5] border border-[#E8E2DA] rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="text-xs text-[#7A7267] space-y-0.5">
+                    <p className="font-medium text-[#191816]">Real-Time Operational Safety</p>
+                    <p>
+                      Room rates, bookings, folios, and housekeeping are strictly synchronized with the live network to prevent double bookings.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    {isInstallable && (
+                      <Button
+                        type="button"
+                        onClick={installApp}
+                        className="flex items-center gap-1.5 text-xs bg-[#191816] text-white hover:bg-[#2D2B28]"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        <span>Install Sena App</span>
+                      </Button>
+                    )}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        if (confirm('Purge local application cache and reload fresh operational data?')) {
+                          purgeAndLogout();
+                        }
+                      }}
+                      className="flex items-center gap-1.5 text-xs text-[#71382D] border-[#E8E2DA] hover:bg-white"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5" />
+                      <span>Purge Cache</span>
+                    </Button>
+                  </div>
                 </div>
               </div>
             </div>

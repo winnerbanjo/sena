@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#191816" />
+  <title>Sena — Offline</title>
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      background-color: #FAF8F5;
+      color: #191816;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px 16px;
+      -webkit-font-smoothing: antialiased;
+    }
+    .card {
+      background: #FFFFFF;
+      border: 1px solid #E8E2DA;
+      border-radius: 16px;
+      max-width: 440px;
+      width: 100%;
+      padding: 36px 28px;
+      text-align: center;
+      box-shadow: 0 4px 20px -2px rgba(25, 24, 22, 0.05);
+    }
+    .badge-icon {
+      width: 52px;
+      height: 52px;
+      border-radius: 12px;
+      background: #FAF8F5;
+      border: 1px solid #E8E2DA;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 20px;
+      color: #B85C3E;
+    }
+    h1 {
+      font-size: 20px;
+      font-weight: 600;
+      color: #191816;
+      letter-spacing: -0.02em;
+      margin-bottom: 12px;
+    }
+    p {
+      font-size: 14px;
+      line-height: 1.6;
+      color: #7A7267;
+      margin-bottom: 24px;
+    }
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: #F5EFE9;
+      border: 1px solid #E8E2DA;
+      border-radius: 9999px;
+      padding: 6px 14px;
+      font-size: 12px;
+      font-weight: 500;
+      color: #71382D;
+      margin-bottom: 28px;
+    }
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #B85C3E;
+      animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
+    }
+    .actions {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      height: 44px;
+      background: #191816;
+      color: #FFFFFF;
+      font-size: 14px;
+      font-weight: 500;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.15s ease;
+      text-decoration: none;
+    }
+    .btn-primary:hover {
+      background: #2D2B28;
+    }
+    .btn-primary:active {
+      transform: scale(0.99);
+    }
+    .footer-note {
+      margin-top: 24px;
+      font-size: 11px;
+      color: #A39B90;
+      letter-spacing: 0.02em;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="badge-icon">
+      <!-- Wifi Off Icon -->
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="1" y1="1" x2="23" y2="23"></line>
+        <path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"></path>
+        <path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"></path>
+        <path d="M10.71 5.05A16 16 0 0 1 22.58 9"></path>
+        <path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"></path>
+        <path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path>
+        <line x1="12" y1="20" x2="12.01" y2="20"></line>
+      </svg>
+    </div>
+
+    <h1>Hotel Operations Paused</h1>
+    <p>
+      Sena operates live hotel infrastructure. To guarantee real-time room availability, prevent double bookings, and safeguard guest billing, live network connectivity is required.
+    </p>
+
+    <div class="status-pill">
+      <span class="status-dot" id="status-dot"></span>
+      <span id="status-text">Waiting for internet connection…</span>
+    </div>
+
+    <div class="actions">
+      <button class="btn-primary" id="retry-btn" onclick="retryConnection()">
+        Try Reconnecting
+      </button>
+    </div>
+
+    <div class="footer-note">
+      Sena Hospitality Operating System &bull; Live Protection Active
+    </div>
+  </div>
+
+  <script>
+    function updateOnlineStatus() {
+      const statusText = document.getElementById('status-text');
+      const statusDot = document.getElementById('status-dot');
+      if (navigator.onLine) {
+        statusText.textContent = 'Connection detected. Reconnecting…';
+        statusDot.style.background = '#2E7D32';
+        setTimeout(() => {
+          window.location.reload();
+        }, 600);
+      } else {
+        statusText.textContent = 'Waiting for internet connection…';
+        statusDot.style.background = '#B85C3E';
+      }
+    }
+
+    function retryConnection() {
+      const btn = document.getElementById('retry-btn');
+      btn.textContent = 'Checking…';
+      btn.disabled = true;
+      if (navigator.onLine) {
+        window.location.reload();
+      } else {
+        setTimeout(() => {
+          btn.textContent = 'Try Reconnecting';
+          btn.disabled = false;
+        }, 800);
+      }
+    }
+
+    window.addEventListener('online', updateOnlineStatus);
+    window.addEventListener('offline', updateOnlineStatus);
+  </script>
+</body>
+</html>

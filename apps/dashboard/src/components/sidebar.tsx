@@ -25,8 +25,10 @@ import {
   Star,
   Receipt,
   X,
+  Download,
 } from 'lucide-react';
 import { useMobileNav } from './dashboard-shell';
+import { usePwa } from './pwa-provider';
 
 interface NavSection {
   title?: string;
@@ -129,6 +131,8 @@ function SidebarNavItems({ onNavigate }: { onNavigate?: () => void }) {
     .map((w: string) => w[0]?.toUpperCase())
     .join('') || 'H';
 
+  const { isInstallable, installApp, purgeAndLogout } = usePwa();
+
   return (
     <>
       <div className="p-5 pb-2">
@@ -220,6 +224,20 @@ function SidebarNavItems({ onNavigate }: { onNavigate?: () => void }) {
         </nav>
       </div>
 
+      {/* PWA Install Button when prompt is available */}
+      {isInstallable && (
+        <div className="px-3 pb-2">
+          <button
+            type="button"
+            onClick={installApp}
+            className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-lg border border-[#E8E2DA] bg-[#FAF8F5] text-xs font-medium text-[#71382D] hover:bg-[#F5EFE9] hover:border-[#B85C3E]/40 transition-colors shadow-none cursor-pointer"
+          >
+            <Download className="w-3.5 h-3.5 text-[#B85C3E]" />
+            <span>Install Sena App</span>
+          </button>
+        </div>
+      )}
+
       {/* User profile footer */}
       <div className="p-3.5 border-t border-[#E8E2DA] bg-white mt-auto flex items-center justify-between gap-2">
         <div className="flex items-center gap-2.5 min-w-0">
@@ -236,14 +254,17 @@ function SidebarNavItems({ onNavigate }: { onNavigate?: () => void }) {
           </div>
         </div>
 
-        <Link
-          href="/login"
-          onClick={onNavigate}
-          title="Sign out"
-          className="p-1.5 text-[#7A7267] hover:text-[#B85C3E] hover:bg-[#FAF9F7] rounded transition-colors flex-shrink-0"
+        <button
+          type="button"
+          onClick={() => {
+            onNavigate?.();
+            purgeAndLogout();
+          }}
+          title="Sign out & Purge session"
+          className="p-1.5 text-[#7A7267] hover:text-[#B85C3E] hover:bg-[#FAF9F7] rounded transition-colors flex-shrink-0 cursor-pointer"
         >
           <LogOut className="w-3.5 h-3.5" />
-        </Link>
+        </button>
       </div>
     </>
   );

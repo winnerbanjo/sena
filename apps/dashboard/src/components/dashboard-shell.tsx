@@ -7,6 +7,8 @@ import { CommandPalette } from './command-palette';
 import { NotificationsPopover } from './notifications-popover';
 import { NewReservationDialog } from './new-reservation-dialog';
 import { type ReservationItem } from './mock-data';
+import { PwaProvider } from './pwa-provider';
+import { NetworkStatusBanner } from './network-status';
 
 interface DashboardContextType {
   // Mobile Nav
@@ -131,57 +133,60 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <DashboardContext.Provider
-      value={{
-        isOpen,
-        openMobileNav: () => setIsOpen(true),
-        closeMobileNav: () => setIsOpen(false),
-        toggleMobileNav: () => setIsOpen((prev) => !prev),
+    <PwaProvider>
+      <DashboardContext.Provider
+        value={{
+          isOpen,
+          openMobileNav: () => setIsOpen(true),
+          closeMobileNav: () => setIsOpen(false),
+          toggleMobileNav: () => setIsOpen((prev) => !prev),
 
-        isSearchOpen,
-        openSearch: () => setIsSearchOpen(true),
-        closeSearch: () => setIsSearchOpen(false),
-        toggleSearch: () => setIsSearchOpen((prev) => !prev),
+          isSearchOpen,
+          openSearch: () => setIsSearchOpen(true),
+          closeSearch: () => setIsSearchOpen(false),
+          toggleSearch: () => setIsSearchOpen((prev) => !prev),
 
-        isNotificationsOpen,
-        openNotifications: () => setIsNotificationsOpen(true),
-        closeNotifications: () => setIsNotificationsOpen(false),
-        toggleNotifications: () => setIsNotificationsOpen((prev) => !prev),
+          isNotificationsOpen,
+          openNotifications: () => setIsNotificationsOpen(true),
+          closeNotifications: () => setIsNotificationsOpen(false),
+          toggleNotifications: () => setIsNotificationsOpen((prev) => !prev),
 
-        isNewResOpen,
-        openNewReservation: () => setIsNewResOpen(true),
-        closeNewReservation: () => setIsNewResOpen(false),
-      }}
-    >
-      <div className="flex h-screen overflow-hidden bg-white w-full">
-        <Sidebar />
-        <div className="flex-1 flex flex-col h-screen overflow-hidden bg-white min-w-0">
-          {children}
-        </div>
-      </div>
-
-      {/* Global Command Palette */}
-      <CommandPalette
-        open={isSearchOpen}
-        onClose={() => setIsSearchOpen(false)}
-        onOpenNewReservation={() => setIsNewResOpen(true)}
-      />
-
-      {/* Global Notifications Popover */}
-      <NotificationsPopover
-        open={isNotificationsOpen}
-        onClose={() => setIsNotificationsOpen(false)}
-      />
-
-      {/* Global New Reservation Dialog */}
-      <NewReservationDialog
-        open={isNewResOpen}
-        onOpenChange={setIsNewResOpen}
-        onCreateReservation={(newRes: ReservationItem) => {
-          setIsNewResOpen(false);
-          alert(`Reservation ${newRes.reference} created successfully for ${newRes.guestName}!`);
+          isNewResOpen,
+          openNewReservation: () => setIsNewResOpen(true),
+          closeNewReservation: () => setIsNewResOpen(false),
         }}
-      />
-    </DashboardContext.Provider>
+      >
+        <div className="flex h-screen overflow-hidden bg-white w-full">
+          <Sidebar />
+          <div className="flex-1 flex flex-col h-screen overflow-hidden bg-white min-w-0">
+            <NetworkStatusBanner />
+            {children}
+          </div>
+        </div>
+
+        {/* Global Command Palette */}
+        <CommandPalette
+          open={isSearchOpen}
+          onClose={() => setIsSearchOpen(false)}
+          onOpenNewReservation={() => setIsNewResOpen(true)}
+        />
+
+        {/* Global Notifications Popover */}
+        <NotificationsPopover
+          open={isNotificationsOpen}
+          onClose={() => setIsNotificationsOpen(false)}
+        />
+
+        {/* Global New Reservation Dialog */}
+        <NewReservationDialog
+          open={isNewResOpen}
+          onOpenChange={setIsNewResOpen}
+          onCreateReservation={(newRes: ReservationItem) => {
+            setIsNewResOpen(false);
+            alert(`Reservation ${newRes.reference} created successfully for ${newRes.guestName}!`);
+          }}
+        />
+      </DashboardContext.Provider>
+    </PwaProvider>
   );
 }
