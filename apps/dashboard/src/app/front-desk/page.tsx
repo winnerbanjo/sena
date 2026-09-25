@@ -81,8 +81,14 @@ export default function FrontDeskPage() {
       if (res.ok) {
         fetchReservations();
       } else {
-        const err = await res.json();
-        alert(err.error || 'Failed to check in');
+        let errMsg = 'Failed to check in';
+        try {
+          const err = await res.json();
+          if (err.error) errMsg = err.error;
+        } catch {
+          errMsg = `Server error (${res.status})`;
+        }
+        alert(errMsg);
       }
     } catch (err: any) {
       alert(err.message || 'Check in failed');
@@ -109,8 +115,14 @@ export default function FrontDeskPage() {
         setCheckoutWarning(null);
         fetchReservations();
       } else {
-        const err = await res.json();
-        alert(err.error || 'Failed to check out');
+        let errMsg = 'Failed to check out';
+        try {
+          const err = await res.json();
+          if (err.error) errMsg = err.error;
+        } catch {
+          errMsg = `Server error (${res.status})`;
+        }
+        alert(errMsg);
       }
     } catch (err: any) {
       alert(err.message || 'Check out failed');

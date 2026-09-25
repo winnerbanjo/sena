@@ -36,6 +36,11 @@ export async function GET(req: NextRequest) {
     }
 
     if (!propertyId) {
+      const firstProp = await db.query.properties.findFirst();
+      if (firstProp) propertyId = firstProp.id;
+    }
+
+    if (!propertyId) {
       return NextResponse.json({ reservations: [] });
     }
 
@@ -130,6 +135,11 @@ export async function POST(req: NextRequest) {
           }
         }
       }
+    }
+
+    if (!propertyId) {
+      const firstProp = await db.query.properties.findFirst();
+      if (firstProp) propertyId = firstProp.id;
     }
 
     if (!propertyId) {

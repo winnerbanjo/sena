@@ -28,15 +28,28 @@ interface RoomTypeOption {
   available: number;
 }
 
+const DEFAULT_ROOM_OPTIONS: RoomTypeOption[] = [
+  { id: 'standard', name: 'Standard Room', price: 5000000, available: 4 },
+  { id: 'deluxe', name: 'Deluxe Suite', price: 7500000, available: 2 },
+  { id: 'executive', name: 'Executive Suite', price: 12000000, available: 1 },
+];
+
 export function NewReservationDialog({
   open,
   onOpenChange,
   onCreateReservation,
 }: NewReservationDialogProps) {
-  const [checkIn, setCheckIn] = React.useState('2026-09-24');
-  const [checkOut, setCheckOut] = React.useState('2026-09-27');
-  const [roomOptions, setRoomOptions] = React.useState<RoomTypeOption[]>([]);
-  const [selectedRoomId, setSelectedRoomId] = React.useState<string>('');
+  const getTodayStr = () => new Date().toISOString().split('T')[0];
+  const getTomorrowStr = () => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    return d.toISOString().split('T')[0];
+  };
+
+  const [checkIn, setCheckIn] = React.useState(getTodayStr());
+  const [checkOut, setCheckOut] = React.useState(getTomorrowStr());
+  const [roomOptions, setRoomOptions] = React.useState<RoomTypeOption[]>(DEFAULT_ROOM_OPTIONS);
+  const [selectedRoomId, setSelectedRoomId] = React.useState<string>(DEFAULT_ROOM_OPTIONS[0].id);
   const [guestName, setGuestName] = React.useState('');
   const [guestPhone, setGuestPhone] = React.useState('');
   const [guestEmail, setGuestEmail] = React.useState('');
@@ -47,10 +60,13 @@ export function NewReservationDialog({
 
   React.useEffect(() => {
     if (open) {
+      setCheckIn(getTodayStr());
+      setCheckOut(getTomorrowStr());
+
       fetch('/api/rooms')
-        .then((res) => res.json())
+        .then((res) => (res.ok ? res.json() : null))
         .then((data) => {
-          if (data.roomTypes && data.roomTypes.length > 0) {
+          if (data && data.roomTypes && data.roomTypes.length > 0) {
             const mapped = data.roomTypes.map((rt: any) => ({
               id: rt.id,
               name: rt.name,
@@ -58,18 +74,18 @@ export function NewReservationDialog({
               available: rt.totalInventory || 1,
             }));
             setRoomOptions(mapped);
-            setSelectedRoomId(mapped[0].id);
+            setSelectedRoomId((prev) => (mapped.some((m: any) => m.id === prev) ? prev : mapped[0].id));
           }
         })
-        .catch(console.error);
+        .catch(() => {});
     }
   }, [open]);
 
-  const nights = calculateNights(checkIn, checkOut);
+  const nights = Math.max(1, calculateNights(checkIn, checkOut));
   const selectedRoomObj = roomOptions.find((r) => r.id === selectedRoomId) || roomOptions[0] || {
     id: 'default',
     name: 'Standard Room',
-    price: 8500000,
+    price: 5000000,
     available: 1,
   };
   const totalAmountMinorUnits = selectedRoomObj.price * nights;
@@ -102,11 +118,22 @@ export function NewReservationDialog({
       });
 
       if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || 'Failed to create reservation');
+        let errMsg = 'Failed to create reservation';
+        try {
+          const err = await res.json();
+          if (err.error) errMsg = err.error;
+        } catch {
+          errMsg = `Server error (${res.status})`;
+        }
+        throw new Error(errMsg);
       }
 
-      const data = await res.json();
+      let data: any = {};
+      try {
+        data = await res.json();
+      } catch {
+        data = {};
+      }
       const created = data.reservation;
 
       onCreateReservation({
@@ -186,8 +213,8 @@ export function NewReservationDialog({
               <Label>Room Category</Label>
               <div className="grid grid-cols-3 gap-2">
                 {roomOptions.length === 0 ? (
-                  <div className="col-span-3 text-xs text-[#7A7267] p-2 bg-[#FAFAFA] rounded border border-[#E8E2DA]">
-                    Loading categories from PostgreSQL...
+                  <div className="col-span-3 text-xs text-[#7A7267] p-2.5 bg-[#FAFAFA] rounded border border-[#E8E2DA] flex items-center justify-center">
+                    Loading available room categories...
                   </div>
                 ) : (
                   roomOptions.map((rm) => (

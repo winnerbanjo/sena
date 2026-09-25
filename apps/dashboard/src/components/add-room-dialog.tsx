@@ -11,7 +11,7 @@ import {
   DialogTitle,
   Input,
 } from '@sena/ui';
-import { Plus } from 'lucide-react';
+import { Plus, Upload, Image as ImageIcon, X } from 'lucide-react';
 import type { RoomCategory, RoomItem } from './mock-data';
 
 interface AddRoomDialogProps {
@@ -25,6 +25,13 @@ interface AddRoomDialogProps {
 }
 
 const DEFAULT_FLOORS = ['Floor 1', 'Floor 2', 'Floor 3', 'Floor 4', 'Ground Floor', 'Penthouse'];
+
+const ROOM_PRESET_IMAGES = [
+  { label: 'King Suite', url: 'https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&w=800&q=80' },
+  { label: 'Deluxe Room', url: 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=800&q=80' },
+  { label: 'Executive Suite', url: 'https://images.unsplash.com/photo-1618773928121-c32242e63f39?auto=format&fit=crop&w=800&q=80' },
+  { label: 'Standard Room', url: 'https://images.unsplash.com/photo-1566665797739-1674de7a421a?auto=format&fit=crop&w=800&q=80' },
+];
 
 export function AddRoomDialog({
   open,
@@ -40,7 +47,10 @@ export function AddRoomDialog({
   const [floor, setFloor] = React.useState('Floor 1');
   const [operational, setOperational] = React.useState<'available' | 'occupied' | 'maintenance'>('available');
   const [housekeeping, setHousekeeping] = React.useState<'clean' | 'cleaning' | 'dirty' | 'inspection'>('clean');
+  const [imageUrl, setImageUrl] = React.useState('');
+  const [uploading, setUploading] = React.useState(false);
   const [error, setError] = React.useState('');
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   // Update type if defaultCategory changes or dialog opens
   React.useEffect(() => {
@@ -48,6 +58,8 @@ export function AddRoomDialog({
       setType(defaultCategory);
     } else if (categories.length > 0 && !categories.some((c) => c.name === type)) {
       setType(categories[0].name);
+    } else if (categories.length === 0) {
+      setType('Deluxe Room');
     }
   }, [defaultCategory, categories, open]);
 
@@ -64,6 +76,51 @@ export function AddRoomDialog({
     }
   }
 
+  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    setError('');
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.url) {
+          setImageUrl(data.url);
+        }
+      } else {
+        // Fallback: use FileReader for immediate local data URL
+        const reader = new FileReader();
+        reader.onload = () => {
+          if (typeof reader.result === 'string') {
+            setImageUrl(reader.result);
+          }
+        };
+        reader.readAsDataURL(file);
+      }
+    } catch {
+      // Fallback to local data URL preview
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (typeof reader.result === 'string') {
+          setImageUrl(reader.result);
+        }
+      };
+      reader.readAsDataURL(file);
+    } finally {
+      setUploading(false);
+    }
+  }
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const trimmedNumber = number.trim();
@@ -77,18 +134,16 @@ export function AddRoomDialog({
       return;
     }
 
-    if (!type) {
-      setError('Please select a room category.');
-      return;
-    }
+    const resolvedType = type || (categories[0]?.name || 'Deluxe Room');
 
     const newRoom: RoomItem = {
       id: `rm-${trimmedNumber.toLowerCase().replace(/\s+/g, '-')}-${Date.now().toString().slice(-4)}`,
       number: trimmedNumber,
-      type,
+      type: resolvedType,
       floor,
       operational,
       housekeeping,
+      imageUrl: imageUrl.trim() || undefined,
     };
 
     onAddRoom(newRoom);
@@ -96,18 +151,19 @@ export function AddRoomDialog({
 
     // Reset form
     setNumber('');
+    setImageUrl('');
     setError('');
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="font-serif text-xl sm:text-2xl text-[#191816]">
             Add New Room
           </DialogTitle>
           <DialogDescription className="text-xs text-[#7A7267]">
-            Register a physical room in your hotel inventory.
+            Register a physical room in your hotel inventory with photo and details.
           </DialogDescription>
         </DialogHeader>
 
@@ -124,7 +180,7 @@ export function AddRoomDialog({
                 Room Number <span className="text-[#B85C3E]">*</span>
               </label>
               <Input
-                placeholder="e.g. 107, 206, PH-01"
+                placeholder="e.g. 101, 204, PH-01"
                 value={number}
                 onChange={(e) => handleNumberChange(e.target.value)}
                 required
@@ -169,12 +225,84 @@ export function AddRoomDialog({
               onChange={(e) => setType(e.target.value)}
               className="w-full h-9 rounded border border-[#E8E2DA] bg-white px-2.5 text-xs text-[#191816] focus:outline-none focus:ring-1 focus:ring-[#B85C3E]"
             >
-              {categories.map((c) => (
-                <option key={c.id} value={c.name}>
-                  {c.name} ({c.bedType} · ₦{(c.baseRateMinorUnits / 100).toLocaleString()}/night)
-                </option>
-              ))}
+              {categories.length > 0 ? (
+                categories.map((c) => (
+                  <option key={c.id} value={c.name}>
+                    {c.name} ({c.bedType} · ₦{(c.baseRateMinorUnits / 100).toLocaleString()}/night)
+                  </option>
+                ))
+              ) : (
+                <>
+                  <option value="Deluxe Room">Deluxe Room (1 King Bed · ₦75,000/night)</option>
+                  <option value="Executive Suite">Executive Suite (1 King Bed · ₦120,000/night)</option>
+                  <option value="Standard Room">Standard Room (1 Queen Bed · ₦50,000/night)</option>
+                </>
+              )}
             </select>
+          </div>
+
+          {/* Room Image Upload & Selection */}
+          <div className="space-y-1.5 pt-1">
+            <label className="font-medium text-[#191816] flex items-center justify-between">
+              <span>Room Image / Photo</span>
+              {uploading && <span className="text-[10px] text-[#B85C3E] animate-pulse">Uploading photo...</span>}
+            </label>
+
+            {imageUrl ? (
+              <div className="relative rounded-lg overflow-hidden border border-[#E8E2DA] h-32 w-full group">
+                <img
+                  src={imageUrl}
+                  alt="Room preview"
+                  className="w-full h-full object-cover"
+                />
+                <button
+                  type="button"
+                  onClick={() => setImageUrl('')}
+                  className="absolute top-2 right-2 p-1 rounded-full bg-black/60 text-white hover:bg-black transition-colors"
+                  title="Remove image"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <div
+                  onClick={() => fileInputRef.current?.click()}
+                  className="border-2 border-dashed border-[#E8E2DA] hover:border-[#B85C3E] rounded-lg p-3 text-center cursor-pointer bg-[#FAF8F5] transition-colors"
+                >
+                  <ImageIcon className="w-6 h-6 text-[#7A7267] mx-auto mb-1" />
+                  <p className="text-xs font-medium text-[#191816]">Upload Room Photo</p>
+                  <p className="text-[10px] text-[#7A7267]">Click to select PNG, JPG or WEBP</p>
+                </div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                />
+
+                {/* Quick Presets */}
+                <div>
+                  <span className="text-[10px] text-[#7A7267] block mb-1">Or choose a preset room photo:</span>
+                  <div className="grid grid-cols-4 gap-1.5">
+                    {ROOM_PRESET_IMAGES.map((p, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => setImageUrl(p.url)}
+                        className="rounded border border-[#E8E2DA] overflow-hidden hover:border-[#B85C3E] transition-all text-left"
+                      >
+                        <img src={p.url} alt={p.label} className="w-full h-10 object-cover" />
+                        <span className="block text-[9px] text-[#7A7267] p-0.5 truncate text-center">
+                          {p.label}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-3 pt-1">
@@ -215,7 +343,7 @@ export function AddRoomDialog({
             >
               Cancel
             </Button>
-            <Button type="submit" className="text-xs">
+            <Button type="submit" className="text-xs" disabled={uploading}>
               <Plus className="w-3.5 h-3.5 mr-1" />
               Add Room
             </Button>

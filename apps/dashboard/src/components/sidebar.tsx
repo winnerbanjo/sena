@@ -239,6 +239,7 @@ function SidebarNavItems({ onNavigate }: { onNavigate?: () => void }) {
                     <Link
                       key={item.href}
                       href={item.href}
+                      prefetch={true}
                       onClick={onNavigate}
                       className={`flex items-center justify-between px-2.5 py-1.5 rounded text-[13px] font-medium transition-colors ${
                         isActive

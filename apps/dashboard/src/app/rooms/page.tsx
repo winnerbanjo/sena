@@ -45,16 +45,37 @@ export default function RoomsPage() {
     try {
       const res = await fetch('/api/rooms');
       if (res.ok) {
-        const data = await res.json();
+        let data: any = {};
+        try {
+          data = await res.json();
+        } catch {
+          data = {};
+        }
+
         if (data.rooms && data.roomTypes) {
-          const mappedRooms: RoomItem[] = data.rooms.map((r: any) => ({
-            id: r.id,
-            number: r.roomNumber,
-            type: r.roomTypeName,
-            floor: r.floor || 'Floor 1',
-            operational: r.operationalStatus || 'available',
-            housekeeping: r.housekeepingStatus || 'clean',
-          }));
+          const mappedRooms: RoomItem[] = data.rooms.map((r: any) => {
+            let img = '';
+            if (r.notes) {
+              try {
+                const parsed = JSON.parse(r.notes);
+                if (parsed?.imageUrl) img = parsed.imageUrl;
+              } catch {}
+            }
+            if (!img && r.categoryImages && r.categoryImages.length > 0) {
+              img = r.categoryImages[0];
+            }
+
+            return {
+              id: r.id,
+              number: r.roomNumber,
+              type: r.roomTypeName,
+              floor: r.floor || 'Floor 1',
+              operational: r.operationalStatus || 'available',
+              housekeeping: r.housekeepingStatus || 'clean',
+              imageUrl: img || undefined,
+            };
+          });
+
           const mappedCats: RoomCategory[] = data.roomTypes.map((rt: any) => ({
             id: rt.id,
             name: rt.name,
@@ -64,7 +85,10 @@ export default function RoomsPage() {
             maxGuests: rt.capacity || 2,
             amenities: rt.amenities || [],
             description: rt.description || '',
+            imageUrl: rt.images?.[0] || undefined,
+            images: rt.images || [],
           }));
+
           setRooms(mappedRooms);
           setCategories(mappedCats);
         }
@@ -97,14 +121,22 @@ export default function RoomsPage() {
           roomNumber: newRoom.number,
           roomTypeId: matchedCategory?.id,
           floor: newRoom.floor,
+          imageUrl: newRoom.imageUrl,
         }),
       });
+
       if (res.ok) {
         showToast(`Room ${newRoom.number} added to inventory successfully!`);
         fetchRoomsData();
       } else {
-        const err = await res.json();
-        alert(err.error || 'Failed to add room');
+        let errMsg = 'Failed to add room';
+        try {
+          const err = await res.json();
+          if (err.error) errMsg = err.error;
+        } catch {
+          errMsg = `Server error (${res.status})`;
+        }
+        alert(errMsg);
       }
     } catch (e: any) {
       alert(e.message || 'Error saving room');
@@ -125,14 +157,23 @@ export default function RoomsPage() {
           description: newCategory.description,
           capacity: newCategory.maxGuests,
           amenities: newCategory.amenities,
+          imageUrl: newCategory.imageUrl,
+          images: newCategory.images,
         }),
       });
+
       if (res.ok) {
         showToast(`Category "${newCategory.name}" created! You can now add rooms to it.`);
         fetchRoomsData();
       } else {
-        const err = await res.json();
-        alert(err.error || 'Failed to add category');
+        let errMsg = 'Failed to add category';
+        try {
+          const err = await res.json();
+          if (err.error) errMsg = err.error;
+        } catch {
+          errMsg = `Server error (${res.status})`;
+        }
+        alert(errMsg);
       }
     } catch (e: any) {
       alert(e.message || 'Error saving category');
@@ -403,7 +444,7 @@ export default function RoomsPage() {
                           return (
                             <div
                               key={room.id}
-                              className={`bg-white border rounded-lg p-4 transition-all hover:shadow-xs group relative flex flex-col justify-between space-y-3 ${
+                              className={`bg-white border rounded-lg p-4 transition-all hover:shadow-xs group relative flex flex-col justify-between space-y-3 overflow-hidden ${
                                 isOccupied
                                   ? 'border-[#E8E2DA] bg-[#FAF9F6]/50'
                                   : isDirty
@@ -411,6 +452,15 @@ export default function RoomsPage() {
                                   : 'border-[#E8E2DA]'
                               }`}
                             >
+                              {room.imageUrl && (
+                                <div className="h-28 -mx-4 -mt-4 mb-1 overflow-hidden relative bg-[#FAF9F6]">
+                                  <img
+                                    src={room.imageUrl}
+                                    alt={`Room ${room.number}`}
+                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                  />
+                                </div>
+                              )}
                               <div>
                                 <div className="flex items-center justify-between mb-1">
                                   <div className="flex items-center gap-2">
@@ -508,8 +558,17 @@ export default function RoomsPage() {
                 return (
                   <div
                     key={category.id}
-                    className="bg-white border border-[#E8E2DA] rounded-md p-5 flex flex-col justify-between space-y-4 hover:border-[#B85C3E]/50 transition-all shadow-none group"
+                    className="bg-white border border-[#E8E2DA] rounded-md p-5 flex flex-col justify-between space-y-4 hover:border-[#B85C3E]/50 transition-all shadow-none group overflow-hidden"
                   >
+                    {category.imageUrl && (
+                      <div className="h-32 -mx-5 -mt-5 mb-2 overflow-hidden relative bg-[#FAF9F6]">
+                        <img
+                          src={category.imageUrl}
+                          alt={category.name}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        />
+                      </div>
+                    )}
                     <div className="space-y-3">
                       <div className="flex items-start justify-between gap-2">
                         <div>

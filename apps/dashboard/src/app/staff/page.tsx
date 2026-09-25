@@ -155,7 +155,12 @@ export default function StaffPage() {
         }),
       });
 
-      const data = await res.json();
+      let data: any = {};
+      try {
+        data = await res.json();
+      } catch {
+        data = {};
+      }
 
       if (res.ok && data.success) {
         setBanner({
@@ -174,7 +179,7 @@ export default function StaffPage() {
         setInvitePhone('');
       } else {
         setBanner({
-          text: data.error || 'Failed to dispatch staff invitation email.',
+          text: data.error || (res.status >= 500 ? 'Server is temporarily unavailable. Please try again shortly.' : 'Failed to dispatch staff invitation email.'),
           type: 'error',
         });
       }
@@ -203,7 +208,13 @@ export default function StaffPage() {
         }),
       });
 
-      const data = await res.json();
+      let data: any = {};
+      try {
+        data = await res.json();
+      } catch {
+        data = {};
+      }
+
       if (res.ok && data.success) {
         setBanner({
           text: `Invitation email re-sent successfully to ${member.email}!`,
@@ -211,7 +222,7 @@ export default function StaffPage() {
         });
       } else {
         setBanner({
-          text: data.error || 'Failed to resend invitation email',
+          text: data.error || (res.status >= 500 ? 'Server is temporarily unavailable. Please try again shortly.' : 'Failed to resend invitation email'),
           type: 'error',
         });
       }

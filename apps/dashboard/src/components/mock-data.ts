@@ -27,6 +27,8 @@ export interface RoomCategory {
   bedType: string;
   description: string;
   amenities: string[];
+  imageUrl?: string;
+  images?: string[];
 }
 
 export interface RoomItem {
@@ -36,4 +38,5 @@ export interface RoomItem {
   floor: string;
   operational: 'available' | 'occupied' | 'maintenance';
   housekeeping: 'clean' | 'cleaning' | 'dirty' | 'inspection';
+  imageUrl?: string;
 }

@@ -11,7 +11,7 @@ import {
   DialogTitle,
   Input,
 } from '@sena/ui';
-import { Check, Plus } from 'lucide-react';
+import { Check, Plus, Upload, Image as ImageIcon, X } from 'lucide-react';
 import type { RoomCategory } from './mock-data';
 
 interface AddCategoryDialogProps {
@@ -35,6 +35,13 @@ const COMMON_AMENITIES = [
   'Butler Service',
 ];
 
+const CATEGORY_PRESET_IMAGES = [
+  { label: 'King Suite', url: 'https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&w=800&q=80' },
+  { label: 'Deluxe Room', url: 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=800&q=80' },
+  { label: 'Executive Suite', url: 'https://images.unsplash.com/photo-1618773928121-c32242e63f39?auto=format&fit=crop&w=800&q=80' },
+  { label: 'Standard Room', url: 'https://images.unsplash.com/photo-1566665797739-1674de7a421a?auto=format&fit=crop&w=800&q=80' },
+];
+
 export function AddCategoryDialog({
   open,
   onOpenChange,
@@ -46,12 +53,15 @@ export function AddCategoryDialog({
   const [maxGuests, setMaxGuests] = React.useState('2');
   const [bedType, setBedType] = React.useState('1 King Bed');
   const [description, setDescription] = React.useState('');
+  const [imageUrl, setImageUrl] = React.useState('');
+  const [uploading, setUploading] = React.useState(false);
   const [selectedAmenities, setSelectedAmenities] = React.useState<string[]>([
     'High-speed Wi-Fi',
     'Air Conditioning',
     'Smart TV',
   ]);
   const [error, setError] = React.useState('');
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   // Auto-generate a 3-character code when name changes if code is untouched
   function handleNameChange(val: string) {
@@ -70,6 +80,49 @@ export function AddCategoryDialog({
         ? prev.filter((a) => a !== amenity)
         : [...prev, amenity]
     );
+  }
+
+  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    setError('');
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.url) {
+          setImageUrl(data.url);
+        }
+      } else {
+        const reader = new FileReader();
+        reader.onload = () => {
+          if (typeof reader.result === 'string') {
+            setImageUrl(reader.result);
+          }
+        };
+        reader.readAsDataURL(file);
+      }
+    } catch {
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (typeof reader.result === 'string') {
+          setImageUrl(reader.result);
+        }
+      };
+      reader.readAsDataURL(file);
+    } finally {
+      setUploading(false);
+    }
   }
 
   function handleSubmit(e: React.FormEvent) {
@@ -94,6 +147,8 @@ export function AddCategoryDialog({
       bedType: bedType.trim() || '1 King Bed',
       description: description.trim() || 'Comfortable and elegantly appointed room.',
       amenities: selectedAmenities,
+      imageUrl: imageUrl.trim() || undefined,
+      images: imageUrl.trim() ? [imageUrl.trim()] : [],
     };
 
     onAddCategory(newCategory);
@@ -104,6 +159,7 @@ export function AddCategoryDialog({
     setCode('');
     setRateNaira('');
     setDescription('');
+    setImageUrl('');
     setError('');
   }
 
@@ -115,7 +171,7 @@ export function AddCategoryDialog({
             Add Room Category
           </DialogTitle>
           <DialogDescription className="text-xs text-[#7A7267]">
-            Define a tier or room class with its nightly rate, bedding setup, and amenities.
+            Define a tier or room class with photo, nightly rate, bedding setup, and amenities.
           </DialogDescription>
         </DialogHeader>
 
@@ -132,7 +188,7 @@ export function AddCategoryDialog({
                 Category Name <span className="text-[#B85C3E]">*</span>
               </label>
               <Input
-                placeholder="e.g. Deluxe Room, Penthouse Suite"
+                placeholder="e.g. Deluxe Suite, Executive King"
                 value={name}
                 onChange={(e) => handleNameChange(e.target.value)}
                 required
@@ -141,15 +197,13 @@ export function AddCategoryDialog({
             </div>
 
             <div className="space-y-1">
-              <label className="font-medium text-[#191816]">
-                Code / Short ID
-              </label>
+              <label className="font-medium text-[#191816]">Short Code</label>
               <Input
-                placeholder="e.g. DLX, PHS"
+                placeholder="e.g. DLX, EXE"
                 value={code}
                 onChange={(e) => setCode(e.target.value.toUpperCase())}
                 maxLength={5}
-                className="h-9 text-xs font-mono"
+                className="h-9 text-xs font-mono uppercase"
               />
             </div>
           </div>
@@ -157,17 +211,21 @@ export function AddCategoryDialog({
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="space-y-1">
               <label className="font-medium text-[#191816]">
-                Base Rate / Night (₦) <span className="text-[#B85C3E]">*</span>
+                Nightly Rate (NGN) <span className="text-[#B85C3E]">*</span>
               </label>
-              <Input
-                type="number"
-                placeholder="e.g. 85000"
-                value={rateNaira}
-                onChange={(e) => setRateNaira(e.target.value)}
-                required
-                min="1000"
-                className="h-9 text-xs"
-              />
+              <div className="relative">
+                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-[#7A7267] font-semibold">
+                  ₦
+                </span>
+                <Input
+                  type="text"
+                  placeholder="75,000"
+                  value={rateNaira}
+                  onChange={(e) => setRateNaira(e.target.value)}
+                  required
+                  className="pl-6 h-9 text-xs font-semibold"
+                />
+              </div>
             </div>
 
             <div className="space-y-1">
@@ -207,6 +265,70 @@ export function AddCategoryDialog({
             />
           </div>
 
+          {/* Category Image Upload & Selection */}
+          <div className="space-y-1.5 pt-1">
+            <label className="font-medium text-[#191816] flex items-center justify-between">
+              <span>Category Photo</span>
+              {uploading && <span className="text-[10px] text-[#B85C3E] animate-pulse">Uploading photo...</span>}
+            </label>
+
+            {imageUrl ? (
+              <div className="relative rounded-lg overflow-hidden border border-[#E8E2DA] h-28 w-full group">
+                <img
+                  src={imageUrl}
+                  alt="Category preview"
+                  className="w-full h-full object-cover"
+                />
+                <button
+                  type="button"
+                  onClick={() => setImageUrl('')}
+                  className="absolute top-2 right-2 p-1 rounded-full bg-black/60 text-white hover:bg-black transition-colors"
+                  title="Remove image"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <div
+                  onClick={() => fileInputRef.current?.click()}
+                  className="border-2 border-dashed border-[#E8E2DA] hover:border-[#B85C3E] rounded-lg p-3 text-center cursor-pointer bg-[#FAF8F5] transition-colors"
+                >
+                  <ImageIcon className="w-6 h-6 text-[#7A7267] mx-auto mb-1" />
+                  <p className="text-xs font-medium text-[#191816]">Upload Category Photo</p>
+                  <p className="text-[10px] text-[#7A7267]">Click to select PNG, JPG or WEBP</p>
+                </div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                />
+
+                {/* Quick Presets */}
+                <div>
+                  <span className="text-[10px] text-[#7A7267] block mb-1">Or choose a preset category photo:</span>
+                  <div className="grid grid-cols-4 gap-1.5">
+                    {CATEGORY_PRESET_IMAGES.map((p, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => setImageUrl(p.url)}
+                        className="rounded border border-[#E8E2DA] overflow-hidden hover:border-[#B85C3E] transition-all text-left"
+                      >
+                        <img src={p.url} alt={p.label} className="w-full h-10 object-cover" />
+                        <span className="block text-[9px] text-[#7A7267] p-0.5 truncate text-center">
+                          {p.label}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* Amenities Selection */}
           <div className="space-y-2 pt-1">
             <label className="font-medium text-[#191816] block">
@@ -243,7 +365,7 @@ export function AddCategoryDialog({
             >
               Cancel
             </Button>
-            <Button type="submit" className="text-xs">
+            <Button type="submit" className="text-xs" disabled={uploading}>
               <Plus className="w-3.5 h-3.5 mr-1" />
               Save Category
             </Button>
