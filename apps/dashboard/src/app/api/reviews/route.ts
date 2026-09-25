@@ -140,14 +140,34 @@ export async function PATCH(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { reviewId, status, response } = body;
+    const { reviewId, status, response, hiddenReason, reason } = body;
 
     if (!reviewId) {
       return NextResponse.json({ error: 'Review ID required' }, { status: 400 });
     }
 
+    const effectiveReason = (hiddenReason || reason || '').trim();
+
+    const isHiding = status === 'hidden' || status === 'hidden_for_policy';
+
+    if (isHiding && !effectiveReason) {
+      return NextResponse.json(
+        { error: 'A moderation reason is strictly required when hiding a guest review (e.g. defamation, profanity, spam, unverified false claim).' },
+        { status: 400 }
+      );
+    }
+
     const updates: any = { updatedAt: new Date() };
-    if (status) updates.status = status;
+    if (status) {
+      updates.status = status;
+      if (isHiding) {
+        updates.hiddenReason = effectiveReason;
+        updates.moderatedBy = session?.user?.name || session?.user?.email || 'Staff';
+        updates.moderatedAt = new Date();
+      } else if (status === 'published') {
+        updates.hiddenReason = null;
+      }
+    }
     if (response !== undefined) {
       updates.response = response ? response.trim() : null;
       updates.responseAt = response ? new Date() : null;

@@ -8,6 +8,7 @@
     "lint": "turbo run lint",
     "check-types": "turbo run check-types",
     "format": "prettier --write \"**/*.{ts,tsx,md,json}\"",
+    "test:release": "tsx scripts/test-release.ts",
     "clean": "turbo run clean"
   },
   "devDependencies": {

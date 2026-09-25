@@ -694,6 +694,9 @@ export const reviews = pgTable(
     isVerifiedStay: boolean('is_verified_stay').default(false).notNull(),
     response: text('response'),
     responseAt: timestamp('response_at', { withTimezone: true }),
+    hiddenReason: varchar('hidden_reason', { length: 255 }), // 'spam' | 'abuse' | 'personal_information' | 'irrelevant' | 'policy_violation'
+    moderatedBy: varchar('moderated_by', { length: 255 }),
+    moderatedAt: timestamp('moderated_at', { withTimezone: true }),
     submittedAt: timestamp('submitted_at', { withTimezone: true }).defaultNow().notNull(),
     publishedAt: timestamp('published_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
@@ -788,6 +791,145 @@ export const propertyInvoices = pgTable(
     index('prop_inv_num_idx').on(t.invoiceNumber),
     index('prop_inv_res_idx').on(t.reservationId),
     index('prop_inv_status_idx').on(t.status),
+  ]
+);
+
+// 25. Sena Connect API Keys
+export const apiKeys = pgTable(
+  'api_keys',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    propertyId: uuid('property_id')
+      .references(() => properties.id, { onDelete: 'cascade' })
+      .notNull(),
+    organizationId: uuid('organization_id')
+      .references(() => organizations.id, { onDelete: 'cascade' })
+      .notNull(),
+    name: varchar('name', { length: 255 }).notNull(), // e.g. "Production Website", "Next.js Hotel Portal"
+    keyType: varchar('key_type', { length: 50 }).notNull(), // 'publishable' | 'secret'
+    keyPrefix: varchar('key_prefix', { length: 20 }).notNull(), // 'pk_live_' | 'sk_live_'
+    displayKey: varchar('display_key', { length: 60 }).notNull(), // 'pk_live_xxxx' or 'sk_live_••••••83A2'
+    keyHash: varchar('key_hash', { length: 255 }).notNull().unique(), // SHA-256 hash of secret key, or token for publishable
+    scopes: jsonb('scopes').$type<string[]>().notNull().default([]), // ['availability:read', 'rooms:read', 'reservations:create', ...]
+    lastUsedAt: timestamp('last_used_at', { withTimezone: true }),
+    isRevoked: boolean('is_revoked').default(false).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    index('api_keys_prop_idx').on(t.propertyId),
+    index('api_keys_hash_idx').on(t.keyHash),
+  ]
+);
+
+// 26. Webhook Endpoints
+export const webhookEndpoints = pgTable(
+  'webhook_endpoints',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    propertyId: uuid('property_id')
+      .references(() => properties.id, { onDelete: 'cascade' })
+      .notNull(),
+    organizationId: uuid('organization_id')
+      .references(() => organizations.id, { onDelete: 'cascade' })
+      .notNull(),
+    url: text('url').notNull(),
+    description: varchar('description', { length: 255 }),
+    signingSecret: varchar('signing_secret', { length: 255 }).notNull(), // e.g. whsec_...
+    events: jsonb('events').$type<string[]>().notNull().default([]), // ['reservation.created', 'reservation.confirmed', ...]
+    isActive: boolean('is_active').default(true).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    index('webhook_end_prop_idx').on(t.propertyId),
+  ]
+);
+
+// 27. Webhook Deliveries
+export const webhookDeliveries = pgTable(
+  'webhook_deliveries',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    webhookEndpointId: uuid('webhook_endpoint_id')
+      .references(() => webhookEndpoints.id, { onDelete: 'cascade' })
+      .notNull(),
+    propertyId: uuid('property_id')
+      .references(() => properties.id, { onDelete: 'cascade' })
+      .notNull(),
+    eventType: varchar('event_type', { length: 100 }).notNull(),
+    eventId: varchar('event_id', { length: 100 }).notNull(),
+    payload: jsonb('payload').notNull(),
+    status: varchar('status', { length: 50 }).notNull().default('pending'), // 'success' | 'failed' | 'pending'
+    httpStatus: integer('http_status'),
+    attemptCount: integer('attempt_count').notNull().default(1),
+    responseBody: text('response_body'),
+    lastAttemptAt: timestamp('last_attempt_at', { withTimezone: true }).defaultNow().notNull(),
+    nextRetryAt: timestamp('next_retry_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    index('webhook_del_prop_idx').on(t.propertyId),
+    index('webhook_del_end_idx').on(t.webhookEndpointId),
+    index('webhook_del_status_idx').on(t.status),
+  ]
+);
+
+// 28. API Request Logs
+export const apiRequestLogs = pgTable(
+  'api_request_logs',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    propertyId: uuid('property_id')
+      .references(() => properties.id, { onDelete: 'cascade' })
+      .notNull(),
+    apiKeyId: uuid('api_key_id').references(() => apiKeys.id, { onDelete: 'set null' }),
+    keyName: varchar('key_name', { length: 255 }).notNull().default('Public / Anonymous'),
+    method: varchar('method', { length: 10 }).notNull(),
+    endpoint: varchar('endpoint', { length: 255 }).notNull(),
+    statusCode: integer('status_code').notNull(),
+    latencyMs: integer('latency_ms').notNull().default(0),
+    ipAddress: varchar('ip_address', { length: 50 }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    index('api_logs_prop_idx').on(t.propertyId),
+    index('api_logs_created_idx').on(t.createdAt),
+  ]
+);
+
+// 30. Internal Admin Users (Named identities with role-based access)
+export const adminUsers = pgTable(
+  'admin_users',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    email: varchar('email', { length: 255 }).notNull().unique(),
+    fullName: varchar('full_name', { length: 255 }).notNull(),
+    passwordHash: varchar('password_hash', { length: 255 }).notNull(),
+    role: varchar('role', { length: 50 }).notNull().default('operations'), // 'super_admin' | 'operations' | 'support' | 'finance'
+    isActive: boolean('is_active').default(true).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  }
+);
+
+// 31. Admin Audit Logs (Audit trail for sensitive control plane actions)
+export const adminAuditLogs = pgTable(
+  'admin_audit_logs',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    adminId: uuid('admin_id').references(() => adminUsers.id, { onDelete: 'set null' }),
+    adminEmail: varchar('admin_email', { length: 255 }).notNull(),
+    action: varchar('action', { length: 100 }).notNull(), // 'property.suspend', 'subscription.upgrade', etc.
+    targetType: varchar('target_type', { length: 50 }).notNull(), // 'property', 'user', 'subscription'
+    targetId: varchar('target_id', { length: 255 }).notNull(),
+    details: jsonb('details'),
+    ipAddress: varchar('ip_address', { length: 50 }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    index('admin_audit_action_idx').on(t.action),
+    index('admin_audit_target_idx').on(t.targetType, t.targetId),
   ]
 );
 

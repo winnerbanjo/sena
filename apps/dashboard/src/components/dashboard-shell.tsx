@@ -85,6 +85,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     isTenantHost ||
     pathname?.startsWith('/site') ||
     pathname?.startsWith('/invoice/') ||
+    pathname?.startsWith('/embed/') ||
     pathname === '/login' ||
     pathname === '/signup' ||
     pathname === '/onboarding' ||
