@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Building, Users, CreditCard, LayoutDashboard, LogOut } from 'lucide-react';
+import { Building, Users, CreditCard, LayoutDashboard, LogOut, Menu } from 'lucide-react';
 import { logoutAdmin } from '../actions';
 
 export default function DashboardLayout({
@@ -8,9 +8,21 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-screen bg-white text-[#191816] flex w-full">
-      {/* Sidebar */}
-      <aside className="w-64 border-r border-[#E8E2DA] bg-[#FAFAFA] flex flex-col hidden sm:flex">
+    <div className="min-h-screen bg-white text-[#191816] flex flex-col sm:flex-row w-full">
+      {/* Mobile Header */}
+      <div className="sm:hidden flex items-center justify-between p-4 border-b border-[#E8E2DA] bg-[#FAFAFA]">
+        <div>
+          <strong className="text-lg font-serif tracking-tight">Sena Admin</strong>
+        </div>
+        <form action={logoutAdmin}>
+          <button type="submit" className="flex items-center gap-1 text-xs text-[#B85C3E] font-medium border border-[#E8E2DA] px-2 py-1 rounded bg-white">
+            <LogOut className="w-3.5 h-3.5" /> Logout
+          </button>
+        </form>
+      </div>
+
+      {/* Desktop Sidebar */}
+      <aside className="w-64 border-r border-[#E8E2DA] bg-[#FAFAFA] flex-col hidden sm:flex">
         <div className="p-4 border-b border-[#E8E2DA]">
           <strong className="text-lg font-serif tracking-tight">Sena Admin</strong>
           <div className="text-[10px] uppercase font-mono text-[#7A7267] tracking-wider mt-1">Control Plane</div>
@@ -42,7 +54,7 @@ export default function DashboardLayout({
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col h-screen overflow-y-auto bg-white">
+      <main className="flex-1 flex flex-col h-[calc(100vh-65px)] sm:h-screen overflow-y-auto bg-white">
         {children}
       </main>
     </div>
