@@ -12,6 +12,7 @@ import {
   DialogTitle,
   Input,
   Label,
+} from '@sena/ui';
 import type { ReservationItem } from './mock-data';
 import { Loader2 } from 'lucide-react';
 
