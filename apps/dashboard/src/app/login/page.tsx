@@ -45,8 +45,9 @@ export default function LoginPage() {
           JSON.stringify({
             email,
             name: email.split('@')[0].replace('.', ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
+            fullName: email.split('@')[0].replace('.', ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
             role: 'Property Manager',
-            property: localStorage.getItem('sena_property_name') || 'Your Property',
+            property: localStorage.getItem('sena_property_name') || 'Amami',
           })
         );
       } catch (err) {

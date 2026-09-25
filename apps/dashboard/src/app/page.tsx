@@ -40,8 +40,8 @@ export default function OverviewPage() {
   const [drawerOpen, setDrawerOpen] = React.useState(false);
   const [newResOpen, setNewResOpen] = React.useState(false);
   const [currentDateStr, setCurrentDateStr] = React.useState('');
-  const [userName, setUserName] = React.useState('');
-  const [propertyName, setPropertyName] = React.useState('Your Property');
+  const [userName, setUserName] = React.useState('Winner');
+  const [propertyName, setPropertyName] = React.useState('Amami');
   const [propertySlug, setPropertySlug] = React.useState('amami');
 
   React.useEffect(() => {
@@ -52,8 +52,20 @@ export default function OverviewPage() {
         JSON.parse(localStorage.getItem('sena_onboarding_draft') || '{}')?.propName;
       if (stored) setPropertyName(stored);
       const user = JSON.parse(localStorage.getItem('sena_auth_user') || '{}');
-      if (user.fullName) setUserName(user.fullName);
+      if (user.fullName || user.name) setUserName(user.fullName || user.name);
     } catch {}
+
+    fetch('/api/me')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!data) return;
+        if (data.user?.name) setUserName(data.user.name);
+        if (data.property?.name) {
+          setPropertyName(data.property.name);
+          if (data.property.slug) setPropertySlug(data.property.slug);
+        }
+      })
+      .catch(() => {});
   }, []);
 
   React.useEffect(() => {
@@ -110,7 +122,7 @@ export default function OverviewPage() {
       if (webRes && webRes.ok) {
         const webData = await webRes.json();
         if (webData.property) {
-          setPropertyName(webData.property.name || 'Your Property');
+          setPropertyName(webData.property.name || 'Amami');
           setPropertySlug(webData.property.slug || 'amami');
         }
       }
@@ -223,7 +235,7 @@ export default function OverviewPage() {
               </div>
 
               <h1 className="text-2xl sm:text-3xl lg:text-4xl font-serif text-[#191816] font-normal tracking-tight">
-                Good day, {userName ? userName.split(' ')[0] : 'Hotelier'}
+                Good day, {userName ? userName.split(' ')[0] : (propertyName || 'Winner')}
               </h1>
               <p className="text-xs sm:text-sm text-[#7A7267] max-w-2xl leading-relaxed">
                 Here is today's real-time operational pulse for <strong className="text-[#71382D] font-semibold">{propertyName}</strong>. Direct website bookings, inventory allocation, and guest stays are fully active.

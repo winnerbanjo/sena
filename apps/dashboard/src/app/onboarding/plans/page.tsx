@@ -10,7 +10,7 @@ export default function OnboardingPlansPage() {
   const [billingCycle, setBillingCycle] = React.useState<'monthly' | 'quarterly' | 'biannual' | 'yearly'>('monthly');
   const [selectedPlan, setSelectedPlan] = React.useState<'essential' | 'growth' | 'pro'>('growth');
   const [isLoading, setIsLoading] = React.useState(false);
-  const [propertyName, setPropertyName] = React.useState('Your Property');
+  const [propertyName, setPropertyName] = React.useState('Amami');
 
   const getPrice = (plan: 'essential' | 'growth' | 'pro', cycle: string) => {
     const base = { essential: 25000, growth: 50000, pro: 100000 }[plan];

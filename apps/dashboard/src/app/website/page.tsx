@@ -82,7 +82,7 @@ function WebsiteContent() {
 
   // Property info
   const [propertyId, setPropertyId] = React.useState('');
-  const [propertyName, setPropertyName] = React.useState('Your Property');
+  const [propertyName, setPropertyName] = React.useState('Amami');
   const [propertySlug, setPropertySlug] = React.useState('amami');
   const [slugInput, setSlugInput] = React.useState('amami');
   const [slugUpdating, setSlugUpdating] = React.useState(false);

@@ -88,11 +88,11 @@ const NAV_SECTIONS: NavSection[] = [
 function SidebarNavItems({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   const [profile, setProfile] = React.useState({
-    name: 'Hotelier',
-    email: '',
-    role: 'Property Owner',
-    property: 'Your Property',
-    city: 'Front Desk',
+    name: 'Winner',
+    email: 'technile0@gmail.com',
+    role: 'Owner',
+    property: 'Amami',
+    city: 'Central District',
   });
 
   React.useEffect(() => {
@@ -100,42 +100,86 @@ function SidebarNavItems({ onNavigate }: { onNavigate?: () => void }) {
       const stored = localStorage.getItem('sena_auth_user');
       const draft = localStorage.getItem('sena_onboarding_draft');
       const propName = localStorage.getItem('sena_property_name');
+      const propAddress = localStorage.getItem('sena_property_address');
       const authUser = stored ? JSON.parse(stored) : null;
       const draftObj = draft ? JSON.parse(draft) : null;
 
-      const resolvedName = authUser?.name || draftObj?.name || 'Hotelier';
-      const resolvedProp = propName || authUser?.property || draftObj?.propName || 'Your Property';
-      const resolvedRole = authUser?.role || 'Property Manager';
+      const resolvedName = authUser?.fullName || authUser?.name || draftObj?.name || 'Winner';
+      const resolvedProp = propName || authUser?.property || draftObj?.propName || 'Amami';
+      const resolvedRole = authUser?.role || 'Owner';
+      const resolvedCity = propAddress || draftObj?.city || 'Central District';
 
       setProfile({
         name: resolvedName,
         email: authUser?.email || draftObj?.email || '',
         role: resolvedRole,
         property: resolvedProp,
-        city: draftObj?.city || 'Hospitality Suites',
+        city: resolvedCity,
       });
     } catch {}
+
+    // Fetch fresh profile and property from /api/me
+    fetch('/api/me')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!data) return;
+        const u = data.user;
+        const p = data.property;
+
+        if (p?.name) {
+          localStorage.setItem('sena_property_name', p.name);
+          if (p.address || p.city) {
+            localStorage.setItem('sena_property_address', p.address || p.city);
+          }
+        }
+
+        if (u?.name) {
+          try {
+            const currentAuth = JSON.parse(localStorage.getItem('sena_auth_user') || '{}');
+            localStorage.setItem(
+              'sena_auth_user',
+              JSON.stringify({
+                ...currentAuth,
+                name: u.name,
+                fullName: u.name,
+                email: u.email || currentAuth.email,
+                role: u.role || 'Owner',
+                property: p?.name || 'Amami',
+              })
+            );
+          } catch {}
+        }
+
+        setProfile({
+          name: u?.name || 'Winner',
+          email: u?.email || '',
+          role: u?.role || 'Owner',
+          property: p?.name || 'Amami',
+          city: p?.address || p?.city || 'Central District',
+        });
+      })
+      .catch(() => {});
   }, []);
 
-  const propInitials = (profile.property || 'YP')
+  const propInitials = (profile.property || 'Amami')
     .split(' ')
     .filter(Boolean)
     .slice(0, 2)
     .map((w: string) => w[0]?.toUpperCase())
-    .join('') || 'YP';
+    .join('') || 'A';
 
-  const userInitials = (profile.name || 'H')
+  const userInitials = (profile.name || 'Winner')
     .split(' ')
     .filter(Boolean)
     .slice(0, 2)
     .map((w: string) => w[0]?.toUpperCase())
-    .join('') || 'H';
+    .join('') || 'W';
 
   const { isInstallable, isInstalled, installApp, openInstallGuide, purgeAndLogout } = usePwa();
 
   return (
     <>
-      <div className="p-5 pb-2">
+      <div className="p-5 pb-4">
         {/* Brand header with official logo image */}
         <Link href="/" onClick={onNavigate} className="block mb-6 group">
           <div className="h-8 flex items-center">
@@ -221,29 +265,33 @@ function SidebarNavItems({ onNavigate }: { onNavigate?: () => void }) {
               </div>
             </div>
           ))}
+
+          {/* Clean PWA Install action down on the menu */}
+          <div className="pt-2">
+            <button
+              type="button"
+              onClick={() => {
+                onNavigate?.();
+                if (isInstallable) {
+                  installApp();
+                } else {
+                  openInstallGuide();
+                }
+              }}
+              className="w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-xs font-semibold text-[#71382D] bg-[#FAF8F5] hover:bg-[#F5EFE9] border border-[#E8E2DA] transition-all hover:border-[#B85C3E]/50 group shadow-2xs cursor-pointer"
+              title="Install Sena on your device"
+            >
+              <div className="flex items-center gap-2.5">
+                <Download className="w-3.5 h-3.5 text-[#B85C3E] group-hover:scale-110 transition-transform flex-shrink-0" />
+                <span className="font-semibold text-xs tracking-tight">Install Sena App</span>
+              </div>
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#FAF2EB] text-[#B85C3E] border border-[#F0D5C3]">
+                PWA
+              </span>
+            </button>
+          </div>
         </nav>
       </div>
-
-      {/* PWA Install Button (Permanent access until installed) */}
-      {!isInstalled && (
-        <div className="px-3 pb-2">
-          <button
-            type="button"
-            onClick={() => {
-              if (isInstallable) {
-                installApp();
-              } else {
-                openInstallGuide();
-              }
-            }}
-            className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-lg border border-[#E8E2DA] bg-[#FAF8F5] text-xs font-medium text-[#71382D] hover:bg-[#F5EFE9] hover:border-[#B85C3E]/40 transition-colors shadow-none cursor-pointer"
-            title="Install Sena on your device"
-          >
-            <Download className="w-3.5 h-3.5 text-[#B85C3E]" />
-            <span>Install Sena</span>
-          </button>
-        </div>
-      )}
 
       {/* User profile footer */}
       <div className="p-3.5 border-t border-[#E8E2DA] bg-white mt-auto flex items-center justify-between gap-2">

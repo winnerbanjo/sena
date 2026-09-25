@@ -31,8 +31,8 @@ export default function BookingPreviewPage() {
   const [activeTab, setActiveTab] = React.useState<'preview' | 'embed' | 'rules'>('preview');
   const [copiedUrl, setCopiedUrl] = React.useState(false);
   const [copiedSnippet, setCopiedSnippet] = React.useState(false);
-  const [propertyName, setPropertyName] = React.useState('Your Property');
-  const [propertySlug, setPropertySlug] = React.useState('your-property');
+  const [propertyName, setPropertyName] = React.useState('Amami');
+  const [propertySlug, setPropertySlug] = React.useState('amami');
 
   React.useEffect(() => {
     try {

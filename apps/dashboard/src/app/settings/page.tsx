@@ -32,13 +32,13 @@ export default function SettingsPage() {
   const { isInstallable, isInstalled, installApp, purgeAndLogout } = usePwa();
 
   // Form states
-  const [propertyName, setPropertyName] = React.useState('Your Property');
+  const [propertyName, setPropertyName] = React.useState('Amami');
   const [propertyType, setPropertyType] = React.useState('Boutique Hotel');
   const [tagline, setTagline] = React.useState('hospitality, simplified.');
   const [contactEmail, setContactEmail] = React.useState('concierge@sena.ng');
-  const [contactPhone, setContactPhone] = React.useState('');
-  const [address, setAddress] = React.useState('');
-  const [city, setCity] = React.useState('');
+  const [contactPhone, setContactPhone] = React.useState('+234 800 000 0000');
+  const [address, setAddress] = React.useState('Central District');
+  const [city, setCity] = React.useState('Abuja');
 
   // Bank states
   const [bankName, setBankName] = React.useState('Guaranty Trust Bank (GTBank)');
@@ -62,11 +62,25 @@ export default function SettingsPage() {
       const draftStr = localStorage.getItem('sena_onboarding_draft');
       const authStr = localStorage.getItem('sena_auth_user');
 
-      let name = storedName || '';
+      let name = storedName || 'Amami';
       if (authStr) {
         const auth = JSON.parse(authStr);
         if (auth.email) setContactEmail(auth.email);
       }
+
+      fetch('/api/me')
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (!data) return;
+          if (data.property) {
+            setPropertyName(data.property.name || 'Amami');
+            if (data.property.address) setAddress(data.property.address);
+            if (data.property.city) setCity(data.property.city);
+          }
+          if (data.user?.email) setContactEmail(data.user.email);
+          if (data.user?.phone) setContactPhone(data.user.phone);
+        })
+        .catch(() => {});
 
       if (draftStr) {
         const draft = JSON.parse(draftStr);
