@@ -91,8 +91,16 @@ export function middleware(req: NextRequest) {
     }
     const rewriteUrl = new URL(`/site/${slug}${cleanPath === '/' ? '' : cleanPath}`, req.url);
     rewriteUrl.search = url.search;
-    const res = NextResponse.rewrite(rewriteUrl);
+    const requestHeaders = new Headers(req.headers);
+    requestHeaders.set('x-sena-slug', slug);
+    requestHeaders.set('x-sena-is-tenant', 'true');
+    const res = NextResponse.rewrite(rewriteUrl, {
+      request: {
+        headers: requestHeaders,
+      },
+    });
     res.headers.set('x-sena-slug', slug);
+    res.headers.set('x-sena-is-tenant', 'true');
     return res;
   }
 
@@ -101,8 +109,16 @@ export function middleware(req: NextRequest) {
   if (firstSegment && !DASHBOARD_ROUTES.has(firstSegment)) {
     const rewriteUrl = new URL(`/site${pathname}`, req.url);
     rewriteUrl.search = url.search;
-    const res = NextResponse.rewrite(rewriteUrl);
+    const requestHeaders = new Headers(req.headers);
+    requestHeaders.set('x-sena-slug', firstSegment);
+    requestHeaders.set('x-sena-is-tenant', 'true');
+    const res = NextResponse.rewrite(rewriteUrl, {
+      request: {
+        headers: requestHeaders,
+      },
+    });
     res.headers.set('x-sena-slug', firstSegment);
+    res.headers.set('x-sena-is-tenant', 'true');
     return res;
   }
 

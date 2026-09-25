@@ -64,7 +64,27 @@ export function useDashboard() {
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const isAuthOrOnboarding =
+  const [isTenantHost, setIsTenantHost] = React.useState(false);
+
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const host = window.location.hostname.toLowerCase();
+      const RESERVED_HOSTS = ['app.sena.ng', 'sena.ng', 'www.sena.ng', 'admin.sena.ng', 'api.sena.ng', 'localhost', 'app.localhost'];
+      if (
+        !RESERVED_HOSTS.includes(host) &&
+        (host.endsWith('.sena.ng') ||
+          host.endsWith('.localhost') ||
+          (!host.includes('sena.ng') && !host.includes('localhost') && !host.includes('vercel.app')))
+      ) {
+        setIsTenantHost(true);
+      }
+    }
+  }, []);
+
+  const isPublicOrAuth =
+    isTenantHost ||
+    pathname?.startsWith('/site') ||
+    pathname?.startsWith('/invoice') ||
     pathname === '/login' ||
     pathname === '/signup' ||
     pathname === '/onboarding' ||
@@ -105,7 +125,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  if (isAuthOrOnboarding) {
+  if (isPublicOrAuth) {
     return <main className="min-h-screen bg-white text-[#191816] w-full">{children}</main>;
   }
 
