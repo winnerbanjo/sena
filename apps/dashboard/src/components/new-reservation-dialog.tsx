@@ -28,12 +28,6 @@ interface RoomTypeOption {
   available: number;
 }
 
-const DEFAULT_ROOM_OPTIONS: RoomTypeOption[] = [
-  { id: 'standard', name: 'Standard Room', price: 5000000, available: 4 },
-  { id: 'deluxe', name: 'Deluxe Suite', price: 7500000, available: 2 },
-  { id: 'executive', name: 'Executive Suite', price: 12000000, available: 1 },
-];
-
 export function NewReservationDialog({
   open,
   onOpenChange,
@@ -48,8 +42,9 @@ export function NewReservationDialog({
 
   const [checkIn, setCheckIn] = React.useState(getTodayStr());
   const [checkOut, setCheckOut] = React.useState(getTomorrowStr());
-  const [roomOptions, setRoomOptions] = React.useState<RoomTypeOption[]>(DEFAULT_ROOM_OPTIONS);
-  const [selectedRoomId, setSelectedRoomId] = React.useState<string>(DEFAULT_ROOM_OPTIONS[0].id);
+  const [roomOptions, setRoomOptions] = React.useState<RoomTypeOption[]>([]);
+  const [loadingRooms, setLoadingRooms] = React.useState(false);
+  const [selectedRoomId, setSelectedRoomId] = React.useState<string>('');
   const [guestName, setGuestName] = React.useState('');
   const [guestPhone, setGuestPhone] = React.useState('');
   const [guestEmail, setGuestEmail] = React.useState('');
@@ -62,6 +57,7 @@ export function NewReservationDialog({
     if (open) {
       setCheckIn(getTodayStr());
       setCheckOut(getTomorrowStr());
+      setLoadingRooms(true);
 
       fetch('/api/rooms')
         .then((res) => (res.ok ? res.json() : null))
@@ -75,20 +71,23 @@ export function NewReservationDialog({
             }));
             setRoomOptions(mapped);
             setSelectedRoomId((prev) => (mapped.some((m: any) => m.id === prev) ? prev : mapped[0].id));
+          } else {
+            setRoomOptions([]);
+            setSelectedRoomId('');
           }
         })
-        .catch(() => {});
+        .catch(() => {
+          setRoomOptions([]);
+          setSelectedRoomId('');
+        })
+        .finally(() => setLoadingRooms(false));
     }
   }, [open]);
 
   const nights = Math.max(1, calculateNights(checkIn, checkOut));
-  const selectedRoomObj = roomOptions.find((r) => r.id === selectedRoomId) || roomOptions[0] || {
-    id: 'default',
-    name: 'Standard Room',
-    price: 5000000,
-    available: 1,
-  };
-  const totalAmountMinorUnits = selectedRoomObj.price * nights;
+  const selectedRoomObj = roomOptions.find((r) => r.id === selectedRoomId) || null;
+  const totalAmountMinorUnits = selectedRoomObj ? selectedRoomObj.price * nights : 0;
+
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -142,7 +141,7 @@ export function NewReservationDialog({
         guestName,
         guestEmail: guestEmail || `${guestName.toLowerCase().replace(/\s+/g, '.')}@example.com`,
         guestPhone: guestPhone || '+234 800 000 0000',
-        roomType: selectedRoomObj.name,
+        roomType: selectedRoomObj?.name || 'Unassigned',
         roomNumber: 'Unassigned',
         checkInDate: checkIn,
         checkOutDate: checkOut,
@@ -212,9 +211,15 @@ export function NewReservationDialog({
             <div>
               <Label>Room Category</Label>
               <div className="grid grid-cols-3 gap-2">
-                {roomOptions.length === 0 ? (
-                  <div className="col-span-3 text-xs text-[#7A7267] p-2.5 bg-[#FAFAFA] rounded border border-[#E8E2DA] flex items-center justify-center">
-                    Loading available room categories...
+                {loadingRooms ? (
+                  <div className="col-span-3 text-xs text-[#7A7267] p-3 bg-[#FAFAFA] rounded border border-[#E8E2DA] flex items-center justify-center gap-2">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    Loading room categories…
+                  </div>
+                ) : roomOptions.length === 0 ? (
+                  <div className="col-span-3 p-3 bg-[#FFF8F5] rounded border border-[#F0D5C3] text-xs text-[#71382D]">
+                    <strong className="block mb-0.5">No room categories set up yet.</strong>
+                    Go to <strong>Rooms → Add category</strong> to create your first room type before making reservations.
                   </div>
                 ) : (
                   roomOptions.map((rm) => (
@@ -323,7 +328,7 @@ export function NewReservationDialog({
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={submitting} className="bg-[#71382D] hover:bg-[#5D2E25] text-white">
+            <Button type="submit" disabled={submitting || roomOptions.length === 0 || !selectedRoomId} className="bg-[#71382D] hover:bg-[#5D2E25] text-white">
               {submitting ? (
                 <span className="flex items-center gap-2">
                   <Loader2 className="w-4 h-4 animate-spin" />

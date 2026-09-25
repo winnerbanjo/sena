@@ -43,19 +43,14 @@ export default function RoomsPage() {
 
   const fetchRoomsData = React.useCallback(async () => {
     try {
-      let activeProp = '';
       let activeEmail = '';
       try {
         const authUser = JSON.parse(localStorage.getItem('sena_auth_user') || '{}');
-        activeProp = authUser?.property || localStorage.getItem('sena_property_name') || '';
         activeEmail = authUser?.email || '';
       } catch {}
 
-      const res = await fetch(`/api/rooms?property=${encodeURIComponent(activeProp)}&email=${encodeURIComponent(activeEmail)}`, {
-        headers: {
-          'x-property-name': activeProp,
-          'x-user-email': activeEmail,
-        },
+      const res = await fetch(`/api/rooms${activeEmail ? `?email=${encodeURIComponent(activeEmail)}` : ''}`, {
+        headers: activeEmail ? { 'x-user-email': activeEmail } : {},
       });
       if (res.ok) {
         let data: any = {};
@@ -107,7 +102,7 @@ export default function RoomsPage() {
         }
       }
     } catch (err) {
-      console.error('Failed to load rooms from DB:', err);
+      console.error('Failed to load rooms:', err);
     } finally {
       setLoading(false);
     }
@@ -255,16 +250,30 @@ export default function RoomsPage() {
     }
   }
 
-  // Handle Delete Category
-  function handleDeleteCategory(id: string, name: string) {
+  // Handle Delete Category — permanently removes from DB
+  async function handleDeleteCategory(id: string, name: string) {
     const assignedCount = rooms.filter((r) => r.type === name).length;
-    if (assignedCount > 0) {
-      showToast(`Cannot delete "${name}" because ${assignedCount} room(s) are currently assigned to it.`);
-      return;
-    }
-    if (confirm(`Delete room category "${name}"?`)) {
-      setCategories((prev) => prev.filter((c) => c.id !== id));
-      showToast(`Category "${name}" removed.`);
+    const confirmMsg = assignedCount > 0
+      ? `Delete "${name}" and its ${assignedCount} assigned room(s)? This cannot be undone.`
+      : `Delete room category "${name}"? This cannot be undone.`;
+
+    if (!window.confirm(confirmMsg)) return;
+
+    try {
+      const res = await fetch(`/api/rooms?id=${id}&type=category`, { method: 'DELETE' });
+      if (res.ok) {
+        showToast(`Category "${name}" deleted.`);
+        fetchRoomsData();
+      } else {
+        let errMsg = 'Failed to delete category';
+        try {
+          const err = await res.json();
+          if (err.error) errMsg = err.error;
+        } catch {}
+        showToast(errMsg);
+      }
+    } catch (e: any) {
+      showToast(e.message || 'Error deleting category');
     }
   }
   // Filtered rooms

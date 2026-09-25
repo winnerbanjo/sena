@@ -254,15 +254,24 @@ export async function DELETE(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
+    const type = searchParams.get('type'); // 'room' (default) or 'category'
 
     if (!id) {
-      return NextResponse.json({ error: 'Room ID required' }, { status: 400 });
+      return NextResponse.json({ error: 'ID required' }, { status: 400 });
     }
 
+    if (type === 'category') {
+      // Delete all rooms in this category first, then the category itself
+      await db.delete(rooms).where(eq(rooms.roomTypeId, id));
+      const [deleted] = await db.delete(roomTypes).where(eq(roomTypes.id, id)).returning();
+      return NextResponse.json({ success: true, deleted });
+    }
+
+    // Default: delete individual room
     const [deleted] = await db.delete(rooms).where(eq(rooms.id, id)).returning();
     return NextResponse.json({ success: true, deleted });
   } catch (error: any) {
-    console.error('Error deleting room:', error);
+    console.error('Error deleting room/category:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

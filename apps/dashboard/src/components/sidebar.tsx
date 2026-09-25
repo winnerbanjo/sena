@@ -87,51 +87,49 @@ const NAV_SECTIONS: NavSection[] = [
 
 function SidebarNavItems({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
-  const [profile, setProfile] = React.useState({
-    name: 'Winner',
-    email: 'technile0@gmail.com',
+  const [profile, setProfile] = React.useState<{
+    name: string;
+    email: string;
+    role: string;
+    property: string;
+    city: string;
+  }>({
+    name: '',
+    email: '',
     role: 'Owner',
-    property: 'Amami',
-    city: 'Central District',
+    property: '',
+    city: '',
   });
 
   React.useEffect(() => {
-    let resolvedProp = 'Stay Connect Solutions LTD';
-    let resolvedName = 'User';
-    let resolvedRole = 'Owner';
-    let resolvedCity = 'Central District';
+    // Only use localStorage for user identity (name/email/role), NOT for property name
+    // Property name MUST come from the server to prevent cross-tenant leakage
     let userEmail = '';
+    let resolvedName = '';
+    let resolvedRole = 'Owner';
 
     try {
       const stored = localStorage.getItem('sena_auth_user');
       const draft = localStorage.getItem('sena_onboarding_draft');
-      const propName = localStorage.getItem('sena_property_name');
-      const propAddress = localStorage.getItem('sena_property_address');
       const authUser = stored ? JSON.parse(stored) : null;
       const draftObj = draft ? JSON.parse(draft) : null;
 
-      // Always prioritize authUser property over outdated localStorage cache
-      resolvedProp = authUser?.property || propName || draftObj?.propName || 'Stay Connect Solutions LTD';
-      resolvedName = authUser?.fullName || authUser?.name || draftObj?.name || 'User';
+      resolvedName = authUser?.fullName || authUser?.name || draftObj?.name || '';
       resolvedRole = authUser?.role || 'Owner';
-      resolvedCity = propAddress || draftObj?.city || 'Central District';
       userEmail = authUser?.email || draftObj?.email || '';
 
-      setProfile({
+      // Show user identity immediately while server fetches authoritative property
+      setProfile((prev) => ({
+        ...prev,
         name: resolvedName,
         email: userEmail,
         role: resolvedRole,
-        property: resolvedProp,
-        city: resolvedCity,
-      });
+      }));
     } catch {}
 
-    // Fetch fresh profile and property from /api/me with tenant hints
-    fetch(`/api/me?email=${encodeURIComponent(userEmail)}&property=${encodeURIComponent(resolvedProp)}`, {
-      headers: {
-        'x-user-email': userEmail,
-        'x-property-name': resolvedProp,
-      },
+    // Always fetch authoritative property from server — never trust localStorage for property name
+    fetch(`/api/me${userEmail ? `?email=${encodeURIComponent(userEmail)}` : ''}`, {
+      headers: userEmail ? { 'x-user-email': userEmail } : {},
     })
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
@@ -139,14 +137,14 @@ function SidebarNavItems({ onNavigate }: { onNavigate?: () => void }) {
         const u = data.user;
         const p = data.property;
 
-        const effectivePropName = p?.name || resolvedProp || 'Stay Connect Solutions LTD';
-        const effectiveCity = p?.address || p?.city || 'Central District';
+        // Server is the ONLY source of truth for property name
+        const effectivePropName = p?.name || '';
+        const effectiveCity = p?.address || p?.city || '';
         const effectiveUserName = u?.name || resolvedName;
         const effectiveRole = u?.role || resolvedRole;
 
-        localStorage.setItem('sena_property_name', effectivePropName);
-        localStorage.setItem('sena_property_address', effectiveCity);
-
+        // Update user identity in localStorage but NEVER write property into sena_auth_user
+        // — that's what caused stale Amami data to persist for Charles
         if (u?.name) {
           try {
             const currentAuth = JSON.parse(localStorage.getItem('sena_auth_user') || '{}');
@@ -158,7 +156,7 @@ function SidebarNavItems({ onNavigate }: { onNavigate?: () => void }) {
                 fullName: effectiveUserName,
                 email: u.email || currentAuth.email,
                 role: effectiveRole,
-                property: effectivePropName,
+                // Never cache property here — always resolve from server
               })
             );
           } catch {}
@@ -199,19 +197,13 @@ function SidebarNavItems({ onNavigate }: { onNavigate?: () => void }) {
     }).filter((section) => section.items.length > 0);
   }, [isFrontDesk, isHousekeeping]);
 
-  const propInitials = (profile.property || 'Amami')
-    .split(' ')
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((w: string) => w[0]?.toUpperCase())
-    .join('') || 'A';
+  const propInitials = profile.property
+    ? profile.property.split(' ').filter(Boolean).slice(0, 2).map((w: string) => w[0]?.toUpperCase()).join('')
+    : '…';
 
-  const userInitials = (profile.name || 'Winner')
-    .split(' ')
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((w: string) => w[0]?.toUpperCase())
-    .join('') || 'W';
+  const userInitials = profile.name
+    ? profile.name.split(' ').filter(Boolean).slice(0, 2).map((w: string) => w[0]?.toUpperCase()).join('')
+    : '…';
 
   const { isInstallable, isInstalled, installApp, openInstallGuide, purgeAndLogout } = usePwa();
 
