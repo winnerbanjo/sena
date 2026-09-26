@@ -1,5 +1,6 @@
 'use client';
 
+import { PageLoadState, readJsonResponse } from '../../components/page-load-state';
 import * as React from 'react';
 import Link from 'next/link';
 import { formatNaira } from '@sena/config';
@@ -39,19 +40,13 @@ export default function RoomsPage() {
   // Persistent Rooms & Categories state from PostgreSQL
   const [rooms, setRooms] = React.useState<RoomItem[]>([]);
   const [categories, setCategories] = React.useState<RoomCategory[]>([]);
+  const [loadError, setLoadError] = React.useState(false);
   const [loading, setLoading] = React.useState(true);
 
   const fetchRoomsData = React.useCallback(async () => {
     try {
-      let activeEmail = '';
-      try {
-        const authUser = JSON.parse(localStorage.getItem('sena_auth_user') || '{}');
-        activeEmail = authUser?.email || '';
-      } catch {}
-
-      const res = await fetch(`/api/rooms${activeEmail ? `?email=${encodeURIComponent(activeEmail)}` : ''}`, {
-        headers: activeEmail ? { 'x-user-email': activeEmail } : {},
-      });
+      const res = await fetch('/api/rooms', { cache: 'no-store' });
+      if (!res.ok) throw new Error('Page unavailable');
       if (res.ok) {
         let data: any = {};
         try {
@@ -102,6 +97,7 @@ export default function RoomsPage() {
         }
       }
     } catch (err) {
+      setLoadError(true);
       console.error('Failed to load rooms:', err);
     } finally {
       setLoading(false);
@@ -294,6 +290,8 @@ export default function RoomsPage() {
 
     return true;
   });
+
+  if (loading || loadError) return <PageLoadState title="Rooms" failed={loadError} />;
 
   return (
     <div className="flex-1 flex flex-col h-screen overflow-hidden bg-white">

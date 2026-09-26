@@ -1,0 +1,33 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { requireIsolatedTestDatabase } from './require-isolated-test-database';
+requireIsolatedTestDatabase();
+async function run() {
+ const { db, propertyInvoices, properties, reservations, payments, subscriptions, eq }=await import('../packages/database/src/index');
+ const { settlePaystack }=await import('../apps/dashboard/src/lib/settle-paystack');
+ const fixture=JSON.parse(readFileSync('/tmp/sena-craft-fixture.json','utf8'));
+ const property=await db.query.properties.findFirst({where:eq(properties.id,fixture.propertyId)});
+ const before=await db.query.reservations.findFirst({where:eq(reservations.id,fixture.reservationId)});
+ const reference=crypto.randomUUID();
+ const [invoice]=await db.insert(propertyInvoices).values({propertyId:property!.id,organizationId:property!.organizationId,reservationId:fixture.reservationId,invoiceNumber:`QA-${reference}`,recipientName:'Local settlement QA',issueDate:'2026-09-26',dueDate:'2026-09-30',totalAmountMinorUnits:1000,status:'issued'}).returning();
+ const payment={reference,status:'success',amount:1000,currency:'NGN',paid_at:new Date().toISOString(),metadata:{type:'invoice_settlement',invoiceId:invoice.id,propertyId:property!.id,reservationId:fixture.reservationId}};
+ await Promise.all(Array.from({length:8},()=>settlePaystack(payment)));
+ assert.equal((await db.query.propertyInvoices.findFirst({where:eq(propertyInvoices.id,invoice.id)}))?.paidAmountMinorUnits,1000);
+ assert.equal((await db.query.reservations.findFirst({where:eq(reservations.id,fixture.reservationId)}))?.paidAmountMinorUnits,before!.paidAmountMinorUnits+1000);
+ assert.equal((await db.query.payments.findMany({where:eq(payments.providerReference,reference)})).length,1);
+ console.log('PASS eight invoice settlement retries add one receipt and update both balances once');
+ await assert.rejects(settlePaystack({...payment,reference:crypto.randomUUID(),currency:'USD'}));
+ await assert.rejects(settlePaystack({...payment,reference:crypto.randomUUID(),metadata:{...payment.metadata,propertyId:fixture.otherPropertyId}}));
+ console.log('PASS invoice settlement rejects currency and property mismatch');
+ const subscription={reference:crypto.randomUUID(),status:'success',currency:'NGN',amount:2500000,paid_at:'2026-09-26T10:00:00Z',metadata:{type:'subscription_upgrade',organizationId:property!.organizationId,propertyId:property!.id,plan:'essential',billingCycle:'monthly'}};
+ await Promise.all(Array.from({length:8},()=>settlePaystack(subscription)));
+ const saved=await db.query.subscriptions.findFirst({where:eq(subscriptions.organizationId,property!.organizationId)});
+ assert.equal(saved?.currentPeriodStart?.toISOString(),'2026-09-26T10:00:00.000Z');
+ await settlePaystack({...subscription,paid_at:'2026-10-26T10:00:00Z'});
+ assert.equal((await db.query.subscriptions.findFirst({where:eq(subscriptions.organizationId,property!.organizationId)}))?.currentPeriodStart?.toISOString(),saved?.currentPeriodStart?.toISOString());
+ console.log('PASS duplicate subscription references never extend the paid period');
+ await assert.rejects(settlePaystack({...subscription,reference:crypto.randomUUID(),amount:1}));
+ console.log('PASS subscription underpayment is rejected');
+ console.log('4 settlement checks passed. No provider requests or emails executed.');process.exit(0);
+}
+run().catch(error=>{console.error(error);process.exit(1)});

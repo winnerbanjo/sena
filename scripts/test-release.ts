@@ -1,3 +1,4 @@
+import { requireIsolatedTestDatabase } from './require-isolated-test-database';
 import * as fs from 'fs';
 import * as path from 'path';
 import crypto from 'crypto';
@@ -28,8 +29,7 @@ function loadEnv() {
     }
   }
 }
-loadEnv();
-process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+requireIsolatedTestDatabase();
 
 let totalChecks = 0;
 let passedChecks = 0;
@@ -82,97 +82,13 @@ async function runReleaseCertification() {
   } = await import('../apps/dashboard/src/lib/webhooks');
 
   try {
-    // ------------------------------------------------------------------
-    // STEP 1: Verify Pilot Property Setup (Stay Connect, #001)
-    // ------------------------------------------------------------------
-    console.log('\x1b[34m[1/8] Verifying Pilot Property Context (Stay Connect #001)...\x1b[0m');
-
-    let org = await db.query.organizations.findFirst();
-    if (!org) {
-      const [newOrg] = await db
-        .insert(organizations)
-        .values({ name: 'Stay Hospitality Group', slug: 'stay-group' })
-        .returning();
-      org = newOrg;
-    }
-    assert(!!org, 'Organization resolved', `ID: ${org.id}`);
-
-    let prop = await db.query.properties.findFirst({
-      where: eq(properties.name, 'Stay Connect'),
-    });
-
-    if (!prop) {
-      // Find default property or create Stay Connect
-      const anyProp = await db.query.properties.findFirst();
-      if (anyProp) {
-        prop = anyProp;
-      } else {
-        const [newProp] = await db
-          .insert(properties)
-          .values({
-            organizationId: org.id,
-            name: 'Stay Connect',
-            slug: 'stay-connect',
-            currency: 'NGN',
-            city: 'Abuja',
-            state: 'FCT',
-            status: 'active',
-          })
-          .returning();
-        prop = newProp;
-      }
-    }
-    assert(!!prop, 'Pilot Property active', `Property: ${prop.name} (${prop.id})`);
-
-    // Ensure at least one Room Type exists
-    let rType = await db.query.roomTypes.findFirst({
-      where: eq(roomTypes.propertyId, prop.id),
-    });
-
-    if (!rType) {
-      const [newRt] = await db
-        .insert(roomTypes)
-        .values({
-          propertyId: prop.id,
-          name: 'Executive Studio',
-          code: 'EXEC-01',
-          basePriceMinorUnits: 8500000, // ₦85,000
-          capacityAdults: 2,
-          capacityChildren: 1,
-          totalInventory: 5,
-        })
-        .returning();
-      rType = newRt;
-    }
-    assert(!!rType, 'Room Type verified', `${rType.name} @ ₦${(rType.basePriceMinorUnits / 100).toLocaleString()}/night`);
-
-    // Ensure at least 2 physical rooms exist
-    const existingRooms = await db
-      .select()
-      .from(rooms)
-      .where(and(eq(rooms.propertyId, prop.id), eq(rooms.roomTypeId, rType.id)));
-
-    if (existingRooms.length < 2) {
-      await db.insert(rooms).values([
-        {
-          propertyId: prop.id,
-          roomTypeId: rType.id,
-          number: '101',
-          floor: '1',
-          operationalStatus: 'available',
-          housekeepingStatus: 'clean',
-        },
-        {
-          propertyId: prop.id,
-          roomTypeId: rType.id,
-          number: '102',
-          floor: '1',
-          operationalStatus: 'available',
-          housekeepingStatus: 'clean',
-        },
-      ]);
-    }
-    assert(true, 'Physical rooms provisioned and ready for inventory checks');
+    // Fixtures are created only in the local disposable database required above.
+    const runId = crypto.randomUUID().slice(0, 8);
+    const [org] = await db.insert(organizations).values({ name: 'Sena Local QA', slug: `qa-${runId}` }).returning();
+    const [prop] = await db.insert(properties).values({ organizationId: org.id, name: 'Sena Local QA', slug: `qa-${runId}`, code: `QA-${runId}`, address: 'Local test environment', phone: '', email: 'qa@example.invalid', currency: 'NGN' }).returning();
+    const [rType] = await db.insert(roomTypes).values({ propertyId: prop.id, name: 'QA Room', bedType: 'Double', basePriceMinorUnits: 8500000, capacity: 2, totalInventory: 5 }).returning();
+    await db.insert(rooms).values(Array.from({ length: 5 }, (_, index) => ({ propertyId: prop.id, roomTypeId: rType.id, roomNumber: String(101 + index), floor: '1', operationalStatus: 'available', housekeepingStatus: 'clean' })));
+    assert(true, 'Isolated local fixtures created');
 
     // ------------------------------------------------------------------
     // STEP 2: Performance & Authoritative Availability Check
@@ -257,7 +173,9 @@ async function runReleaseCertification() {
       })
       .returning();
 
-    const crossTenantViolation = pubKeyRecord.propertyId !== otherProp.id;
+    const { authenticateApiRequest } = await import('../apps/dashboard/src/lib/api-auth');
+    const crossTenantRequest = await authenticateApiRequest({ headers: new Headers({ 'x-api-key': pubKeyData.rawKey }) } as any, 'availability:read', otherProp.id);
+    const crossTenantViolation = !crossTenantRequest.success && crossTenantRequest.response.status === 403;
     assert(
       crossTenantViolation,
       'Strict Tenant Isolation: Property A API Key CANNOT access Property B',
@@ -279,7 +197,7 @@ async function runReleaseCertification() {
         adults: 2,
         children: 0,
         source: 'api',
-        paymentStatus: 'pending',
+        paymentStatus: 'pay_later',
         paidAmountMinorUnits: 0,
         specialRequests: 'High floor, quiet room, late check-in.',
         guest: {
@@ -330,7 +248,7 @@ async function runReleaseCertification() {
       .values({
         propertyId: prop.id,
         organizationId: prop.organizationId,
-        url: 'https://webhook.site/mock-sena-listener',
+        url: 'http://127.0.0.1:19999/release-webhook',
         description: 'Automated Release Test Endpoint',
         events: ['reservation.created', 'reservation.confirmed', 'reservation.cancelled'],
         signingSecret: whSecret,
@@ -361,7 +279,7 @@ async function runReleaseCertification() {
       reference: createdReservation.reference,
       property_id: prop.id,
     });
-    assert(true, 'Webhook event dispatched asynchronously to registered endpoints');
+    assert(true, 'Webhook dispatcher exercised against a loopback-only endpoint (delivery not certified)');
 
     // ------------------------------------------------------------------
     // STEP 7: Atomic Cancellation & Guaranteed Inventory Restoration

@@ -1,6 +1,7 @@
+import { apiError } from '@/lib/api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
-import { db, verificationTokens, users, eq, and } from '@sena/database';
+import { db, verificationTokens, users, eq, and, sql } from '@sena/database';
 import { sendSenaEmail } from '@sena/email';
 
 export async function POST(req: NextRequest) {
@@ -13,26 +14,17 @@ export async function POST(req: NextRequest) {
     }
 
     const cleanEmail = email.trim().toLowerCase();
-    // In dev without a Resend key, replace example.com with a Resend‑allowed test address
-    const safeEmail = process.env.RESEND_API_KEY
-      ? cleanEmail
-      : cleanEmail.endsWith('@example.com')
-        ? 'test@resend.dev'
-        : cleanEmail;
-
-    // Generate cryptographic 6-digit numeric OTP
-    const otpCode = crypto.randomInt(100000, 999999).toString();
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
-
-    // Remove any previous active tokens for this email
-    await db.delete(verificationTokens).where(eq(verificationTokens.identifier, cleanEmail));
-
-    // Insert new verification token
-    await db.insert(verificationTokens).values({
-      identifier: cleanEmail,
-      token: otpCode,
-      expires: expiresAt,
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail) || cleanEmail.length > 255) return NextResponse.json({ error: 'Valid email address is required.' }, { status: 400 });
+    const otpCode = crypto.randomInt(100000, 1000000).toString();
+    const issued = await db.transaction(async (tx) => {
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`otp:${cleanEmail}`}))`);
+      const pending = await tx.query.verificationTokens.findFirst({ where: eq(verificationTokens.identifier, cleanEmail) });
+      if (pending && Date.now() - pending.createdAt.getTime() < 60000) return false;
+      await tx.delete(verificationTokens).where(eq(verificationTokens.identifier, cleanEmail));
+      await tx.insert(verificationTokens).values({ identifier: cleanEmail, token: `${otpCode}|${pending && pending.expires > new Date() ? pending.token.split('|')[1] || '' : ''}|0`, expires: new Date(Date.now() + 10 * 60 * 1000) });
+      return true;
     });
+    if (!issued) return NextResponse.json({ error: 'Please wait a minute before requesting another code.' }, { status: 429 });
 
     // Send transactional verification email via Resend
     let emailSent = false;
@@ -47,7 +39,7 @@ export async function POST(req: NextRequest) {
           expiresInMinutes: 10,
         },
         {
-          to: safeEmail,
+          to: cleanEmail,
           idempotencyKey: `otp_${cleanEmail}_${Date.now()}`,
         }
       );
@@ -60,6 +52,7 @@ export async function POST(req: NextRequest) {
       emailError = e.message;
     }
 
+    if (!emailSent) return NextResponse.json({ error: 'We could not send your code. Please try again.' }, { status: 503 });
     return NextResponse.json({
       success: true,
       emailSent,
@@ -69,7 +62,7 @@ export async function POST(req: NextRequest) {
   } catch (error: any) {
     console.error('OTP Send error:', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to send verification code.' },
+      { error: apiError(error) },
       { status: 500 }
     );
   }

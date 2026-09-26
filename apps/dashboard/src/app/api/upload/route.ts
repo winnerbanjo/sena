@@ -1,7 +1,9 @@
+import { apiError } from '@/lib/api-error';
+import { withMerchant } from '@/lib/merchant-route';
 import { NextRequest, NextResponse } from 'next/server';
 import { uploadMediaToSpaces } from '@sena/integrations';
 
-export async function POST(req: NextRequest) {
+async function handlePOST(req: NextRequest) {
   try {
     const formData = await req.formData();
     const file = formData.get('file') as File | null;
@@ -10,6 +12,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 });
     }
 
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 10 * 1024 * 1024) return NextResponse.json({ error: 'Choose a JPG, PNG or WebP image smaller than 10 MB.' }, { status: 422 });
     const buffer = Buffer.from(await file.arrayBuffer());
     const extension = file.name.split('.').pop() || 'jpg';
     const key = `uploads/${Date.now()}-${Math.random().toString(36).substring(2, 8)}.${extension}`;
@@ -28,6 +31,8 @@ export async function POST(req: NextRequest) {
     });
   } catch (error: any) {
     console.error('Media upload error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: apiError(error) }, { status: 500 });
   }
 }
+
+export const POST = withMerchant(handlePOST, 'upload');

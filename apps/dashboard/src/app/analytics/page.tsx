@@ -1,5 +1,6 @@
 'use client';
 
+import { PageLoadState, readJsonResponse } from '../../components/page-load-state';
 import * as React from 'react';
 import Link from 'next/link';
 import { formatNaira } from '@sena/config';
@@ -11,19 +12,20 @@ export default function AnalyticsPage() {
   const [reservations, setReservations] = React.useState<any[]>([]);
   const [rooms, setRooms] = React.useState<any[]>([]);
   const [roomTypes, setRoomTypes] = React.useState<any[]>([]);
+  const [loadError, setLoadError] = React.useState(false);
   const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
     Promise.all([
-      fetch('/api/reservations').then((res) => res.json()).catch(() => ({ reservations: [] })),
-      fetch('/api/rooms').then((res) => res.json()).catch(() => ({ rooms: [], roomTypes: [] })),
+      fetch('/api/reservations').then(readJsonResponse),
+      fetch('/api/rooms').then(readJsonResponse),
     ])
       .then(([resData, roomData]) => {
         if (resData.reservations) setReservations(resData.reservations);
         if (roomData.rooms) setRooms(roomData.rooms);
         if (roomData.roomTypes) setRoomTypes(roomData.roomTypes);
       })
-      .catch((e) => console.error('Failed to load analytics data:', e))
+      .catch(() => setLoadError(true))
       .finally(() => setLoading(false));
   }, []);
 
@@ -109,6 +111,8 @@ export default function AnalyticsPage() {
       revenueMinorUnits: catRevenue,
     };
   });
+
+  if (loading || loadError) return <PageLoadState title="Analytics" failed={loadError} />;
 
   return (
     <div className="flex-1 flex flex-col h-screen overflow-hidden">

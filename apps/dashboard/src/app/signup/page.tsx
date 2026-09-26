@@ -79,6 +79,7 @@ function SignupContent() {
           email: inviteEmail.trim().toLowerCase(),
           fullName: staffName.trim() || undefined,
           password: staffPassword,
+          token: searchParams.get('token'),
           propertyName: inviteProperty,
           role: inviteRole,
         }),
@@ -94,23 +95,7 @@ function SignupContent() {
 
       setStaffSuccess(true);
 
-      // Persist auth context
-      try {
-        localStorage.setItem('sena_auth_user', JSON.stringify(data.user));
-        localStorage.setItem('sena_property_name', data.user.property);
-      } catch {}
-
-      // Route based on role
-      setTimeout(() => {
-        const roleLower = (data.user?.role || inviteRole || '').toLowerCase();
-        if (roleLower.includes('front desk') || roleLower.includes('reception')) {
-          router.push('/front-desk');
-        } else if (roleLower.includes('housekeep')) {
-          router.push('/housekeeping');
-        } else {
-          router.push('/');
-        }
-      }, 1200);
+      router.push('/login');
     } catch (err: any) {
       setStaffError(err.message || 'Connection error. Please try again.');
       setStaffSubmitting(false);
@@ -227,7 +212,9 @@ function SignupContent() {
         return;
       }
 
-      router.push('/onboarding');
+      const { signIn } = await import('next-auth/react');
+      const login = await signIn('credentials', { email: email.trim().toLowerCase(), password, redirect: false });
+      router.push(login?.error ? '/login' : '/onboarding');
     } catch {
       setOtpError('Network connection error verifying OTP.');
       setOtpLoading(false);
@@ -240,7 +227,7 @@ function SignupContent() {
     setOtpError('');
 
     try {
-      const res = await fetch('/api/auth/otp/resend', {
+      const res = await fetch('/api/auth/otp/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: email.trim().toLowerCase() }),

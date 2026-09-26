@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { db, properties, payments, eq } from '@sena/database';
 import { ReservationService } from '@sena/reservations';
@@ -44,8 +45,8 @@ export async function POST(req: NextRequest) {
         checkOutDate,
         numGuests: Number(numGuests),
         source: 'direct',
-        paymentStatus: paymentMethod === 'pay_at_property' ? 'pay_later' : 'paid',
-        paidAmountMinorUnits: paymentMethod === 'pay_at_property' ? 0 : undefined,
+        paymentStatus: 'pay_later',
+        paidAmountMinorUnits: 0,
         guest: {
           fullName: guestName.trim(),
           email: guestEmail.trim().toLowerCase(),
@@ -53,23 +54,9 @@ export async function POST(req: NextRequest) {
         },
         holdId,
       } as any,
-      { id: '', name: 'Guest Direct Booking Engine' }
+      { id: '', name: 'Guest Direct Booking Engine' },
+      holdId || req.headers.get('idempotency-key') || undefined
     );
-
-    // If marked paid, record payment transaction
-    if (paymentMethod !== 'pay_at_property') {
-      await db.insert(payments).values({
-        propertyId,
-        reservationId: reservation.id,
-        amountMinorUnits: reservation.totalAmountMinorUnits,
-        currency: property.currency,
-        provider: 'paystack',
-        providerReference: `PAY-${reservation.reference}`,
-        status: 'successful',
-        method: 'card',
-        notes: `Online guest booking payment for ${guestName.trim()}`,
-      });
-    }
 
     // Trigger transactional confirmation email
     try {
@@ -105,7 +92,7 @@ export async function POST(req: NextRequest) {
   } catch (error: any) {
     console.error('Checkout error:', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to complete reservation' },
+      { error: apiError(error) },
       { status: 500 }
     );
   }

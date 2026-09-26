@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { db, properties, reviews, reservations, reviewTokens, eq, and } from '@sena/database';
 
@@ -6,7 +7,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { slug, token, bookingReference, guestName, rating, title, body: reviewBody } = body;
 
-    if (!slug || !guestName || !rating || !reviewBody) {
+    if (typeof slug !== 'string' || typeof guestName !== 'string' || !guestName.trim() || guestName.length>255 || !Number.isInteger(Number(rating)) || Number(rating)<1 || Number(rating)>5 || typeof reviewBody !== 'string' || !reviewBody.trim() || reviewBody.length>10000) {
       return NextResponse.json(
         { error: 'Missing required review fields' },
         { status: 400 }
@@ -25,42 +26,20 @@ export async function POST(req: NextRequest) {
     let isVerifiedStay = false;
     let reservationId: string | null = null;
 
-    // Check bookingReference if provided
-    if (bookingReference) {
-      const refClean = String(bookingReference).trim().toUpperCase();
-      const resRecord = await db.query.reservations.findFirst({
-        where: and(
-          eq(reservations.propertyId, property.id),
-          eq(reservations.reference, refClean)
-        ),
-      });
-
-      if (resRecord) {
-        isVerifiedStay = true;
-        reservationId = resRecord.id;
-      }
-    }
-
-    // Check token if provided
+    return await db.transaction(async (tx) => {
+    // A booking reference alone is not proof that the sender stayed here.
     if (token) {
-      const tokenRecord = await db.query.reviewTokens.findFirst({
-        where: eq(reviewTokens.token, token.trim()),
-      });
-
-      if (tokenRecord && !tokenRecord.usedAt && new Date(tokenRecord.expiresAt) > new Date()) {
-        isVerifiedStay = true;
-        reservationId = tokenRecord.reservationId;
-
-        // Mark token used
-        await db
-          .update(reviewTokens)
-          .set({ usedAt: new Date() })
-          .where(eq(reviewTokens.token, tokenRecord.token));
-      }
+      const [tokenRecord] = await tx.select().from(reviewTokens).where(eq(reviewTokens.token, String(token).trim())).for('update');
+      if (!tokenRecord || tokenRecord.usedAt || tokenRecord.expiresAt <= new Date()) return NextResponse.json({error:'This review link has expired or already been used.'},{status:400});
+      const stay = await tx.query.reservations.findFirst({where:and(eq(reservations.id,tokenRecord.reservationId),eq(reservations.propertyId,property.id))});
+      if (!stay || stay.status !== 'checked_out') return NextResponse.json({error:'This review link does not match a completed stay at this property.'},{status:400});
+      isVerifiedStay=true;
+      reservationId=stay.id;
+      await tx.update(reviewTokens).set({usedAt:new Date()}).where(eq(reviewTokens.token,tokenRecord.token));
     }
 
     // Insert review
-    const [newReview] = await db
+    const [newReview] = await tx
       .insert(reviews)
       .values({
         propertyId: property.id,
@@ -81,10 +60,11 @@ export async function POST(req: NextRequest) {
       success: true,
       review: newReview,
     });
+    });
   } catch (error: any) {
     console.error('Submit review error:', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to submit review' },
+      { error: apiError(error) },
       { status: 500 }
     );
   }

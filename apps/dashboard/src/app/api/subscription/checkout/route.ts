@@ -1,10 +1,13 @@
+import { apiError } from '@/lib/api-error';
+import { withMerchant } from '@/lib/merchant-route';
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { db, organizations, properties, users, eq } from '@sena/database';
+import { resolveTenantForRequest } from '@/lib/tenant';
 
 const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY || '';
 
-export async function POST(req: NextRequest) {
+async function handlePOST(req: NextRequest) {
   try {
     const session = await auth();
     const body = await req.json();
@@ -18,19 +21,25 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid billing cycle' }, { status: 400 });
     }
 
-    // Resolve Organization & Property
-    const org = await db.query.organizations.findFirst();
-    if (!org) {
+    // Resolve Organization & Property strictly for authenticated tenant
+    const tenant = await resolveTenantForRequest(session, req);
+    let orgId = tenant?.property?.organizationId;
+
+
+    if (!orgId) {
       return NextResponse.json({ error: 'No organization found' }, { status: 400 });
     }
 
-    const prop = await db.query.properties.findFirst();
+    const prop = tenant?.property;
 
     // User email for Paystack customer
-    let userEmail = session?.user?.email;
+    let userEmail = session?.user?.email || undefined;
+    if (!userEmail && tenant?.userId) {
+      const u = await db.query.users.findFirst({ where: eq(users.id, tenant.userId) });
+      userEmail = u?.email;
+    }
     if (!userEmail) {
-      const ownerUser = await db.query.users.findFirst();
-      userEmail = ownerUser?.email || 'owner@sena.ng';
+      return NextResponse.json({ error: 'Add an email address to your account before paying.' }, { status: 400 });
     }
 
     // Amounts in Kobo
@@ -55,6 +64,8 @@ export async function POST(req: NextRequest) {
 
     const reference = `SUB-${plan.toUpperCase()}-${Date.now()}`;
 
+    if (!PAYSTACK_SECRET_KEY) return NextResponse.json({ error: 'Online payments are unavailable.' }, { status: 503 });
+
     // Call Paystack Transaction Initialize
     const paystackRes = await fetch('https://api.paystack.co/transaction/initialize', {
       method: 'POST',
@@ -70,7 +81,7 @@ export async function POST(req: NextRequest) {
         callback_url: callbackUrl,
         metadata: {
           type: 'subscription_upgrade',
-          organizationId: org.id,
+          organizationId: orgId,
           propertyId: prop?.id,
           plan,
           billingCycle,
@@ -114,6 +125,8 @@ export async function POST(req: NextRequest) {
     });
   } catch (error: any) {
     console.error('Subscription checkout initialization error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: apiError(error) }, { status: 500 });
   }
 }
+
+export const POST = withMerchant(handlePOST, 'subscription');

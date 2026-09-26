@@ -1,5 +1,6 @@
 'use client';
 
+import { WorkspaceAccess } from './workspace-access';
 import * as React from 'react';
 import { usePathname } from 'next/navigation';
 import { Sidebar } from './sidebar';
@@ -137,7 +138,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <PwaProvider>
+    <WorkspaceAccess><PwaProvider>
       <ToastProvider>
         <DashboardContext.Provider
         value={{
@@ -203,6 +204,6 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         <PwaInstallDialog />
       </DashboardContext.Provider>
       </ToastProvider>
-    </PwaProvider>
+    </PwaProvider></WorkspaceAccess>
   );
 }

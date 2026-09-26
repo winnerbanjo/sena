@@ -82,9 +82,9 @@ function WebsiteContent() {
 
   // Property info
   const [propertyId, setPropertyId] = React.useState('');
-  const [propertyName, setPropertyName] = React.useState('Amami');
-  const [propertySlug, setPropertySlug] = React.useState('amami');
-  const [slugInput, setSlugInput] = React.useState('amami');
+  const [propertyName, setPropertyName] = React.useState('');
+  const [propertySlug, setPropertySlug] = React.useState('');
+  const [slugInput, setSlugInput] = React.useState('');
   const [slugUpdating, setSlugUpdating] = React.useState(false);
   const [slugError, setSlugError] = React.useState<string | null>(null);
   const [customDomain, setCustomDomain] = React.useState('');
@@ -152,10 +152,11 @@ function WebsiteContent() {
 
         if (p) {
           if (p.id) setPropertyId(p.id);
-          setPropertyName(p.name);
-          setPropertySlug(p.slug || 'amami');
-          setSlugInput(p.slug || 'amami');
-          setCustomDomain(`${p.slug || 'amami'}.com`);
+          setPropertyName(p.name || '');
+          const cleanSlug = p.slug || p.name?.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || '';
+          setPropertySlug(cleanSlug);
+          setSlugInput(cleanSlug);
+          if (cleanSlug) setCustomDomain(`${cleanSlug}.sena.ng`);
         }
 
         if (c) {

@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { createHold, releaseHold } from '@sena/inventory';
 
@@ -33,7 +34,7 @@ export async function POST(req: NextRequest) {
     console.error('Error creating 10-minute hold:', error);
     const isConflict = error.message?.includes('not available') || error.message?.includes('capacity');
     return NextResponse.json(
-      { error: error.message || 'Room is no longer available' },
+      { error: apiError(error) },
       { status: isConflict ? 409 : 500 }
     );
   }
@@ -48,6 +49,6 @@ export async function DELETE(req: NextRequest) {
     }
     return NextResponse.json({ success: true, message: 'Hold released' });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message || 'Failed to release hold' }, { status: 500 });
+    return NextResponse.json({ error: apiError(error) }, { status: 500 });
   }
 }

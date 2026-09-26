@@ -1,37 +1,20 @@
+import { apiError } from '@/lib/api-error';
+import { withMerchant } from '@/lib/merchant-route';
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { db, properties, payments, reservations, guests , propertyMembers, organizationMembers } from '@sena/database';
 import { PaymentService } from '@sena/payments';
 import { eq, desc } from 'drizzle-orm';
 
-export async function GET(req: NextRequest) {
+import { resolveTenantForRequest } from '@/lib/tenant';
+
+export const dynamic = 'force-dynamic';
+
+async function handleGET(req: NextRequest) {
   try {
     const session = await auth();
-    let propertyId = (session?.user as any)?.propertyId;
-
-    if (!propertyId) {
-      // Securely fetch property for this user instead of leaking firstProp
-      const userId = session?.user?.id;
-      if (userId) {
-        const membership = await db.query.propertyMembers.findFirst({
-          where: eq(propertyMembers.userId, userId)
-        });
-        if (membership) {
-          propertyId = membership.propertyId;
-        } else {
-          // Try organization fallback
-          const orgMembership = await db.query.organizationMembers.findFirst({
-            where: eq(organizationMembers.userId, userId)
-          });
-          if (orgMembership) {
-            const orgProp = await db.query.properties.findFirst({
-              where: eq(properties.organizationId, orgMembership.organizationId)
-            });
-            if (orgProp) propertyId = orgProp.id;
-          }
-        }
-      }
-    }
+    const tenant = await resolveTenantForRequest(session, req);
+    const propertyId = tenant?.propertyId;
 
     if (!propertyId) {
       return NextResponse.json({ payments: [] });
@@ -62,11 +45,11 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ payments: paymentList });
   } catch (error: any) {
     console.error('Payments API error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: apiError(error) }, { status: 500 });
   }
 }
 
-export async function POST(req: NextRequest) {
+async function handlePOST(req: NextRequest) {
   try {
     const session = await auth();
     const body = await req.json();
@@ -84,7 +67,7 @@ export async function POST(req: NextRequest) {
       {
         reservationId: body.reservationId,
         amountMinorUnits: Number(body.amountMinorUnits),
-        provider: body.provider || 'manual',
+        provider: 'manual',
         providerReference: body.providerReference || `MAN-${Date.now()}`,
         method: body.method || 'cash',
         notes: body.notes,
@@ -96,6 +79,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true, payment });
   } catch (error: any) {
     console.error('Record payment error:', error);
-    return NextResponse.json({ error: error.message }, { status: 400 });
+    return NextResponse.json({ error: apiError(error) }, { status: 400 });
   }
 }
+
+export const GET = withMerchant(handleGET, 'payments');
+
+export const POST = withMerchant(handlePOST, 'payments');

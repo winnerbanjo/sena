@@ -1,5 +1,6 @@
 'use client';
 
+import { useWorkspace } from './workspace-access';
 import * as React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -87,103 +88,11 @@ const NAV_SECTIONS: NavSection[] = [
 
 function SidebarNavItems({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
-  const [profile, setProfile] = React.useState<{
-    name: string;
-    email: string;
-    role: string;
-    property: string;
-    city: string;
-  }>({
-    name: '',
-    email: '',
-    role: 'Owner',
-    property: '',
-    city: '',
-  });
-
-  React.useEffect(() => {
-    // Only use localStorage for user identity (name/email/role), NOT for property name
-    // Property name MUST come from the server to prevent cross-tenant leakage
-    let userEmail = '';
-    let resolvedName = '';
-    let resolvedRole = 'Owner';
-
-    try {
-      const stored = localStorage.getItem('sena_auth_user');
-      const draft = localStorage.getItem('sena_onboarding_draft');
-      const authUser = stored ? JSON.parse(stored) : null;
-      const draftObj = draft ? JSON.parse(draft) : null;
-
-      // PURGE stale property keys that caused Amami to bleed across tenants
-      localStorage.removeItem('sena_property_name');
-      localStorage.removeItem('sena_property_address');
-      if (authUser?.property) {
-        // Remove stale property field from sena_auth_user without losing identity
-        const { property: _removed, ...cleanAuth } = authUser;
-        localStorage.setItem('sena_auth_user', JSON.stringify(cleanAuth));
-      }
-
-      resolvedName = authUser?.fullName || authUser?.name || draftObj?.name || '';
-      resolvedRole = authUser?.role || 'Owner';
-      userEmail = authUser?.email || draftObj?.email || '';
-
-      // Show user identity immediately while server fetches authoritative property
-      setProfile((prev) => ({
-        ...prev,
-        name: resolvedName,
-        email: userEmail,
-        role: resolvedRole,
-      }));
-    } catch {}
-
-    // Always fetch authoritative property from server — never trust localStorage for property name
-    fetch(`/api/me${userEmail ? `?email=${encodeURIComponent(userEmail)}` : ''}`, {
-      headers: userEmail ? { 'x-user-email': userEmail } : {},
-    })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (!data) return;
-        const u = data.user;
-        const p = data.property;
-
-        // Server is the ONLY source of truth for property name
-        const effectivePropName = p?.name || '';
-        const effectiveCity = p?.address || p?.city || '';
-        const effectiveUserName = u?.name || resolvedName;
-        const effectiveRole = u?.role || resolvedRole;
-
-        // Update user identity in localStorage but NEVER write property into sena_auth_user
-        // — that's what caused stale Amami data to persist for Charles
-        if (u?.name) {
-          try {
-            const currentAuth = JSON.parse(localStorage.getItem('sena_auth_user') || '{}');
-            localStorage.setItem(
-              'sena_auth_user',
-              JSON.stringify({
-                ...currentAuth,
-                name: effectiveUserName,
-                fullName: effectiveUserName,
-                email: u.email || currentAuth.email,
-                role: effectiveRole,
-                // Never cache property here — always resolve from server
-              })
-            );
-          } catch {}
-        }
-
-        setProfile({
-          name: effectiveUserName,
-          email: u?.email || userEmail,
-          role: effectiveRole,
-          property: effectivePropName,
-          city: effectiveCity,
-        });
-      })
-      .catch(() => {});
-  }, []);
+  const workspace = useWorkspace();
+  const profile = { name: workspace?.user.name || '', email: workspace?.user.email || '', role: workspace?.user.role || '', property: workspace?.property.name || '', city: workspace?.property.address || '' };
 
   const roleLower = (profile.role || '').toLowerCase();
-  const isFrontDesk = roleLower.includes('front desk') || roleLower.includes('reception');
+  const isFrontDesk = (roleLower.includes('front desk') || roleLower === 'front_desk') || roleLower.includes('reception');
   const isHousekeeping = roleLower.includes('housekeep');
 
   const visibleNavSections = React.useMemo(() => {
@@ -191,9 +100,9 @@ function SidebarNavItems({ onNavigate }: { onNavigate?: () => void }) {
       let items = section.items;
       if (isFrontDesk) {
         if (section.title === 'MANAGE') {
-          items = items.filter((i) => i.label === 'Settings');
+          items = [];
         } else if (section.title === 'SALES') {
-          items = items.filter((i) => ['Direct Booking', 'Reviews', 'Website'].includes(i.label));
+          items = items.filter((i) => ['Payments', 'Invoices'].includes(i.label));
         }
       } else if (isHousekeeping) {
         if (section.title === 'OPERATIONS') {
@@ -355,7 +264,7 @@ function SidebarNavItems({ onNavigate }: { onNavigate?: () => void }) {
             onNavigate?.();
             purgeAndLogout();
           }}
-          title="Sign out & Purge session"
+          title="Sign out"
           className="p-1.5 text-[#7A7267] hover:text-[#B85C3E] hover:bg-[#FAF9F7] rounded transition-colors flex-shrink-0 cursor-pointer"
         >
           <LogOut className="w-3.5 h-3.5" />

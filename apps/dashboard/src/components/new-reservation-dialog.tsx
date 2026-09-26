@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { useWorkspace } from './workspace-access';
 import { calculateNights, formatNaira } from '@sena/config';
 import {
   Button,
@@ -34,10 +35,11 @@ export function NewReservationDialog({
   onOpenChange,
   onCreateReservation,
 }: NewReservationDialogProps) {
-  const getTodayStr = () => new Date().toISOString().split('T')[0];
+  const workspace = useWorkspace();
+  const getTodayStr = () => new Intl.DateTimeFormat('en-CA', { timeZone: workspace?.property.timezone || 'Africa/Lagos' }).format(new Date());
   const getTomorrowStr = () => {
-    const d = new Date();
-    d.setDate(d.getDate() + 1);
+    const d = new Date(`${getTodayStr()}T00:00:00Z`);
+    d.setUTCDate(d.getUTCDate() + 1);
     return d.toISOString().split('T')[0];
   };
 
@@ -51,6 +53,7 @@ export function NewReservationDialog({
   const [guestEmail, setGuestEmail] = React.useState('');
   const [paymentStatus, setPaymentStatus] = React.useState<'paid' | 'part_payment' | 'pay_later'>('pay_later');
   const [source, setSource] = React.useState<'walk_in' | 'phone' | 'direct' | 'whatsapp'>('walk_in');
+  const requestKey = React.useRef<string | null>(null);
   const [submitting, setSubmitting] = React.useState(false);
   const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
 
@@ -68,7 +71,7 @@ export function NewReservationDialog({
               id: rt.id,
               name: rt.name,
               price: rt.basePriceMinorUnits,
-              available: rt.totalInventory || 1,
+              available: rt.totalInventory || 0,
             }));
             setRoomOptions(mapped);
             setSelectedRoomId((prev) => (mapped.some((m: any) => m.id === prev) ? prev : mapped[0].id));
@@ -85,22 +88,25 @@ export function NewReservationDialog({
     }
   }, [open]);
 
-  const nights = Math.max(1, calculateNights(checkIn, checkOut));
+  const nights = (() => { try { return calculateNights(checkIn, checkOut); } catch { return 0; } })();
   const selectedRoomObj = roomOptions.find((r) => r.id === selectedRoomId) || null;
   const totalAmountMinorUnits = selectedRoomObj ? selectedRoomObj.price * nights : 0;
 
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!guestName || !selectedRoomId) return;
+    if (submitting) return;
+    if (!guestName.trim() || !selectedRoomId) return;
+    if (nights === 0) { setErrorMsg('Check-out must be after check-in.'); return; }
 
+    if (!requestKey.current) requestKey.current = crypto.randomUUID();
     setSubmitting(true);
     setErrorMsg(null);
 
     try {
       const res = await fetch('/api/reservations', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Idempotency-Key': requestKey.current },
         body: JSON.stringify({
           roomTypeId: selectedRoomId,
           checkInDate: checkIn,
@@ -110,9 +116,9 @@ export function NewReservationDialog({
           paymentStatus,
           paidAmountMinorUnits: paymentStatus === 'paid' ? totalAmountMinorUnits : 0,
           guest: {
-            fullName: guestName,
-            email: guestEmail || `${guestName.toLowerCase().replace(/\s+/g, '.')}@example.com`,
-            phone: guestPhone || '+234 800 000 0000',
+            fullName: guestName.trim(),
+            email: guestEmail.trim().toLowerCase(),
+            phone: guestPhone.trim(),
           },
         }),
       });
@@ -163,6 +169,7 @@ export function NewReservationDialog({
       });
 
       onOpenChange(false);
+      requestKey.current = null;
       setGuestName('');
       setGuestPhone('');
       setGuestEmail('');
@@ -176,7 +183,7 @@ export function NewReservationDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg bg-white border border-[#E8E2DA]">
+      <DialogContent onPointerDownOutside={(event) => event.preventDefault()} onEscapeKeyDown={(event) => { if (submitting) event.preventDefault(); }} className="max-w-lg bg-white border border-[#E8E2DA]">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
             <DialogTitle>New reservation</DialogTitle>
@@ -189,8 +196,9 @@ export function NewReservationDialog({
             {/* Dates */}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label>Check-in</Label>
+                <Label htmlFor="reservation-check-in">Check-in</Label>
                 <Input
+                  id="reservation-check-in"
                   type="date"
                   value={checkIn}
                   onChange={(e) => setCheckIn(e.target.value)}
@@ -198,8 +206,10 @@ export function NewReservationDialog({
                 />
               </div>
               <div>
-                <Label>Check-out</Label>
+                <Label htmlFor="reservation-check-out">Check-out</Label>
                 <Input
+                  id="reservation-check-out"
+                  min={checkIn}
                   type="date"
                   value={checkOut}
                   onChange={(e) => setCheckOut(e.target.value)}
@@ -227,6 +237,7 @@ export function NewReservationDialog({
                     <button
                       key={rm.id}
                       type="button"
+                      aria-pressed={selectedRoomId === rm.id}
                       onClick={() => setSelectedRoomId(rm.id)}
                       className={`p-2.5 rounded border text-left text-xs transition-all ${
                         selectedRoomId === rm.id
@@ -254,6 +265,7 @@ export function NewReservationDialog({
               <Label>Guest Information</Label>
               <div>
                 <Input
+                  aria-label="Guest full name" autoComplete="name"
                   placeholder="Full name (e.g. Ada James)"
                   value={guestName}
                   onChange={(e) => setGuestName(e.target.value)}
@@ -262,12 +274,14 @@ export function NewReservationDialog({
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <Input
+                  type="tel" aria-label="Guest phone" autoComplete="tel"
                   placeholder="Phone (+234...)"
                   value={guestPhone}
                   onChange={(e) => setGuestPhone(e.target.value)}
                 />
                 <Input
                   type="email"
+                  aria-label="Guest email" autoComplete="email"
                   placeholder="Email address"
                   value={guestEmail}
                   onChange={(e) => setGuestEmail(e.target.value)}
@@ -278,8 +292,8 @@ export function NewReservationDialog({
             {/* Source & Payment */}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label>Source</Label>
-                <select
+                <Label htmlFor="reservation-source">Source</Label>
+                <select id="reservation-source"
                   value={source}
                   onChange={(e) => setSource(e.target.value as any)}
                   className="flex h-10 w-full rounded border border-[#E8E2DA] bg-white px-3 py-2 text-xs text-[#191816]"
@@ -291,16 +305,8 @@ export function NewReservationDialog({
                 </select>
               </div>
               <div>
-                <Label>Payment State</Label>
-                <select
-                  value={paymentStatus}
-                  onChange={(e) => setPaymentStatus(e.target.value as any)}
-                  className="flex h-10 w-full rounded border border-[#E8E2DA] bg-white px-3 py-2 text-xs text-[#191816]"
-                >
-                  <option value="pay_later">Pay later</option>
-                  <option value="paid">Paid in full</option>
-                  <option value="part_payment">Part payment</option>
-                </select>
+                <Label>Payment</Label>
+                <p className="text-xs text-[#7A7267] mt-2">Record payments from the reservation after saving it. New reservations start unpaid.</p>
               </div>
             </div>
 

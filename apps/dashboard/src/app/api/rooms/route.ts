@@ -1,72 +1,20 @@
+import { apiError } from '@/lib/api-error';
+import { withMerchant } from '@/lib/merchant-route';
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
-import { db, roomTypes, rooms, properties, propertyMembers, organizationMembers, users } from '@sena/database';
+import { db, roomTypes, rooms, reservations, housekeepingTasks, properties, propertyMembers, organizationMembers, users } from '@sena/database';
 import { eq, desc, ilike } from 'drizzle-orm';
+
+import { resolveTenantForRequest } from '@/lib/tenant';
 
 export const dynamic = 'force-dynamic';
 
 async function resolveProperty(session: any, req?: NextRequest): Promise<string | null> {
-  // 1. Check explicit client header or query param
-  if (req) {
-    const headerPropId = req.headers.get('x-property-id');
-    if (headerPropId) return headerPropId;
-
-    const headerPropName = req.headers.get('x-property-name') || req.nextUrl.searchParams.get('property');
-    if (headerPropName) {
-      const matched = await db.query.properties.findFirst({
-        where: ilike(properties.name, `%${String(headerPropName).trim()}%`),
-      });
-      if (matched) return matched.id;
-    }
-
-    const headerUserEmail = req.headers.get('x-user-email') || req.nextUrl.searchParams.get('email');
-    if (headerUserEmail) {
-      const u = await db.query.users.findFirst({
-        where: eq(users.email, String(headerUserEmail).toLowerCase().trim()),
-      });
-      if (u) {
-        const pm = await db.query.propertyMembers.findFirst({
-          where: eq(propertyMembers.userId, u.id),
-        });
-        if (pm?.propertyId) return pm.propertyId;
-      }
-    }
-  }
-
-  let propertyId = (session?.user as any)?.propertyId;
-
-  if (!propertyId) {
-    const userId = session?.user?.id;
-    if (userId) {
-      const membership = await db.query.propertyMembers.findFirst({
-        where: eq(propertyMembers.userId, userId),
-      });
-      if (membership) {
-        propertyId = membership.propertyId;
-      } else {
-        const orgMembership = await db.query.organizationMembers.findFirst({
-          where: eq(organizationMembers.userId, userId),
-        });
-        if (orgMembership) {
-          const orgProp = await db.query.properties.findFirst({
-            where: eq(properties.organizationId, orgMembership.organizationId),
-          });
-          if (orgProp) propertyId = orgProp.id;
-        }
-      }
-    }
-  }
-
-  // Canonical fallback to primary property
-  if (!propertyId) {
-    const firstProp = await db.query.properties.findFirst();
-    if (firstProp) propertyId = firstProp.id;
-  }
-
-  return propertyId || null;
+  const tenant = await resolveTenantForRequest(session, req);
+  return tenant?.propertyId || null;
 }
 
-export async function GET(req: NextRequest) {
+async function handleGET(req: NextRequest) {
   try {
     const session = await auth();
     const propertyId = await resolveProperty(session, req);
@@ -106,11 +54,11 @@ export async function GET(req: NextRequest) {
     });
   } catch (error: any) {
     console.error('Error fetching rooms:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: apiError(error) }, { status: 500 });
   }
 }
 
-export async function POST(req: NextRequest) {
+async function handlePOST(req: NextRequest) {
   try {
     const session = await auth();
     const propertyId = await resolveProperty(session, req);
@@ -246,11 +194,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
   } catch (error: any) {
     console.error('Error modifying rooms:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: apiError(error) }, { status: 500 });
   }
 }
 
-export async function DELETE(req: NextRequest) {
+async function handleDELETE(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
@@ -260,18 +208,30 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: 'ID required' }, { status: 400 });
     }
 
-    if (type === 'category') {
-      // Delete all rooms in this category first, then the category itself
-      await db.delete(rooms).where(eq(rooms.roomTypeId, id));
-      const [deleted] = await db.delete(roomTypes).where(eq(roomTypes.id, id)).returning();
+    return await db.transaction(async (tx) => {
+      if (type === 'category') {
+        await tx.select({ id: roomTypes.id }).from(roomTypes).where(eq(roomTypes.id, id)).for('update');
+        const [room] = await tx.select({ id: rooms.id }).from(rooms).where(eq(rooms.roomTypeId, id)).limit(1);
+        const [booking] = await tx.select({ id: reservations.id }).from(reservations).where(eq(reservations.roomTypeId, id)).limit(1);
+        if (room || booking) return NextResponse.json({ error: 'This category has rooms or reservation history. Keep it to preserve your records.' }, { status: 409 });
+        const [deleted] = await tx.delete(roomTypes).where(eq(roomTypes.id, id)).returning();
+        return NextResponse.json({ success: true, deleted });
+      }
+      await tx.select({ id: rooms.id }).from(rooms).where(eq(rooms.id, id)).for('update');
+      const [booking] = await tx.select({ id: reservations.id }).from(reservations).where(eq(reservations.roomId, id)).limit(1);
+      const [task] = await tx.select({ id: housekeepingTasks.id }).from(housekeepingTasks).where(eq(housekeepingTasks.roomId, id)).limit(1);
+      if (booking || task) return NextResponse.json({ error: 'This room has operational history. Mark it out of service instead to preserve your records.' }, { status: 409 });
+      const [deleted] = await tx.delete(rooms).where(eq(rooms.id, id)).returning();
       return NextResponse.json({ success: true, deleted });
-    }
-
-    // Default: delete individual room
-    const [deleted] = await db.delete(rooms).where(eq(rooms.id, id)).returning();
-    return NextResponse.json({ success: true, deleted });
+    });
   } catch (error: any) {
     console.error('Error deleting room/category:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: apiError(error) }, { status: 500 });
   }
 }
+
+export const GET = withMerchant(handleGET, 'rooms');
+
+export const POST = withMerchant(handlePOST, 'rooms');
+
+export const DELETE = withMerchant(handleDELETE, 'rooms');

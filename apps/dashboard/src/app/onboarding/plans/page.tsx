@@ -10,7 +10,7 @@ export default function OnboardingPlansPage() {
   const [billingCycle, setBillingCycle] = React.useState<'monthly' | 'quarterly' | 'biannual' | 'yearly'>('monthly');
   const [selectedPlan, setSelectedPlan] = React.useState<'essential' | 'growth' | 'pro'>('growth');
   const [isLoading, setIsLoading] = React.useState(false);
-  const [propertyName, setPropertyName] = React.useState('Amami');
+  const [propertyName, setPropertyName] = React.useState('');
 
   const getPrice = (plan: 'essential' | 'growth' | 'pro', cycle: string) => {
     const base = { essential: 25000, growth: 50000, pro: 100000 }[plan];
@@ -35,9 +35,22 @@ export default function OnboardingPlansPage() {
 
   React.useEffect(() => {
     try {
-      const name = localStorage.getItem('sena_property_name');
-      if (name) setPropertyName(name);
+      const draftStr = localStorage.getItem('sena_onboarding_draft');
+      if (draftStr) {
+        const draft = JSON.parse(draftStr);
+        if (draft.propertyName || draft.propName) {
+          setPropertyName(draft.propertyName || draft.propName);
+          return;
+        }
+      }
     } catch (e) {}
+
+    fetch('/api/me')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.property?.name) setPropertyName(data.property.name);
+      })
+      .catch(() => {});
   }, []);
 
   async function handleSelectTrial(plan: 'essential' | 'growth' | 'pro') {

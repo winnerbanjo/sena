@@ -40,7 +40,7 @@ export default function BookingEnginePage() {
   const [guestPhone, setGuestPhone] = React.useState('');
   const [confirmedRef, setConfirmedRef] = React.useState('');
 
-  const nights = calculateNights(checkIn, checkOut);
+  const nights = (() => { try { return calculateNights(checkIn, checkOut); } catch { return 0; } })();
 
   // Fetch real room availability from PostgreSQL
   const fetchRooms = React.useCallback(async () => {

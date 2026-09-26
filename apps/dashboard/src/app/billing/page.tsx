@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { PageLoadState, readJsonResponse } from '../../components/page-load-state';
 import Link from 'next/link';
 import { Topbar } from '../../components/topbar';
 import { NewReservationDialog } from '../../components/new-reservation-dialog';
@@ -10,6 +11,7 @@ export default function BillingPage() {
   const [newResOpen, setNewResOpen] = React.useState(false);
   const [billingCycle, setBillingCycle] = React.useState<'monthly' | 'yearly'>('monthly');
   const [subData, setSubData] = React.useState<any>(null);
+  const [loadError, setLoadError] = React.useState(false);
   const [loading, setLoading] = React.useState(true);
   const [switching, setSwitching] = React.useState(false);
   const [verifying, setVerifying] = React.useState(false);
@@ -17,13 +19,11 @@ export default function BillingPage() {
 
   const fetchSubscription = React.useCallback(async () => {
     try {
-      const res = await fetch('/api/subscription');
-      if (res.ok) {
-        const data = await res.json();
-        setSubData(data);
-      }
+      setLoadError(false);
+      const data = await fetch('/api/subscription', { cache: 'no-store' }).then(readJsonResponse);
+      setSubData(data);
     } catch (err) {
-      console.error('Failed to fetch subscription:', err);
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -69,6 +69,7 @@ export default function BillingPage() {
 
   // Initiate Paystack checkout for plan change or activation
   async function handleSwitchPlan(plan: string) {
+    if (switching || verifying) return;
     if (subData?.subscription?.plan === plan && subData?.subscription?.status === 'active') {
       return;
     }
@@ -108,6 +109,8 @@ export default function BillingPage() {
   const isExpired = subData?.isExpired ?? false;
   const roomCount = subData?.roomCount ?? 0;
   const roomLimit = subData?.subscription?.roomLimit ?? 30;
+
+  if (loading || loadError) return <PageLoadState title="Billing" failed={loadError} retry={fetchSubscription} />;
 
   return (
     <div className="flex-1 flex flex-col h-screen overflow-hidden bg-white text-[#191816]">

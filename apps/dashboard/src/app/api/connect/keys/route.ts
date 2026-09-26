@@ -1,54 +1,23 @@
+import { apiError } from '@/lib/api-error';
+import { withMerchant } from '@/lib/merchant-route';
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { db, apiKeys, properties, propertyMembers, organizationMembers } from '@sena/database';
 import { eq, and, desc } from 'drizzle-orm';
 import { generateApiKey } from '../../../../lib/api-auth';
 
-async function resolveProperty(session: any) {
-  let propertyId = (session?.user as any)?.propertyId;
-  let organizationId = (session?.user as any)?.organizationId;
+import { resolveTenantForRequest } from '@/lib/tenant';
 
-  const userId = session?.user?.id;
-  if (!propertyId && userId) {
-    const membership = await db.query.propertyMembers.findFirst({
-      where: eq(propertyMembers.userId, userId),
-    });
-    if (membership) {
-      propertyId = membership.propertyId;
-    } else {
-      const orgMembership = await db.query.organizationMembers.findFirst({
-        where: eq(organizationMembers.userId, userId),
-      });
-      if (orgMembership) {
-        organizationId = orgMembership.organizationId;
-        const orgProp = await db.query.properties.findFirst({
-          where: eq(properties.organizationId, orgMembership.organizationId),
-        });
-        if (orgProp) propertyId = orgProp.id;
-      }
-    }
-  }
-
-  // Fallback to first property if single-tenant pilot setup
-  if (!propertyId) {
-    const firstProp = await db.query.properties.findFirst();
-    if (firstProp) {
-      propertyId = firstProp.id;
-      organizationId = firstProp.organizationId;
-    }
-  }
-
-  if (propertyId && !organizationId) {
-    const prop = await db.query.properties.findFirst({
-      where: eq(properties.id, propertyId),
-    });
-    if (prop) organizationId = prop.organizationId;
-  }
-
-  return { propertyId, organizationId };
+async function resolveProperty(session: any, req?: NextRequest) {
+  const tenant = await resolveTenantForRequest(session, req);
+  if (!tenant) return { propertyId: null, organizationId: null };
+  return {
+    propertyId: tenant.propertyId,
+    organizationId: tenant.property.organizationId,
+  };
 }
 
-export async function GET(req: NextRequest) {
+async function handleGET(req: NextRequest) {
   try {
     const session = await auth();
     const { propertyId } = await resolveProperty(session);
@@ -76,11 +45,11 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ keys });
   } catch (error: any) {
     console.error('Error fetching API keys:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: apiError(error) }, { status: 500 });
   }
 }
 
-export async function POST(req: NextRequest) {
+async function handlePOST(req: NextRequest) {
   try {
     const session = await auth();
     const { propertyId, organizationId } = await resolveProperty(session);
@@ -124,11 +93,11 @@ export async function POST(req: NextRequest) {
     }, { status: 201 });
   } catch (error: any) {
     console.error('Error creating API key:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: apiError(error) }, { status: 500 });
   }
 }
 
-export async function DELETE(req: NextRequest) {
+async function handleDELETE(req: NextRequest) {
   try {
     const session = await auth();
     const { propertyId } = await resolveProperty(session);
@@ -147,6 +116,12 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error('Error revoking API key:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: apiError(error) }, { status: 500 });
   }
 }
+
+export const GET = withMerchant(handleGET, 'connect');
+
+export const POST = withMerchant(handlePOST, 'connect');
+
+export const DELETE = withMerchant(handleDELETE, 'connect');

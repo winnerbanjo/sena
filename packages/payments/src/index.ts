@@ -5,6 +5,7 @@ import {
   payments,
   reservationEvents,
   reservations,
+  properties,
 } from '@sena/database';
 import type { Payment } from '@sena/types';
 import type { RecordPaymentInput } from '@sena/validation';
@@ -20,7 +21,10 @@ export class PaymentService {
     idempotencyKey?: string,
     actor = { id: '', name: 'Staff' }
   ): Promise<Payment> {
+    if (!Number.isSafeInteger(input.amountMinorUnits) || input.amountMinorUnits <= 0) throw new Error('Enter a valid payment amount.');
     return await db.transaction(async (tx) => {
+      // Serialize retries and concurrent payments before reading either balance or receipt.
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${input.reservationId}))`);
       // 1. Idempotency Check
       if (idempotencyKey) {
         const existingKey = await tx
@@ -30,7 +34,9 @@ export class PaymentService {
           .limit(1);
 
         if (existingKey.length > 0) {
-          return existingKey[0].responsePayload as unknown as Payment;
+          const prior = existingKey[0].responsePayload as unknown as Payment;
+          if (prior.reservationId !== input.reservationId) throw new Error('Payment reference already used.');
+          return prior;
         }
       }
 
@@ -47,6 +53,9 @@ export class PaymentService {
 
       const res = resList[0];
 
+      const property = await tx.query.properties.findFirst({ where: eq(properties.id, res.propertyId) });
+      if (!property) throw new Error('Property not found');
+
       // 3. Insert Payment
       const [payment] = await tx
         .insert(payments)
@@ -54,12 +63,12 @@ export class PaymentService {
           propertyId: res.propertyId,
           reservationId: input.reservationId,
           amountMinorUnits: input.amountMinorUnits,
-          currency: 'NGN',
+          currency: property.currency,
           provider: input.provider,
           providerReference: input.providerReference,
           method: input.method,
           status: 'successful',
-          recordedByUserId: actor.id || undefined,
+          recordedByUserId: actor.id && actor.id !== 'system' ? actor.id : undefined,
           notes: input.notes,
         })
         .returning();
@@ -85,7 +94,7 @@ export class PaymentService {
       // 5. Audit Timeline Event
       await tx.insert(reservationEvents).values({
         reservationId: input.reservationId,
-        actorId: actor.id || undefined,
+        actorId: actor.id && actor.id !== 'system' ? actor.id : undefined,
         actorName: actor.name,
         eventType: 'payment_received',
         description: `Payment of ₦${(input.amountMinorUnits / 100).toLocaleString('en-NG')} received via ${input.method} (${input.provider}).`,
@@ -114,10 +123,11 @@ export class PaymentService {
     rawPayload: string,
     secretKey: string
   ): boolean {
+    if (!secretKey || !/^[a-f0-9]{128}$/i.test(signature)) return false;
     const hash = crypto
       .createHmac('sha512', secretKey)
       .update(rawPayload)
       .digest('hex');
-    return hash === signature;
+    return crypto.timingSafeEqual(Buffer.from(hash, 'hex'), Buffer.from(signature, 'hex'));
   }
 }

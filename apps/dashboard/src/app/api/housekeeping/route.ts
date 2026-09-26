@@ -1,37 +1,20 @@
+import { apiError } from '@/lib/api-error';
+import { withMerchant } from '@/lib/merchant-route';
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { db, properties, rooms, roomTypes, housekeepingTasks, users , propertyMembers, organizationMembers } from '@sena/database';
 import { HousekeepingService } from '@sena/housekeeping';
 import { eq, desc } from 'drizzle-orm';
 
-export async function GET(req: NextRequest) {
+import { resolveTenantForRequest } from '@/lib/tenant';
+
+export const dynamic = 'force-dynamic';
+
+async function handleGET(req: NextRequest) {
   try {
     const session = await auth();
-    let propertyId = (session?.user as any)?.propertyId;
-
-    if (!propertyId) {
-      // Securely fetch property for this user instead of leaking firstProp
-      const userId = session?.user?.id;
-      if (userId) {
-        const membership = await db.query.propertyMembers.findFirst({
-          where: eq(propertyMembers.userId, userId)
-        });
-        if (membership) {
-          propertyId = membership.propertyId;
-        } else {
-          // Try organization fallback
-          const orgMembership = await db.query.organizationMembers.findFirst({
-            where: eq(organizationMembers.userId, userId)
-          });
-          if (orgMembership) {
-            const orgProp = await db.query.properties.findFirst({
-              where: eq(properties.organizationId, orgMembership.organizationId)
-            });
-            if (orgProp) propertyId = orgProp.id;
-          }
-        }
-      }
-    }
+    const tenant = await resolveTenantForRequest(session, req);
+    const propertyId = tenant?.propertyId;
 
     if (!propertyId) {
       return NextResponse.json({ rooms: [], tasks: [], summary: {} });
@@ -79,11 +62,11 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ rooms: roomList, tasks, summary });
   } catch (error: any) {
     console.error('Housekeeping API error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: apiError(error) }, { status: 500 });
   }
 }
 
-export async function PATCH(req: NextRequest) {
+async function handlePATCH(req: NextRequest) {
   try {
     const session = await auth();
     let propertyId = (session?.user as any)?.propertyId;
@@ -133,6 +116,10 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ success: true, updated });
   } catch (error: any) {
     console.error('Housekeeping update error:', error);
-    return NextResponse.json({ error: error.message }, { status: 400 });
+    return NextResponse.json({ error: apiError(error) }, { status: 400 });
   }
 }
+
+export const GET = withMerchant(handleGET, 'housekeeping');
+
+export const PATCH = withMerchant(handlePATCH, 'housekeeping');

@@ -1,5 +1,7 @@
 'use client';
+import { findReadyRoom } from '../components/reservation-room';
 
+import { useWorkspace } from '../components/workspace-access';
 import * as React from 'react';
 import Link from 'next/link';
 import { formatStayDates, formatNaira } from '@sena/config';
@@ -36,8 +38,11 @@ import { Topbar } from '../components/topbar';
 
 export default function OverviewPage() {
   const toast = useToast();
+  const workspace = useWorkspace();
   const [reservations, setReservations] = React.useState<ReservationItem[]>([]);
   const [rooms, setRooms] = React.useState<any[]>([]);
+  const [loadError, setLoadError] = React.useState(false);
+  const [timezone, setTimezone] = React.useState('Africa/Lagos');
   const [loading, setLoading] = React.useState(true);
   const [selectedRes, setSelectedRes] = React.useState<ReservationItem | null>(null);
   const [drawerOpen, setDrawerOpen] = React.useState(false);
@@ -49,29 +54,12 @@ export default function OverviewPage() {
   const [propertySlug, setPropertySlug] = React.useState('');
 
   React.useEffect(() => {
-    // Read user identity from localStorage immediately (name/email only — NOT property)
-    let activeEmail = '';
-    try {
-      const user = JSON.parse(localStorage.getItem('sena_auth_user') || '{}');
-      if (user.fullName || user.name) setUserName(user.fullName || user.name);
-      activeEmail = user.email || '';
-    } catch {}
-
-    // Server is the ONLY source of truth for property name — never trust localStorage for it
-    fetch(`/api/me${activeEmail ? `?email=${encodeURIComponent(activeEmail)}` : ''}`, {
-      headers: activeEmail ? { 'x-user-email': activeEmail } : {},
-    })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (!data) return;
-        if (data.user?.name) setUserName(data.user.name);
-        if (data.property?.name) {
-          setPropertyName(data.property.name);
-          if (data.property.slug) setPropertySlug(data.property.slug);
-        }
-      })
-      .catch(() => {});
-  }, []);
+    if (!workspace) return;
+    setUserName(workspace.user.name);
+    setPropertyName(workspace.property.name);
+    setPropertySlug(workspace.property.slug || '');
+    setTimezone(workspace.property.timezone);
+  }, [workspace]);
 
   React.useEffect(() => {
     const today = new Date();
@@ -86,13 +74,15 @@ export default function OverviewPage() {
   }, []);
 
   const fetchData = React.useCallback(async () => {
+    setLoadError(false);
     try {
       const [resRes, roomRes, webRes] = await Promise.all([
         fetch('/api/reservations'),
         fetch('/api/rooms'),
-        fetch('/api/website').catch(() => null),
+        fetch('/api/me'),
       ]);
 
+      if (!resRes.ok || !roomRes.ok || !webRes?.ok) throw new Error('Could not load overview');
       if (resRes.ok) {
         const data = await resRes.json();
         if (data.reservations) {
@@ -102,7 +92,8 @@ export default function OverviewPage() {
             guestName: r.guestName || 'Unnamed Guest',
             guestEmail: r.guestEmail || '',
             guestPhone: r.guestPhone || '',
-            roomType: r.roomTypeName || 'Standard Room',
+            roomType: r.roomTypeName || 'Room type unavailable',
+            roomTypeId: r.roomTypeId,
             roomNumber: r.roomNumber || 'Unassigned',
             checkInDate: r.checkInDate,
             checkOutDate: r.checkOutDate,
@@ -126,6 +117,7 @@ export default function OverviewPage() {
 
       if (webRes && webRes.ok) {
         const webData = await webRes.json();
+        if (webData.property?.timezone) setTimezone(webData.property.timezone);
         // Only override property from website API if it returns a real name
         // Never use a hardcoded fallback here — /api/me is the authoritative source
         if (webData.property?.name) {
@@ -134,7 +126,7 @@ export default function OverviewPage() {
         }
       }
     } catch (e) {
-      console.error('Failed to load overview data from DB:', e);
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -147,7 +139,7 @@ export default function OverviewPage() {
   // Check In handler
   async function handleCheckIn(id: string) {
     try {
-      const availableRoom = rooms.find((rm) => rm.operational === 'available' || rm.operationalStatus === 'available');
+      const availableRoom = findReadyRoom(rooms, reservations.find(reservation => reservation.id === id));
       if (!availableRoom) {
         toast.error('No clean rooms available', 'Please assign or clean a room before checking in.');
         return;
@@ -195,17 +187,21 @@ export default function OverviewPage() {
     setSuccessReservation(newRes);
   }
 
-  const arrivals = reservations.filter((r) => r.status === 'confirmed');
+  const todayIso = new Intl.DateTimeFormat('en-CA', { timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+  const arrivals = reservations.filter((r) => r.status === 'confirmed' && r.checkInDate === todayIso);
   const inHouse = reservations.filter((r) => r.status === 'checked_in');
-  const todayIso = new Date().toISOString().split('T')[0];
   const departures = inHouse.filter((r) => r.checkOutDate === todayIso);
   const dirtyRooms = rooms.filter((r) => r.housekeeping === 'dirty' || r.housekeepingStatus === 'dirty');
+  const cleanRooms = rooms.filter((room) => ['clean', 'inspected'].includes(room.housekeepingStatus || room.housekeeping));
+  const readyRooms = cleanRooms.filter((room) => (room.operationalStatus || room.operational) === 'available');
   const occupiedCount = rooms.filter((r) => r.operational === 'occupied' || r.operationalStatus === 'occupied').length;
   const totalRoomsCount = rooms.length || 1;
   const occupancyRate = rooms.length > 0 ? Math.round((occupiedCount / totalRoomsCount) * 100) : 0;
   const monthRevenueMinorUnits = reservations.reduce((acc, curr) => acc + (curr.paidAmountMinorUnits || 0), 0);
 
-  const directWebsiteUrl = `https://${propertySlug}.sena.ng`;
+  const directWebsiteUrl = propertySlug ? `https://${propertySlug}.sena.ng` : '/website';
+
+  if (loading || loadError) return <div className="flex-1 flex flex-col"><Topbar title="Overview" /><main className="p-6 space-y-4" aria-live="polite">{loadError ? <><h2 className="text-xl font-serif">We could not load your overview</h2><p>Check your connection and try again.</p><button onClick={fetchData} className="min-h-11 px-4 rounded bg-[#71382D] text-white">Try again</button></> : <><span className="sr-only">Loading your overview</span><div className="h-40 bg-[#F7F1E8] rounded-xl animate-pulse" /><div className="h-64 bg-[#F7F1E8] rounded-xl animate-pulse" /></>}</main></div>;
 
   return (
     <div className="flex-1 flex flex-col h-screen overflow-hidden bg-white text-[#191816]">
@@ -251,11 +247,11 @@ export default function OverviewPage() {
                   : <span className="inline-block w-20 h-4 bg-[#E8E2DA] rounded animate-pulse align-middle" />}
               </h1>
               <p className="text-xs sm:text-sm text-[#7A7267] max-w-2xl leading-relaxed">
-                Here is today's real-time operational pulse for{' '}
+                Here is today's overview for{' '}
                 <strong className="text-[#71382D] font-semibold">
                   {propertyName || <span className="inline-block w-32 h-3.5 bg-[#E8E2DA] rounded animate-pulse align-middle" />}
                 </strong>
-                . Direct website bookings, inventory allocation, and guest stays are fully active.
+                . Review arrivals, room availability, and outstanding tasks.
               </p>
             </div>
 
@@ -275,7 +271,7 @@ export default function OverviewPage() {
                 className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-white hover:bg-stone-50 border border-[#D5CFC7] text-xs font-medium text-[#191816] transition-all shadow-2xs"
               >
                 <DoorOpen className="w-4 h-4 text-[#B85C3E]" />
-                <span>Room Tape</span>
+                <span>Front desk</span>
               </Link>
 
               <Link
@@ -307,7 +303,7 @@ export default function OverviewPage() {
                 {occupancyRate}%
               </span>
               <span className="text-xs text-[#7A7267]">
-                ({occupiedCount}/{rooms.length || 4} rooms)
+                ({occupiedCount}/{rooms.length} rooms)
               </span>
             </div>
             {/* Visual occupancy bar */}
@@ -318,7 +314,7 @@ export default function OverviewPage() {
               />
             </div>
             <span className="text-[11px] text-[#8C6D58] block mt-2.5">
-              {rooms.length - occupiedCount} rooms available tonight
+              {readyRooms.length} rooms available tonight
             </span>
           </div>
 
@@ -368,7 +364,7 @@ export default function OverviewPage() {
                 {departures.length}
               </span>
               <span className="text-[11px] px-2 py-0.5 rounded-full bg-white text-sky-800 border border-sky-200/80 font-medium">
-                Checkout 11:00
+                Checkout {workspace?.property.checkOutTime || '—'}
               </span>
             </div>
             <span className="text-[11px] text-[#7A7267] block mt-4">
@@ -395,7 +391,7 @@ export default function OverviewPage() {
                 {dirtyRooms.length}
               </span>
               <span className="text-[11px] px-2 py-0.5 rounded-full bg-white text-[#5C564D] border border-[#E8DFD5] font-medium font-mono">
-                {rooms.length - dirtyRooms.length} clean &amp; ready
+                {cleanRooms.length} clean &amp; ready
               </span>
             </div>
             <span className="text-[11px] text-[#7A7267] block mt-4">
@@ -403,7 +399,7 @@ export default function OverviewPage() {
             </span>
           </Link>
 
-          {/* 5. Month Revenue */}
+          {/* 5. Recorded Payments */}
           <Link
             href="/payments"
             className="relative overflow-hidden bg-[#FAF8F5] border border-[#E8DACB] hover:border-emerald-400 hover:bg-white transition-all rounded-2xl p-5 shadow-xs hover:shadow-md group block"
@@ -411,7 +407,7 @@ export default function OverviewPage() {
             <div className="h-1 bg-gradient-to-r from-emerald-400 to-emerald-600 absolute top-0 left-0 right-0" />
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-mono uppercase tracking-wider text-[#1F7A46] font-semibold group-hover:text-emerald-900 transition-colors">
-                Month Revenue
+                Recorded Payments
               </span>
               <div className="w-8 h-8 rounded-lg bg-white border border-emerald-200/60 text-emerald-800 flex items-center justify-center shadow-2xs">
                 <TrendingUp className="w-4 h-4" />
@@ -464,7 +460,7 @@ export default function OverviewPage() {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <span className="font-mono text-sm font-bold text-[#191816]">
-                          Room {rm.number}
+                          Room {rm.roomNumber || rm.number}
                         </span>
                         <span className="text-xs text-[#7A7267]">
                           &middot; {rm.roomType?.name || rm.roomTypeName || 'Suite'}
@@ -484,7 +480,7 @@ export default function OverviewPage() {
 
                     <div className="flex items-center justify-between text-xs pt-1 border-t border-[#E8DFD5]/60">
                       <span className="text-[11px] text-[#7A7267] font-mono">
-                        {rm.roomType?.bedType || '1 King Bed'}
+                        {rm.roomType?.bedType || rm.bedType || ''}
                       </span>
                       <span
                         className={`text-[10px] font-mono font-medium px-2 py-0.5 rounded-full ${
@@ -509,7 +505,7 @@ export default function OverviewPage() {
         <div className="space-y-3">
           <div className="flex items-center justify-between text-xs px-1">
             <span className="font-mono text-[11px] uppercase tracking-wider text-[#8C8275] font-semibold">
-              7-Day Occupancy &amp; Rate Yield Trend
+              7-Day Booking Overview
             </span>
             <Link href="/calendar" className="text-[#71382D] hover:text-[#B85C3E] font-medium transition-colors inline-flex items-center gap-1">
               <span>Open 30-day calendar</span>
@@ -551,7 +547,7 @@ export default function OverviewPage() {
                     href="/front-desk"
                     className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-white border border-[#D5CFC7] text-xs font-medium text-[#191816] hover:bg-stone-50 transition-colors shadow-2xs"
                   >
-                    <span>View Room Tape</span>
+                    <span>View Front desk</span>
                     <ArrowRight className="w-3.5 h-3.5 text-[#B85C3E]" />
                   </Link>
                 </div>
@@ -645,7 +641,7 @@ export default function OverviewPage() {
               <div className="w-full bg-stone-100 h-2 rounded-full overflow-hidden flex gap-0.5">
                 <div
                   className="bg-emerald-500 h-full rounded-l-full transition-all"
-                  style={{ width: `${Math.round(((rooms.length - dirtyRooms.length) / (rooms.length || 1)) * 100)}%` }}
+                  style={{ width: `${Math.round(((cleanRooms.length) / (rooms.length || 1)) * 100)}%` }}
                   title="Clean Rooms"
                 />
                 <div
@@ -662,7 +658,7 @@ export default function OverviewPage() {
                     Clean &amp; Inspected Rooms
                   </span>
                   <strong className="font-mono text-emerald-800 font-semibold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                    {rooms.length - dirtyRooms.length}
+                    {cleanRooms.length}
                   </strong>
                 </div>
                 <div className="flex items-center justify-between py-1 border-b border-stone-100">
@@ -676,7 +672,7 @@ export default function OverviewPage() {
                 </div>
                 <div className="flex items-center justify-between py-1">
                   <span className="text-[#5C564D]">Expected Next Turnaround</span>
-                  <span className="text-[#7A7267] font-mono">14:00 Check-in</span>
+                  <span className="text-[#7A7267] font-mono">{workspace?.property.checkInTime || '—'} Check-in</span>
                 </div>
               </div>
             </div>

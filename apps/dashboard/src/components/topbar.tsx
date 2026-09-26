@@ -115,7 +115,7 @@ export function Topbar({ title, onOpenNewReservation, onOpenSearch }: TopbarProp
           title="View recent alerts and events"
         >
           <Bell className="w-4 h-4" />
-          <span className="w-2 h-2 rounded-full bg-[#B85C3E] absolute top-1.5 right-1.5 ring-2 ring-white" />
+
         </button>
       </div>
     </header>

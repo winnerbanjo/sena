@@ -1,34 +1,43 @@
+import { apiError } from '@/lib/api-error';
+import { withMerchant } from '@/lib/merchant-route';
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { db, subscriptions, subscriptionInvoices, organizations, properties, rooms, propertyMembers, organizationMembers, eq, desc } from '@sena/database';
 import { sendSenaEmail } from '@sena/email';
 
-export async function GET(req: NextRequest) {
+import { resolveTenantForRequest } from '@/lib/tenant';
+
+async function handleGET(req: NextRequest) {
   try {
     const session = await auth();
+    const tenant = await resolveTenantForRequest(session, req);
 
-    // Find first organization for user/system
-    const org = await db.query.organizations.findFirst();
-    if (!org) {
+    let orgId = tenant?.property?.organizationId;
+
+
+    if (!orgId) {
       return NextResponse.json({ subscription: null, trialDaysLeft: 3 });
     }
 
     const [sub] = await db
       .select()
       .from(subscriptions)
-      .where(eq(subscriptions.organizationId, org.id))
+      .where(eq(subscriptions.organizationId, orgId))
       .limit(1);
 
-    const roomCount = await db
-      .select()
-      .from(rooms)
-      .then((res) => res.length)
-      .catch(() => 0);
+    const roomCount = tenant?.propertyId
+      ? await db
+          .select()
+          .from(rooms)
+          .where(eq(rooms.propertyId, tenant.propertyId))
+          .then((res) => res.length)
+          .catch(() => 0)
+      : 0;
 
     const invoices = await db
       .select()
       .from(subscriptionInvoices)
-      .where(eq(subscriptionInvoices.organizationId, org.id))
+      .where(eq(subscriptionInvoices.organizationId, orgId))
       .orderBy(desc(subscriptionInvoices.createdAt))
       .limit(10);
 
@@ -57,22 +66,25 @@ export async function GET(req: NextRequest) {
     });
   } catch (error: any) {
     console.error('Subscription GET error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: apiError(error) }, { status: 500 });
   }
 }
 
-export async function POST(req: NextRequest) {
+async function handlePOST(req: NextRequest) {
   try {
     const session = await auth();
     const body = await req.json();
     const { plan = 'growth', billingCycle = 'monthly' } = body;
 
-    const org = await db.query.organizations.findFirst();
-    if (!org) {
+    const tenant = await resolveTenantForRequest(session, req);
+    let orgId = tenant?.property?.organizationId;
+
+
+    if (!orgId) {
       return NextResponse.json({ error: 'No organization found' }, { status: 400 });
     }
 
-    const prop = await db.query.properties.findFirst();
+    const prop = tenant?.property;
 
     const roomLimits: Record<string, number> = {
       essential: 10,
@@ -104,7 +116,7 @@ export async function POST(req: NextRequest) {
     const existing = await db
       .select({ id: subscriptions.id })
       .from(subscriptions)
-      .where(eq(subscriptions.organizationId, org.id))
+      .where(eq(subscriptions.organizationId, orgId))
       .limit(1);
 
     // If subscription already exists, forbid free tier switching!
@@ -122,7 +134,7 @@ export async function POST(req: NextRequest) {
     const [savedSub] = await db
       .insert(subscriptions)
       .values({
-        organizationId: org.id,
+        organizationId: orgId,
         propertyId: prop?.id || null,
         plan,
         billingCycle,
@@ -137,7 +149,7 @@ export async function POST(req: NextRequest) {
       .returning();
 
     // Send subscription activated transactional email asynchronously
-    const userEmail = session?.user?.email || 'winner@sena.ng';
+    const userEmail = session?.user?.email || '';
     const userName = session?.user?.name || 'Property Owner';
     const planDisplayNames: Record<string, string> = {
       essential: 'Essential',
@@ -150,7 +162,7 @@ export async function POST(req: NextRequest) {
         'subscription.activated',
         {
           userName,
-          organizationName: org.name,
+          organizationName: prop?.name || 'Your property',
           planName: `${planDisplayNames[plan] || 'Growth'} (3-Day Free Trial)`,
           billingCycle,
           amountFormatted: `₦${(amountMinorUnits / 100).toLocaleString('en-NG', { minimumFractionDigits: 2 })} / ${billingCycle === 'yearly' ? 'year' : 'month'}`,
@@ -159,7 +171,7 @@ export async function POST(req: NextRequest) {
         },
         {
           to: userEmail,
-          organizationId: org.id,
+          organizationId: orgId,
           idempotencyKey: `sub_activated_${savedSub.id}_${Date.now()}`,
         }
       );
@@ -174,6 +186,10 @@ export async function POST(req: NextRequest) {
     });
   } catch (error: any) {
     console.error('Subscription POST error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: apiError(error) }, { status: 500 });
   }
 }
+
+export const GET = withMerchant(handleGET, 'subscription');
+
+export const POST = withMerchant(handlePOST, 'subscription');

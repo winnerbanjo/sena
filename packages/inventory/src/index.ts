@@ -103,6 +103,7 @@ export async function createHold(
   quantity = 1,
   guestInfo?: { name?: string; email?: string }
 ): Promise<{ holdId: string; expiresAt: Date; minAvailable: number }> {
+  if (!Number.isSafeInteger(quantity) || quantity < 1) throw new Error('Choose a valid number of rooms.');
   const stayDates = getDatesBetween(checkInDate, checkOutDate);
   if (stayDates.length === 0) {
     throw new Error('Invalid stay dates');
@@ -114,7 +115,7 @@ export async function createHold(
       .select({ totalInventory: roomTypes.totalInventory })
       .from(roomTypes)
       .where(and(eq(roomTypes.id, roomTypeId), eq(roomTypes.propertyId, propertyId)))
-      .limit(1);
+      .limit(1).for('update');
 
     if (roomTypeResult.length === 0) {
       throw new Error('Room type not found');
@@ -224,7 +225,11 @@ export async function reserveInventoryInTransaction(
   stayDates: string[],
   quantity = 1
 ): Promise<boolean> {
+  if (!Number.isSafeInteger(quantity) || quantity < 1 || !stayDates.length) throw new Error('Invalid room allocation.');
+  await tx.select().from(roomTypes).where(and(eq(roomTypes.id, roomTypeId), eq(roomTypes.propertyId, propertyId))).for('update');
+  const heldRooms = await tx.select().from(bookingHolds).where(and(eq(bookingHolds.propertyId, propertyId), eq(bookingHolds.roomTypeId, roomTypeId), eq(bookingHolds.status, 'active'), gt(bookingHolds.expiresAt, new Date())));
   for (const date of stayDates) {
+    const held = heldRooms.filter((hold: any) => date >= hold.checkInDate && date < hold.checkOutDate).reduce((sum: number, hold: any) => sum + hold.quantity, 0);
     // 1. Ensure inventory row exists or lock it with FOR UPDATE
     await tx.execute(
       sql`
@@ -238,7 +243,7 @@ export async function reserveInventoryInTransaction(
           0, 
           0
         FROM ${roomTypes} rt
-        WHERE rt.id = ${roomTypeId}::uuid
+        WHERE rt.id = ${roomTypeId}::uuid AND rt.property_id = ${propertyId}::uuid
         ON CONFLICT (property_id, room_type_id, date) DO NOTHING;
       `
     );
@@ -251,7 +256,7 @@ export async function reserveInventoryInTransaction(
         WHERE property_id = ${propertyId}::uuid
           AND room_type_id = ${roomTypeId}::uuid
           AND date = ${date}
-          AND (total_inventory - reserved_inventory - blocked_inventory) >= ${quantity}
+          AND (total_inventory - reserved_inventory - blocked_inventory - ${held}) >= ${quantity}
         RETURNING id;
       `
     );

@@ -125,7 +125,7 @@ export function RoomBookingClient({
           guestName,
           guestEmail,
           guestPhone,
-          paymentMethod: 'direct',
+          paymentMethod: 'pay_at_property',
         }),
       });
 
@@ -156,9 +156,9 @@ export function RoomBookingClient({
         <div className="w-12 h-12 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto">
           <CheckCircle2 className="w-6 h-6" />
         </div>
-        <h3 className="font-serif text-xl text-[#191816]">Reservation Confirmed!</h3>
+        <h3 className="font-serif text-xl text-[#191816]">Reservation confirmed</h3><p className="text-sm">Payment is due at the property. No online payment has been taken.</p>
         <p className="text-xs text-[#7A7267]">
-          Thank you, <strong className="text-[#191816]">{guestName}</strong>. A confirmation email has been dispatched to{' '}
+          Thank you, <strong className="text-[#191816]">{guestName}</strong>. Your reservation is saved. Your contact email is{' '}
           <strong className="text-[#191816]">{guestEmail}</strong>.
         </p>
 
@@ -269,7 +269,7 @@ export function RoomBookingClient({
               disabled={submitting}
               className="w-full py-3 rounded text-white text-xs font-semibold bg-[#71382D] hover:bg-[#5A2C23] shadow-xs flex items-center justify-center gap-2 disabled:opacity-50"
             >
-              <span>{submitting ? 'Confirming Stay...' : `Pay & Confirm (${formattedTotal})`}</span>
+              <span>{submitting ? 'Confirming Stay...' : `Confirm reservation (${formattedTotal})`}</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
@@ -283,7 +283,7 @@ export function RoomBookingClient({
     <div className="bg-white rounded-xl border border-[#E8E2DA] p-6 space-y-5 shadow-sm">
       <div className="border-b border-[#E8E2DA] pb-3">
         <h3 className="font-serif text-lg text-[#191816]">Reserve This Suite</h3>
-        <p className="text-[11px] text-[#7A7267]">Best rate guaranteed direct with {property.name}.</p>
+        <p className="text-[11px] text-[#7A7267]">Book directly with {property.name}.</p>
       </div>
 
       <form onSubmit={handleCreateHold} className="space-y-4">

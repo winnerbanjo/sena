@@ -1,9 +1,11 @@
 'use client';
 
 import * as React from 'react';
+import { PageLoadState, readJsonResponse } from '../../components/page-load-state';
 import { Topbar } from '../../components/topbar';
 import { NewReservationDialog } from '../../components/new-reservation-dialog';
-import { Badge, Button } from '@sena/ui';
+import { useWorkspace } from '../../components/workspace-access';
+import { Badge, Button, Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@sena/ui';
 import {
   Users,
   UserPlus,
@@ -31,16 +33,33 @@ interface StaffMember {
   phone: string;
   role: 'Owner' | 'General Manager' | 'Front Desk Lead' | 'Housekeeping Supervisor' | 'Room Attendant' | 'Finance';
   department: 'Management' | 'Front Office' | 'Housekeeping' | 'Accounting';
-  shiftStatus: 'on_duty' | 'off_duty';
+  status: 'active' | 'invited' | 'revoked';
   lastActive: string;
 }
 
 export default function StaffPage() {
+  const workspace = useWorkspace();
+  const [removeTarget, setRemoveTarget] = React.useState<StaffMember | null>(null);
+  const [removing, setRemoving] = React.useState(false);
+  async function removeAccess() {
+    if (!removeTarget || removing) return;
+    setRemoving(true);
+    try {
+      const response = await fetch('/api/staff', { method: 'PATCH', headers: {'Content-Type':'application/json'}, body: JSON.stringify({memberId:removeTarget.id,action:'revoke'}) });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Could not remove access.');
+      setRemoveTarget(null);
+      setBanner({text:data.message,type:'success'});
+      await fetchStaff();
+    } catch(error) { setBanner({text:error instanceof Error ? error.message : 'Could not remove access.',type:'error'}); }
+    finally { setRemoving(false); }
+  }
   const [newResOpen, setNewResOpen] = React.useState(false);
   const [staff, setStaff] = React.useState<StaffMember[]>([]);
   const [deptFilter, setDeptFilter] = React.useState<string>('all');
   const [searchQuery, setSearchQuery] = React.useState('');
   const [viewTab, setViewTab] = React.useState<'roster' | 'permissions'>('roster');
+  const [loadError, setLoadError] = React.useState(false);
   const [loading, setLoading] = React.useState(true);
   const [submittingInvite, setSubmittingInvite] = React.useState(false);
   const [resendingId, setResendingId] = React.useState<string | null>(null);
@@ -54,66 +73,17 @@ export default function StaffPage() {
   const [inviteRole, setInviteRole] = React.useState<StaffMember['role']>('Front Desk Lead');
 
   const fetchStaff = React.useCallback(async () => {
+    setLoading(true);
+    setLoadError(false);
     try {
-      const res = await fetch('/api/staff');
-      if (res.ok) {
-        const data = await res.json();
-        if (data.staff && data.staff.length > 0) {
-          setStaff(data.staff);
-          return;
-        }
-      }
-    } catch (e) {
-      console.error('Failed to fetch staff:', e);
-    } finally {
-      setLoading(false);
-    }
-
-    // Fallback to localStorage or default logged in user
-    try {
-      const saved = localStorage.getItem('sena_property_staff');
-      if (saved) {
-        setStaff(JSON.parse(saved));
-        return;
-      }
-    } catch {}
-
-    let currentUserName = 'Property Owner';
-    let currentUserEmail = 'owner@sena.ng';
-    try {
-      const authUserStr = localStorage.getItem('sena_auth_user');
-      if (authUserStr) {
-        const parsed = JSON.parse(authUserStr);
-        if (parsed.fullName) currentUserName = parsed.fullName;
-        if (parsed.email) currentUserEmail = parsed.email;
-      }
-    } catch {}
-
-    const defaultOwner: StaffMember = {
-      id: 'staff-owner',
-      name: currentUserName,
-      email: currentUserEmail,
-      phone: '—',
-      role: 'Owner',
-      department: 'Management',
-      shiftStatus: 'on_duty',
-      lastActive: 'Active now',
-    };
-    setStaff([defaultOwner]);
+      const data = await fetch('/api/staff', { cache: 'no-store' }).then(readJsonResponse);
+      setStaff(data.staff || []);
+    } catch { setLoadError(true); }
+    finally { setLoading(false); }
   }, []);
 
-  React.useEffect(() => {
-    fetchStaff();
-  }, [fetchStaff]);
-
-  const saveStaff = (newStaff: StaffMember[]) => {
-    setStaff(newStaff);
-    try {
-      localStorage.setItem('sena_property_staff', JSON.stringify(newStaff));
-    } catch (e) {
-      console.error('Failed to save staff:', e);
-    }
-  };
+  React.useEffect(() => { fetchStaff(); }, [fetchStaff]);
+  const saveStaff = (newStaff: StaffMember[]) => setStaff(newStaff);
 
   const filteredStaff = staff.filter((s) => {
     if (deptFilter !== 'all' && s.department !== deptFilter) return false;
@@ -128,11 +98,11 @@ export default function StaffPage() {
     return true;
   });
 
-  const onDutyCount = staff.filter((s) => s.shiftStatus === 'on_duty').length;
+  const onDutyCount = staff.filter((s) => s.status === 'active').length;
 
   const handleInviteSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inviteName || !inviteEmail) return;
+    if (submittingInvite || !inviteName.trim() || !inviteEmail.trim()) return;
 
     let dept: StaffMember['department'] = 'Front Office';
     if (inviteRole === 'General Manager') dept = 'Management';
@@ -164,8 +134,8 @@ export default function StaffPage() {
 
       if (res.ok && data.success) {
         setBanner({
-          text: `Invitation email successfully dispatched to ${inviteEmail}. An access link was delivered to their inbox.`,
-          type: 'success',
+          text: data.emailSent ? `Invitation sent to ${inviteEmail}.` : 'Invitation created, but email delivery failed. Please retry delivery.',
+          type: data.emailSent ? 'success' : 'error',
         });
 
         if (data.member) {
@@ -217,8 +187,8 @@ export default function StaffPage() {
 
       if (res.ok && data.success) {
         setBanner({
-          text: `Invitation email re-sent successfully to ${member.email}!`,
-          type: 'success',
+          text: data.emailSent ? `Invitation re-sent to ${member.email}.` : 'Email delivery failed. Please try again.',
+          type: data.emailSent ? 'success' : 'error',
         });
       } else {
         setBanner({
@@ -234,16 +204,7 @@ export default function StaffPage() {
     }
   };
 
-  const toggleDutyStatus = (id: string) => {
-    const updated = staff.map((s) => {
-      if (s.id !== id) return s;
-      return {
-        ...s,
-        shiftStatus: (s.shiftStatus === 'on_duty' ? 'off_duty' : 'on_duty') as StaffMember['shiftStatus'],
-      };
-    });
-    saveStaff(updated);
-  };
+  if (loading || loadError) return <PageLoadState title="Staff" failed={loadError} retry={fetchStaff} />;
 
   return (
     <div className="flex-1 flex flex-col h-screen overflow-hidden bg-white">
@@ -252,6 +213,7 @@ export default function StaffPage() {
         onOpenNewReservation={() => setNewResOpen(true)}
       />
 
+      <Dialog open={Boolean(removeTarget)} onOpenChange={(open) => {if (!open && !removing) setRemoveTarget(null);}}><DialogContent><DialogHeader><DialogTitle>Remove property access?</DialogTitle><DialogDescription>{removeTarget?.name} will no longer be able to access this property. Existing operational records will be kept.</DialogDescription></DialogHeader><DialogFooter><Button variant="outline" disabled={removing} onClick={() => setRemoveTarget(null)}>Cancel</Button><Button disabled={removing} onClick={removeAccess}>{removing ? 'Removing…' : 'Remove access'}</Button></DialogFooter></DialogContent></Dialog>
       <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6 bg-white">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#E8E2DA] pb-4">
@@ -260,7 +222,7 @@ export default function StaffPage() {
               Team &amp; Staff Roster
             </h2>
             <p className="text-xs text-[#7A7267] mt-1">
-              Manage team access, role-based permissions, and active operational shifts.
+              Manage team access, role-based permissions, and invitations.
             </p>
           </div>
 
@@ -312,9 +274,9 @@ export default function StaffPage() {
           </div>
 
           <div className="p-3 sm:p-4 rounded-lg border border-[#E8E2DA] bg-white">
-            <span className="text-[10px] sm:text-[11px] text-[#7A7267] uppercase font-semibold">On Duty Now</span>
+            <span className="text-[10px] sm:text-[11px] text-[#7A7267] uppercase font-semibold">Active Members</span>
             <div className="text-xl sm:text-2xl font-serif text-[#191816] mt-1">{onDutyCount}</div>
-            <p className="text-[10px] sm:text-[11px] text-emerald-700 mt-1 font-medium">On property</p>
+            <p className="text-[10px] sm:text-[11px] text-emerald-700 mt-1 font-medium">Access enabled</p>
           </div>
 
           <div className="p-4 rounded-lg border border-[#E8E2DA] bg-white">
@@ -398,7 +360,7 @@ export default function StaffPage() {
                     <th className="py-2.5 px-4 font-medium">Member</th>
                     <th className="py-2.5 px-4 font-medium">Role &amp; Department</th>
                     <th className="py-2.5 px-4 font-medium">Contact</th>
-                    <th className="py-2.5 px-4 font-medium">Shift Status</th>
+                    <th className="py-2.5 px-4 font-medium">Access Status</th>
                     <th className="py-2.5 px-4 font-medium">Last Active</th>
                     <th className="py-2.5 px-4 font-medium text-right">Actions</th>
                   </tr>
@@ -421,7 +383,7 @@ export default function StaffPage() {
                         .toUpperCase()
                         .slice(0, 2);
 
-                      const isInvited = member.lastActive.includes('Invited');
+                      const isInvited = member.status === 'invited';
 
                       return (
                         <tr key={member.id} className="hover:bg-[#FAFAFA]/70">
@@ -447,22 +409,7 @@ export default function StaffPage() {
                           </td>
 
                           <td className="py-3 px-4">
-                            <button
-                              onClick={() => toggleDutyStatus(member.id)}
-                              className="cursor-pointer"
-                              title="Click to toggle shift status"
-                            >
-                              {member.shiftStatus === 'on_duty' ? (
-                                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                                  On Duty
-                                </span>
-                              ) : (
-                                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-stone-100 text-stone-600 border border-stone-200">
-                                  Off Duty
-                                </span>
-                              )}
-                            </button>
+                            <span className="text-xs">{member.status === 'revoked' ? 'Access removed' : isInvited ? 'Invitation pending' : 'Active member'}</span>
                           </td>
 
                           <td className="py-3 px-4 text-[#7A7267] text-[11px]">
@@ -478,6 +425,7 @@ export default function StaffPage() {
 
                           <td className="py-3 px-4 text-right">
                             <div className="flex items-center justify-end gap-3">
+                              {member.role.toLowerCase() !== 'owner' && member.userId !== workspace?.user.id && member.status !== 'revoked' && <button onClick={() => setRemoveTarget(member)} className="text-xs text-red-700 min-h-11">Remove access</button>}
                               {isInvited && (
                                 <button
                                   type="button"
@@ -494,12 +442,7 @@ export default function StaffPage() {
                                 </button>
                               )}
 
-                              <button
-                                onClick={() => toggleDutyStatus(member.id)}
-                                className="text-xs font-medium text-[#B85C3E] hover:underline"
-                              >
-                                {member.shiftStatus === 'on_duty' ? 'Clock Out' : 'Clock In'}
-                              </button>
+
                             </div>
                           </td>
                         </tr>

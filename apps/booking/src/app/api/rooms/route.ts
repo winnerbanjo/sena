@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
       });
     }
     if (!property) {
-      property = await db.query.properties.findFirst();
+      return NextResponse.json({ error: 'Choose a property to view rooms.' }, { status: 400 });
     }
 
     if (!property) {

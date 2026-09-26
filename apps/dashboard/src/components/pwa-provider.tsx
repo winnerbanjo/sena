@@ -48,6 +48,7 @@ export function usePwa() {
 }
 
 export function PwaProvider({ children }: { children: React.ReactNode }) {
+  const [waitingWorker, setWaitingWorker] = React.useState<ServiceWorker | null>(null);
   const [deferredPrompt, setDeferredPrompt] = React.useState<BeforeInstallPromptEvent | null>(null);
   const [isInstalled, setIsInstalled] = React.useState(false);
   const [platform, setPlatform] = React.useState<PwaPlatform>('other');
@@ -111,7 +112,7 @@ export function PwaProvider({ children }: { children: React.ReactNode }) {
     window.addEventListener('appinstalled', handleAppInstalled);
 
     // Register Service Worker conditionally (strictly for merchant host, never on tenant site)
-    if ('serviceWorker' in navigator) {
+    if (process.env.NODE_ENV === 'production' && 'serviceWorker' in navigator) {
       const host = window.location.hostname.toLowerCase();
       const RESERVED_HOSTS = [
         'app.sena.ng',
@@ -132,12 +133,13 @@ export function PwaProvider({ children }: { children: React.ReactNode }) {
         navigator.serviceWorker
           .register('/sw.js', { scope: '/' })
           .then((registration) => {
+            if (registration.waiting) setWaitingWorker(registration.waiting);
             registration.onupdatefound = () => {
               const installingWorker = registration.installing;
               if (installingWorker) {
                 installingWorker.onstatechange = () => {
                   if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                    console.log('[Sena PWA] New update ready.');
+                    setWaitingWorker(registration.waiting || installingWorker);
                   }
                 };
               }
@@ -179,6 +181,8 @@ export function PwaProvider({ children }: { children: React.ReactNode }) {
   };
 
   const purgeAndLogout = async () => {
+    const { signOut } = await import('next-auth/react');
+    await signOut({ redirect: false });
     try {
       if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
         navigator.serviceWorker.controller.postMessage({ type: 'PURGE_ALL_DATA' });
@@ -215,6 +219,13 @@ export function PwaProvider({ children }: { children: React.ReactNode }) {
         purgeAndLogout,
       }}
     >
+      {waitingWorker && <div role="status" className="fixed bottom-4 left-4 right-4 z-50 mx-auto max-w-lg rounded-lg border border-[#E5D4BC] bg-white p-4 shadow-md text-sm">
+        <p>A new version of Sena is available. Save your work before updating.</p>
+        <button className="mt-2 min-h-11 px-4 rounded bg-[#71382D] text-white" onClick={() => {
+          navigator.serviceWorker.addEventListener('controllerchange', () => window.location.reload(), { once: true });
+          waitingWorker.postMessage({ type: 'SKIP_WAITING' });
+        }}>Update</button>
+      </div>}
       {children}
     </PwaContext.Provider>
   );
