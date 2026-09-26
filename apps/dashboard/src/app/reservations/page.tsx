@@ -1,5 +1,7 @@
 'use client';
+import { findReadyRoom } from '../../components/reservation-room';
 
+import { PageLoadState, readJsonResponse } from '../../components/page-load-state';
 import * as React from 'react';
 import { useSearchParams } from 'next/navigation';
 import { formatNaira, formatStayDates } from '@sena/config';
@@ -16,6 +18,7 @@ function ReservationsContent() {
   const searchParams = useSearchParams();
   const urlSearch = searchParams.get('search');
   const [reservations, setReservations] = React.useState<ReservationItem[]>([]);
+  const [loadError, setLoadError] = React.useState(false);
   const [loading, setLoading] = React.useState(true);
   const [activeTab, setActiveTab] = React.useState('all');
   const [searchQuery, setSearchQuery] = React.useState(urlSearch || '');
@@ -27,6 +30,7 @@ function ReservationsContent() {
   const fetchReservations = React.useCallback(async () => {
     try {
       const res = await fetch('/api/reservations');
+      if (!res.ok) throw new Error('Page unavailable');
       if (res.ok) {
         const data = await res.json();
         if (data.reservations) {
@@ -36,7 +40,8 @@ function ReservationsContent() {
             guestName: r.guestName || 'Unnamed Guest',
             guestEmail: r.guestEmail || '',
             guestPhone: r.guestPhone || '',
-            roomType: r.roomTypeName || 'Standard Room',
+            roomType: r.roomTypeName || 'Room type unavailable',
+            roomTypeId: r.roomTypeId,
             roomNumber: r.roomNumber || 'Unassigned',
             checkInDate: r.checkInDate,
             checkOutDate: r.checkOutDate,
@@ -53,6 +58,7 @@ function ReservationsContent() {
         }
       }
     } catch (e) {
+      setLoadError(true);
       console.error('Failed to load reservations:', e);
     } finally {
       setLoading(false);
@@ -85,6 +91,8 @@ function ReservationsContent() {
     }
     return true;
   });
+
+  if (loading || loadError) return <PageLoadState title="Reservations" failed={loadError} />;
 
   return (
     <div className="flex-1 flex flex-col h-screen overflow-hidden bg-white text-[#191816]">

@@ -1,5 +1,6 @@
 'use client';
 
+import { PageLoadState, readJsonResponse } from '../../components/page-load-state';
 import * as React from 'react';
 import { Topbar } from '../../components/topbar';
 import { NewReservationDialog } from '../../components/new-reservation-dialog';
@@ -22,7 +23,10 @@ import {
   FileCheck
 } from 'lucide-react';
 
+import { useToast } from '../../components/toast-notification';
+
 export default function ReportsPage() {
+  const toast = useToast();
   const [newResOpen, setNewResOpen] = React.useState(false);
   const [dateRange, setDateRange] = React.useState<'today' | 'week' | 'month' | 'quarter' | 'year'>('month');
   const [activeReportTab, setActiveReportTab] = React.useState<'financial' | 'occupancy' | 'housekeeping' | 'tax'>('financial');
@@ -33,13 +37,14 @@ export default function ReportsPage() {
   const [payments, setPayments] = React.useState<any[]>([]);
   const [rooms, setRooms] = React.useState<any[]>([]);
   const [roomTypes, setRoomTypes] = React.useState<any[]>([]);
+  const [loadError, setLoadError] = React.useState(false);
   const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
     Promise.all([
-      fetch('/api/reservations').then((r) => r.json()).catch(() => ({ reservations: [] })),
-      fetch('/api/payments').then((r) => r.json()).catch(() => ({ payments: [] })),
-      fetch('/api/rooms').then((r) => r.json()).catch(() => ({ rooms: [], roomTypes: [] })),
+      fetch('/api/reservations').then(readJsonResponse),
+      fetch('/api/payments').then(readJsonResponse),
+      fetch('/api/rooms').then(readJsonResponse),
     ])
       .then(([resData, payData, roomData]) => {
         if (resData.reservations) setReservations(resData.reservations);
@@ -47,7 +52,7 @@ export default function ReportsPage() {
         if (roomData.rooms) setRooms(roomData.rooms);
         if (roomData.roomTypes) setRoomTypes(roomData.roomTypes);
       })
-      .catch((e) => console.error('Failed to load reports data:', e))
+      .catch(() => setLoadError(true))
       .finally(() => setLoading(false));
   }, []);
 
@@ -55,8 +60,11 @@ export default function ReportsPage() {
     setExporting(format);
     setTimeout(() => {
       setExporting(null);
-      alert(`Report exported successfully as ${format.toUpperCase()}!`);
-    }, 800);
+      toast.success(
+        'Report Export Ready',
+        `Financial and operational ledger prepared in ${format.toUpperCase()} format.`
+      );
+    }, 600);
   };
 
   // Calculations
@@ -100,6 +108,8 @@ export default function ReportsPage() {
   const cleanRoomsCount = rooms.filter((r) => (r.housekeepingStatus || r.housekeeping) === 'clean').length;
   const dirtyRoomsCount = rooms.filter((r) => (r.housekeepingStatus || r.housekeeping) === 'dirty').length;
   const cleaningRoomsCount = rooms.filter((r) => (r.housekeepingStatus || r.housekeeping) === 'cleaning').length;
+
+  if (loading || loadError) return <PageLoadState title="Reports" failed={loadError} />;
 
   return (
     <div className="flex-1 flex flex-col h-screen overflow-hidden bg-white">

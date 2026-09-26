@@ -82,6 +82,7 @@ export function InvoiceViewModal({
   const [payMethod, setPayMethod] = React.useState<'pos' | 'cash' | 'bank_transfer' | 'card'>('pos');
   const [payRef, setPayRef] = React.useState('');
   const [payNotes, setPayNotes] = React.useState('');
+  const paymentRequestKey = React.useRef<string | null>(null);
   const [submittingPay, setSubmittingPay] = React.useState(false);
 
   const [sendingEmail, setSendingEmail] = React.useState(false);
@@ -95,13 +96,14 @@ export function InvoiceViewModal({
 
   async function handleRecordPayment(e: React.FormEvent) {
     e.preventDefault();
-    if (!invoice) return;
+    if (!invoice || submittingPay) return;
+    if (!paymentRequestKey.current) paymentRequestKey.current = crypto.randomUUID();
     setSubmittingPay(true);
     try {
       const amountKobo = Math.round(Number(payAmount) * 100);
       const res = await fetch(`/api/invoices/${invoice.id}/payments`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Idempotency-Key': paymentRequestKey.current! },
         body: JSON.stringify({
           amountMinorUnits: amountKobo,
           method: payMethod,
@@ -112,6 +114,7 @@ export function InvoiceViewModal({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to record payment');
       
+      paymentRequestKey.current = null;
       setRecordPaymentOpen(false);
       setPayAmount('');
       setPayRef('');
@@ -151,7 +154,7 @@ export function InvoiceViewModal({
 
   function handleCopyPayLink() {
     if (!invoice) return;
-    const url = `${window.location.origin}/invoice/${invoice.invoiceNumber}`;
+    const url = `${window.location.origin}/invoice/${invoice.id}`;
     navigator.clipboard.writeText(url);
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 2500);
@@ -394,16 +397,16 @@ export function InvoiceViewModal({
               <div className="pt-2 border-t border-[#E8E2DA] space-y-1 font-mono text-[11px]">
                 <div>
                   <span className="text-[#7A7267]">Bank: </span>
-                  <strong className="text-[#191816]">{invoice.bankDetails?.bankName || 'Access Bank PLC'}</strong>
+                  <strong className="text-[#191816]">{invoice.bankDetails?.bankName || 'Not provided'}</strong>
                 </div>
                 <div>
                   <span className="text-[#7A7267]">Account Name: </span>
-                  <span className="text-[#191816]">{invoice.bankDetails?.accountName || `${propertyName} Operations`}</span>
+                  <span className="text-[#191816]">{invoice.bankDetails?.accountName || 'Not provided'}</span>
                 </div>
                 <div>
                   <span className="text-[#7A7267]">Account No: </span>
                   <strong className="text-emerald-800 text-xs font-bold tracking-wider">
-                    {invoice.bankDetails?.accountNumber || '0123456789'}
+                    {invoice.bankDetails?.accountNumber || 'Contact the property for payment details'}
                   </strong>
                 </div>
               </div>

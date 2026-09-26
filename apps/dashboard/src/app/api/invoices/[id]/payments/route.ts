@@ -1,103 +1,35 @@
+import { withMerchant } from '@/lib/merchant-route';
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/auth';
-import {
-  db,
-  propertyInvoices,
-  payments,
-  reservations,
-  eq,
-} from '@sena/database';
+import { db, propertyInvoices, payments, reservations, idempotencyKeys, eq, sql } from '@sena/database';
 
-export async function POST(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const session = await auth();
-    const { id } = await params;
-    const body = await req.json();
-
-    const {
-      amountMinorUnits,
-      method = 'pos', // 'cash' | 'pos' | 'bank_transfer' | 'card'
-      provider = 'manual', // 'manual' | 'paystack'
-      providerReference,
-      notes = '',
-    } = body;
-
-    const parsedAmount = Math.round(Number(amountMinorUnits) || 0);
-    if (parsedAmount <= 0) {
-      return NextResponse.json({ error: 'Valid payment amount is required' }, { status: 400 });
-    }
-
-    // 1. Fetch Invoice
-    const invoice = await db.query.propertyInvoices.findFirst({
-      where: eq(propertyInvoices.id, id),
-    });
-
-    if (!invoice) {
-      return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
-    }
-
-    const newPaidMinorUnits = invoice.paidAmountMinorUnits + parsedAmount;
-    const newStatus =
-      newPaidMinorUnits >= invoice.totalAmountMinorUnits
-        ? 'paid'
-        : 'partially_paid';
-
-    // 2. Update Invoice
-    const [updatedInvoice] = await db
-      .update(propertyInvoices)
-      .set({
-        paidAmountMinorUnits: newPaidMinorUnits,
-        status: newStatus,
-        updatedAt: new Date(),
-      })
-      .where(eq(propertyInvoices.id, id))
-      .returning();
-
-    // 3. Record in Payments Table (for unified PMS financial tracking)
-    const paymentRef = providerReference || `PAY-INV-${invoice.invoiceNumber}-${Date.now().toString().slice(-4)}`;
-    
+async function handlePOST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const body = await req.json();
+  const amount = Number(body.amountMinorUnits);
+  const requestKey = req.headers.get('idempotency-key');
+  if (!requestKey || requestKey.length > 100) return NextResponse.json({ error: 'A payment reference is required. Please try again.' }, { status: 400 });
+  if (!Number.isSafeInteger(amount) || amount <= 0 || !['cash', 'pos', 'bank_transfer', 'card'].includes(body.method)) return NextResponse.json({ error: 'Enter a valid payment amount and method.' }, { status: 422 });
+  const key = `invoice-payment:${id}:${requestKey}`;
+  const result = await db.transaction(async tx => {
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${key}))`);
+    const prior = await tx.query.idempotencyKeys.findFirst({ where: eq(idempotencyKeys.key, key) });
+    if (prior) return prior.responsePayload;
+    const [invoice] = await tx.select().from(propertyInvoices).where(eq(propertyInvoices.id, id)).for('update');
+    if (!invoice || ['void', 'draft'].includes(invoice.status)) throw new Error('Invoice unavailable');
+    const paid = invoice.paidAmountMinorUnits + amount;
+    const [updated] = await tx.update(propertyInvoices).set({ paidAmountMinorUnits: paid, status: paid >= invoice.totalAmountMinorUnits ? 'paid' : 'partially_paid', updatedAt: new Date() }).where(eq(propertyInvoices.id, id)).returning();
     if (invoice.reservationId) {
-      await db.insert(payments).values({
-        propertyId: invoice.propertyId,
-        reservationId: invoice.reservationId,
-        amountMinorUnits: parsedAmount,
-        currency: invoice.currency || 'NGN',
-        provider,
-        providerReference: paymentRef,
-        method,
-        status: 'successful',
-        notes: `Settlement for ${invoice.invoiceNumber}: ${notes}`.trim(),
-      });
-
-      // Update reservation paid balance
-      const res = await db.query.reservations.findFirst({
-        where: eq(reservations.id, invoice.reservationId),
-      });
-
-      if (res) {
-        const resPaid = res.paidAmountMinorUnits + parsedAmount;
-        const resPaymentStatus = resPaid >= res.totalAmountMinorUnits ? 'paid' : 'partial';
-        await db
-          .update(reservations)
-          .set({
-            paidAmountMinorUnits: resPaid,
-            paymentStatus: resPaymentStatus,
-            updatedAt: new Date(),
-          })
-          .where(eq(reservations.id, res.id));
-      }
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${invoice.reservationId}))`);
+      const [reservation] = await tx.select().from(reservations).where(eq(reservations.id, invoice.reservationId)).for('update');
+      if (!reservation || reservation.propertyId !== invoice.propertyId) throw new Error('Reservation unavailable');
+      await tx.insert(payments).values({ propertyId: invoice.propertyId, reservationId: reservation.id, amountMinorUnits: amount, currency: invoice.currency, provider: 'manual', providerReference: body.providerReference || requestKey, method: body.method, status: 'successful', notes: typeof body.notes === 'string' ? body.notes.trim() : '' });
+      const balancePaid = reservation.paidAmountMinorUnits + amount;
+      await tx.update(reservations).set({ paidAmountMinorUnits: balancePaid, paymentStatus: balancePaid >= reservation.totalAmountMinorUnits ? 'paid' : 'part_payment', updatedAt: new Date() }).where(eq(reservations.id, reservation.id));
     }
-
-    return NextResponse.json({
-      success: true,
-      message: `Payment of ₦${(parsedAmount / 100).toLocaleString('en-NG')} recorded successfully`,
-      invoice: updatedInvoice,
-    });
-  } catch (error: any) {
-    console.error('[INVOICE PAYMENT POST ERROR]', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
+    const payload = { success: true, message: 'Payment recorded', invoice: updated };
+    await tx.insert(idempotencyKeys).values({ key, action: 'invoice_payment', responsePayload: payload, expiresAt: new Date(Date.now() + 86400000) });
+    return payload;
+  });
+  return NextResponse.json(result);
 }
+export const POST = withMerchant(handlePOST, 'invoices');

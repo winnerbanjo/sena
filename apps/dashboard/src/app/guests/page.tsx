@@ -1,5 +1,6 @@
 'use client';
 
+import { PageLoadState, readJsonResponse } from '../../components/page-load-state';
 import * as React from 'react';
 import { formatNaira } from '@sena/config';
 import {
@@ -35,13 +36,14 @@ interface GuestProfile {
 
 export default function GuestsPage() {
   const [guests, setGuests] = React.useState<GuestProfile[]>([]);
+  const [loadError, setLoadError] = React.useState(false);
   const [loading, setLoading] = React.useState(true);
   const [search, setSearch] = React.useState('');
   const [selectedGuest, setSelectedGuest] = React.useState<GuestProfile | null>(null);
 
   React.useEffect(() => {
     fetch('/api/guests')
-      .then((res) => res.json())
+      .then(readJsonResponse)
       .then((data) => {
         if (data.guests) {
           const mapped: GuestProfile[] = data.guests.map((g: any) => ({
@@ -50,16 +52,16 @@ export default function GuestsPage() {
             phone: g.phone || '—',
             email: g.email || '—',
             stays: g.totalStays || 0,
-            nights: g.totalStays * 2 || 0,
-            lastStay: g.lastStayDate ? new Date(g.lastStayDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Recent',
+            nights: g.totalNights || 0,
+            lastStay: g.lastStayDate ? new Date(g.lastStayDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'No stays yet',
             lifetimeValueMinorUnits: g.totalSpendMinorUnits || 0,
             preferences: g.preferences || [],
-            notes: g.notes || 'Verified guest profile.',
+            notes: g.notes || '',
           }));
           setGuests(mapped);
         }
       })
-      .catch((e) => console.error('Failed to load guests:', e))
+      .catch(() => setLoadError(true))
       .finally(() => setLoading(false));
   }, []);
 
@@ -72,6 +74,8 @@ export default function GuestsPage() {
       g.phone.includes(q)
     );
   });
+
+  if (loading || loadError) return <PageLoadState title="Guests" failed={loadError} />;
 
   return (
     <div className="flex-1 flex flex-col h-screen overflow-hidden">

@@ -49,7 +49,7 @@ export default function PublicInvoicePage() {
     if (!invoice) return;
     setPaying(true);
     try {
-      const res = await fetch(`/api/invoices/public/${invoice.invoiceNumber}/checkout`, {
+      const res = await fetch(`/api/invoices/public/${invoice.id}/checkout`, {
         method: 'POST',
       });
       const data = await res.json();
@@ -300,16 +300,16 @@ export default function PublicInvoicePage() {
               <div className="pt-2 border-t border-[#E8E2DA] space-y-1 font-mono text-[11px]">
                 <div>
                   <span className="text-[#7A7267]">Bank: </span>
-                  <strong className="text-[#191816]">{invoice.bankDetails?.bankName || 'Access Bank PLC'}</strong>
+                  <strong className="text-[#191816]">{invoice.bankDetails?.bankName || 'Not provided'}</strong>
                 </div>
                 <div>
                   <span className="text-[#7A7267]">Account Name: </span>
-                  <span className="text-[#191816]">{invoice.bankDetails?.accountName || `${property?.name} Operations`}</span>
+                  <span className="text-[#191816]">{invoice.bankDetails?.accountName || 'Not provided'}</span>
                 </div>
                 <div>
                   <span className="text-[#7A7267]">Account No: </span>
                   <strong className="text-emerald-800 text-xs font-bold tracking-wider">
-                    {invoice.bankDetails?.accountNumber || '0123456789'}
+                    {invoice.bankDetails?.accountNumber || 'Contact the property for payment details'}
                   </strong>
                 </div>
               </div>

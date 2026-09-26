@@ -47,11 +47,11 @@ export function OccupancyChart({
       const isToday = i === 0;
 
       const overlapping = reservations.filter(
-        (r) => iso >= r.checkInDate && iso < r.checkOutDate && r.status !== 'cancelled'
+        (r) => iso >= r.checkInDate && iso < r.checkOutDate && ['confirmed', 'checked_in', 'checked_out'].includes(r.status)
       );
       const arrivalsOnDay = reservations.filter((r) => r.checkInDate === iso).length;
       const departuresOnDay = reservations.filter((r) => r.checkOutDate === iso).length;
-      const dayRev = overlapping.reduce((sum, r) => sum + (r.paidAmountMinorUnits || 0), 0);
+      const dayRev = overlapping.reduce((sum, r) => sum + Math.round((r.totalAmountMinorUnits || 0) / Math.max(1, r.nights || 1)), 0);
       const totalR = rooms.length || 1;
       const occ = rooms.length > 0 ? Math.min(100, Math.round((overlapping.length / totalR) * 100)) : 0;
 
@@ -86,14 +86,14 @@ export function OccupancyChart({
     return () => clearTimeout(timer);
   }, []);
 
-  if (rooms.length === 0 && reservations.length === 0) {
+  if (days.every(day => day.roomsBooked === 0)) {
     return (
       <div className="bg-[#FAF7F2] rounded-xl border border-[#E8E1D5] p-8 sm:p-10 text-center space-y-3">
         <span className="text-[11px] font-mono uppercase tracking-widest text-[#8C8275] block">
-          Occupancy &amp; Revenue Velocity
+          Reservations this week
         </span>
         <h3 className="font-serif text-lg text-[#71382D]">
-          No reservation velocity to plot yet
+          No reservations to show yet
         </h3>
         <p className="text-xs text-[#7A7267] max-w-md mx-auto leading-relaxed">
           As guests book rooms via your direct website or walk in at the front desk, 7-day occupancy percentages and revenue yield trends will automatically generate here.
@@ -126,7 +126,7 @@ export function OccupancyChart({
             )}
             <h3 className="text-base font-semibold text-[#191816]">
               {activeTab === 'occupancy'
-                ? 'Weekly Occupancy Pace'
+                ? 'Weekly Booked Occupancy'
                 : 'Revenue Velocity'}
             </h3>
             <span
@@ -137,12 +137,12 @@ export function OccupancyChart({
               }`}
             >
               <ArrowUpRight className="w-3 h-3" />
-              {activeTab === 'occupancy' ? (weeklyAvgOcc > 0 ? '+6.2% vs last week' : '0% vs last week') : (weeklyTotalRev > 0 ? '+14.8% pacing' : 'No revenue yet')}
+              {activeTab === 'occupancy' ? 'Based on reservations' : 'Stay value, not cash received'}
             </span>
           </div>
           <p className="text-xs text-[#7A7267] mt-1">
             {activeTab === 'occupancy'
-              ? `Real-time room occupancy across all ${rooms.length} rooms`
+              ? `Booked room nights across all ${rooms.length} rooms`
               : 'Daily recorded & projected room revenue across direct and OTA bookings'}
           </p>
         </div>
@@ -180,7 +180,7 @@ export function OccupancyChart({
       <div className="bg-white border border-[#E8DACB] rounded-xl overflow-hidden grid grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-[#E8DACB] shadow-2xs">
         <div className="p-4 space-y-1">
           <span className="text-[10px] text-[#7A7267] font-mono uppercase tracking-wider block font-medium">
-            {activeTab === 'occupancy' ? "Today's Occupancy" : "Today's Revenue"}
+            {activeTab === 'occupancy' ? "Today's booked occupancy" : "Today's Revenue"}
           </span>
           <div className="flex items-baseline gap-2">
             <span className="text-xl sm:text-2xl font-serif text-[#191816] font-medium">
@@ -191,7 +191,7 @@ export function OccupancyChart({
             )}
           </div>
           <span className="text-[11px] text-[#7A7267] block">
-            {activeTab === 'occupancy' ? `${todayDay.roomsBooked} of ${rooms.length} rooms occupied` : 'Recorded direct payments'}
+            {activeTab === 'occupancy' ? `${todayDay.roomsBooked} of ${rooms.length} rooms booked` : 'Booked nightly value'}
           </span>
         </div>
 
@@ -206,7 +206,7 @@ export function OccupancyChart({
           </div>
           <span className="text-[11px] text-[#2E6B4F] flex items-center font-medium">
             <ArrowUpRight className="w-3.5 h-3.5 mr-0.5" />
-            {activeTab === 'occupancy' ? (weeklyAvgOcc >= 75 ? 'Above target (75%)' : weeklyAvgOcc > 0 ? 'Pacing normal' : 'Pacing benchmark') : (weeklyTotalRev > 0 ? 'Ahead of pace' : 'Ready for bookings')}
+            {activeTab === 'occupancy' ? 'Across the displayed dates' : 'Booked nightly value'}
           </span>
         </div>
 
@@ -216,7 +216,7 @@ export function OccupancyChart({
           </span>
           <div className="flex items-baseline gap-2">
             <span className="text-xl sm:text-2xl font-serif text-[#191816] font-medium">
-              {peakDay.occupancy === 0 && activeTab === "occupancy" || peakDay.revenueMinorUnits === 0 && activeTab === "revenue" ? "Friday / Weekend" : peakDay.dayName}
+              {peakDay.occupancy === 0 && activeTab === "occupancy" || peakDay.revenueMinorUnits === 0 && activeTab === "revenue" ? "No bookings" : peakDay.dayName}
             </span>
           </div>
           <span className="text-[11px] text-[#7A7267] block">
@@ -235,7 +235,7 @@ export function OccupancyChart({
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
           </div>
           <span className="text-[11px] text-[#7A7267] block">
-            Clean and ready for guest walk-in
+            Based on reservations; check room readiness
           </span>
         </div>
       </div>
@@ -368,7 +368,7 @@ export function OccupancyChart({
 
           <div className="flex flex-wrap items-center gap-5 text-xs text-[#7A7267]">
             <div>
-              <span>Rooms occupied: </span>
+              <span>Rooms booked: </span>
               <strong className="text-[#191816]">
                 {currentInspectDay.roomsBooked} / {currentInspectDay.totalRooms}
               </strong>

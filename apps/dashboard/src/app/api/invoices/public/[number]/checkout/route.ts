@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import {
   db,
@@ -15,13 +16,18 @@ export async function POST(
   try {
     const { number } = await params;
 
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(number)) return NextResponse.json({ error: 'Please ask the property for a fresh invoice link.' }, { status: 404 });
+
     const invoice = await db.query.propertyInvoices.findFirst({
-      where: eq(propertyInvoices.invoiceNumber, number),
+      where: eq(propertyInvoices.id, number),
     });
 
     if (!invoice) {
       return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
     }
+
+    if (!PAYSTACK_SECRET_KEY) return NextResponse.json({ error: 'Online payments are unavailable. Contact the property.' }, { status: 503 });
+    if (!invoice.recipientEmail || ['void', 'draft'].includes(invoice.status)) return NextResponse.json({ error: 'Contact the property to arrange payment.' }, { status: 400 });
 
     const balanceMinorUnits = Math.max(0, invoice.totalAmountMinorUnits - invoice.paidAmountMinorUnits);
     if (balanceMinorUnits <= 0 || invoice.status === 'paid') {
@@ -34,9 +40,9 @@ export async function POST(
 
     const host = req.headers.get('host') || 'app.sena.ng';
     const proto = host.includes('localhost') ? 'http' : 'https';
-    const callbackUrl = `${proto}://${host}/invoice/${invoice.invoiceNumber}?payment=success`;
+    const callbackUrl = `${proto}://${host}/invoice/${invoice.id}?payment=success`;
 
-    const reference = `INV-${invoice.invoiceNumber}-${Date.now().toString().slice(-4)}`;
+    const reference = `INV-${invoice.invoiceNumber}-${crypto.randomUUID().slice(0, 12)}`;
 
     const paystackRes = await fetch('https://api.paystack.co/transaction/initialize', {
       method: 'POST',
@@ -45,9 +51,9 @@ export async function POST(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        email: invoice.recipientEmail || 'guest@sena.ng',
+        email: invoice.recipientEmail,
         amount: balanceMinorUnits,
-        currency: 'NGN',
+        currency: invoice.currency,
         reference,
         callback_url: callbackUrl,
         metadata: {
@@ -95,6 +101,6 @@ export async function POST(
     });
   } catch (error: any) {
     console.error('[INVOICE PAYSTACK CHECKOUT ERROR]', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: apiError(error) }, { status: 500 });
   }
 }

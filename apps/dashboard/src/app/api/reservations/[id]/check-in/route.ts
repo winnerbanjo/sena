@@ -1,10 +1,12 @@
+import { apiError } from '@/lib/api-error';
+import { withMerchant } from '@/lib/merchant-route';
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { ReservationService } from '@sena/reservations';
 import { db, reservations, guests, rooms, roomTypes, properties, eq } from '@sena/database';
 import { sendSenaEmail } from '@sena/email';
 
-export async function POST(
+async function handlePOST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -80,6 +82,8 @@ export async function POST(
     });
   } catch (error: any) {
     console.error('Check-in error:', error);
-    return NextResponse.json({ error: error.message }, { status: 400 });
+    return NextResponse.json({ error: apiError(error) }, { status: 400 });
   }
 }
+
+export const POST = withMerchant(handlePOST, 'reservations');

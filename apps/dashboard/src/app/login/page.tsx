@@ -16,6 +16,7 @@ export default function LoginPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (isLoading) return;
     setError('');
 
     if (!email || !password) {
@@ -47,7 +48,6 @@ export default function LoginPage() {
             name: email.split('@')[0].replace('.', ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
             fullName: email.split('@')[0].replace('.', ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
             role: 'Property Manager',
-            property: localStorage.getItem('sena_property_name') || 'Amami',
           })
         );
       } catch (err) {
@@ -128,12 +128,12 @@ export default function LoginPage() {
           </div>
 
           {/* Right: The Sign-in Ledger */}
-          <div className="lg:col-span-7 bg-white rounded-xl border border-[#E8E1D5] p-8 sm:p-10 shadow-[0_4px_24px_rgba(25,24,22,0.03)]">
+          <div className="min-w-0 lg:col-span-7 bg-white rounded-xl border border-[#E8E1D5] p-5 sm:p-10 shadow-[0_4px_24px_rgba(25,24,22,0.03)]">
             <div className="mb-8">
               <h1 className="text-2xl font-serif font-normal text-[#191816]">
                 Welcome back
               </h1>
-              <p className="text-xs text-[#7A7267] mt-1.5">
+              <p className="text-sm text-[#7A7267] mt-1.5">
                 Enter your work credentials to open your property workspace.
               </p>
             </div>
@@ -146,12 +146,13 @@ export default function LoginPage() {
 
             <form onSubmit={handleSubmit} className="space-y-5">
               <div>
-                <label className="block text-xs font-medium text-[#191816] mb-1.5">
+                <label htmlFor="login-email" className="block text-xs font-medium text-[#191816] mb-1.5">
                   Work Email
                 </label>
                 <input
                   type="email"
-                  placeholder="amara@stayconnect.ng"
+                  placeholder="you@yourhotel.com"
+                  id="login-email" name="email" autoComplete="username"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full h-11 px-3.5 rounded-md border border-[#E8E1D5] bg-[#FAF7F2]/40 text-[#191816] text-sm focus:bg-white focus:outline-none focus:border-[#71382D] transition-all placeholder:text-[#A69E92]"
@@ -161,12 +162,12 @@ export default function LoginPage() {
 
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="block text-xs font-medium text-[#191816]">
+                  <label htmlFor="login-password" className="block text-xs font-medium text-[#191816]">
                     Password
                   </label>
                   <button
                     type="button"
-                    onClick={() => alert('Password reset instructions have been forwarded to your email address.')}
+                    onClick={() => setError('For help recovering your account, contact your property owner or Sena support. No reset email has been sent.')}
                     className="text-[11px] text-[#8C8275] hover:text-[#71382D] transition-colors"
                   >
                     Forgot password?
@@ -174,6 +175,7 @@ export default function LoginPage() {
                 </div>
                 <div className="relative">
                   <input
+                    id="login-password" name="password" autoComplete="current-password"
                     type={showPassword ? 'text' : 'password'}
                     placeholder="••••••••••••"
                     value={password}
@@ -230,7 +232,7 @@ export default function LoginPage() {
 
       {/* Footer */}
       <footer className="px-6 sm:px-12 py-6 text-center text-xs text-[#8C8275] border-t border-[#EAE3D9]">
-        <div className="flex items-center justify-center gap-6">
+        <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
           <Link href="https://sena.ng" className="hover:text-[#191816] transition-colors">sena.ng</Link>
           <span>&middot;</span>
           <Link href="https://sena.ng/privacy" className="hover:text-[#191816] transition-colors">Privacy</Link>

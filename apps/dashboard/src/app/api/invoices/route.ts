@@ -1,3 +1,5 @@
+import { apiError } from '@/lib/api-error';
+import { withMerchant } from '@/lib/merchant-route';
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import {
@@ -12,7 +14,9 @@ import {
   sql,
 } from '@sena/database';
 
-export async function GET(req: NextRequest) {
+import { resolveTenantForRequest } from '@/lib/tenant';
+
+async function handleGET(req: NextRequest) {
   try {
     const session = await auth();
     const { searchParams } = new URL(req.url);
@@ -20,9 +24,9 @@ export async function GET(req: NextRequest) {
     const typeFilter = searchParams.get('type');
     const search = searchParams.get('search')?.toLowerCase().trim();
 
-    // 1. Resolve Property & Organization
-    const prop = await db.query.properties.findFirst();
-    if (!prop) {
+    // 1. Resolve Property & Organization strictly scoped to tenant
+    const tenant = await resolveTenantForRequest(session, req);
+    if (!tenant) {
       return NextResponse.json({
         invoices: [],
         metrics: {
@@ -35,11 +39,14 @@ export async function GET(req: NextRequest) {
       });
     }
 
+    const propertyId = tenant.propertyId;
+    const prop = tenant.property;
+
     // 2. Fetch all invoices for property
     let allInvoices = await db
       .select()
       .from(propertyInvoices)
-      .where(eq(propertyInvoices.propertyId, prop.id))
+      .where(eq(propertyInvoices.propertyId, propertyId))
       .orderBy(desc(propertyInvoices.createdAt));
 
     // Update overdue status dynamically if due date passed and not fully paid
@@ -107,13 +114,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // Default Bank Account Details for the property
-    const defaultBank = {
-      bankName: 'Access Bank PLC',
-      accountName: `${prop.name} Operations`,
-      accountNumber: '0123456789',
-      sortCode: '044',
-    };
+    const defaultBank = null;
 
     return NextResponse.json({
       invoices: filtered,
@@ -125,18 +126,18 @@ export async function GET(req: NextRequest) {
         overdueMinorUnits,
       },
       propertyName: prop.name,
-      propertyAddress: prop.address || 'Victoria Island, Lagos, Nigeria',
-      propertyPhone: prop.phone || '+234 1 234 5678',
-      propertyEmail: prop.email || 'reservations@sena.ng',
+      propertyAddress: prop.address || '',
+      propertyPhone: prop.phone || '',
+      propertyEmail: prop.email || '',
       bankDetails: defaultBank,
     });
   } catch (error: any) {
     console.error('[INVOICES GET ERROR]', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: apiError(error) }, { status: 500 });
   }
 }
 
-export async function POST(req: NextRequest) {
+async function handlePOST(req: NextRequest) {
   try {
     const session = await auth();
     const body = await req.json();
@@ -170,15 +171,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'At least one line item is required' }, { status: 400 });
     }
 
-    // 1. Resolve Property & Organization
-    const prop = await db.query.properties.findFirst();
-    if (!prop) {
-      return NextResponse.json({ error: 'Property not found' }, { status: 404 });
+    // 1. Resolve Property & Organization strictly scoped to tenant
+    const tenant = await resolveTenantForRequest(session, req);
+    if (!tenant) {
+      return NextResponse.json({ error: 'Property not found for user session' }, { status: 404 });
     }
 
-    const org = await db.query.organizations.findFirst();
-    if (!org) {
-      return NextResponse.json({ error: 'Organization not found' }, { status: 404 });
+    const propertyId = tenant.propertyId;
+    const prop = tenant.property;
+    const organizationId = tenant.property.organizationId;
+    if (!organizationId) {
+      return NextResponse.json({ error: 'Organization not found for property' }, { status: 404 });
     }
 
     // 2. Generate Sequential Invoice Reference
@@ -188,7 +191,9 @@ export async function POST(req: NextRequest) {
       .from(propertyInvoices)
       .where(eq(propertyInvoices.propertyId, prop.id));
     const nextNum = Number(countResult[0]?.count || 0) + 1;
-    const invoiceNumber = `INV-${currentYear}-${String(nextNum).padStart(4, '0')}`;
+    const invoiceNumber = `INV-${currentYear}-${crypto.randomUUID().replaceAll('-', '').slice(0, 16).toUpperCase()}`;
+
+    if (!Array.isArray(items) || items.some((item: any) => !Number.isSafeInteger(Number(item.quantity)) || Number(item.quantity) <= 0 || !Number.isSafeInteger(Number(item.unitPriceMinorUnits)) || Number(item.unitPriceMinorUnits) < 0)) return NextResponse.json({ error: 'Enter a whole quantity and a valid price for each item.' }, { status: 422 });
 
     // 3. Calculate Itemized Subtotal
     let subtotalMinorUnits = 0;
@@ -225,19 +230,14 @@ export async function POST(req: NextRequest) {
     const resolvedIssueDate = issueDate || todayStr;
     const resolvedDueDate = dueDate || todayStr;
 
-    const defaultBank = {
-      bankName: 'Access Bank PLC',
-      accountName: `${prop.name} Operations`,
-      accountNumber: '0123456789',
-      sortCode: '044',
-    };
+    const defaultBank = null;
 
     // 5. Insert Invoice into DB
     const [newInvoice] = await db
       .insert(propertyInvoices)
       .values({
-        propertyId: prop.id,
-        organizationId: org.id,
+        propertyId,
+        organizationId,
         reservationId: reservationId || null,
         guestId: guestId || null,
         invoiceNumber,
@@ -250,7 +250,7 @@ export async function POST(req: NextRequest) {
         companyTin: companyTin ? companyTin.trim() : null,
         issueDate: resolvedIssueDate,
         dueDate: resolvedDueDate,
-        currency: 'NGN',
+        currency: tenant.property.currency,
         subtotalMinorUnits,
         taxVatMinorUnits,
         taxConsumptionMinorUnits,
@@ -272,6 +272,10 @@ export async function POST(req: NextRequest) {
     });
   } catch (error: any) {
     console.error('[INVOICE POST ERROR]', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: apiError(error) }, { status: 500 });
   }
 }
+
+export const GET = withMerchant(handleGET, 'invoices');
+
+export const POST = withMerchant(handlePOST, 'invoices');

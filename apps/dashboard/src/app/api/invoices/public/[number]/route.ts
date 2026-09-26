@@ -1,3 +1,4 @@
+import { apiError } from '@/lib/api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import {
   db,
@@ -14,8 +15,10 @@ export async function GET(
   try {
     const { number } = await params;
 
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(number)) return NextResponse.json({ error: 'Please ask the property for a fresh invoice link.' }, { status: 404 });
+
     const invoice = await db.query.propertyInvoices.findFirst({
-      where: eq(propertyInvoices.invoiceNumber, number),
+      where: eq(propertyInvoices.id, number),
     });
 
     if (!invoice) {
@@ -53,6 +56,6 @@ export async function GET(
     });
   } catch (error: any) {
     console.error('[PUBLIC INVOICE GET ERROR]', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: apiError(error) }, { status: 500 });
   }
 }

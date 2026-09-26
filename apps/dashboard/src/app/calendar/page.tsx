@@ -1,5 +1,6 @@
 'use client';
 
+import { PageLoadState, readJsonResponse } from '../../components/page-load-state';
 import * as React from 'react';
 import { Badge, Button } from '@sena/ui';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
@@ -32,6 +33,7 @@ export default function CalendarPage() {
   const [calendarDates, setCalendarDates] = React.useState(() => generateDates(new Date(), 7));
   const [rooms, setRooms] = React.useState<any[]>([]);
   const [reservations, setReservations] = React.useState<ReservationItem[]>([]);
+  const [loadError, setLoadError] = React.useState(false);
   const [loading, setLoading] = React.useState(true);
   const [selectedRes, setSelectedRes] = React.useState<ReservationItem | null>(null);
   const [drawerOpen, setDrawerOpen] = React.useState(false);
@@ -68,6 +70,7 @@ export default function CalendarPage() {
       const startDate = calendarDates[0]?.full || new Date().toISOString().split('T')[0];
       const endDate = calendarDates[calendarDates.length - 1]?.full || new Date().toISOString().split('T')[0];
       const res = await fetch(`/api/calendar?startDate=${startDate}&endDate=${endDate}`);
+      if (!res.ok) throw new Error('Page unavailable');
       if (res.ok) {
         const data = await res.json();
         if (data.rooms) setRooms(data.rooms);
@@ -96,6 +99,7 @@ export default function CalendarPage() {
         }
       }
     } catch (err) {
+      setLoadError(true);
       console.error('Failed to load calendar data:', err);
     } finally {
       setLoading(false);
@@ -105,6 +109,8 @@ export default function CalendarPage() {
   React.useEffect(() => {
     fetchCalendar();
   }, [fetchCalendar]);
+
+  if (loading || loadError) return <PageLoadState title="Calendar" failed={loadError} />;
 
   return (
     <div className="flex-1 flex flex-col h-screen overflow-hidden bg-white">

@@ -1,5 +1,8 @@
 'use client';
+import { findReadyRoom } from '../../components/reservation-room';
 
+import { PageLoadState } from '../../components/page-load-state';
+import { useWorkspace } from '../../components/workspace-access';
 import * as React from 'react';
 import { formatNaira, formatStayDates } from '@sena/config';
 import {
@@ -12,16 +15,22 @@ import {
 } from '@sena/ui';
 import { type ReservationItem } from '../../components/mock-data';
 import { ReservationDrawer } from '../../components/reservation-drawer';
+import { NewReservationDialog } from '../../components/new-reservation-dialog';
+import { ReservationSuccessModal } from '../../components/reservation-success-modal';
 import { Topbar } from '../../components/topbar';
 import { useToast } from '../../components/toast-notification';
 
 export default function FrontDeskPage() {
   const toast = useToast();
+  const workspace = useWorkspace();
+  const [loadError, setLoadError] = React.useState(false);
   const [reservations, setReservations] = React.useState<ReservationItem[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [activeTab, setActiveTab] = React.useState<'arriving' | 'in_house' | 'departing'>('arriving');
   const [selectedRes, setSelectedRes] = React.useState<ReservationItem | null>(null);
   const [drawerOpen, setDrawerOpen] = React.useState(false);
+  const [newResOpen, setNewResOpen] = React.useState(false);
+  const [successReservation, setSuccessReservation] = React.useState<ReservationItem | null>(null);
   const [checkoutWarning, setCheckoutWarning] = React.useState<{
     res: ReservationItem;
     balanceMinorUnits: number;
@@ -30,6 +39,7 @@ export default function FrontDeskPage() {
   const fetchReservations = React.useCallback(async () => {
     try {
       const res = await fetch('/api/reservations');
+      if (!res.ok) throw new Error('Could not load reservations');
       if (res.ok) {
         const data = await res.json();
         if (data.reservations) {
@@ -39,7 +49,8 @@ export default function FrontDeskPage() {
             guestName: r.guestName || 'Unnamed Guest',
             guestEmail: r.guestEmail || '',
             guestPhone: r.guestPhone || '',
-            roomType: r.roomTypeName || 'Standard Room',
+            roomType: r.roomTypeName || 'Room type unavailable',
+            roomTypeId: r.roomTypeId,
             roomNumber: r.roomNumber || 'Unassigned',
             checkInDate: r.checkInDate,
             checkOutDate: r.checkOutDate,
@@ -56,7 +67,7 @@ export default function FrontDeskPage() {
         }
       }
     } catch (e) {
-      console.error('Failed to load reservations in front desk:', e);
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -70,7 +81,7 @@ export default function FrontDeskPage() {
     try {
       const roomRes = await fetch('/api/rooms');
       const roomData = await roomRes.json();
-      const availableRoom = roomData.rooms?.find((rm: any) => (rm.operationalStatus || rm.operational) === 'available');
+      const availableRoom = findReadyRoom(roomData.rooms || [], reservations.find(reservation => reservation.id === id));
       if (!availableRoom) {
         toast.error('No clean rooms available', 'Please mark an inspected room as clean before checking in.');
         return;
@@ -144,9 +155,14 @@ export default function FrontDeskPage() {
       ? inHouseList
       : departingList;
 
+  if (loading || loadError) return <PageLoadState title="Front desk" failed={loadError} />;
+
   return (
     <div className="flex-1 flex flex-col h-screen overflow-hidden bg-white text-[#191816]">
-      <Topbar title="Front Desk" />
+      <Topbar
+        title="Front Desk"
+        onOpenNewReservation={() => setNewResOpen(true)}
+      />
 
       <main className="flex-1 overflow-y-auto p-6 sm:p-10 space-y-8 max-w-7xl w-full mx-auto">
         {/* Header */}
@@ -162,6 +178,13 @@ export default function FrontDeskPage() {
               Arrival clearance, key assignment, and in-house guest management.
             </p>
           </div>
+          <button
+            type="button"
+            onClick={() => setNewResOpen(true)}
+            className="px-4 py-2.5 rounded-lg bg-[#71382D] hover:bg-[#5A2C23] text-white text-xs font-semibold shadow-xs transition-colors self-start sm:self-auto cursor-pointer"
+          >
+            + Record Walk-in Stay
+          </button>
         </div>
 
         {/* Operational Filter Tabs */}
@@ -229,9 +252,35 @@ export default function FrontDeskPage() {
               <tbody className="divide-y divide-[#E8E1D5] text-xs">
                 {currentList.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="py-16 text-center text-[#8C8275]">
-                      <p className="font-serif text-sm text-[#71382D]">No guests in this roster right now</p>
-                      <p className="text-xs mt-1">Check another status or return to overview.</p>
+                    <td colSpan={6} className="py-20 text-center">
+                      <div className="max-w-md mx-auto space-y-3">
+                        <span className="text-[11px] font-mono uppercase tracking-widest text-[#8C8275] block">
+                          Front Desk Roster
+                        </span>
+                        <h3 className="font-serif text-lg text-[#71382D]">
+                          {activeTab === 'arriving'
+                            ? 'No guests scheduled for arrival today'
+                            : activeTab === 'in_house'
+                            ? 'No occupied rooms currently in house'
+                            : 'No guest departures scheduled right now'}
+                        </h3>
+                        <p className="text-xs text-[#7A7267] leading-relaxed">
+                          {activeTab === 'arriving'
+                            ? 'New online bookings and direct reservations will appear here for fast arrival clearance and key assignment.'
+                            : activeTab === 'in_house'
+                            ? 'When guests check in, their live stay folios and room allocations are tracked here until checkout.'
+                            : 'Guests completing their stay will be listed here for folio balance settlement and room inspection handover.'}
+                        </p>
+                        <div className="pt-2 flex items-center justify-center gap-3">
+                          <button
+                            type="button"
+                            onClick={() => setNewResOpen(true)}
+                            className="px-4 py-2 rounded-md bg-[#71382D] hover:bg-[#5A2C23] text-white text-xs font-medium transition-colors cursor-pointer"
+                          >
+                            + Record Walk-in Stay
+                          </button>
+                        </div>
+                      </div>
                     </td>
                   </tr>
                 ) : (
@@ -352,6 +401,25 @@ export default function FrontDeskPage() {
           if (selectedRes) initiateCheckOut(selectedRes);
         }}
       />
+
+      {/* Walk-in Reservation Dialog */}
+      <NewReservationDialog
+        open={newResOpen}
+        onOpenChange={setNewResOpen}
+        onCreateReservation={(newRes) => {
+          setSuccessReservation(newRes);
+          fetchReservations();
+        }}
+      />
+
+      {/* Reservation Success Modal */}
+      {successReservation && (
+        <ReservationSuccessModal
+          reservation={successReservation}
+          open={!!successReservation}
+          onClose={() => setSuccessReservation(null)}
+        />
+      )}
     </div>
   );
 }

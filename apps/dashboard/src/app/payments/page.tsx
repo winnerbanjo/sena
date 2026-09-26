@@ -1,5 +1,6 @@
 'use client';
 
+import { PageLoadState, readJsonResponse } from '../../components/page-load-state';
 import * as React from 'react';
 import { formatNaira } from '@sena/config';
 import {
@@ -30,12 +31,13 @@ interface PaymentItem {
 export default function PaymentsPage() {
   const [payments, setPayments] = React.useState<PaymentItem[]>([]);
   const [reservations, setReservations] = React.useState<any[]>([]);
+  const [loadError, setLoadError] = React.useState(false);
   const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
     Promise.all([
-      fetch('/api/payments').then((res) => res.json()).catch(() => ({ payments: [] })),
-      fetch('/api/reservations').then((res) => res.json()).catch(() => ({ reservations: [] })),
+      fetch('/api/payments').then(readJsonResponse),
+      fetch('/api/reservations').then(readJsonResponse),
     ])
       .then(([payData, resData]) => {
         if (payData.payments) {
@@ -60,7 +62,7 @@ export default function PaymentsPage() {
           setReservations(resData.reservations);
         }
       })
-      .catch((e) => console.error('Failed to load payments or reservations:', e))
+      .catch(() => setLoadError(true))
       .finally(() => setLoading(false));
   }, []);
 
@@ -79,6 +81,8 @@ export default function PaymentsPage() {
   const directBookingShare = reservations.length > 0
     ? Math.round((directReservationsCount / reservations.length) * 100)
     : 0;
+  if (loading || loadError) return <PageLoadState title="Payments" failed={loadError} />;
+
   return (
     <div className="flex-1 flex flex-col h-screen overflow-hidden">
       <Topbar title="Payments" />

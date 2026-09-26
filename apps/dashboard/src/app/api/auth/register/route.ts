@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { db, verificationTokens, users, organizations, organizationMembers } from '@sena/database';
-import { eq } from 'drizzle-orm';
+import { apiError } from '@/lib/api-error';
+import { eq, sql } from 'drizzle-orm';
 import bcrypt from 'bcryptjs';
 import { sendSenaEmail } from '@sena/email';
 
@@ -20,9 +21,9 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { fullName, email, password, phone, propertyName, propertyCategory } = body;
 
-    if (!fullName || !email || !password || !propertyName) {
+    if (typeof fullName !== 'string' || !fullName.trim() || fullName.length > 255 || typeof propertyName !== 'string' || !propertyName.trim() || propertyName.length > 255 || typeof email !== 'string' || email.length > 255 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) || typeof password !== 'string' || password.length < 8 || Buffer.byteLength(password, 'utf8') > 72) {
       return NextResponse.json(
-        { error: 'Full name, email, password, and property name are required.' },
+        { error: 'Enter your name, property name, a valid email and a password of 8–72 bytes.' },
         { status: 400 }
       );
     }
@@ -36,26 +37,11 @@ export async function POST(request: Request) {
       .where(eq(users.email, cleanEmail))
       .limit(1);
 
-    if (existing.length > 0 && existing[0].emailVerified !== null) {
+    if (existing.length > 0) {
       return NextResponse.json(
         { error: 'An account with this email address already exists. Please log in.' },
         { status: 409 }
       );
-    }
-
-    // If a ghost unverified row exists (e.g. previous failed attempt), clean it up
-    if (existing.length > 0 && existing[0].emailVerified === null) {
-      const ghostId = existing[0].id;
-      const memberships = await db
-        .select({ orgId: organizationMembers.organizationId })
-        .from(organizationMembers)
-        .where(eq(organizationMembers.userId, ghostId));
-
-      for (const m of memberships) {
-        await db.delete(organizationMembers).where(eq(organizationMembers.organizationId, m.orgId));
-        await db.delete(organizations).where(eq(organizations.id, m.orgId));
-      }
-      await db.delete(users).where(eq(users.id, ghostId));
     }
 
     // Pre-hash the password (safe to do before account creation)
@@ -86,17 +72,19 @@ export async function POST(request: Request) {
     // Store as "<otpCode>|<base64payload>" in the token column
     const tokenValue = `${otpCode}|${pendingPayload}`;
 
-    // Clear any stale tokens for this email and insert the new one
-    await db.delete(verificationTokens).where(eq(verificationTokens.identifier, cleanEmail));
-    await db.insert(verificationTokens).values({
-      identifier: cleanEmail,
-      token: tokenValue,
-      expires: new Date(Date.now() + 15 * 60 * 1000), // 15 min
+    const issued = await db.transaction(async (tx) => {
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`otp:${cleanEmail}`}))`);
+      const pending = await tx.query.verificationTokens.findFirst({ where: eq(verificationTokens.identifier, cleanEmail) });
+      if (pending && Date.now() - pending.createdAt.getTime() < 60000) return false;
+      await tx.delete(verificationTokens).where(eq(verificationTokens.identifier, cleanEmail));
+      await tx.insert(verificationTokens).values({ identifier: cleanEmail, token: tokenValue, expires: new Date(Date.now() + 15 * 60 * 1000) });
+      return true;
     });
+    if (!issued) return NextResponse.json({ error: 'Please wait a minute before requesting another code.' }, { status: 429 });
 
     // Send OTP verification email
     try {
-      await sendSenaEmail(
+      const delivery = await sendSenaEmail(
         'account.verify_email',
         {
           userName: fullName.trim(),
@@ -109,8 +97,9 @@ export async function POST(request: Request) {
           skipPreferencesCheck: true,
         }
       );
+      if (!delivery.success) return NextResponse.json({ error: 'We could not send your verification code. Please retry in a minute.' }, { status: 503 });
     } catch (emailErr) {
-      console.warn('[REGISTRATION OTP EMAIL ERROR]', emailErr);
+      return NextResponse.json({ error: 'We could not send your verification code. Please retry in a minute.' }, { status: 503 });
     }
 
     return NextResponse.json({
@@ -121,7 +110,7 @@ export async function POST(request: Request) {
   } catch (error: any) {
     console.error('Registration error:', error);
     return NextResponse.json(
-      { error: error?.message || 'Failed to create account.' },
+      { error: apiError(error) },
       { status: 500 }
     );
   }

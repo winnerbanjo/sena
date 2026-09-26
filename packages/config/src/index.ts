@@ -116,17 +116,25 @@ export function fromMinorUnits(minorUnits: MinorUnits): number {
  * Calendar Date Helpers (Property Local Time - Africa/Lagos)
  * Section 92 of PRD
  */
+export function isValidCalendarDate(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(`${value}T00:00:00Z`);
+  return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value;
+}
+
 export function calculateNights(checkInDate: string, checkOutDate: string): number {
+  if (!isValidCalendarDate(checkInDate) || !isValidCalendarDate(checkOutDate) || checkOutDate <= checkInDate) throw new Error('Check-out must be after a valid check-in date.');
   const [y1, m1, d1] = checkInDate.split('-').map(Number);
   const [y2, m2, d2] = checkOutDate.split('-').map(Number);
   const inUtc = Date.UTC(y1, m1 - 1, d1);
   const outUtc = Date.UTC(y2, m2 - 1, d2);
   const diffMs = outUtc - inUtc;
   const nights = Math.round(diffMs / (1000 * 60 * 60 * 24));
-  return Math.max(1, nights);
+  return nights;
 }
 
 export function getDatesBetween(startDate: string, endDate: string): string[] {
+  if (!isValidCalendarDate(startDate) || !isValidCalendarDate(endDate) || endDate < startDate) throw new Error('Invalid calendar date range.');
   const dates: string[] = [];
   const [y1, m1, d1] = startDate.split('-').map(Number);
   const [y2, m2, d2] = endDate.split('-').map(Number);

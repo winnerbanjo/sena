@@ -1,5 +1,6 @@
 'use client';
 
+import { PageLoadState, readJsonResponse } from '../../components/page-load-state';
 import * as React from 'react';
 import { Badge, Button } from '@sena/ui';
 import { Brush, CheckCircle2, Play } from 'lucide-react';
@@ -8,11 +9,13 @@ import { Topbar } from '../../components/topbar';
 
 export default function HousekeepingPage() {
   const [rooms, setRooms] = React.useState<any[]>([]);
+  const [loadError, setLoadError] = React.useState(false);
   const [loading, setLoading] = React.useState(true);
 
   const fetchHousekeeping = React.useCallback(async () => {
     try {
       const res = await fetch('/api/housekeeping');
+      if (!res.ok) throw new Error('Page unavailable');
       if (res.ok) {
         const data = await res.json();
         if (data.rooms) {
@@ -28,6 +31,7 @@ export default function HousekeepingPage() {
         }
       }
     } catch (e) {
+      setLoadError(true);
       console.error('Failed to load housekeeping rooms:', e);
     } finally {
       setLoading(false);
@@ -82,6 +86,8 @@ export default function HousekeepingPage() {
     if (filter === 'clean') return r.housekeeping === 'clean';
     return true;
   });
+
+  if (loading || loadError) return <PageLoadState title="Housekeeping" failed={loadError} />;
 
   return (
     <div className="flex-1 flex flex-col h-screen overflow-hidden bg-white">

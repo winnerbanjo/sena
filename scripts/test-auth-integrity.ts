@@ -1,0 +1,32 @@
+import assert from 'node:assert/strict';
+import { requireIsolatedTestDatabase } from './require-isolated-test-database';
+requireIsolatedTestDatabase();
+const base = process.env.SENA_TEST_APP_URL || 'http://localhost:3101';
+if (!['localhost', '127.0.0.1'].includes(new URL(base).hostname)) throw new Error('Local QA only');
+async function run() {
+  const { db, verificationTokens, users, eq } = await import('../packages/database/src/index');
+  const email = `otp-${crypto.randomUUID()}@example.invalid`;
+  const verify = (code: string) => fetch(base + '/api/auth/otp/verify', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, code }) });
+  await db.insert(verificationTokens).values({ identifier: email, token: '123456', expires: new Date(Date.now() + 600000) });
+  const attempts = await Promise.all(Array.from({ length: 8 }, () => verify('000000')));
+  assert.equal(attempts.filter(r => r.status === 400).length, 5);
+  assert.equal(attempts.filter(r => r.status === 429).length, 3);
+  assert.equal((await verify('123456')).status, 429);
+  console.log('PASS concurrent incorrect codes exhaust one shared attempt budget');
+  await db.delete(verificationTokens).where(eq(verificationTokens.identifier, email));
+  await db.insert(users).values({ fullName: 'Local OTP QA', email, isActive: true });
+  await db.insert(verificationTokens).values({ identifier: email, token: '123456', expires: new Date(Date.now() + 600000) });
+  const valid = await Promise.all(Array.from({ length: 8 }, () => verify('123456')));
+  assert.equal(valid.filter(r => r.status === 200).length, 1);
+  assert.equal(valid.filter(r => r.status === 400).length, 7);
+  assert.ok((await db.query.users.findFirst({ where: eq(users.email, email) }))?.emailVerified);
+  console.log('PASS concurrent correct code can be consumed only once');
+  const invalid = await fetch(base + '/api/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({fullName:'QA',email,password:'x',propertyName:'QA'}) });
+  assert.equal(invalid.status,400);
+  console.log('PASS weak signup password rejected before account changes');
+  const manifest = await fetch(base + '/manifest.webmanifest');
+  assert.equal(manifest.status,200); assert.equal((await manifest.json()).start_url,'/');
+  console.log('PASS PWA manifest is served without duplicate-route conflict');
+  console.log('4 authentication/PWA checks passed.'); process.exit(0);
+}
+run().catch(error => { console.error(error); process.exit(1); });

@@ -1,40 +1,18 @@
+import { apiError } from '@/lib/api-error';
+import { withMerchant } from '@/lib/merchant-route';
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { db, properties, propertyMembers, organizationMembers, websiteConfigs, websiteDomains, eq } from '@sena/database';
 
+import { resolveTenantForRequest } from '@/lib/tenant';
+
 export const dynamic = 'force-dynamic';
 
-async function resolvePropertyForUser(userId: string) {
-  const pm = await db.query.propertyMembers.findFirst({
-    where: eq(propertyMembers.userId, userId),
-  });
-  if (pm) return pm.propertyId;
-
-  const om = await db.query.organizationMembers.findFirst({
-    where: eq(organizationMembers.userId, userId),
-  });
-  if (om) {
-    const prop = await db.query.properties.findFirst({
-      where: eq(properties.organizationId, om.organizationId),
-    });
-    if (prop) return prop.id;
-  }
-  return null;
-}
-
-export async function GET(req: NextRequest) {
+async function handleGET(req: NextRequest) {
   try {
     const session = await auth();
-    let propertyId = (session?.user as any)?.propertyId;
-
-    if (!propertyId && session?.user?.id) {
-      propertyId = await resolvePropertyForUser(session.user.id);
-    }
-
-    if (!propertyId) {
-      const firstProp = await db.query.properties.findFirst();
-      if (firstProp) propertyId = firstProp.id;
-    }
+    const tenant = await resolveTenantForRequest(session, req);
+    const propertyId = tenant?.propertyId;
 
     if (!propertyId) {
       return NextResponse.json({ error: 'Property not found' }, { status: 404 });
@@ -60,24 +38,16 @@ export async function GET(req: NextRequest) {
     });
   } catch (error: any) {
     console.error('Error fetching website config:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: apiError(error) }, { status: 500 });
   }
 }
 
 // Save draft or update config
-export async function PUT(req: NextRequest) {
+async function handlePUT(req: NextRequest) {
   try {
     const session = await auth();
-    let propertyId = (session?.user as any)?.propertyId;
-
-    if (!propertyId && session?.user?.id) {
-      propertyId = await resolvePropertyForUser(session.user.id);
-    }
-
-    if (!propertyId) {
-      const firstProp = await db.query.properties.findFirst();
-      if (firstProp) propertyId = firstProp.id;
-    }
+    const tenant = await resolveTenantForRequest(session, req);
+    const propertyId = tenant?.propertyId;
 
     if (!propertyId) {
       return NextResponse.json({ error: 'Property not found' }, { status: 404 });
@@ -129,24 +99,16 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ success: true, config: updated });
   } catch (error: any) {
     console.error('Error saving website config:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: apiError(error) }, { status: 500 });
   }
 }
 
 // Publish changes to live website
-export async function PATCH(req: NextRequest) {
+async function handlePATCH(req: NextRequest) {
   try {
     const session = await auth();
-    let propertyId = (session?.user as any)?.propertyId;
-
-    if (!propertyId && session?.user?.id) {
-      propertyId = await resolvePropertyForUser(session.user.id);
-    }
-
-    if (!propertyId) {
-      const firstProp = await db.query.properties.findFirst();
-      if (firstProp) propertyId = firstProp.id;
-    }
+    const tenant = await resolveTenantForRequest(session, req);
+    const propertyId = tenant?.propertyId;
 
     if (!propertyId) {
       return NextResponse.json({ error: 'Property not found' }, { status: 404 });
@@ -182,6 +144,12 @@ export async function PATCH(req: NextRequest) {
     });
   } catch (error: any) {
     console.error('Error publishing website:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: apiError(error) }, { status: 500 });
   }
 }
+
+export const GET = withMerchant(handleGET, 'website');
+
+export const PUT = withMerchant(handlePUT, 'website');
+
+export const PATCH = withMerchant(handlePATCH, 'website');

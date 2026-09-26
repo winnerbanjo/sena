@@ -1,36 +1,19 @@
+import { apiError } from '@/lib/api-error';
+import { withMerchant } from '@/lib/merchant-route';
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { db, guests, reservations, properties , propertyMembers, organizationMembers } from '@sena/database';
 import { eq, desc, sql } from 'drizzle-orm';
 
-export async function GET(req: NextRequest) {
+import { resolveTenantForRequest } from '@/lib/tenant';
+
+export const dynamic = 'force-dynamic';
+
+async function handleGET(req: NextRequest) {
   try {
     const session = await auth();
-    let propertyId = (session?.user as any)?.propertyId;
-
-    if (!propertyId) {
-      // Securely fetch property for this user instead of leaking firstProp
-      const userId = session?.user?.id;
-      if (userId) {
-        const membership = await db.query.propertyMembers.findFirst({
-          where: eq(propertyMembers.userId, userId)
-        });
-        if (membership) {
-          propertyId = membership.propertyId;
-        } else {
-          // Try organization fallback
-          const orgMembership = await db.query.organizationMembers.findFirst({
-            where: eq(organizationMembers.userId, userId)
-          });
-          if (orgMembership) {
-            const orgProp = await db.query.properties.findFirst({
-              where: eq(properties.organizationId, orgMembership.organizationId)
-            });
-            if (orgProp) propertyId = orgProp.id;
-          }
-        }
-      }
-    }
+    const tenant = await resolveTenantForRequest(session, req);
+    const propertyId = tenant?.propertyId;
 
     if (!propertyId) {
       return NextResponse.json({ guests: [] });
@@ -52,41 +35,25 @@ export async function GET(req: NextRequest) {
       .where(eq(guests.propertyId, propertyId))
       .orderBy(desc(guests.createdAt));
 
-    // Compute stays and spend per guest
-    const enrichedGuests = await Promise.all(
-      guestList.map(async (g) => {
-        const resStats = await db
-          .select({
-            count: sql<number>`count(*)::int`,
-            totalSpent: sql<number>`coalesce(sum(${reservations.paidAmountMinorUnits}), 0)::int`,
-          })
-          .from(reservations)
-          .where(eq(reservations.guestId, g.id));
-
-        const lastRes = await db
-          .select({ checkInDate: reservations.checkInDate })
-          .from(reservations)
-          .where(eq(reservations.guestId, g.id))
-          .orderBy(desc(reservations.checkInDate))
-          .limit(1);
-
-        return {
-          ...g,
-          totalStays: resStats[0]?.count || 0,
-          totalSpendMinorUnits: resStats[0]?.totalSpent || 0,
-          lastStayDate: lastRes[0]?.checkInDate || null,
-        };
-      })
-    );
+    // One aggregate query avoids two additional queries for every guest.
+    const stats = await db.select({
+      guestId: reservations.guestId,
+      totalStays: sql<number>`count(*) filter (where ${reservations.status} in ('checked_in', 'checked_out'))::int`,
+      totalNights: sql<number>`coalesce(sum(${reservations.nights}) filter (where ${reservations.status} in ('checked_in', 'checked_out')), 0)::int`,
+      totalSpendMinorUnits: sql<number>`coalesce(sum(${reservations.paidAmountMinorUnits}), 0)::bigint`,
+      lastStayDate: sql<string>`max(${reservations.checkInDate}) filter (where ${reservations.status} in ('checked_in', 'checked_out'))`,
+    }).from(reservations).where(eq(reservations.propertyId, propertyId)).groupBy(reservations.guestId);
+    const byGuest = new Map(stats.map(stat => [stat.guestId, stat]));
+    const enrichedGuests = guestList.map(guest => ({ ...guest, totalStays: byGuest.get(guest.id)?.totalStays || 0, totalNights: byGuest.get(guest.id)?.totalNights || 0, totalSpendMinorUnits: Number(byGuest.get(guest.id)?.totalSpendMinorUnits || 0), lastStayDate: byGuest.get(guest.id)?.lastStayDate || null }));
 
     return NextResponse.json({ guests: enrichedGuests });
   } catch (error: any) {
     console.error('Guests API error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: apiError(error) }, { status: 500 });
   }
 }
 
-export async function POST(req: NextRequest) {
+async function handlePOST(req: NextRequest) {
   try {
     const session = await auth();
     let propertyId = (session?.user as any)?.propertyId;
@@ -152,6 +119,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true, guest: newGuest });
   } catch (error: any) {
     console.error('Guest create error:', error);
-    return NextResponse.json({ error: error.message }, { status: 400 });
+    return NextResponse.json({ error: apiError(error) }, { status: 400 });
   }
 }
+
+export const GET = withMerchant(handleGET, 'guests');
+
+export const POST = withMerchant(handlePOST, 'guests');

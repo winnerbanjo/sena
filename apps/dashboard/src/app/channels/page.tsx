@@ -51,28 +51,28 @@ const INTEGRATIONS: IntegrationItem[] = [
     name: 'Booking.com',
     category: 'Booking & Distribution',
     status: 'coming_soon',
-    description: 'Two-way iCal and channel manager sync is in development for V1.1. Join the waitlist to be notified when it goes live.',
+    description: 'Two-way iCal and channel manager sync is in development for V1.1. ',
   },
   {
     id: 'airbnb',
     name: 'Airbnb',
     category: 'Booking & Distribution',
     status: 'coming_soon',
-    description: 'Calendar and rate synchronization for serviced apartments. Launching in V1.1.',
+    description: 'Calendar and rate synchronization for serviced apartments. Not yet available.',
   },
   {
     id: 'expedia',
     name: 'Expedia Partner Solutions',
     category: 'Booking & Distribution',
     status: 'coming_soon',
-    description: 'Channel manager distribution across the Expedia global network. Launching in V1.1.',
+    description: 'Channel manager distribution across the Expedia global network. Not yet available.',
   },
   {
     id: 'agoda',
     name: 'Agoda',
     category: 'Booking & Distribution',
     status: 'coming_soon',
-    description: 'Direct distribution across Agoda and Asian hospitality corridors. Launching in V1.1.',
+    description: 'Direct distribution across Agoda and Asian hospitality corridors. Not yet available.',
   },
 
   // 2. Payments
@@ -108,7 +108,7 @@ const INTEGRATIONS: IntegrationItem[] = [
     name: 'Monnify by TeamApt',
     category: 'Payments',
     status: 'coming_soon',
-    description: 'Dedicated virtual bank account numbers for instant auto-cleared bank transfers. Coming in V1.1.',
+    description: 'Dedicated virtual bank account numbers for instant auto-cleared bank transfers. Not yet available.',
   },
   {
     id: 'flutterwave',
@@ -125,7 +125,7 @@ const INTEGRATIONS: IntegrationItem[] = [
     category: 'Communication',
     status: 'active',
     description: 'Automated booking confirmations, guest check-in reminders, invoices, and review requests dispatched seamlessly.',
-    actionText: 'Email Logs',
+    actionText: 'Notification Settings',
     actionHref: '/settings',
   },
   {
@@ -133,7 +133,7 @@ const INTEGRATIONS: IntegrationItem[] = [
     name: 'WhatsApp Business API',
     category: 'Communication',
     status: 'coming_soon',
-    description: 'Automated WhatsApp confirmation messages, digital room keys, and concierge chat. Under certification.',
+    description: 'Automated WhatsApp confirmation messages, digital room keys, and concierge chat. Not yet available.',
   },
   {
     id: 'termii',
@@ -146,20 +146,6 @@ const INTEGRATIONS: IntegrationItem[] = [
 
 export default function ChannelsPage() {
   const [selectedChannel, setSelectedChannel] = React.useState<IntegrationItem | null>(null);
-  const [emailSubmitted, setEmailSubmitted] = React.useState(false);
-  const [interestEmail, setInterestEmail] = React.useState('');
-
-  function handleNotify(e: React.FormEvent) {
-    e.preventDefault();
-    if (!interestEmail) return;
-    setEmailSubmitted(true);
-    setTimeout(() => {
-      setSelectedChannel(null);
-      setEmailSubmitted(false);
-      setInterestEmail('');
-    }, 1800);
-  }
-
   const categories: ('Booking & Distribution' | 'Payments' | 'Communication')[] = [
     'Booking & Distribution',
     'Payments',
@@ -178,7 +164,7 @@ export default function ChannelsPage() {
                 Channels & Integrations
               </h2>
               <p className="text-xs text-[#7A7267] mt-1">
-                Truthful, certified connections powering guest acquisition, payment processing, and guest communication.
+                Available features and planned integrations. Availability does not mean a connection is configured.
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -226,7 +212,7 @@ export default function ChannelsPage() {
                                 : 'bg-[#FAF8F5] text-[#7A7267] border border-[#E8E2DA]'
                             }`}
                           >
-                            {isActive ? 'Active' : 'Coming Soon'}
+                            {isActive ? 'Available' : 'Coming Soon'}
                           </span>
                         </div>
                         <strong className="text-base font-serif text-[#191816] block">
@@ -260,7 +246,7 @@ export default function ChannelsPage() {
                             onClick={() => setSelectedChannel(item)}
                             className="w-full text-xs"
                           >
-                            Join Waitlist ↗
+                            View availability
                           </Button>
                         )}
                       </div>
@@ -280,52 +266,8 @@ export default function ChannelsPage() {
           onOpenChange={() => setSelectedChannel(null)}
         >
           <DialogContent>
-            {emailSubmitted ? (
-              <div className="py-8 text-center space-y-2">
-                <Check className="w-8 h-8 mx-auto text-[#2E6B4F]" />
-                <DialogTitle>Waitlist Confirmed</DialogTitle>
-                <DialogDescription>
-                  You are registered for early access to {selectedChannel.name}. We will notify you the moment live certification begins.
-                </DialogDescription>
-              </div>
-            ) : (
-              <form onSubmit={handleNotify}>
-                <DialogHeader>
-                  <span className="text-[10px] font-mono uppercase tracking-wider text-[#B85C3E]">
-                    Integration Waitlist
-                  </span>
-                  <DialogTitle>{selectedChannel.name}</DialogTitle>
-                  <DialogDescription>
-                    {selectedChannel.description}
-                  </DialogDescription>
-                </DialogHeader>
-
-                <div className="py-4 space-y-2">
-                  <label className="text-xs font-medium text-[#191816]">Work Email Address</label>
-                  <Input
-                    type="email"
-                    placeholder="manager@hotel.com"
-                    value={interestEmail}
-                    onChange={(e) => setInterestEmail(e.target.value)}
-                    required
-                  />
-                  <p className="text-[11px] text-[#7A7267]">
-                    Zero spam. Only technical release announcements and integration guides.
-                  </p>
-                </div>
-
-                <DialogFooter>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setSelectedChannel(null)}
-                  >
-                    Cancel
-                  </Button>
-                  <Button type="submit">Join Waitlist</Button>
-                </DialogFooter>
-              </form>
-            )}
+            <DialogHeader><DialogTitle>{selectedChannel.name}</DialogTitle><DialogDescription>This integration is not available yet. No waitlist or connection has been created.</DialogDescription></DialogHeader>
+            <DialogFooter><Button onClick={() => setSelectedChannel(null)}>Close</Button></DialogFooter>
           </DialogContent>
         </Dialog>
       )}

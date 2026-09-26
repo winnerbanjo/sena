@@ -9,18 +9,6 @@ export async function POST(req: NextRequest) {
   const startTime = Date.now();
 
   try {
-    // 1. Check Idempotency-Key
-    const idempotencyKey = req.headers.get('idempotency-key');
-    if (idempotencyKey) {
-      const cached = await checkIdempotency(idempotencyKey);
-      if (cached.isReplay) {
-        return NextResponse.json(cached.payload, {
-          status: cached.statusCode,
-          headers: { 'X-Cache-Lookup': 'HIT', 'Idempotent-Replayed': 'true' },
-        });
-      }
-    }
-
     const body = await req.json().catch(() => null);
     if (!body) {
       return NextResponse.json(
@@ -63,6 +51,14 @@ export async function POST(req: NextRequest) {
       return authResult.response;
     }
 
+    const rawIdempotencyKey = req.headers.get('idempotency-key');
+    const idempotencyKey = rawIdempotencyKey ? `connect:${authResult.apiKey.id}:${rawIdempotencyKey}` : undefined;
+    if (idempotencyKey && idempotencyKey.length > 255) return NextResponse.json({ error: { code: 'INVALID_REQUEST', message: 'Idempotency key is too long.' } }, { status: 400 });
+    if (idempotencyKey) {
+      const cached = await checkIdempotency(idempotencyKey);
+      if (cached.isReplay) return NextResponse.json(cached.payload, { status: cached.statusCode });
+    }
+
     // 3. If hold_id is passed, verify hold integrity
     if (holdId) {
       const [hold] = await db
@@ -103,7 +99,7 @@ export async function POST(req: NextRequest) {
         adults,
         children,
         source,
-        paymentStatus: paymentMethod === 'paystack' ? 'paid' : 'pending',
+        paymentStatus: 'pay_later',
         paidAmountMinorUnits: 0,
         specialRequests,
         guest: {
@@ -113,7 +109,8 @@ export async function POST(req: NextRequest) {
         },
         holdId,
       } as any,
-      { id: authResult.apiKey.id, name: `API Key (${authResult.apiKey.name})` }
+      { id: authResult.apiKey.id, name: `API Key (${authResult.apiKey.name})` },
+      rawIdempotencyKey ? `connect:${authResult.apiKey.id}:${rawIdempotencyKey}` : undefined
     );
 
     // Fetch enriched reservation details for response and webhooks

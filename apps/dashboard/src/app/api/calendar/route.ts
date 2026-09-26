@@ -1,37 +1,20 @@
+import { isValidCalendarDate } from '@sena/config';
+import { apiError } from '@/lib/api-error';
+import { withMerchant } from '@/lib/merchant-route';
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { db, properties, rooms, roomTypes, reservations, guests , propertyMembers, organizationMembers } from '@sena/database';
-import { getCache, setCache } from '@sena/integrations';
 import { eq, and, gte, lte, or } from 'drizzle-orm';
 
-export async function GET(req: NextRequest) {
+import { resolveTenantForRequest } from '@/lib/tenant';
+
+export const dynamic = 'force-dynamic';
+
+async function handleGET(req: NextRequest) {
   try {
     const session = await auth();
-    let propertyId = (session?.user as any)?.propertyId;
-
-    if (!propertyId) {
-      // Securely fetch property for this user instead of leaking firstProp
-      const userId = session?.user?.id;
-      if (userId) {
-        const membership = await db.query.propertyMembers.findFirst({
-          where: eq(propertyMembers.userId, userId)
-        });
-        if (membership) {
-          propertyId = membership.propertyId;
-        } else {
-          // Try organization fallback
-          const orgMembership = await db.query.organizationMembers.findFirst({
-            where: eq(organizationMembers.userId, userId)
-          });
-          if (orgMembership) {
-            const orgProp = await db.query.properties.findFirst({
-              where: eq(properties.organizationId, orgMembership.organizationId)
-            });
-            if (orgProp) propertyId = orgProp.id;
-          }
-        }
-      }
-    }
+    const tenant = await resolveTenantForRequest(session, req);
+    const propertyId = tenant?.propertyId;
 
     if (!propertyId) {
       return NextResponse.json({ rooms: [], reservations: [] });
@@ -44,12 +27,7 @@ export async function GET(req: NextRequest) {
       searchParams.get('endDate') ||
       new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
-    const cacheKey = `calendar:${propertyId}:${startDate}:${endDate}`;
-    const cachedData = await getCache<any>(cacheKey);
-
-    if (cachedData) {
-      return NextResponse.json({ ...cachedData, cached: true });
-    }
+    if (!isValidCalendarDate(startDate) || !isValidCalendarDate(endDate) || endDate <= startDate) return NextResponse.json({ error: 'Choose a valid calendar date range.' }, { status: 400 });
 
     // 1. Fetch Rooms with Room Types
     const roomList = await db
@@ -97,12 +75,11 @@ export async function GET(req: NextRequest) {
       dateRange: { startDate, endDate },
     };
 
-    // Cache in Valkey for 60 seconds
-    await setCache(cacheKey, payload, 60);
-
     return NextResponse.json({ ...payload, cached: false });
   } catch (error: any) {
     console.error('Calendar API error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: apiError(error) }, { status: 500 });
   }
 }
+
+export const GET = withMerchant(handleGET, 'calendar');

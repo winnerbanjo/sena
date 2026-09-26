@@ -1,38 +1,18 @@
+import { apiError } from '@/lib/api-error';
+import { withMerchant } from '@/lib/merchant-route';
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { db, properties, propertyMembers, organizationMembers, reviews, eq, desc } from '@sena/database';
 
-async function resolvePropertyForUser(userId: string) {
-  const pm = await db.query.propertyMembers.findFirst({
-    where: eq(propertyMembers.userId, userId),
-  });
-  if (pm) return pm.propertyId;
+import { resolveTenantForRequest } from '@/lib/tenant';
 
-  const om = await db.query.organizationMembers.findFirst({
-    where: eq(organizationMembers.userId, userId),
-  });
-  if (om) {
-    const prop = await db.query.properties.findFirst({
-      where: eq(properties.organizationId, om.organizationId),
-    });
-    if (prop) return prop.id;
-  }
-  return null;
-}
+export const dynamic = 'force-dynamic';
 
-export async function GET(req: NextRequest) {
+async function handleGET(req: NextRequest) {
   try {
     const session = await auth();
-    let propertyId = (session?.user as any)?.propertyId;
-
-    if (!propertyId && session?.user?.id) {
-      propertyId = await resolvePropertyForUser(session.user.id);
-    }
-
-    if (!propertyId) {
-      const firstProp = await db.query.properties.findFirst();
-      if (firstProp) propertyId = firstProp.id;
-    }
+    const tenant = await resolveTenantForRequest(session, req);
+    const propertyId = tenant?.propertyId;
 
     if (!propertyId) {
       return NextResponse.json({ error: 'Property not found' }, { status: 404 });
@@ -64,24 +44,16 @@ export async function GET(req: NextRequest) {
     });
   } catch (error: any) {
     console.error('Error fetching reviews:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: apiError(error) }, { status: 500 });
   }
 }
 
 // Manually import an external review (Google, Booking.com, Testimonial)
-export async function POST(req: NextRequest) {
+async function handlePOST(req: NextRequest) {
   try {
     const session = await auth();
-    let propertyId = (session?.user as any)?.propertyId;
-
-    if (!propertyId && session?.user?.id) {
-      propertyId = await resolvePropertyForUser(session.user.id);
-    }
-
-    if (!propertyId) {
-      const firstProp = await db.query.properties.findFirst();
-      if (firstProp) propertyId = firstProp.id;
-    }
+    const tenant = await resolveTenantForRequest(session, req);
+    const propertyId = tenant?.propertyId;
 
     if (!propertyId) {
       return NextResponse.json({ error: 'Property not found' }, { status: 404 });
@@ -116,24 +88,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true, review: created });
   } catch (error: any) {
     console.error('Error importing manual review:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: apiError(error) }, { status: 500 });
   }
 }
 
 // Moderate review: publish/hide or post hotelier response
-export async function PATCH(req: NextRequest) {
+async function handlePATCH(req: NextRequest) {
   try {
     const session = await auth();
-    let propertyId = (session?.user as any)?.propertyId;
-
-    if (!propertyId && session?.user?.id) {
-      propertyId = await resolvePropertyForUser(session.user.id);
-    }
-
-    if (!propertyId) {
-      const firstProp = await db.query.properties.findFirst();
-      if (firstProp) propertyId = firstProp.id;
-    }
+    const tenant = await resolveTenantForRequest(session, req);
+    const propertyId = tenant?.propertyId;
 
     if (!propertyId) {
       return NextResponse.json({ error: 'Property not found' }, { status: 404 });
@@ -182,6 +146,12 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ success: true, review: updated });
   } catch (error: any) {
     console.error('Error moderating review:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: apiError(error) }, { status: 500 });
   }
 }
+
+export const GET = withMerchant(handleGET, 'reviews');
+
+export const POST = withMerchant(handlePOST, 'reviews');
+
+export const PATCH = withMerchant(handlePATCH, 'reviews');

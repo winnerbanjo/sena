@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { PageLoadState } from '../../components/page-load-state';
 import { formatNaira } from '@sena/config';
 import {
   Badge,
@@ -63,6 +64,7 @@ export default function InvoicesPage() {
     propertyEmail?: string;
   }>({});
 
+  const [loadError, setLoadError] = React.useState(false);
   const [loading, setLoading] = React.useState(true);
   const [statusTab, setStatusTab] = React.useState<'all' | 'unpaid' | 'paid' | 'overdue' | 'draft'>('all');
   const [typeFilter, setTypeFilter] = React.useState<string>('all');
@@ -97,7 +99,7 @@ export default function InvoicesPage() {
 
   // Dynamic Line Items
   const [lineItems, setLineItems] = React.useState<LineItemForm[]>([
-    { id: '1', description: 'Deluxe Suite (Stay)', category: 'room', quantity: 1, unitPrice: '65000' },
+    { id: '1', description: '', category: 'room', quantity: 1, unitPrice: '' },
   ]);
 
   const [submittingInvoice, setSubmittingInvoice] = React.useState(false);
@@ -105,7 +107,9 @@ export default function InvoicesPage() {
   const fetchInvoices = React.useCallback(async () => {
     try {
       setLoading(true);
+      setLoadError(false);
       const res = await fetch(`/api/invoices?status=${statusTab}&type=${typeFilter}&search=${encodeURIComponent(searchQuery)}`);
+      if (!res.ok) throw new Error('Could not load invoices');
       if (res.ok) {
         const data = await res.json();
         setInvoices(data.invoices || []);
@@ -118,7 +122,7 @@ export default function InvoicesPage() {
         });
       }
     } catch (e) {
-      console.error('Failed to load invoices:', e);
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -273,7 +277,7 @@ export default function InvoicesPage() {
     setInvoiceType('guest_folio');
     setIssueDate(new Date().toISOString().slice(0, 10));
     setDueDate(new Date().toISOString().slice(0, 10));
-    setLineItems([{ id: '1', description: 'Deluxe Suite (Stay)', category: 'room', quantity: 1, unitPrice: '65000' }]);
+    setLineItems([{ id: '1', description: '', category: 'room', quantity: 1, unitPrice: '' }]);
     setApplyVat(true);
     setApplyConsumptionTax(false);
     setApplyServiceCharge(true);
@@ -285,6 +289,8 @@ export default function InvoicesPage() {
     setSelectedInvoice(inv);
     setModalOpen(true);
   }
+
+  if (loadError) return <PageLoadState title="Invoices" failed retry={fetchInvoices} />;
 
   return (
     <div className="flex-1 flex flex-col h-screen overflow-hidden bg-white text-[#191816]">

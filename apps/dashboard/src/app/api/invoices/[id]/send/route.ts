@@ -1,3 +1,5 @@
+import { apiError } from '@/lib/api-error';
+import { withMerchant } from '@/lib/merchant-route';
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import {
@@ -9,7 +11,7 @@ import {
 } from '@sena/database';
 import { sendSenaEmail } from '@sena/email';
 
-export async function POST(
+async function handlePOST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -44,7 +46,7 @@ export async function POST(
     }
 
     const appUrl = process.env.NEXTAUTH_URL || 'https://app.sena.ng';
-    const publicInvoiceUrl = `${appUrl}/invoice/${invoice.invoiceNumber}`;
+    const publicInvoiceUrl = `${appUrl}/invoice/${invoice.id}`;
 
     const items = (invoice.items as any[]) || [];
     const formattedLines = items.map((item) => ({
@@ -123,6 +125,8 @@ export async function POST(
     });
   } catch (error: any) {
     console.error('[INVOICE SEND ROUTE ERROR]', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: apiError(error) }, { status: 500 });
   }
 }
+
+export const POST = withMerchant(handlePOST, 'invoices');

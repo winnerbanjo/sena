@@ -1,46 +1,21 @@
+import { apiError } from '@/lib/api-error';
+import { withMerchant } from '@/lib/merchant-route';
+import { eq, desc, inArray } from 'drizzle-orm';
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { db, reservations, guests, rooms, roomTypes, properties, reservationEvents , propertyMembers, organizationMembers } from '@sena/database';
 import { ReservationService } from '@sena/reservations';
 import { sendBookingConfirmationEmail, sendSenaEmail } from '@sena/email';
 import { formatNaira } from '@sena/config';
-import { eq, desc } from 'drizzle-orm';
+import { resolveTenantForRequest } from '@/lib/tenant';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(req: NextRequest) {
+async function handleGET(req: NextRequest) {
   try {
     const session = await auth();
-    let propertyId = (session?.user as any)?.propertyId;
-
-    if (!propertyId) {
-      // Securely fetch property for this user instead of leaking firstProp
-      const userId = session?.user?.id;
-      if (userId) {
-        const membership = await db.query.propertyMembers.findFirst({
-          where: eq(propertyMembers.userId, userId)
-        });
-        if (membership) {
-          propertyId = membership.propertyId;
-        } else {
-          // Try organization fallback
-          const orgMembership = await db.query.organizationMembers.findFirst({
-            where: eq(organizationMembers.userId, userId)
-          });
-          if (orgMembership) {
-            const orgProp = await db.query.properties.findFirst({
-              where: eq(properties.organizationId, orgMembership.organizationId)
-            });
-            if (orgProp) propertyId = orgProp.id;
-          }
-        }
-      }
-    }
-
-    if (!propertyId) {
-      const firstProp = await db.query.properties.findFirst();
-      if (firstProp) propertyId = firstProp.id;
-    }
+    const tenant = await resolveTenantForRequest(session, req);
+    const propertyId = tenant?.propertyId;
 
     if (!propertyId) {
       return NextResponse.json({ reservations: [] });
@@ -76,76 +51,31 @@ export async function GET(req: NextRequest) {
       .where(eq(reservations.propertyId, propertyId))
       .orderBy(desc(reservations.createdAt));
 
-    // Fetch timeline events for reservations
-    const reservationsWithTimeline = await Promise.all(
-      resList.map(async (res) => {
-        const events = await db
-          .select()
-          .from(reservationEvents)
-          .where(eq(reservationEvents.reservationId, res.id))
-          .orderBy(desc(reservationEvents.createdAt));
-
-        const formattedTimeline = events.map((ev) => ({
-          time: new Date(ev.createdAt).toLocaleString('en-GB', {
-            day: '2-digit',
-            month: 'short',
-            hour: '2-digit',
-            minute: '2-digit',
-          }),
-          text: ev.description,
-          actor: ev.actorName || 'System',
-        }));
-
-        return {
-          ...res,
-          timeline: formattedTimeline,
-        };
-      })
-    );
+    const allEvents = resList.length ? await db.select().from(reservationEvents).where(inArray(reservationEvents.reservationId, resList.map(reservation => reservation.id))).orderBy(desc(reservationEvents.createdAt)) : [];
+    const eventsByReservation = new Map<string, Array<{ time: string; text: string; actor: string }>>();
+    for (const event of allEvents) {
+      const events = eventsByReservation.get(event.reservationId) || [];
+      events.push({ time: new Date(event.createdAt).toLocaleString('en-GB', { timeZone: tenant!.property.timezone, day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }), text: event.description, actor: event.actorName || 'System' });
+      eventsByReservation.set(event.reservationId, events);
+    }
+    const reservationsWithTimeline = resList.map(reservation => ({ ...reservation, timeline: eventsByReservation.get(reservation.id) || [] }));
 
     return NextResponse.json({ reservations: reservationsWithTimeline });
   } catch (error: any) {
     console.error('Error fetching reservations:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: apiError(error) }, { status: 500 });
   }
 }
 
-export async function POST(req: NextRequest) {
+async function handlePOST(req: NextRequest) {
   try {
     const session = await auth();
-    let propertyId = (session?.user as any)?.propertyId;
+
+    const tenant = await resolveTenantForRequest(session, req);
+    const propertyId = tenant?.propertyId;
 
     if (!propertyId) {
-      // Securely fetch property for this user instead of leaking firstProp
-      const userId = session?.user?.id;
-      if (userId) {
-        const membership = await db.query.propertyMembers.findFirst({
-          where: eq(propertyMembers.userId, userId)
-        });
-        if (membership) {
-          propertyId = membership.propertyId;
-        } else {
-          // Try organization fallback
-          const orgMembership = await db.query.organizationMembers.findFirst({
-            where: eq(organizationMembers.userId, userId)
-          });
-          if (orgMembership) {
-            const orgProp = await db.query.properties.findFirst({
-              where: eq(properties.organizationId, orgMembership.organizationId)
-            });
-            if (orgProp) propertyId = orgProp.id;
-          }
-        }
-      }
-    }
-
-    if (!propertyId) {
-      const firstProp = await db.query.properties.findFirst();
-      if (firstProp) propertyId = firstProp.id;
-    }
-
-    if (!propertyId) {
-      return NextResponse.json({ error: 'Property not found' }, { status: 400 });
+      return NextResponse.json({ error: 'Property not found for user session' }, { status: 400 });
     }
 
     const body = await req.json();
@@ -170,7 +100,8 @@ export async function POST(req: NextRequest) {
       {
         id: session?.user?.id || '',
         name: session?.user?.name || 'Hotel Staff',
-      }
+      },
+      req.headers.get('idempotency-key') || undefined
     );
 
     // Fetch property details for email
@@ -246,6 +177,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true, reservation });
   } catch (error: any) {
     console.error('Error creating reservation:', error);
-    return NextResponse.json({ error: error.message }, { status: 400 });
+    return NextResponse.json({ error: apiError(error) }, { status: 400 });
   }
 }
+
+export const GET = withMerchant(handleGET, 'reservations');
+
+export const POST = withMerchant(handlePOST, 'reservations');

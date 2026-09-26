@@ -1,11 +1,15 @@
+import { apiError } from '@/lib/api-error';
+import crypto from 'crypto';
+import { withMerchant } from '@/lib/merchant-route';
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { db, users, properties, propertyMembers, eq, and, ilike } from '@sena/database';
 import { sendSenaEmail } from '@sena/email';
+import { resolveTenantForRequest } from '@/lib/tenant';
 
 export const dynamic = 'force-dynamic';
 
-export async function POST(req: NextRequest) {
+async function handlePOST(req: NextRequest) {
   try {
     const session = await auth();
     const body = await req.json();
@@ -18,30 +22,14 @@ export async function POST(req: NextRequest) {
     const cleanEmail = email.toLowerCase().trim();
     const cleanName = name.trim();
 
-    // 1. Resolve Property dynamically
-    let prop: any = null;
-    const headerPropName = req.headers.get('x-property-name') || body.propertyName;
-    if (headerPropName) {
-      prop = await db.query.properties.findFirst({
-        where: ilike(properties.name, `%${String(headerPropName).trim()}%`),
-      });
+    // 1. Resolve Property strictly scoped to authenticated tenant
+    const tenant = await resolveTenantForRequest(session, req);
+    if (!tenant) {
+      return NextResponse.json({ error: 'No active property found for this account.' }, { status: 400 });
     }
-    if (!prop && session?.user?.id) {
-      const pm = await db.query.propertyMembers.findFirst({
-        where: eq(propertyMembers.userId, session.user.id),
-      });
-      if (pm?.propertyId) {
-        prop = await db.query.properties.findFirst({
-          where: eq(properties.id, pm.propertyId),
-        });
-      }
-    }
-    if (!prop) {
-      prop = await db.query.properties.findFirst();
-    }
-    if (!prop) {
-      return NextResponse.json({ error: 'No active property found.' }, { status: 400 });
-    }
+    const prop = tenant.property;
+    const allowedRoles = ['manager', 'front_desk', 'housekeeping', 'accountant', 'marketing', 'General Manager', 'Front Desk Lead', 'Housekeeping Lead', 'Housekeeping Supervisor', 'Finance', 'Room Attendant'];
+    if (!allowedRoles.includes(role)) return NextResponse.json({ error: 'Choose a supported staff role.' }, { status: 422 });
 
     // 2. Resolve or Create User
     let user = await db.query.users.findFirst({
@@ -60,14 +48,6 @@ export async function POST(req: NextRequest) {
         })
         .returning();
       user = newUser;
-    } else {
-      // Update phone if provided
-      if (phone && phone !== '—') {
-        await db
-          .update(users)
-          .set({ phone: phone.trim(), fullName: cleanName })
-          .where(eq(users.id, user.id));
-      }
     }
 
     // 3. Insert or Update Property Member
@@ -78,8 +58,13 @@ export async function POST(req: NextRequest) {
       ),
     });
 
+    if (existingMember && !existingMember.permissions?.includes('status:invited')) return NextResponse.json({ error: 'This person already belongs to your property.' }, { status: 409 });
     let memberId: string;
+    const invitationToken = crypto.randomBytes(32).toString('hex');
+    const invitationHash = crypto.createHash('sha256').update(invitationToken).digest('hex');
     const permissionsPayload: string[] = [
+      `inviteHash:${invitationHash}`,
+      `inviteExpires:${Date.now() + 7 * 24 * 60 * 60 * 1000}`,
       `dept:${department}`,
       'status:invited',
       `invitedAt:${new Date().toISOString()}`,
@@ -110,7 +95,7 @@ export async function POST(req: NextRequest) {
 
     // 4. Send Transactional Invitation Email
     const appUrl = process.env.NEXTAUTH_URL || 'https://app.sena.ng';
-    const inviteUrl = `${appUrl}/signup?email=${encodeURIComponent(cleanEmail)}&role=${encodeURIComponent(role)}&property=${encodeURIComponent(prop.name)}`;
+    const inviteUrl = `${appUrl}/signup?email=${encodeURIComponent(cleanEmail)}&token=${invitationToken}&role=${encodeURIComponent(role)}&property=${encodeURIComponent(prop.name)}`;
     const inviterName = session?.user?.name || `${prop.name} Operations`;
 
     let emailSent = false;
@@ -149,10 +134,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       emailSent,
-      emailError,
+      emailError: emailSent ? null : 'The invitation could not be delivered. Please try again.',
       message: emailSent
         ? `Invitation email successfully sent to ${cleanEmail}`
-        : `Staff member recorded. Email status: ${emailError || 'Pending delivery'}`,
+        : 'Invitation saved, but the email could not be delivered. Please try again.',
       member: {
         id: memberId,
         userId: user.id,
@@ -161,12 +146,14 @@ export async function POST(req: NextRequest) {
         phone: phone || '—',
         role,
         department,
-        shiftStatus: 'on_duty',
-        lastActive: 'Invited just now',
+        status: 'invited',
+        lastActive: 'Invitation pending',
       },
     });
   } catch (error: any) {
     console.error('Staff Invite POST error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: apiError(error) }, { status: 500 });
   }
 }
+
+export const POST = withMerchant(handlePOST, 'staff');

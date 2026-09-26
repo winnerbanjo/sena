@@ -95,29 +95,7 @@ export default function OnboardingPage() {
   const [errors, setErrors] = React.useState<Record<string, string>>({});
   const [completed, setCompleted] = React.useState(false);
 
-  // Draft recovery from localStorage
-  React.useEffect(() => {
-    try {
-      const saved = localStorage.getItem('sena_onboarding_draft');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed.propName) setPropName(parsed.propName);
-        if (parsed.phone) setPhone(parsed.phone);
-        if (parsed.instagram) setInstagram(parsed.instagram);
-      }
-    } catch {}
-  }, []);
-
-  // Save progress locally as user types
-  React.useEffect(() => {
-    try {
-      localStorage.setItem(
-        'sena_onboarding_draft',
-        JSON.stringify({ propName, phone, instagram, propType })
-      );
-    } catch {}
-  }, [propName, phone, instagram, propType]);
-
+  // Keep unsaved setup details in this tab only; never load another account's old draft.
   // Loading text animation
   const loadingSubtexts = [
     'Setting up your property...',
@@ -216,6 +194,7 @@ export default function OnboardingPage() {
 
   // Final submission
   async function handleFinish(skipBank = false) {
+    if (loading) return;
     setLoading(true);
     setErrors({});
 
@@ -233,14 +212,7 @@ export default function OnboardingPage() {
           quantity: Number(c.quantity),
           bedType: c.bedType,
         })),
-        bankDetails: skipBank
-          ? null
-          : {
-              bankName: bankName.trim(),
-              accountName: accountName.trim(),
-              accountNumber: accountNumber.trim(),
-              instructions: paymentInstructions.trim(),
-            },
+
       };
 
       const res = await fetch('/api/onboarding', {
@@ -645,56 +617,10 @@ export default function OnboardingPage() {
         {/* ── STEP 3: GET PAID ─────────────────────────────────────────────── */}
         {step === 3 && (
           <div className="bg-white border border-[#E8E1D5] rounded-xl p-6 sm:p-10 space-y-8 shadow-xs">
-            <div className="space-y-1.5">
-              <h1 className="text-2xl sm:text-3xl font-serif text-[#71382D]">Where should guests pay you?</h1>
-              <p className="text-xs text-[#7A7267]">Add the bank account you want to show guests for direct transfers.</p>
-            </div>
-
-            <div className="space-y-5">
-              <div>
-                <label className="block text-xs font-semibold text-[#191816] mb-1.5">Bank Name</label>
-                <input
-                  type="text"
-                  placeholder="e.g. GTBank, Zenith Bank, Moniepoint"
-                  value={bankName}
-                  onChange={(e) => setBankName(e.target.value)}
-                  className="w-full h-11 px-3.5 rounded-md border border-[#E8E1D5] bg-[#FAF9F7]/60 text-xs text-[#191816] focus:bg-white focus:outline-none focus:border-[#71382D] transition-all"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-[#191816] mb-1.5">Account Name</label>
-                <input
-                  type="text"
-                  placeholder="e.g. The Still House Ltd"
-                  value={accountName}
-                  onChange={(e) => setAccountName(e.target.value)}
-                  className="w-full h-11 px-3.5 rounded-md border border-[#E8E1D5] bg-[#FAF9F7]/60 text-xs text-[#191816] focus:bg-white focus:outline-none focus:border-[#71382D] transition-all"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-[#191816] mb-1.5">Account Number</label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  placeholder="0123456789"
-                  value={accountNumber}
-                  onChange={(e) => setAccountNumber(e.target.value)}
-                  className="w-full h-11 px-3.5 rounded-md border border-[#E8E1D5] bg-[#FAF9F7]/60 text-xs text-[#191816] focus:bg-white focus:outline-none focus:border-[#71382D] transition-all font-mono"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-[#7A7267] mb-1.5">Payment Instructions (Optional)</label>
-                <input
-                  type="text"
-                  placeholder="Please use your reservation reference as transfer description."
-                  value={paymentInstructions}
-                  onChange={(e) => setPaymentInstructions(e.target.value)}
-                  className="w-full h-11 px-3.5 rounded-md border border-[#E8E1D5] bg-[#FAF9F7]/60 text-xs text-[#191816] focus:bg-white focus:outline-none focus:border-[#71382D] transition-all"
-                />
-              </div>
+            <div className="space-y-3">
+              <h1 className="text-2xl sm:text-3xl font-serif text-[#71382D]">Review your property setup</h1>
+              <p className="text-sm text-[#7A7267]">Your rooms will start unpublished and awaiting inspection. Review their details in Rooms, then mark them clean before checking guests in.</p>
+              <p className="text-sm text-[#7A7267]">Payments can be recorded after a reservation is saved. Bank account setup is not available in this wizard.</p>
             </div>
 
             <div className="pt-4 border-t border-[#F0ECE4] flex items-center justify-between">
@@ -719,7 +645,7 @@ export default function OnboardingPage() {
                   onClick={() => handleFinish(false)}
                   className="h-11 px-6 rounded-md bg-[#B85C3E] hover:bg-[#A34E32] text-white text-xs font-semibold transition-colors flex items-center gap-2 cursor-pointer shadow-xs"
                 >
-                  <span>Finish Setup &amp; Launch &rarr;</span>
+                  <span>Create Property &rarr;</span>
                 </button>
               </div>
             </div>
@@ -729,7 +655,7 @@ export default function OnboardingPage() {
 
       {/* Footer */}
       <footer className="max-w-2xl mx-auto w-full pt-6 border-t border-[#E8E1D5] text-center text-xs text-[#8C8275]">
-        &copy; 2026 Sena Operating System &middot; Your progress is saved.
+        &copy; 2026 Sena Operating System &middot; Complete setup before closing this tab.
       </footer>
     </div>
   );

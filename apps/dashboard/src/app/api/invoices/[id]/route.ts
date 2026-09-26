@@ -1,3 +1,5 @@
+import { apiError } from '@/lib/api-error';
+import { withMerchant } from '@/lib/merchant-route';
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import {
@@ -9,7 +11,7 @@ import {
   eq,
 } from '@sena/database';
 
-export async function GET(
+async function handleGET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -42,11 +44,11 @@ export async function GET(
     });
   } catch (error: any) {
     console.error('[INVOICE DETAIL GET ERROR]', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: apiError(error) }, { status: 500 });
   }
 }
 
-export async function PATCH(
+async function handlePATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -66,7 +68,9 @@ export async function PATCH(
       updatedAt: new Date(),
     };
 
-    if (body.status) updates.status = body.status;
+    if (body.status !== undefined && body.status !== invoice.status) {
+      return NextResponse.json({ error: 'Invoice payment status changes only when a payment is recorded.' }, { status: 400 });
+    }
     if (body.notes !== undefined) updates.notes = body.notes;
     if (body.paymentTerms !== undefined) updates.paymentTerms = body.paymentTerms;
     if (body.dueDate) updates.dueDate = body.dueDate;
@@ -84,6 +88,10 @@ export async function PATCH(
     });
   } catch (error: any) {
     console.error('[INVOICE PATCH ERROR]', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: apiError(error) }, { status: 500 });
   }
 }
+
+export const GET = withMerchant(handleGET, 'invoices');
+
+export const PATCH = withMerchant(handlePATCH, 'invoices');
