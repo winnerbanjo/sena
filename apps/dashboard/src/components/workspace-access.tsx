@@ -11,7 +11,10 @@ export function WorkspaceAccess({ children }: { children: React.ReactNode }) {
   const [state, setState] = React.useState<'loading' | 'ready' | 'signed-out' | 'setup' | 'error'>('loading');
   const check = React.useCallback(async () => {
     try {
-      const response = await fetch('/api/me', { cache: 'no-store' });
+      const response = await fetch('/api/me', {
+        cache: 'no-store',
+        signal: AbortSignal.timeout(12_000),
+      });
       if (response.status === 401) { setState('signed-out'); return; }
       if (!response.ok) throw new Error();
       const data = await response.json();
