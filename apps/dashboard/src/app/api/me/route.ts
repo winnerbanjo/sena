@@ -17,7 +17,10 @@ export async function GET(req: NextRequest) {
       user: { id: user.id, name: user.fullName, email: user.email, phone: user.phone, role: tenant?.role || null },
       property: tenant?.property || null,
     }, { headers: privateHeaders });
-  } catch {
+  } catch (error) {
+    console.error('[workspace-boot] account or property resolution failed', {
+      error: error instanceof Error ? error.name : 'UnknownError',
+    });
     return NextResponse.json({ error: 'We could not load your account. Please try again.' }, { status: 500, headers: privateHeaders });
   }
 }

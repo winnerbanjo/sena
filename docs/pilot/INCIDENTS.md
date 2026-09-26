@@ -2,6 +2,27 @@
 
 ## Open incidents
 
+### PILOT-0004 — Unauthenticated startup enters property-loading flow
+
+- **Property:** Platform-wide; reported on the Stay Connect production login path
+- **User role:** Signed-out or stale-session user
+- **Route:** `https://app.sena.ng/`
+- **Expected behavior:** Resolve authentication first; show login promptly when no valid session exists.
+- **Actual behavior:** The client labels its initial `/api/me` request as `Opening your property…`, waits up to 12 seconds, and can collapse network/server failures into a generic property-load error. The Overview issues a second `/api/me` after workspace resolution, while focus and storage listeners can issue additional identity requests.
+- **Timestamp (Africa/Lagos):** 26 September 2026, 20:31 WAT
+- **Browser/device:** Production report; reproduced by deployed-code trace
+- **Screenshot/error reference:** Customer report: `Opening your property` followed intermittently by `Your property could not be loaded`
+- **Reproduction steps:**
+  1. Open `https://app.sena.ng/` without a valid session or with a stale session.
+  2. Observe the property-loading copy before authentication has been decided.
+  3. Under a delayed or failed `/api/me` response, observe the generic property error.
+- **Severity:** P1 — customer login/startup can be delayed or blocked by an incorrect state
+- **Root cause:** One ambiguous client loading state represented both authentication and property resolution; non-401 failures shared one error path; duplicate identity triggers competed during startup.
+- **Fix:** Implemented locally: explicit boot states, immediate 401 cleanup/login redirect, separate 403/no-property/network/500 outcomes, a single startup `/api/me`, and safe diagnostics.
+- **Regression test added:** `scripts/test-workspace-boot.ts`
+- **Production verification:** Pending; release/auth suites require a disposable local PostgreSQL test database before deployment.
+- **Status:** Open
+
 ### PILOT-0001 — Bookable Standard Room inventory has no physical rooms
 
 - **Property:** Stay Connect Solutions LTD
