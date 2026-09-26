@@ -2,6 +2,27 @@
 
 ## Open incidents
 
+### PILOT-0004 — Unauthenticated startup enters property-loading flow
+
+- **Property:** Platform-wide; reported on the Stay Connect production login path
+- **User role:** Signed-out or stale-session user
+- **Route:** `https://app.sena.ng/`
+- **Expected behavior:** Resolve authentication first; show login promptly when no valid session exists.
+- **Actual behavior:** The client labels its initial `/api/me` request as `Opening your property…`, waits up to 12 seconds, and can collapse network/server failures into a generic property-load error. The Overview issues a second `/api/me` after workspace resolution, while focus and storage listeners can issue additional identity requests.
+- **Timestamp (Africa/Lagos):** First reported 26 September 2026, 20:31 WAT; escalated 27 September 2026
+- **Browser/device:** Production report; reproduced by deployed-code trace
+- **Screenshot/error reference:** Customer report: `Opening your property` followed intermittently by `Your property could not be loaded`
+- **Reproduction steps:**
+  1. Open `https://app.sena.ng/` without a valid session or with a stale session.
+  2. Observe the property-loading copy before authentication has been decided.
+  3. Under a delayed or failed `/api/me` response, observe the generic property error.
+- **Severity:** P0 — production authentication entry and the entire merchant shell are affected
+- **Root cause:** Commit `d1a6dcf` wrapped the merchant shell in a client-only workspace gate. Logged-out startup therefore required HTML, JavaScript hydration and `/api/me` before reaching login. Authenticated startup repeated active-user, membership and property reads sequentially before rendering the shell. Production execution was observed in Vercel `iad1` while PostgreSQL is expected in DigitalOcean LON1; read execution was below 0.05 ms but pooled network round trips measured 129–283 ms warm and 1,875 ms cold.
+- **Fix:** Implemented in the candidate: middleware validates the JWT and redirects logged-out requests before hydration; the server layout resolves the authorized workspace; the client property boot screen and startup `/api/me` call are removed; current user, membership and property reads run in one parallel round trip for sessions with an authorized property; login analytics loads are deferred.
+- **Regression test added:** `scripts/test-workspace-boot.ts`
+- **Production verification:** Pending; release/auth suites require a disposable local PostgreSQL test database before deployment.
+- **Status:** Open
+
 ### PILOT-0001 — Bookable Standard Room inventory has no physical rooms
 
 - **Property:** Stay Connect Solutions LTD

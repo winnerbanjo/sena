@@ -76,13 +76,12 @@ export default function OverviewPage() {
   const fetchData = React.useCallback(async () => {
     setLoadError(false);
     try {
-      const [resRes, roomRes, webRes] = await Promise.all([
+      const [resRes, roomRes] = await Promise.all([
         fetch('/api/reservations'),
         fetch('/api/rooms'),
-        fetch('/api/me'),
       ]);
 
-      if (!resRes.ok || !roomRes.ok || !webRes?.ok) throw new Error('Could not load overview');
+      if (!resRes.ok || !roomRes.ok) throw new Error('Could not load overview');
       if (resRes.ok) {
         const data = await resRes.json();
         if (data.reservations) {
@@ -115,16 +114,6 @@ export default function OverviewPage() {
         if (roomData.rooms) setRooms(roomData.rooms);
       }
 
-      if (webRes && webRes.ok) {
-        const webData = await webRes.json();
-        if (webData.property?.timezone) setTimezone(webData.property.timezone);
-        // Only override property from website API if it returns a real name
-        // Never use a hardcoded fallback here — /api/me is the authoritative source
-        if (webData.property?.name) {
-          setPropertyName(webData.property.name);
-          if (webData.property.slug) setPropertySlug(webData.property.slug);
-        }
-      }
     } catch (e) {
       setLoadError(true);
     } finally {

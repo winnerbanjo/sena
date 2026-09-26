@@ -3,19 +3,10 @@ import Credentials from 'next-auth/providers/credentials';
 import { db, users, propertyMembers, properties } from '@sena/database';
 import { eq } from 'drizzle-orm';
 import bcrypt from 'bcryptjs';
+import { authConfig } from './auth.config';
 
 const nextAuth = NextAuth({
-  secret:
-    process.env.AUTH_SECRET ||
-    process.env.NEXTAUTH_SECRET,
-  session: {
-    strategy: 'jwt',
-    maxAge: 30 * 24 * 60 * 60, // 30 days
-  },
-  pages: {
-    signIn: '/login',
-    error: '/login',
-  },
+  ...authConfig,
   providers: [
     Credentials({
       id: 'credentials',
@@ -79,26 +70,6 @@ const nextAuth = NextAuth({
       },
     }),
   ],
-  callbacks: {
-    jwt({ token, user }) {
-      if (user) {
-        token.id = user.id;
-        token.propertyId = (user as any).propertyId;
-        token.propertyName = (user as any).propertyName;
-        token.role = (user as any).role;
-      }
-      return token;
-    },
-    session({ session, token }) {
-      if (token?.id && session.user) {
-        session.user.id = token.id as string;
-        (session.user as any).propertyId = token.propertyId;
-        (session.user as any).propertyName = token.propertyName;
-        (session.user as any).role = token.role;
-      }
-      return session;
-    },
-  },
 });
 
 export const { handlers, signIn, signOut, auth } = nextAuth;
