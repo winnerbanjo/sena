@@ -55,12 +55,6 @@ export const middleware = auth((req) => {
   const url = req.nextUrl;
   const pathname = url.pathname;
 
-  // Preview-only measurement entry point reached through Vercel's authenticated
-  // "Visit Deployment" link. This branch is never promoted to production.
-  if (pathname === '/') {
-    return NextResponse.rewrite(new URL('/api/region-probe', req.url));
-  }
-
   // Skip internal Next.js assets, api routes, and static files
   if (
     pathname.startsWith('/_next') ||
