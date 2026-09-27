@@ -59,6 +59,7 @@ export async function POST(req: NextRequest) {
         source: 'direct',
         paymentStatus: 'pay_later',
         paidAmountMinorUnits: 0,
+        roomId: undefined,
         guest: {
           fullName: guestName.trim(),
           email: guestEmail.trim().toLowerCase(),

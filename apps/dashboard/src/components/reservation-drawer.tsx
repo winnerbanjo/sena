@@ -16,6 +16,7 @@ import {
   TabsTrigger,
 } from '@sena/ui';
 import type { ReservationItem } from './mock-data';
+import { formatAssignedRoom, isPhysicalRoomAssigned } from './reservation-room';
 import { Calendar, CheckCircle2, Clock, CreditCard, Mail, Phone, User } from 'lucide-react';
 
 interface ReservationDrawerProps {
@@ -23,6 +24,7 @@ interface ReservationDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onCheckIn?: (id: string) => void;
+  onAssignRoom?: (id: string) => void;
   onCheckOut?: (id: string) => void;
 }
 
@@ -31,12 +33,14 @@ export function ReservationDrawer({
   open,
   onOpenChange,
   onCheckIn,
+  onAssignRoom,
   onCheckOut,
 }: ReservationDrawerProps) {
   if (!reservation) return null;
 
   const isCheckedIn = reservation.status === 'checked_in';
   const isConfirmed = reservation.status === 'confirmed';
+  const hasRoom = isPhysicalRoomAssigned(reservation);
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
@@ -63,7 +67,7 @@ export function ReservationDrawer({
             {reservation.guestName}
           </DrawerTitle>
           <p className="text-xs text-[#7A7267] mt-1">
-            {reservation.roomType} · Room {reservation.roomNumber}
+            {reservation.roomType} · {formatAssignedRoom(reservation.roomNumber)}
           </p>
         </div>
 
@@ -78,6 +82,15 @@ export function ReservationDrawer({
               >
                 <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
                 Check in
+              </Button>
+            )}
+            {isConfirmed && (
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => onAssignRoom?.(reservation.id)}
+              >
+                {hasRoom ? 'Change Room' : 'Assign Room'}
               </Button>
             )}
             {isCheckedIn && (
@@ -137,7 +150,7 @@ export function ReservationDrawer({
                     Assigned Room
                   </span>
                   <strong className="text-sm text-[#191816] block">
-                    Room {reservation.roomNumber}
+                    {formatAssignedRoom(reservation.roomNumber)}
                   </strong>
                 </div>
               </div>

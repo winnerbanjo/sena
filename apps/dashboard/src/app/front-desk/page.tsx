@@ -1,5 +1,6 @@
 'use client';
-import { findReadyRoom } from '../../components/reservation-room';
+import { formatAssignedRoom, mapReservationItem } from '../../components/reservation-room';
+import { CheckInRoomDialog, type RoomAssignmentMode } from '../../components/check-in-room-dialog';
 
 import { PageLoadState } from '../../components/page-load-state';
 import { useWorkspace } from '../../components/workspace-access';
@@ -35,6 +36,10 @@ export default function FrontDeskPage() {
     res: ReservationItem;
     balanceMinorUnits: number;
   } | null>(null);
+  const [assignment, setAssignment] = React.useState<{
+    reservation: ReservationItem;
+    mode: RoomAssignmentMode;
+  } | null>(null);
 
   const fetchReservations = React.useCallback(async () => {
     try {
@@ -43,26 +48,7 @@ export default function FrontDeskPage() {
       if (res.ok) {
         const data = await res.json();
         if (data.reservations) {
-          const mapped: ReservationItem[] = data.reservations.map((r: any) => ({
-            id: r.id,
-            reference: r.reference,
-            guestName: r.guestName || 'Unnamed Guest',
-            guestEmail: r.guestEmail || '',
-            guestPhone: r.guestPhone || '',
-            roomType: r.roomTypeName || 'Room type unavailable',
-            roomTypeId: r.roomTypeId,
-            roomNumber: r.roomNumber || 'Unassigned',
-            checkInDate: r.checkInDate,
-            checkOutDate: r.checkOutDate,
-            nights: r.nights,
-            numGuests: r.numGuests || 1,
-            source: r.source || 'direct',
-            status: r.status,
-            paymentStatus: r.paymentStatus,
-            totalAmountMinorUnits: r.totalAmountMinorUnits,
-            paidAmountMinorUnits: r.paidAmountMinorUnits,
-            timeline: r.timeline || [],
-          }));
+          const mapped: ReservationItem[] = data.reservations.map(mapReservationItem);
           setReservations(mapped);
         }
       }
@@ -77,36 +63,10 @@ export default function FrontDeskPage() {
     fetchReservations();
   }, [fetchReservations]);
 
-  async function handleCheckIn(id: string) {
-    try {
-      const roomRes = await fetch('/api/rooms');
-      const roomData = await roomRes.json();
-      const availableRoom = findReadyRoom(roomData.rooms || [], reservations.find(reservation => reservation.id === id));
-      if (!availableRoom) {
-        toast.error('No clean rooms available', 'Please mark an inspected room as clean before checking in.');
-        return;
-      }
-      const res = await fetch(`/api/reservations/${id}/check-in`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ roomId: availableRoom.id }),
-      });
-      if (res.ok) {
-        toast.success('Guest Checked In', `Room ${availableRoom.roomNumber} assigned successfully.`);
-        fetchReservations();
-      } else {
-        let errMsg = 'Failed to check in';
-        try {
-          const err = await res.json();
-          if (err.error) errMsg = err.error;
-        } catch {
-          errMsg = `Server error (${res.status})`;
-        }
-        toast.error('Check-in Failed', errMsg);
-      }
-    } catch (err: any) {
-      toast.error('Check-in Error', err.message || 'Check in failed');
-    }
+  function openAssignment(id: string, mode: RoomAssignmentMode) {
+    const reservation = reservations.find((item) => item.id === id) || selectedRes;
+    if (!reservation) return;
+    setAssignment({ reservation, mode });
   }
 
   function initiateCheckOut(res: ReservationItem) {
@@ -305,7 +265,7 @@ export default function FrontDeskPage() {
                         </td>
                         <td className="py-4 px-5">
                           <span className="font-medium text-[#71382D] block">
-                            Room {res.roomNumber}
+                            {formatAssignedRoom(res.roomNumber)}
                           </span>
                           <span className="text-[11px] text-[#8C8275]">{res.roomType}</span>
                         </td>
@@ -332,7 +292,7 @@ export default function FrontDeskPage() {
                           {activeTab === 'arriving' ? (
                             <button
                               type="button"
-                              onClick={() => handleCheckIn(res.id)}
+                              onClick={() => openAssignment(res.id, 'check-in')}
                               className="px-3.5 py-1.5 rounded-md bg-[#71382D] hover:bg-[#5A2C23] text-white text-xs font-medium transition-colors"
                             >
                               Check In &rarr;
@@ -396,9 +356,27 @@ export default function FrontDeskPage() {
         reservation={selectedRes}
         open={drawerOpen}
         onOpenChange={setDrawerOpen}
-        onCheckIn={handleCheckIn}
+        onCheckIn={(id) => openAssignment(id, 'check-in')}
+        onAssignRoom={(id) => openAssignment(id, selectedRes && selectedRes.roomId ? 'change' : 'assign')}
         onCheckOut={(id) => {
           if (selectedRes) initiateCheckOut(selectedRes);
+        }}
+      />
+
+      <CheckInRoomDialog
+        reservation={assignment?.reservation || null}
+        mode={assignment?.mode || 'check-in'}
+        open={!!assignment}
+        onOpenChange={(open) => {
+          if (!open) setAssignment(null);
+        }}
+        onCompleted={(update) => {
+          fetchReservations();
+          setSelectedRes((prev) =>
+            prev && assignment && prev.id === assignment.reservation.id
+              ? { ...prev, roomId: update.roomId, roomNumber: update.roomNumber, status: update.status || prev.status }
+              : prev
+          );
         }}
       />
 

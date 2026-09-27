@@ -19,6 +19,9 @@ import {
 import type { Reservation, ReservationEvent } from '@sena/types';
 import type { CreateReservationInput } from '@sena/validation';
 import { and, desc, eq, sql } from 'drizzle-orm';
+import { assertRoomEligible, listEligibleRooms, type AssignmentScope, type EligibleRoom } from './assignment';
+
+export { listEligibleRooms, type EligibleRoom, type AssignmentScope } from './assignment';
 
 function generateReference(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -139,8 +142,17 @@ export class ReservationService {
       const linkedGuest = await tx.query.guests.findFirst({ where: and(eq(guests.id, resolvedGuestId), eq(guests.propertyId, input.propertyId)) });
       if (!linkedGuest) throw new Error('Guest not found in this property.');
       if (input.roomId) {
-        const assignedRoom = await tx.query.rooms.findFirst({ where: and(eq(rooms.id, input.roomId), eq(rooms.propertyId, input.propertyId), eq(rooms.roomTypeId, input.roomTypeId)) });
-        if (!assignedRoom) throw new Error('Choose a room in this room type.');
+        await assertRoomEligible(
+          tx,
+          {
+            propertyId: input.propertyId,
+            roomTypeId: input.roomTypeId,
+            checkInDate: input.checkInDate,
+            checkOutDate: input.checkOutDate,
+            forCheckIn: false,
+          },
+          input.roomId
+        );
       }
 
       // 4. Insert Reservation Record
@@ -193,9 +205,11 @@ export class ReservationService {
    */
   static async checkIn(
     reservationId: string,
-    roomId: string,
+    roomId?: string | null,
     actor = { id: '', name: 'Receptionist' }
   ): Promise<void> {
+    if (!roomId) throw new Error('ROOM_ASSIGNMENT_REQUIRED');
+
     await db.transaction(async (tx) => {
       const resList = await tx
         .select()
@@ -211,10 +225,20 @@ export class ReservationService {
 
       if (res.status === 'checked_in' && res.roomId === roomId) return;
       if (res.status !== 'confirmed') throw new Error('Only confirmed reservations can be checked in.');
-      const [assignedRoom] = await tx.select().from(rooms).where(and(eq(rooms.id, roomId), eq(rooms.propertyId, res.propertyId), eq(rooms.roomTypeId, res.roomTypeId))).for('update');
-      if (!assignedRoom || assignedRoom.operationalStatus !== 'available' || !['clean', 'inspected'].includes(assignedRoom.housekeepingStatus)) throw new Error('Choose an available, clean room of the booked room type.');
 
-      // Update reservation status and assign room
+      const assignedRoom = await assertRoomEligible(
+        tx,
+        {
+          propertyId: res.propertyId,
+          roomTypeId: res.roomTypeId,
+          checkInDate: res.checkInDate,
+          checkOutDate: res.checkOutDate,
+          excludeReservationId: reservationId,
+          forCheckIn: true,
+        },
+        roomId
+      );
+
       await tx
         .update(reservations)
         .set({
@@ -224,7 +248,6 @@ export class ReservationService {
         })
         .where(eq(reservations.id, reservationId));
 
-      // Mark Room operational status as occupied
       await tx
         .update(rooms)
         .set({
@@ -233,15 +256,82 @@ export class ReservationService {
         })
         .where(eq(rooms.id, roomId));
 
-      // Timeline event
       await tx.insert(reservationEvents).values({
         reservationId,
         actorId: actor.id || undefined,
         actorName: actor.name,
         eventType: 'checked_in',
-        description: `Checked in by ${actor.name}. Room assigned: ${roomId}.`,
+        description: `Checked in by ${actor.name}. Room assigned: ${assignedRoom.roomNumber}.`,
       });
     });
+  }
+
+  /**
+   * Assign or change a physical room on a confirmed reservation without checking in.
+   */
+  static async assignRoom(
+    reservationId: string,
+    roomId: string,
+    actor = { id: '', name: 'Receptionist' }
+  ): Promise<{ roomId: string; roomNumber: string }> {
+    if (!roomId) throw new Error('ROOM_ASSIGNMENT_REQUIRED');
+
+    return await db.transaction(async (tx) => {
+      const resList = await tx
+        .select()
+        .from(reservations)
+        .where(eq(reservations.id, reservationId))
+        .limit(1)
+        .for('update');
+
+      if (resList.length === 0) {
+        throw new Error('Reservation not found');
+      }
+
+      const res = resList[0];
+      if (res.status !== 'confirmed') {
+        throw new Error('Only confirmed reservations can have their room assignment changed.');
+      }
+
+      const assignedRoom = await assertRoomEligible(
+        tx,
+        {
+          propertyId: res.propertyId,
+          roomTypeId: res.roomTypeId,
+          checkInDate: res.checkInDate,
+          checkOutDate: res.checkOutDate,
+          excludeReservationId: reservationId,
+          forCheckIn: false,
+        },
+        roomId
+      );
+
+      const previousRoomId = res.roomId;
+      await tx
+        .update(reservations)
+        .set({
+          roomId,
+          updatedAt: new Date(),
+        })
+        .where(eq(reservations.id, reservationId));
+
+      const changed = previousRoomId && previousRoomId !== roomId;
+      await tx.insert(reservationEvents).values({
+        reservationId,
+        actorId: actor.id || undefined,
+        actorName: actor.name,
+        eventType: changed ? 'room_changed' : 'room_assigned',
+        description: changed
+          ? `Room changed to ${assignedRoom.roomNumber} by ${actor.name}.`
+          : `Room ${assignedRoom.roomNumber} assigned by ${actor.name}.`,
+      });
+
+      return { roomId: assignedRoom.id, roomNumber: assignedRoom.roomNumber };
+    });
+  }
+
+  static async eligibleRooms(scope: AssignmentScope): Promise<EligibleRoom[]> {
+    return listEligibleRooms(scope);
   }
 
   /**
