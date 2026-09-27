@@ -101,6 +101,9 @@ export const middleware = auth((req) => {
     requestHeaders.set('x-sena-slug', slug);
     requestHeaders.set('x-sena-is-tenant', 'true');
     requestHeaders.set('x-sena-pathname', pathname);
+    if (url.searchParams.get('preview') === '1') {
+      requestHeaders.set('x-sena-preview', 'true');
+    }
     const res = NextResponse.rewrite(rewriteUrl, {
       request: {
         headers: requestHeaders,
@@ -108,6 +111,9 @@ export const middleware = auth((req) => {
     });
     res.headers.set('x-sena-slug', slug);
     res.headers.set('x-sena-is-tenant', 'true');
+    if (url.searchParams.get('preview') === '1') {
+      res.headers.set('x-sena-preview', 'true');
+    }
     return res;
   }
 
@@ -120,6 +126,9 @@ export const middleware = auth((req) => {
     requestHeaders.set('x-sena-slug', firstSegment);
     requestHeaders.set('x-sena-is-tenant', 'true');
     requestHeaders.set('x-sena-pathname', pathname);
+    if (url.searchParams.get('preview') === '1') {
+      requestHeaders.set('x-sena-preview', 'true');
+    }
     const res = NextResponse.rewrite(rewriteUrl, {
       request: {
         headers: requestHeaders,
@@ -127,7 +136,22 @@ export const middleware = auth((req) => {
     });
     res.headers.set('x-sena-slug', firstSegment);
     res.headers.set('x-sena-is-tenant', 'true');
+    if (url.searchParams.get('preview') === '1') {
+      res.headers.set('x-sena-preview', 'true');
+    }
     return res;
+  }
+
+  if (pathname.startsWith('/site/')) {
+    const requestHeaders = new Headers(req.headers);
+    if (url.searchParams.get('preview') === '1') {
+      requestHeaders.set('x-sena-preview', 'true');
+    }
+    return NextResponse.next({
+      request: {
+        headers: requestHeaders,
+      },
+    });
   }
 
   const isPublicOrAuthPath =

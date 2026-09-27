@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { notFound } from 'next/navigation';
+import { headers } from 'next/headers';
 import { getWebsiteData } from '../../../lib/website-data';
 import { Hero } from '../../../components/public-site/Hero';
 import { BookingBar } from '../../../components/public-site/BookingBar';
@@ -13,11 +14,16 @@ import { LocationSection } from '../../../components/public-site/LocationSection
 
 export default async function TenantHomePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string }>;
+  searchParams?: Promise<{ preview?: string }>;
 }) {
   const { slug } = await params;
-  const data = await getWebsiteData(slug);
+  const sp = searchParams ? await searchParams : undefined;
+  const headerList = await headers();
+  const isPreview = sp?.preview === '1' || headerList.get('x-sena-preview') === 'true';
+  const data = await getWebsiteData(slug, isPreview);
 
   if (!data) {
     return notFound();

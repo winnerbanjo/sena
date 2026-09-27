@@ -108,8 +108,12 @@ export default async function RoomsDirectoryPage({
                     href={`${base}/rooms/${room.id}${
                       checkIn && checkOut ? `?checkIn=${checkIn}&checkOut=${checkOut}&guests=${guests || 2}` : ''
                     }`}
-                    className="flex-1 text-center py-2.5 px-3 rounded text-xs font-semibold text-white bg-[#71382D] hover:bg-[#5A2C23] shadow-xs transition-colors"
-                    style={{ borderRadius: 'var(--theme-radius, 6px)' }}
+                    className="flex-1 text-center py-2.5 px-3 rounded text-xs font-semibold shadow-xs hover:opacity-90 transition-opacity"
+                    style={{
+                      backgroundColor: 'var(--theme-primary, #71382D)',
+                      color: 'var(--theme-primary-fg, #ffffff)',
+                      borderRadius: 'var(--theme-radius, 6px)',
+                    }}
                   >
                     Reserve This Room
                   </Link>

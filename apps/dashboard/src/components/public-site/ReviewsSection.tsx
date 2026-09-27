@@ -4,10 +4,17 @@ import * as React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { WebsiteData } from '../../lib/website-data';
-import { Star, ShieldCheck, MessageSquare, ArrowRight } from 'lucide-react';
+import { useTheme } from '../../lib/theme-provider';
+import { Star, ShieldCheck } from 'lucide-react';
 
 export function ReviewsSection({ data }: { data: WebsiteData }) {
   const pathname = usePathname();
+  const themeContext = useTheme();
+  const tokens = themeContext?.tokens;
+  const headingStyle = themeContext?.headingStyle || {
+    fontFamily: 'var(--theme-heading-font)',
+  };
+
   const { property, reviews } = data;
   const isSitePath = pathname?.startsWith('/site/');
   const base = isSitePath ? `/site/${property.slug}` : '';
@@ -21,15 +28,26 @@ export function ReviewsSection({ data }: { data: WebsiteData }) {
         {/* Header with Average Rating Badge */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-[#E8E2DA] pb-6">
           <div className="space-y-2">
-            <span className="text-[11px] font-mono tracking-widest uppercase text-[#71382D] block">
+            <span
+              style={{ color: tokens?.primaryColor || 'var(--theme-primary, #71382D)' }}
+              className="text-[11px] font-mono tracking-widest uppercase font-semibold block"
+            >
               Guest Impressions
             </span>
             <div className="flex items-center gap-3">
-              <h2 className="text-2xl sm:text-3xl font-serif text-[#191816]">
+              <h2
+                style={headingStyle}
+                className="text-2xl sm:text-3xl text-[#191816] font-normal"
+              >
                 What Guests Are Saying
               </h2>
               <div className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white border border-[#E8E2DA] text-xs shadow-2xs">
-                <span className="font-bold text-[#71382D] text-sm">{reviews.averageRating}</span>
+                <span
+                  style={{ color: tokens?.primaryColor || '#71382D' }}
+                  className="font-bold text-sm"
+                >
+                  {reviews.averageRating}
+                </span>
                 <div className="flex text-amber-500">
                   <Star className="w-3.5 h-3.5 fill-current" />
                 </div>
@@ -43,13 +61,19 @@ export function ReviewsSection({ data }: { data: WebsiteData }) {
           <div className="flex items-center gap-3">
             <Link
               href={`${base}/reviews?write=true`}
-              className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-[#71382D] text-[#71382D] hover:bg-[#71382D] hover:text-white transition-all shadow-2xs"
+              style={{
+                borderColor: tokens?.primaryColor || '#71382D',
+                color: tokens?.primaryColor || '#71382D',
+                borderRadius: tokens?.borderRadius || '8px',
+              }}
+              className="text-xs font-semibold px-3 py-1.5 border hover:opacity-90 transition-all shadow-2xs"
             >
               Write a Review
             </Link>
             <Link
               href={`${base}/reviews`}
-              className="text-xs font-medium text-[#71382D] hover:text-[#B85C3E] inline-flex items-center gap-1"
+              style={{ color: tokens?.primaryColor || '#71382D' }}
+              className="text-xs font-medium hover:underline inline-flex items-center gap-1"
             >
               <span>Read all ({reviews.totalCount}) &rarr;</span>
             </Link>
@@ -62,7 +86,7 @@ export function ReviewsSection({ data }: { data: WebsiteData }) {
             <div
               key={rev.id}
               className="p-6 rounded-xl border border-[#E8E2DA] bg-white flex flex-col justify-between space-y-4 shadow-2xs hover:shadow-xs transition-shadow"
-              style={{ borderRadius: 'var(--theme-radius, 10px)' }}
+              style={{ borderRadius: tokens?.borderRadius || 'var(--theme-radius, 10px)' }}
             >
               <div className="space-y-3">
                 {/* Rating stars & verified badge */}
@@ -85,7 +109,10 @@ export function ReviewsSection({ data }: { data: WebsiteData }) {
                 </div>
 
                 {rev.title && (
-                  <h4 className="font-serif text-sm font-semibold text-[#191816]">
+                  <h4
+                    style={headingStyle}
+                    className="text-sm font-semibold text-[#191816]"
+                  >
                     &ldquo;{rev.title}&rdquo;
                   </h4>
                 )}
@@ -103,7 +130,12 @@ export function ReviewsSection({ data }: { data: WebsiteData }) {
 
                 {rev.response && (
                   <div className="p-2.5 rounded bg-[#FAF7F2] border border-[#E8E2DA] text-[11px] space-y-1">
-                    <span className="font-medium text-[#71382D] block">Response from property:</span>
+                    <span
+                      style={{ color: tokens?.primaryColor || '#71382D' }}
+                      className="font-medium block"
+                    >
+                      Response from property:
+                    </span>
                     <p className="text-[#5C564D] italic">{rev.response}</p>
                   </div>
                 )}

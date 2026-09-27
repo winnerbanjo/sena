@@ -2,10 +2,17 @@
 
 import * as React from 'react';
 import { WebsiteData } from '../../lib/website-data';
-import { X, ChevronLeft, ChevronRight, Camera, Maximize2 } from 'lucide-react';
+import { useTheme } from '../../lib/theme-provider';
+import { X, ChevronLeft, ChevronRight, Maximize2 } from 'lucide-react';
 
 export function GallerySection({ data }: { data: WebsiteData }) {
-  const { config, property } = data;
+  const themeContext = useTheme();
+  const config = themeContext?.config || data.config;
+  const tokens = themeContext?.tokens;
+  const headingStyle = themeContext?.headingStyle || {
+    fontFamily: 'var(--theme-heading-font)',
+  };
+
   const images = config.galleryImages || [];
   const [selectedIdx, setSelectedIdx] = React.useState<number | null>(null);
   const [activeCategory, setActiveCategory] = React.useState<string>('All');
@@ -55,36 +62,46 @@ export function GallerySection({ data }: { data: WebsiteData }) {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
           <div className="space-y-1">
-            <span className="text-[11px] font-mono tracking-widest uppercase text-[#B85C3E] block">
+            <span
+              style={{ color: tokens?.accentColor || 'var(--theme-accent, #B85C3E)' }}
+              className="text-[11px] font-mono tracking-widest uppercase font-semibold block"
+            >
               Visual Tour
             </span>
-            <h2 className="text-2xl sm:text-3xl font-serif text-[#191816]">
-              A Glimpse Inside {property.name}
+            <h2
+              style={headingStyle}
+              className="text-2xl sm:text-3xl text-[#191816] font-normal"
+            >
+              A Glimpse Inside {data.property.name}
             </h2>
           </div>
 
           {/* Category Tabs */}
           {categories.length > 2 && (
             <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
-              {categories.map((cat) => (
-                <button
-                  key={cat}
-                  onClick={() => {
-                    setActiveCategory(cat);
-                    setShowAll(false);
-                  }}
-                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
-                    activeCategory === cat
-                      ? 'bg-[#71382D] text-white shadow-xs'
-                      : 'bg-white text-[#7A7267] border border-[#E8E2DA] hover:text-[#191816]'
-                  }`}
-                  style={{
-                    backgroundColor: activeCategory === cat ? 'var(--theme-primary, #71382D)' : undefined,
-                  }}
-                >
-                  {cat}
-                </button>
-              ))}
+              {categories.map((cat) => {
+                const isActive = activeCategory === cat;
+                return (
+                  <button
+                    key={cat}
+                    onClick={() => {
+                      setActiveCategory(cat);
+                      setShowAll(false);
+                    }}
+                    className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                      isActive
+                        ? 'shadow-xs'
+                        : 'bg-white text-[#7A7267] border border-[#E8E2DA] hover:text-[#191816]'
+                    }`}
+                    style={{
+                      backgroundColor: isActive ? (tokens?.primaryColor || 'var(--theme-primary, #71382D)') : undefined,
+                      color: isActive ? (tokens?.primaryColorForeground || '#ffffff') : undefined,
+                    }}
+                  >
+                    {cat}
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>
@@ -96,11 +113,11 @@ export function GallerySection({ data }: { data: WebsiteData }) {
               key={idx}
               onClick={() => setSelectedIdx(idx)}
               className="relative aspect-square sm:aspect-[4/3] rounded-lg overflow-hidden bg-stone-200 cursor-pointer group shadow-2xs"
-              style={{ borderRadius: 'var(--theme-radius, 8px)' }}
+              style={{ borderRadius: tokens?.borderRadius || 'var(--theme-radius, 8px)' }}
             >
               <img
                 src={img.url}
-                alt={img.caption || property.name}
+                alt={img.caption || data.property.name}
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-between p-3">
@@ -207,4 +224,3 @@ export function GallerySection({ data }: { data: WebsiteData }) {
     </section>
   );
 }
-

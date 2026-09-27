@@ -150,10 +150,18 @@ export async function getWebsiteData(slug: string, isPreview = false): Promise<W
 
     // Determine config to use (draft if preview mode, otherwise published)
     const baseConfig = configRecord || ({} as any);
-    const effectiveConfig =
-      isPreview && baseConfig.draftConfig
-        ? { ...baseConfig, ...(baseConfig.draftConfig as any) }
-        : baseConfig;
+    const draft = (isPreview && baseConfig.draftConfig ? baseConfig.draftConfig : {}) as any;
+    const effectiveConfig = isPreview && baseConfig.draftConfig
+      ? { ...baseConfig, ...draft }
+      : baseConfig;
+    const effectiveBrandColors = {
+      ...(baseConfig.brandColors || {}),
+      ...(isPreview && draft.brandColors ? draft.brandColors : {}),
+    };
+    const effectiveTypography = {
+      ...(baseConfig.typography || {}),
+      ...(isPreview && draft.typography ? draft.typography : {}),
+    };
 
     return {
       property: {
@@ -173,15 +181,15 @@ export async function getWebsiteData(slug: string, isPreview = false): Promise<W
       config: {
         theme: effectiveConfig.theme || 'sena_one',
         brandColors: {
-          primaryColor: effectiveConfig.brandColors?.primaryColor || '#71382D',
-          accentColor: effectiveConfig.brandColors?.accentColor || '#B85C3E',
-          bgStyle: effectiveConfig.brandColors?.bgStyle || '#FAF7F2',
-          textDark: effectiveConfig.brandColors?.textDark || '#191816',
-          navStyle: effectiveConfig.brandColors?.navStyle || 'transparent',
+          primaryColor: effectiveBrandColors.primaryColor || '#71382D',
+          accentColor: effectiveBrandColors.accentColor || '#B85C3E',
+          bgStyle: effectiveBrandColors.bgStyle || '#FAF7F2',
+          textDark: effectiveBrandColors.textDark || '#191816',
+          navStyle: effectiveBrandColors.navStyle || 'transparent',
         },
         typography: {
-          headingFont: effectiveConfig.typography?.headingFont || 'serif',
-          bodyFont: effectiveConfig.typography?.bodyFont || 'sans',
+          headingFont: effectiveTypography.headingFont || 'serif',
+          bodyFont: effectiveTypography.bodyFont || 'sans',
         },
         buttonStyle: effectiveConfig.buttonStyle || 'soft',
         logoUrl: effectiveConfig.logoUrl,
