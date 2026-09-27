@@ -9,6 +9,7 @@ import {
   uniqueIndex,
   uuid,
   varchar,
+  type AnyPgColumn,
 } from 'drizzle-orm/pg-core';
 
 // 1. Users
@@ -335,25 +336,119 @@ export const payments = pgTable(
     propertyId: uuid('property_id')
       .references(() => properties.id, { onDelete: 'cascade' })
       .notNull(),
-    reservationId: uuid('reservation_id')
-      .references(() => reservations.id, { onDelete: 'cascade' })
-      .notNull(),
+    reservationId: uuid('reservation_id').references(() => reservations.id, { onDelete: 'set null' }),
+    invoiceId: uuid('invoice_id').references((): AnyPgColumn => propertyInvoices.id, { onDelete: 'set null' }),
+    integrationId: uuid('integration_id').references((): AnyPgColumn => integrations.id, { onDelete: 'restrict' }),
+    internalReference: varchar('internal_reference', { length: 255 }),
     amountMinorUnits: integer('amount_minor_units').notNull(),
     currency: varchar('currency', { length: 10 }).notNull().default('NGN'),
     provider: varchar('provider', { length: 50 }).notNull().default('manual'), // 'paystack', 'manual'
     providerReference: varchar('provider_reference', { length: 255 }),
+    providerTransactionId: varchar('provider_transaction_id', { length: 255 }),
     method: varchar('method', { length: 50 }).notNull().default('cash'),
     status: varchar('status', { length: 50 }).notNull().default('successful'),
+    source: varchar('source', { length: 50 }).notNull().default('front_desk'),
+    paidAt: timestamp('paid_at', { withTimezone: true }),
     recordedByUserId: uuid('recorded_by_user_id').references(() => users.id),
     notes: text('notes'),
     metadata: jsonb('metadata'),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [
     index('payments_res_idx').on(t.reservationId),
     index('payments_prop_idx').on(t.propertyId),
+    uniqueIndex('payments_provider_ref_idx').on(t.provider, t.providerReference),
   ]
 );
+
+export const integrationCatalog = pgTable('integration_catalog', {
+  provider: varchar('provider', { length: 50 }).primaryKey(),
+  name: varchar('name', { length: 100 }).notNull(),
+  category: varchar('category', { length: 50 }).notNull(),
+  description: text('description').notNull(),
+  availability: varchar('availability', { length: 30 }).notNull().default('coming_soon'),
+  authType: varchar('auth_type', { length: 30 }).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const integrations = pgTable('integrations', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  propertyId: uuid('property_id').references(() => properties.id, { onDelete: 'cascade' }).notNull(),
+  provider: varchar('provider', { length: 50 }).references(() => integrationCatalog.provider).notNull(),
+  category: varchar('category', { length: 50 }).notNull(),
+  status: varchar('status', { length: 30 }).notNull().default('disconnected'),
+  mode: varchar('mode', { length: 10 }),
+  externalAccountId: varchar('external_account_id', { length: 255 }),
+  webhookTokenHash: varchar('webhook_token_hash', { length: 64 }).notNull(),
+  webhookTokenEncrypted: text('webhook_token_encrypted').notNull(),
+  webhookStatus: varchar('webhook_status', { length: 30 }).notNull().default('not_configured'),
+  connectedAt: timestamp('connected_at', { withTimezone: true }),
+  verifiedAt: timestamp('verified_at', { withTimezone: true }),
+  webhookVerifiedAt: timestamp('webhook_verified_at', { withTimezone: true }),
+  disconnectedAt: timestamp('disconnected_at', { withTimezone: true }),
+  lastErrorAt: timestamp('last_error_at', { withTimezone: true }),
+  lastErrorMessage: text('last_error_message'),
+  metadata: jsonb('metadata'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [uniqueIndex('integrations_property_provider_idx').on(t.propertyId, t.provider), uniqueIndex('integrations_webhook_token_idx').on(t.webhookTokenHash)]);
+
+export const integrationCredentials = pgTable('integration_credentials', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  integrationId: uuid('integration_id').references(() => integrations.id, { onDelete: 'cascade' }).notNull(),
+  credentialType: varchar('credential_type', { length: 50 }).notNull(),
+  encryptedValue: text('encrypted_value').notNull(),
+  maskedSuffix: varchar('masked_suffix', { length: 16 }).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  rotatedAt: timestamp('rotated_at', { withTimezone: true }),
+}, (t) => [uniqueIndex('integration_credentials_type_idx').on(t.integrationId, t.credentialType)]);
+
+export const paymentAttempts = pgTable('payment_attempts', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  propertyId: uuid('property_id').references(() => properties.id, { onDelete: 'restrict' }).notNull(),
+  integrationId: uuid('integration_id').references(() => integrations.id, { onDelete: 'restrict' }).notNull(),
+  invoiceId: uuid('invoice_id').references((): AnyPgColumn => propertyInvoices.id, { onDelete: 'restrict' }),
+  reservationId: uuid('reservation_id').references(() => reservations.id, { onDelete: 'restrict' }),
+  idempotencyKey: varchar('idempotency_key', { length: 255 }),
+  internalReference: varchar('internal_reference', { length: 255 }).notNull().unique(),
+  providerReference: varchar('provider_reference', { length: 255 }).unique(),
+  amountMinorUnits: integer('amount_minor_units').notNull(),
+  currency: varchar('currency', { length: 10 }).notNull(),
+  source: varchar('source', { length: 50 }).notNull(),
+  status: varchar('status', { length: 30 }).notNull().default('pending'),
+  initializedAt: timestamp('initialized_at', { withTimezone: true }),
+  completedAt: timestamp('completed_at', { withTimezone: true }),
+  expiresAt: timestamp('expires_at', { withTimezone: true }),
+  metadata: jsonb('metadata'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [index('payment_attempt_property_idx').on(t.propertyId), index('payment_attempt_provider_ref_idx').on(t.providerReference), uniqueIndex('payment_attempt_idempotency_idx').on(t.propertyId, t.idempotencyKey)]);
+
+export const integrationAuditLogs = pgTable('integration_audit_logs', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  integrationId: uuid('integration_id').references(() => integrations.id, { onDelete: 'set null' }),
+  propertyId: uuid('property_id').references(() => properties.id, { onDelete: 'restrict' }).notNull(),
+  actorUserId: uuid('actor_user_id').references(() => users.id, { onDelete: 'set null' }),
+  action: varchar('action', { length: 100 }).notNull(),
+  mode: varchar('mode', { length: 10 }),
+  details: jsonb('details'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [index('integration_audit_property_idx').on(t.propertyId, t.createdAt)]);
+
+export const integrationWebhookEvents = pgTable('integration_webhook_events', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  integrationId: uuid('integration_id').references(() => integrations.id, { onDelete: 'restrict' }).notNull(),
+  propertyId: uuid('property_id').references(() => properties.id, { onDelete: 'restrict' }).notNull(),
+  providerEventId: varchar('provider_event_id', { length: 255 }),
+  eventType: varchar('event_type', { length: 100 }).notNull(),
+  paymentReference: varchar('payment_reference', { length: 255 }),
+  status: varchar('status', { length: 30 }).notNull().default('received'),
+  receivedAt: timestamp('received_at', { withTimezone: true }).defaultNow().notNull(),
+  processedAt: timestamp('processed_at', { withTimezone: true }),
+  errorMessage: text('error_message'),
+}, (t) => [uniqueIndex('integration_webhook_event_idx').on(t.integrationId, t.providerEventId), index('integration_webhook_received_idx').on(t.integrationId, t.receivedAt)]);
 
 // 13. Idempotency Keys (Section 61 of PRD)
 export const idempotencyKeys = pgTable(
@@ -932,6 +1027,3 @@ export const adminAuditLogs = pgTable(
     index('admin_audit_target_idx').on(t.targetType, t.targetId),
   ]
 );
-
-
-

@@ -21,6 +21,7 @@ export default function PublicInvoicePage() {
   const searchParams = useSearchParams();
   const invoiceNumber = params.number as string;
   const isPaymentSuccess = searchParams.get('payment') === 'success';
+  const isPaymentConfirming = searchParams.get('payment') === 'confirming';
 
   const [invoice, setInvoice] = React.useState<PropertyInvoice | null>(null);
   const [property, setProperty] = React.useState<any>(null);
@@ -151,6 +152,15 @@ export default function PublicInvoicePage() {
             <div className="text-xs">
               <strong className="block font-medium">Payment Verified Successfully!</strong>
               <span>Your payment has been received and credited to this folio statement.</span>
+            </div>
+          </div>
+        )}
+        {isPaymentConfirming && !isPaid && (
+          <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl flex items-center gap-3 text-amber-900 print:hidden">
+            <ShieldCheck className="w-5 h-5 text-amber-700 shrink-0" />
+            <div className="text-xs">
+              <strong className="block font-medium">Payment confirmation in progress</strong>
+              <span>We will mark this invoice paid only after Paystack verifies the transaction.</span>
             </div>
           </div>
         )}

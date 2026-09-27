@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db, properties, reservations, payments } from '@sena/database';
+import { db, guests, properties, reservations } from '@sena/database';
 import { eq, or, and } from 'drizzle-orm';
 import { authenticateApiRequest, logApiRequest } from '@/lib/api-auth';
-
-const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY || '';
+import { initializePropertyPaystack } from '@/lib/paystack-payments';
 
 export async function POST(req: NextRequest) {
   const startTime = Date.now();
@@ -19,13 +18,10 @@ export async function POST(req: NextRequest) {
 
     const propertyId = body.property_id || body.propertyId;
     const reservationIdentifier = body.reservation_id || body.reservation_reference || body.reservationId;
-    const customAmount = body.amount_minor_units || body.amountMinorUnits;
-    const customEmail = body.email;
-    const callbackUrl = body.callback_url || body.callbackUrl;
 
-    if (!propertyId) {
+    if (!propertyId || !reservationIdentifier) {
       return NextResponse.json(
-        { error: { code: 'MISSING_PROPERTY_ID', message: "'property_id' is required." } },
+        { error: { code: 'MISSING_TARGET', message: "'property_id' and a reservation identifier are required." } },
         { status: 400 }
       );
     }
@@ -51,8 +47,6 @@ export async function POST(req: NextRequest) {
     }
 
     let reservationRecord: any = null;
-    let amountMinorUnits = customAmount;
-    let customerEmail = customEmail;
 
     // 3. Resolve Reservation if provided
     if (reservationIdentifier) {
@@ -75,91 +69,34 @@ export async function POST(req: NextRequest) {
       }
 
       reservationRecord = res;
-      if (!amountMinorUnits) {
-        amountMinorUnits = res.totalAmountMinorUnits - res.paidAmountMinorUnits;
-      }
     }
-
-    if (!amountMinorUnits || amountMinorUnits <= 0) {
+    if (!reservationRecord) {
       return NextResponse.json(
-        { error: { code: 'INVALID_AMOUNT', message: 'Payment amount must be greater than 0.' } },
+        { error: { code: 'MISSING_RESERVATION', message: 'A reservation identifier is required.' } },
         { status: 400 }
       );
     }
-
-    if (!customerEmail) {
+    const guest = await db.query.guests.findFirst({ where: and(eq(guests.id, reservationRecord.guestId), eq(guests.propertyId, propertyId)) });
+    const amountMinorUnits = reservationRecord.totalAmountMinorUnits - reservationRecord.paidAmountMinorUnits;
+    if (!guest?.email || amountMinorUnits <= 0) {
       return NextResponse.json(
-        { error: { code: 'MISSING_EMAIL', message: "Customer 'email' is required to initialize payment." } },
+        { error: { code: 'PAYMENT_UNAVAILABLE', message: 'This reservation cannot accept an online payment.' } },
         { status: 400 }
       );
     }
-
-    const reference = `SEN-PAY-${Date.now()}-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
 
     // 4. Initialize Paystack Transaction
     const host = req.headers.get('host') || 'app.sena.ng';
     const proto = host.includes('localhost') ? 'http' : 'https';
-    const fallbackCallback = `${proto}://${host}/booking-preview?reference=${reservationRecord?.reference || ''}&status=verified`;
-
-    const paystackRes = await fetch('https://api.paystack.co/transaction/initialize', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        email: customerEmail,
-        amount: amountMinorUnits,
-        currency: prop.currency || 'NGN',
-        reference,
-        callback_url: callbackUrl || fallbackCallback,
-        metadata: {
-          type: 'booking_payment',
-          property_id: propertyId,
-          reservation_id: reservationRecord?.id,
-          reservation_reference: reservationRecord?.reference,
-          api_key_id: authResult.apiKey.id,
-        },
-      }),
-    });
-
-    const paystackData = await paystackRes.json();
-
-    if (!paystackRes.ok || !paystackData.status) {
-      console.error('Paystack initialization failure:', paystackData);
-      return NextResponse.json(
-        {
-          error: {
-            code: 'PAYMENT_GATEWAY_ERROR',
-            message: paystackData.message || 'Payment provider could not initialize transaction.',
-          },
-        },
-        { status: 502 }
-      );
-    }
-
-    // 5. Pre-insert payment record in pending state
-    if (reservationRecord) {
-      await db.insert(payments).values({
-        propertyId,
-        reservationId: reservationRecord.id,
-        amountMinorUnits,
-        currency: prop.currency || 'NGN',
-        provider: 'paystack',
-        providerReference: reference,
-        status: 'pending',
-        method: 'card',
-        notes: `API initialized payment for reservation ${reservationRecord.reference}`,
-      });
-    }
+    const fallbackCallback = `${proto}://${host}/booking-preview?reference=${encodeURIComponent(reservationRecord.reference)}&payment=confirming`;
+    const initialized = await initializePropertyPaystack({ propertyId, reservationId: reservationRecord.id, email: guest.email, amountMinorUnits, currency: prop.currency || 'NGN', source: 'api_booking', callbackUrl: fallbackCallback, idempotencyKey: req.headers.get('idempotency-key') || undefined });
 
     const responsePayload = {
       data: {
-        reference,
+        reference: initialized.reference,
         amount_minor_units: amountMinorUnits,
         currency: prop.currency || 'NGN',
-        authorization_url: paystackData.data.authorization_url,
-        access_code: paystackData.data.access_code,
+        authorization_url: initialized.authorizationUrl,
         reservation_id: reservationRecord?.id,
         reservation_reference: reservationRecord?.reference,
       },
@@ -169,10 +106,11 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(responsePayload, { status: 200 });
   } catch (error: any) {
-    console.error('API Error /v1/payments/initialize:', error);
+    console.error('API Error /v1/payments/initialize:', error instanceof Error ? error.message : 'unknown');
+    const notConnected = error?.message === 'PAYSTACK_NOT_CONNECTED';
     return NextResponse.json(
-      { error: { code: 'INTERNAL_SERVER_ERROR', message: error.message || 'Failed to initialize payment.' } },
-      { status: 500 }
+      { error: { code: notConnected ? 'PAYSTACK_NOT_CONNECTED' : 'PAYMENT_GATEWAY_ERROR', message: notConnected ? 'Online payments are not configured for this property.' : 'Payment provider could not initialize the transaction.' } },
+      { status: notConnected ? 409 : 502 }
     );
   }
 }

@@ -81,9 +81,9 @@ const INTEGRATIONS: IntegrationItem[] = [
     name: 'Paystack Gateway',
     category: 'Payments',
     status: 'active',
-    description: 'Accept instant online debit/credit cards and Nigerian bank transfers with automated payment reconciliation.',
+    description: 'Connect the property’s own Paystack account for online payments and verified reconciliation.',
     actionText: 'Manage Gateway',
-    actionHref: '/payments',
+    actionHref: '/apps',
   },
   {
     id: 'bank_transfer',
