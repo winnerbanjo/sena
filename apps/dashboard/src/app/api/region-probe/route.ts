@@ -10,10 +10,6 @@ async function measure(query: ReturnType<typeof sql>) {
 }
 
 export async function GET() {
-  if (process.env.VERCEL_ENV !== 'preview') {
-    return NextResponse.json({ error: 'Not found' }, { status: 404 });
-  }
-
   const coldMs = await measure(sql`select 1`);
   const warmMs = [];
   for (let index = 0; index < 10; index += 1) {

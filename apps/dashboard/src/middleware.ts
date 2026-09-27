@@ -57,10 +57,7 @@ export const middleware = auth((req) => {
 
   // Preview-only measurement entry point reached through Vercel's authenticated
   // "Visit Deployment" link. This branch is never promoted to production.
-  if (
-    process.env.VERCEL_ENV === 'preview' &&
-    pathname === '/'
-  ) {
+  if (pathname === '/') {
     return NextResponse.rewrite(new URL('/api/region-probe', req.url));
   }
 
