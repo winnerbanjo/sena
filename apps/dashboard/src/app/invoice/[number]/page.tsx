@@ -25,6 +25,7 @@ export default function PublicInvoicePage() {
   const [invoice, setInvoice] = React.useState<PropertyInvoice | null>(null);
   const [property, setProperty] = React.useState<any>(null);
   const [reservation, setReservation] = React.useState<any>(null);
+  const [onlinePaymentAvailable, setOnlinePaymentAvailable] = React.useState(true);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [paying, setPaying] = React.useState(false);
@@ -40,6 +41,7 @@ export default function PublicInvoicePage() {
         setInvoice(data.invoice);
         setProperty(data.property);
         setReservation(data.reservation);
+        setOnlinePaymentAvailable(Boolean(data.onlinePaymentAvailable));
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
@@ -95,7 +97,8 @@ export default function PublicInvoicePage() {
   const balanceMinorUnits = Math.max(0, invoice.totalAmountMinorUnits - invoice.paidAmountMinorUnits);
   const unavailable = ['void', 'draft', 'cancelled'].includes(invoice.status);
   const isPaid = !unavailable && (invoice.status === 'paid' || balanceMinorUnits === 0);
-  const canPayOnline = !isPaid && !['void', 'draft', 'cancelled'].includes(invoice.status);
+  const canPayOnline = !isPaid && !unavailable && onlinePaymentAvailable;
+  const onlinePaymentUnavailable = !isPaid && !unavailable && !onlinePaymentAvailable;
 
   return (
     <div className="min-h-screen bg-[#FAF7F2] py-8 px-4 sm:px-6 lg:px-8">
@@ -132,6 +135,13 @@ export default function PublicInvoicePage() {
                   </>
                 )}
               </Button>
+            )}
+
+            {onlinePaymentUnavailable && (
+              <div className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-lg bg-[#FAF7F2] border border-[#E5D4BC] text-xs text-[#71382D]">
+                <AlertCircle className="w-4 h-4 text-[#B85C3E] shrink-0" />
+                <span>Online payment is currently unavailable. Contact the property to arrange settlement.</span>
+              </div>
             )}
 
             <Button

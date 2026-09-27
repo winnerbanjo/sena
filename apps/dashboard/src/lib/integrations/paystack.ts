@@ -36,6 +36,7 @@ export async function getPropertyPaystack(propertyId: string) {
 }
 
 export type PaystackPaymentControls = {
+  enabled: boolean;
   acceptOnlinePayments: boolean;
   directBooking: boolean;
   invoices: boolean;
@@ -43,7 +44,12 @@ export type PaystackPaymentControls = {
 
 export function paystackPaymentControls(metadata: unknown): PaystackPaymentControls {
   const record = metadata && typeof metadata === 'object' ? metadata as Record<string, unknown> : {};
+  const enabled =
+    record.enabled !== undefined
+      ? record.enabled === true
+      : record.acceptOnlinePayments !== false;
   return {
+    enabled,
     acceptOnlinePayments: record.acceptOnlinePayments !== false,
     directBooking: record.directBooking !== false,
     invoices: record.invoices !== false,
@@ -53,13 +59,15 @@ export function paystackPaymentControls(metadata: unknown): PaystackPaymentContr
 export function paystackDisplayStatus(record: Awaited<ReturnType<typeof getPropertyPaystack>>) {
   if (!record?.credential || record.integration.status === 'disconnected') return 'disconnected' as const;
   if (record.integration.status === 'needs_attention') return 'needs_attention' as const;
-  if (!paystackPaymentControls(record.integration.metadata).acceptOnlinePayments) return 'disabled' as const;
+  const controls = paystackPaymentControls(record.integration.metadata);
+  if (!controls.enabled || !controls.acceptOnlinePayments) return 'disabled' as const;
   return 'connected' as const;
 }
 
 export function assertPaystackPayable(integration: { status: string; metadata: unknown }, source: 'invoice' | 'direct_booking' | 'api_booking') {
   if (integration.status !== 'connected') throw new Error('PAYSTACK_NOT_CONNECTED');
   const controls = paystackPaymentControls(integration.metadata);
+  if (!controls.enabled) throw new Error('PAYSTACK_PAYMENTS_DISABLED');
   if (!controls.acceptOnlinePayments) throw new Error('PAYSTACK_PAYMENTS_DISABLED');
   if (source === 'direct_booking' && !controls.directBooking) throw new Error('PAYSTACK_PAYMENTS_DISABLED');
   if (source === 'invoice' && !controls.invoices) throw new Error('PAYSTACK_PAYMENTS_DISABLED');
@@ -70,6 +78,18 @@ export async function directBookingPaymentAvailable(propertyId: string) {
     const record = await getPropertyPaystack(propertyId);
     if (!record?.credential || record.integration.status !== 'connected') return false;
     assertPaystackPayable(record.integration, 'direct_booking');
+    decryptIntegrationSecret(record.credential.encryptedValue);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function invoicePaymentAvailable(propertyId: string) {
+  try {
+    const record = await getPropertyPaystack(propertyId);
+    if (!record?.credential || record.integration.status !== 'connected') return false;
+    assertPaystackPayable(record.integration, 'invoice');
     decryptIntegrationSecret(record.credential.encryptedValue);
     return true;
   } catch {
@@ -97,7 +117,7 @@ export async function connectPaystack(propertyId: string, actorUserId: string, s
     const metadata = { ...(current?.metadata && typeof current.metadata === 'object' ? current.metadata : {}), currencies: verified.currencies, ...previous };
     const [integration] = current
       ? await tx.update(integrations).set({ status: 'connected', mode: verified.mode, externalAccountId: verified.accountLabel, connectedAt: current.connectedAt || now, verifiedAt: now, disconnectedAt: null, lastErrorAt: null, lastErrorMessage: null, metadata, updatedAt: now }).where(eq(integrations.id, current.id)).returning()
-      : await tx.insert(integrations).values({ propertyId, provider: 'paystack', category: 'payments', status: 'connected', mode: verified.mode, externalAccountId: verified.accountLabel, webhookTokenHash, webhookTokenEncrypted, connectedAt: now, verifiedAt: now, metadata: { currencies: verified.currencies, acceptOnlinePayments: true, directBooking: true, invoices: true } }).returning();
+      : await tx.insert(integrations).values({ propertyId, provider: 'paystack', category: 'payments', status: 'connected', mode: verified.mode, externalAccountId: verified.accountLabel, webhookTokenHash, webhookTokenEncrypted, connectedAt: now, verifiedAt: now, metadata: { currencies: verified.currencies, enabled: true, acceptOnlinePayments: true, directBooking: true, invoices: true } }).returning();
     const existingCredential = await tx.query.integrationCredentials.findFirst({ where: and(eq(integrationCredentials.integrationId, integration.id), eq(integrationCredentials.credentialType, 'secret_key')) });
     if (existingCredential) await tx.update(integrationCredentials).set({ encryptedValue, maskedSuffix: suffix, rotatedAt: now }).where(eq(integrationCredentials.id, existingCredential.id));
     else await tx.insert(integrationCredentials).values({ integrationId: integration.id, credentialType: 'secret_key', encryptedValue, maskedSuffix: suffix });
@@ -127,14 +147,34 @@ export async function testPaystackConnection(propertyId: string, fetcher: typeof
 export async function updatePaystackPaymentControls(propertyId: string, actorUserId: string, patch: Partial<PaystackPaymentControls>) {
   const record = await getPropertyPaystack(propertyId);
   if (!record?.credential || record.integration.status === 'disconnected') throw new Error('PAYSTACK_NOT_CONNECTED');
-  const next = { ...paystackPaymentControls(record.integration.metadata) };
-  for (const key of ['acceptOnlinePayments', 'directBooking', 'invoices'] as const) {
-    if (typeof patch[key] === 'boolean') next[key] = patch[key];
+  const current = paystackPaymentControls(record.integration.metadata);
+  const next: PaystackPaymentControls = { ...current };
+
+  // Master enable/disable toggle
+  if (typeof patch.enabled === 'boolean') {
+    next.enabled = patch.enabled;
+    next.acceptOnlinePayments = patch.enabled;
+  } else if (typeof patch.acceptOnlinePayments === 'boolean') {
+    next.acceptOnlinePayments = patch.acceptOnlinePayments;
+    next.enabled = patch.acceptOnlinePayments;
   }
+
+  // Child preferences are preserved independently
+  if (typeof patch.directBooking === 'boolean') {
+    next.directBooking = patch.directBooking;
+  }
+  if (typeof patch.invoices === 'boolean') {
+    next.invoices = patch.invoices;
+  }
+
   const metadata = { ...(record.integration.metadata && typeof record.integration.metadata === 'object' ? record.integration.metadata : {}), ...next };
+  const auditAction = typeof patch.enabled === 'boolean'
+    ? (patch.enabled ? 'paystack.enabled' : 'paystack.disabled')
+    : 'paystack.payments_updated';
+
   await db.transaction(async (tx) => {
     await tx.update(integrations).set({ metadata, updatedAt: new Date() }).where(eq(integrations.id, record.integration.id));
-    await tx.insert(integrationAuditLogs).values({ integrationId: record.integration.id, propertyId, actorUserId, action: 'paystack.payments_updated', mode: record.integration.mode, details: next });
+    await tx.insert(integrationAuditLogs).values({ integrationId: record.integration.id, propertyId, actorUserId, action: auditAction, mode: record.integration.mode, details: next });
   });
   return next;
 }
@@ -150,7 +190,7 @@ export async function disconnectPaystack(propertyId: string, actorUserId: string
 }
 
 export function safePaystackState(record: Awaited<ReturnType<typeof getPropertyPaystack>>, origin: string, lastWebhookAt?: Date | null) {
-  if (!record || record.integration.status === 'disconnected' || !record.credential) return { status: 'disconnected' as const, displayStatus: 'disconnected' as const };
+  if (!record || record.integration.status === 'disconnected' || !record.credential) return { status: 'disconnected' as const, displayStatus: 'disconnected' as const, enabled: false };
   const token = decryptIntegrationSecret(record.integration.webhookTokenEncrypted);
   const controls = paystackPaymentControls(record.integration.metadata);
   const displayStatus = paystackDisplayStatus(record);

@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db, properties, eq } from '@sena/database';
 import { ReservationService } from '@sena/reservations';
 import { sendBookingConfirmationEmail } from '@sena/email';
+import { directBookingPaymentAvailable } from '@/lib/integrations/paystack';
 import { initializePropertyPaystack } from '@/lib/paystack-payments';
 
 export async function POST(req: NextRequest) {
@@ -35,6 +36,16 @@ export async function POST(req: NextRequest) {
 
     if (!property) {
       return NextResponse.json({ error: 'Property not found' }, { status: 404 });
+    }
+
+    if (paymentMethod === 'paystack') {
+      const isAvailable = await directBookingPaymentAvailable(property.id);
+      if (!isAvailable) {
+        return NextResponse.json(
+          { error: 'Online payments are unavailable. Contact the property.' },
+          { status: 400 }
+        );
+      }
     }
 
     // Create reservation (which converts hold atomically)

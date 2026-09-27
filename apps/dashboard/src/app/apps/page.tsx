@@ -17,6 +17,7 @@ type PaystackState = {
   lastWebhookAt?: string | null;
   webhookUrl?: string;
   secret?: string | null;
+  enabled?: boolean;
   acceptOnlinePayments?: boolean;
   directBooking?: boolean;
   invoices?: boolean;
@@ -31,18 +32,41 @@ function when(value?: string | null, emptyLabel = 'Not verified yet') {
   return date.toLocaleString('en-NG', { dateStyle: 'medium', timeStyle: 'short' });
 }
 
-function Toggle({ on, disabled, label, onChange }: { on: boolean; disabled?: boolean; label: string; onChange: (next: boolean) => void }) {
+function Toggle({
+  on,
+  disabled,
+  label,
+  description,
+  onChange,
+}: {
+  on: boolean;
+  disabled?: boolean;
+  label: string;
+  description?: string;
+  onChange: (next: boolean) => void;
+}) {
   return (
-    <div className="flex items-center justify-between gap-4 py-3">
-      <span className="text-sm text-[#191816]">{label}</span>
+    <div className="flex items-center justify-between gap-4 py-3.5">
+      <div>
+        <span className="text-sm font-medium text-[#191816]">{label}</span>
+        {description && <p className="text-xs text-[#7A7267] mt-0.5">{description}</p>}
+      </div>
       <button
         type="button"
-        aria-pressed={on}
+        role="switch"
+        aria-checked={on}
+        aria-label={label}
         disabled={disabled}
         onClick={() => onChange(!on)}
-        className={`min-w-16 rounded px-3 py-1.5 text-xs font-semibold ${on ? 'bg-[#2E6B4F] text-white' : 'bg-[#F3EFEA] text-[#7A7267]'} disabled:opacity-50`}
+        className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#71382D] ${
+          on ? 'bg-[#2E6B4F]' : 'bg-[#D5CDC3]'
+        } disabled:opacity-50`}
       >
-        {on ? 'On' : 'Off'}
+        <span
+          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+            on ? 'translate-x-6' : 'translate-x-1'
+          }`}
+        />
       </button>
     </div>
   );
@@ -98,9 +122,9 @@ export default function AppsPage() {
     setFeedback(success);
   }
 
+  const isEnabled = paystack.enabled !== false && paystack.acceptOnlinePayments !== false;
   const display = paystack.displayStatus || (paystack.status === 'disconnected' ? 'disconnected' : 'connected');
   const managed = display !== 'disconnected';
-  const statusLabel = display === 'connected' ? 'Connected' : display === 'needs_attention' ? 'Needs attention' : display === 'disabled' ? 'Disabled' : 'Not connected';
   const modeLabel = paystack.mode === 'test' ? 'Test Mode' : paystack.mode === 'live' ? 'Live Mode' : '';
   const webhookLabel = paystack.webhookStatus === 'active' ? 'Active' : paystack.webhookStatus === 'needs_attention' ? 'Needs attention' : 'Waiting for event';
 
@@ -115,7 +139,7 @@ export default function AppsPage() {
         {feedback && <div role="status" className="max-w-3xl rounded border border-[#E8E2DA] bg-white px-4 py-3 text-sm text-[#191816]">{feedback}</div>}
 
         {!managed ? (
-          <section className="max-w-xl rounded border border-[#E8E2DA] bg-white p-5">
+          <section className="max-w-xl rounded-xl border border-[#E8E2DA] bg-white p-5 sm:p-6 shadow-2xs">
             <div className="flex items-start gap-3">
               <div className="rounded bg-[#F5EEE9] p-2"><CreditCard className="h-5 w-5 text-[#71382D]" /></div>
               <div>
@@ -131,32 +155,117 @@ export default function AppsPage() {
           </section>
         ) : (
           <div className="max-w-3xl space-y-5">
-            <section className="rounded border border-[#E8E2DA] bg-white p-5">
-              <div className="flex items-start justify-between gap-4">
+            <section className="rounded-xl border border-[#E8E2DA] bg-white p-5 sm:p-6 shadow-2xs">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                  <h2 className="font-serif text-xl text-[#191816]">Paystack</h2>
-                  <p className={`mt-1 text-sm font-semibold ${display === 'needs_attention' || display === 'disabled' ? 'text-amber-700' : 'text-[#2E6B4F]'}`}>{statusLabel}</p>
-                  {modeLabel && <p className={`text-sm ${paystack.mode === 'test' ? 'font-semibold text-amber-700' : 'text-[#191816]'}`}>{modeLabel}</p>}
+                  <div className="flex items-center gap-2.5">
+                    <h2 className="font-serif text-xl sm:text-2xl text-[#191816]">Paystack</h2>
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#EBF5EF] text-[#2E6B4F] border border-[#C5E3D0]">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#2E6B4F]" />
+                      Connected
+                    </span>
+                    {paystack.mode && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-mono uppercase tracking-wider text-[#71382D] bg-[#F7F1E8] border border-[#E5D4BC]">
+                        {modeLabel}
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-1 text-xs text-[#7A7267]">
+                    {paystack.account || 'Verified Paystack account'} · Connected {when(paystack.connectedAt, '—')}
+                  </p>
                 </div>
-                <CreditCard className="h-5 w-5 text-[#71382D]" />
+
+                {canManage && (
+                  <div className="flex items-center gap-3 self-start sm:self-auto rounded-lg border border-[#E5D4BC] bg-[#FAF7F2] px-3.5 py-2">
+                    <div className="text-right">
+                      <div className="text-xs font-medium text-[#191816]">Paystack enabled</div>
+                      <div className="text-[10px] text-[#7A7267]">{isEnabled ? 'Active for new payments' : 'Paused for new payments'}</div>
+                    </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={isEnabled}
+                      aria-label="Paystack enabled"
+                      disabled={busy}
+                      onClick={() =>
+                        action(
+                          'PATCH',
+                          { action: 'payments', enabled: !isEnabled },
+                          !isEnabled
+                            ? 'Paystack enabled. New online payments are now active.'
+                            : 'Paystack paused. Existing payment history remains available, but new online payments will not be started.'
+                        )
+                      }
+                      className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#71382D] ${
+                        isEnabled ? 'bg-[#2E6B4F]' : 'bg-[#D5CDC3]'
+                      } disabled:opacity-50`}
+                    >
+                      <span
+                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                          isEnabled ? 'translate-x-6' : 'translate-x-1'
+                        }`}
+                      />
+                    </button>
+                  </div>
+                )}
               </div>
-              <dl className="mt-5 grid gap-4 text-sm sm:grid-cols-2">
-                <div><dt className="text-[#7A7267]">Account</dt><dd className="mt-1 text-[#191816]">{paystack.account || 'Verified Paystack account'}</dd></div>
-                {canManage && <div><dt className="text-[#7A7267]">Secret Key</dt><dd className="mt-1 font-mono text-[#191816]">{paystack.secret}</dd></div>}
-                <div><dt className="text-[#7A7267]">Connected</dt><dd className="mt-1 text-[#191816]">{when(paystack.connectedAt, '—')}</dd></div>
-                <div><dt className="text-[#7A7267]">Last verified</dt><dd className="mt-1 text-[#191816]">{when(paystack.verifiedAt)}</dd></div>
+
+              {!isEnabled && (
+                <div className="mt-4 rounded-lg bg-[#FAF7F2] border border-[#E5D4BC] p-3 text-xs text-[#71382D] leading-relaxed">
+                  Paystack is paused. Existing payment history remains available, but new online payments will not be started.
+                </div>
+              )}
+
+              <dl className="mt-5 grid gap-4 text-sm sm:grid-cols-2 pt-4 border-t border-[#E8E2DA]">
+                <div>
+                  <dt className="text-xs text-[#7A7267]">Account</dt>
+                  <dd className="mt-0.5 text-sm font-medium text-[#191816]">{paystack.account || 'Verified Paystack account'}</dd>
+                </div>
+                {canManage && (
+                  <div>
+                    <dt className="text-xs text-[#7A7267]">Secret Key</dt>
+                    <dd className="mt-0.5 font-mono text-sm text-[#191816]">{paystack.secret}</dd>
+                  </div>
+                )}
+                <div>
+                  <dt className="text-xs text-[#7A7267]">Connected</dt>
+                  <dd className="mt-0.5 text-sm text-[#191816]">{when(paystack.connectedAt, '—')}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-[#7A7267]">Last verified</dt>
+                  <dd className="mt-0.5 text-sm text-[#191816]">{when(paystack.verifiedAt)}</dd>
+                </div>
               </dl>
-              {!canManage && <p className="mt-4 text-sm text-[#7A7267]">A property owner manages this Paystack connection.</p>}
+              {!canManage && <p className="mt-4 text-xs text-[#7A7267]">A property owner manages this Paystack connection.</p>}
             </section>
             {canManage && (
             <>
-            <section className="rounded border border-[#E8E2DA] bg-white p-5">
-              <h2 className="font-semibold text-[#191816]">Accept online payments</h2>
-              <p className="mt-1 text-sm text-[#7A7267]">Turning this off stops new Paystack payments. Past payments stay in Sena.</p>
-              <div className="mt-2 divide-y divide-[#E8E2DA]">
-                <Toggle label="Accept online payments with Paystack" disabled={busy} on={paystack.acceptOnlinePayments !== false} onChange={(next) => action('PATCH', { action: 'payments', acceptOnlinePayments: next }, next ? 'Online payments are on.' : 'Online payments are off. Past payments are unchanged.')} />
-                <Toggle label="Direct booking" disabled={busy || paystack.acceptOnlinePayments === false} on={paystack.directBooking !== false} onChange={(next) => action('PATCH', { action: 'payments', directBooking: next }, next ? 'Direct booking payments are on.' : 'Direct booking payments are off.')} />
-                <Toggle label="Invoice payment links" disabled={busy || paystack.acceptOnlinePayments === false} on={paystack.invoices !== false} onChange={(next) => action('PATCH', { action: 'payments', invoices: next }, next ? 'Invoice payments are on.' : 'Invoice payments are off.')} />
+            <section className="rounded-xl border border-[#E8E2DA] bg-white p-5 sm:p-6 shadow-2xs">
+              <div>
+                <h2 className="font-semibold text-[#191816]">Payment surfaces</h2>
+                <p className="mt-1 text-xs text-[#7A7267]">
+                  Configure where Paystack online payments are accepted. When Paystack is paused above, these preferences remain stored but inactive.
+                </p>
+              </div>
+              <div className="mt-3 divide-y divide-[#E8E2DA]">
+                <Toggle
+                  label="Direct booking engine"
+                  description="Allow guests to pay online when reserving rooms through your direct booking website."
+                  disabled={busy}
+                  on={paystack.directBooking !== false}
+                  onChange={(next) =>
+                    action('PATCH', { action: 'payments', directBooking: next }, next ? 'Direct booking payments are on.' : 'Direct booking payments are off.')
+                  }
+                />
+                <Toggle
+                  label="Invoice payment links"
+                  description="Include an online Paystack checkout link on guest folios and invoices."
+                  disabled={busy}
+                  on={paystack.invoices !== false}
+                  onChange={(next) =>
+                    action('PATCH', { action: 'payments', invoices: next }, next ? 'Invoice payments are on.' : 'Invoice payments are off.')
+                  }
+                />
               </div>
             </section>
 
