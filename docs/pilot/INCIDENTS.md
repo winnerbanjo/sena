@@ -1,6 +1,6 @@
 # Commercial pilot incident register
 
-## Open incidents
+## Closed incidents
 
 ### PILOT-0004 — Unauthenticated startup enters property-loading flow
 
@@ -8,7 +8,7 @@
 - **User role:** Signed-out or stale-session user
 - **Route:** `https://app.sena.ng/`
 - **Expected behavior:** Resolve authentication first; show login promptly when no valid session exists.
-- **Actual behavior:** The client labels its initial `/api/me` request as `Opening your property…`, waits up to 12 seconds, and can collapse network/server failures into a generic property-load error. The Overview issues a second `/api/me` after workspace resolution, while focus and storage listeners can issue additional identity requests.
+- **Actual behavior:** Before the fix, the client labelled its initial `/api/me` request as `Opening your property…`, waited up to 12 seconds, and could collapse network/server failures into a generic property-load error. The Overview issued a second `/api/me` after workspace resolution, while focus and storage listeners could issue additional identity requests.
 - **Timestamp (Africa/Lagos):** First reported 26 September 2026, 20:31 WAT; escalated 27 September 2026
 - **Browser/device:** Production report; reproduced by deployed-code trace
 - **Screenshot/error reference:** Customer report: `Opening your property` followed intermittently by `Your property could not be loaded`
@@ -20,8 +20,10 @@
 - **Root cause:** Commit `d1a6dcf` wrapped the merchant shell in a client-only workspace gate. Logged-out startup therefore required HTML, JavaScript hydration and `/api/me` before reaching login. Authenticated startup repeated active-user, membership and property reads sequentially before rendering the shell. Production execution was observed in Vercel `iad1` while PostgreSQL is expected in DigitalOcean LON1; read execution was below 0.05 ms but pooled network round trips measured 129–283 ms warm and 1,875 ms cold.
 - **Fix:** Implemented in the candidate: middleware validates the JWT and redirects logged-out requests before hydration; the server layout resolves the authorized workspace; the client property boot screen and startup `/api/me` call are removed; current user, membership and property reads run in one parallel round trip for sessions with an authorized property; login analytics loads are deferred.
 - **Regression test added:** `scripts/test-workspace-boot.ts`
-- **Production verification:** Pending; release/auth suites require a disposable local PostgreSQL test database before deployment.
-- **Status:** Open
+- **Production verification:** PASS on 27 September 2026 after production merge `f9f94bd`. Six fresh root requests redirected directly to `/login` with 316–426 ms TTFB. Six redirect-following requests reached login in 731–1,184 ms total. A fresh logged-out browser showed the login form with no property-opening screen, no false property error and zero startup `/api/me` calls. Production still reports Node execution in `iad1`; aligning it with PostgreSQL in LON1 remains an infrastructure optimization.
+- **Status:** Closed
+
+## Open incidents
 
 ### PILOT-0001 — Bookable Standard Room inventory has no physical rooms
 

@@ -1,7 +1,7 @@
 # Sena performance regression report
 
 **Incident:** PILOT-0004  
-**Production revision measured:** `ced3fdbee48305117b2fdaec51126998cebf13e2`  
+**Production revision measured:** `f9f94bd37dc65fa42c1b089035d121a8f1e77207`
 **Candidate branch:** `codex/auth-boot-stability`
 
 ## Regression source
@@ -38,10 +38,33 @@ The pooled database round trips measured 1,874.8 ms cold and 129.1–283.0 ms wa
 - Dashboard production build: PASS
 - Workspace-wide type checks: 27/27 PASS
 - Server-routed boot regression: PASS
-- Tenant/security craftsmanship tests: 13/13 PASS
+- Tenant/security craftsmanship tests: 14/14 PASS
 - Compiled fresh-browser logged-out flow: PASS
 - Production read-only query plans: PASS
-- Mutating release, authenticated HTTP, concurrency and payment suites: SAFETY BLOCK — no disposable local `sena_test` or `sena_qa` PostgreSQL database is configured
+- Isolated PostgreSQL 16 database `sena_test`: PASS; loopback-only on port 55432
+- Hard production database guard: PASS; missing URL, remote URL, `sena_prod`, identical production/test URL and live integration credentials are rejected
+- Current Drizzle migration: PASS; 34 application tables applied from `packages/database/drizzle/0000_amazing_leo.sql`
+- Release certification: 27/27 PASS
+- Auth and PWA integrity: 4/4 PASS
+- Authenticated HTTP and tenant isolation: 29/29 PASS
+- Reservation lifecycle and concurrency: 9/9 PASS
+- Payment settlement and idempotency: 4/4 PASS
+- Synthetic scale fixture: PASS with 5,000 guests, 1,000 reservations, 100 rooms and 400 payments
 - Valid Stay Connect browser session: NOT DEMONSTRATED
 - Installed PWA: NOT DEMONSTRATED
-- Production deployment: NOT PERFORMED while the required isolated-database suites remain blocked
+- PR #3: MERGED
+- Production deployment: PASS at merge `f9f94bd`
+- Fresh production browser: PASS; `/` redirected to `/login`, the login form was visible, `Opening your property…` was absent, no false property error appeared and startup `/api/me` count was 0
+- Production root TTFB: 316–426 ms across six cache-busted requests
+- Production login total: 731–1,184 ms across six fresh redirect-following requests
+- Authenticated production shell: NOT DEMONSTRATED; no authorized production session or credentials were used
+
+## Infrastructure finding
+
+Production response headers still show `cpt1::iad1`, meaning the request enters through Cape Town while the Node function executes in Washington, D.C. The repository has no dashboard-project `vercel.json` region override, so Vercel uses its default `iad1` function region. PostgreSQL is in DigitalOcean LON1.
+
+Vercel supports London `lhr1` for Functions. Configure the `sena-app` project's default Function Region as `lhr1` in Vercel Project Settings, or add a dashboard-root `vercel.json` containing `{"regions":["lhr1"]}`, then validate in preview before production. This should remove the repeated transatlantic function-to-database hop. London usage is region-priced and documented as a Pro-plan regional resource; multi-region failover requires Enterprise. No region setting was changed during this release.
+
+## Resolution
+
+PILOT-0004 is closed. The production boot regression is removed and its required release gates pass. Region alignment remains a separately controlled infrastructure optimization because an authenticated production shell timing was not demonstrated in this release.
