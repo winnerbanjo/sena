@@ -192,6 +192,9 @@ export default function OverviewPage() {
   const monthRevenueMinorUnits = reservations.reduce((acc, curr) => acc + (curr.paidAmountMinorUnits || 0), 0);
 
   const directWebsiteUrl = propertySlug ? `https://${propertySlug}.sena.ng` : '/website';
+  const arrivalsText = arrivals.length === 1 ? '1 arrival today' : `${arrivals.length} arrivals today`;
+  const departuresText = departures.length === 1 ? '1 departure' : `${departures.length} departures`;
+  const roomsAttentionText = dirtyRooms.length === 0 ? 'No rooms need attention' : `${dirtyRooms.length} ${dirtyRooms.length === 1 ? 'room needs' : 'rooms need'} attention`;
 
   if (loading || loadError) return <div className="flex-1 flex flex-col"><Topbar title="Overview" /><main className="p-6 space-y-4" aria-live="polite">{loadError ? <><h2 className="text-xl font-serif">We could not load your overview</h2><p>Check your connection and try again.</p><button onClick={fetchData} className="min-h-11 px-4 rounded bg-[#71382D] text-white">Try again</button></> : <><span className="sr-only">Loading your overview</span><div className="h-40 bg-[#F7F1E8] rounded-xl animate-pulse" /><div className="h-64 bg-[#F7F1E8] rounded-xl animate-pulse" /></>}</main></div>;
 
@@ -204,19 +207,60 @@ export default function OverviewPage() {
 
       <main className="flex-1 overflow-y-auto p-4 sm:p-8 lg:p-10 space-y-8 max-w-7xl w-full mx-auto">
         {/* Warm Executive Hospitality Briefing Banner */}
-        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
-          <div className="space-y-2">
-            <p className="text-sm text-[#7A7267]">{currentDateStr || 'Today'} · {propertyName}</p>
-            <h1 className="text-3xl sm:text-4xl font-serif text-[#191816]">
-              Good day, {userName ? userName.split(' ')[0] : 'there'}
-            </h1>
-            <p className="text-sm text-[#5C564D]">{arrivals.length} arrivals · {departures.length} departures · {dirtyRooms.length} rooms need attention</p>
+        <section
+          aria-label="Overview briefing"
+          className="relative overflow-hidden rounded-xl border border-[#E5D4BC] bg-[#F7F1E8] p-5 sm:p-6 lg:py-6 lg:px-7 shadow-2xs"
+        >
+          {/* Subtle Terracotta accent line */}
+          <div className="absolute top-0 left-0 right-0 h-[2px] bg-[#B85C3E]" />
+
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5 sm:gap-6">
+            <div className="space-y-1 sm:space-y-1.5">
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                <span className="font-mono text-[11px] uppercase tracking-wider text-[#8C8275]">
+                  {currentDateStr || 'Today'}
+                </span>
+                <span className="text-[#C4B8A5]">·</span>
+                <span className="font-medium text-[#71382D] truncate max-w-[240px] sm:max-w-none">
+                  {propertyName}
+                </span>
+              </div>
+
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-serif text-[#191816] tracking-tight">
+                Good day, {userName ? userName.split(' ')[0] : 'there'}
+              </h1>
+
+              <p className="text-xs sm:text-sm text-[#5C564D] leading-relaxed">
+                {arrivalsText}
+                <span className="mx-1.5 text-[#C4B8A5]">·</span>
+                {departuresText}
+                <span className="mx-1.5 text-[#C4B8A5]">·</span>
+                {roomsAttentionText}
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2.5 sm:gap-3 flex-wrap sm:flex-nowrap pt-1 lg:pt-0">
+              <a
+                href={directWebsiteUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 px-3 py-2 sm:px-3.5 sm:py-2.5 rounded-lg border border-[#E5D4BC] bg-white/80 hover:bg-white text-[#71382D] hover:text-[#5E2B21] text-xs sm:text-sm font-medium transition-all shadow-2xs hover:border-[#D5C2A5] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#71382D]"
+              >
+                <span>View website</span>
+                <ArrowUpRight className="w-3.5 h-3.5 text-[#B85C3E]" />
+              </a>
+
+              <button
+                type="button"
+                onClick={() => setNewResOpen(true)}
+                className="inline-flex items-center gap-1.5 px-4 py-2 sm:px-4.5 sm:py-2.5 rounded-lg bg-[#B85C3E] hover:bg-[#A34E32] active:bg-[#8F432B] text-white text-xs sm:text-sm font-medium transition-all shadow-xs cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B85C3E] focus-visible:ring-offset-2"
+              >
+                <Plus className="w-4 h-4" />
+                <span>New reservation</span>
+              </button>
+            </div>
           </div>
-          <div className="flex items-center gap-3">
-            <a href={directWebsiteUrl} className="text-sm text-[#5C564D] underline">{propertySlug ? `${propertySlug}.sena.ng` : 'Website'}</a>
-            <button type="button" onClick={() => setNewResOpen(true)} className="px-4 py-2.5 rounded-md bg-[#71382D] text-white text-sm">New reservation</button>
-          </div>
-        </div>
+        </section>
 
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-8 border-y border-[#E8E2DA] py-6">
           <Link href="/rooms" className="space-y-1">
