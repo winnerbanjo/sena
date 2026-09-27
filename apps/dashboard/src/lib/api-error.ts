@@ -7,6 +7,8 @@ export function apiError(error: unknown): string {
   if (/hold has expired/i.test(message)) return 'Your room hold has expired. Please choose your room again.';
   if (/check-out must be after/i.test(message)) return 'Check-out must be after check-in.';
   if (/available, clean room|not clean and ready/i.test(message)) return 'Choose an available, clean room of the booked room type.';
+  if (/staff member is not available/i.test(message)) return 'This staff member is not available in your property.';
+  if (/valid housekeeping status/i.test(message)) return 'Choose a valid housekeeping status.';
   if (/Choose a room in this room type/i.test(message)) return 'Choose a room in this room type.';
   if (/room assignment changed/i.test(message)) return 'Only confirmed reservations can have their room assignment changed.';
   if (/Only confirmed reservations/i.test(message)) return 'Only confirmed reservations can be checked in.';

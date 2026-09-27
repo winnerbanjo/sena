@@ -422,6 +422,9 @@ importers:
       '@sena/database':
         specifier: workspace:*
         version: link:../database
+      '@sena/housekeeping':
+        specifier: workspace:*
+        version: link:../housekeeping
       '@sena/inventory':
         specifier: workspace:*
         version: link:../inventory

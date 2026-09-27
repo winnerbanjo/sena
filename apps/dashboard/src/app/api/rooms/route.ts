@@ -3,7 +3,7 @@ import { withMerchant } from '@/lib/merchant-route';
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { db, roomTypes, rooms, reservations, housekeepingTasks, properties, propertyMembers, organizationMembers, users } from '@sena/database';
-import { eq, desc, ilike } from 'drizzle-orm';
+import { and, eq, desc, ilike, inArray } from 'drizzle-orm';
 
 import { resolveTenantForRequest } from '@/lib/tenant';
 
@@ -48,9 +48,35 @@ async function handleGET(req: NextRequest) {
       .where(eq(rooms.propertyId, propertyId))
       .orderBy(rooms.roomNumber);
 
+    const openTasks = await db
+      .select({
+        roomId: housekeepingTasks.roomId,
+        taskId: housekeepingTasks.id,
+        taskStatus: housekeepingTasks.status,
+        assignedToUserId: housekeepingTasks.assignedToUserId,
+        assignedTo: users.fullName,
+        updatedAt: housekeepingTasks.updatedAt,
+      })
+      .from(housekeepingTasks)
+      .leftJoin(users, eq(housekeepingTasks.assignedToUserId, users.id))
+      .where(and(eq(housekeepingTasks.propertyId, propertyId), inArray(housekeepingTasks.status, ['dirty', 'cleaning'])));
+
+    const taskByRoom = new Map<string, (typeof openTasks)[number]>();
+    for (const task of openTasks) {
+      if (!taskByRoom.has(task.roomId)) taskByRoom.set(task.roomId, task);
+    }
+
     return NextResponse.json({
       roomTypes: fetchedRoomTypes,
-      rooms: fetchedRooms,
+      rooms: fetchedRooms.map((room) => {
+        const task = taskByRoom.get(room.id);
+        return {
+          ...room,
+          housekeepingTaskId: task?.taskId || null,
+          housekeepingAssigneeId: task?.assignedToUserId || null,
+          housekeepingAssignee: task?.assignedTo || null,
+        };
+      }),
     });
   } catch (error: any) {
     console.error('Error fetching rooms:', error);
