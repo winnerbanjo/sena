@@ -59,8 +59,7 @@ export const middleware = auth((req) => {
   // "Visit Deployment" link. This branch is never promoted to production.
   if (
     process.env.VERCEL_ENV === 'preview' &&
-    pathname === '/' &&
-    url.searchParams.has('__vercel_toolbar_code')
+    pathname === '/'
   ) {
     return NextResponse.rewrite(new URL('/api/region-probe', req.url));
   }
