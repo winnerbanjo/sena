@@ -42,6 +42,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { SenaConnectHub } from '../../components/sena-connect-hub';
+import { getAccessibleTextColor, normalizeHexColor } from '../../lib/theme-provider';
 
 export interface GalleryItem {
   url: string;
@@ -79,6 +80,12 @@ function WebsiteContent() {
   const [publishing, setPublishing] = React.useState(false);
   const [publishSuccess, setPublishSuccess] = React.useState(false);
   const [lastPublished, setLastPublished] = React.useState<string | null>(null);
+
+  // Draft vs Published tracking & Live preview ref
+  const iframeRef = React.useRef<HTMLIFrameElement>(null);
+  const [hasDraftChanges, setHasDraftChanges] = React.useState(false);
+  const [isPublished, setIsPublished] = React.useState(true);
+  const [initialSnapshot, setInitialSnapshot] = React.useState<string | null>(null);
 
   // Property info
   const [propertyId, setPropertyId] = React.useState('');
@@ -148,7 +155,10 @@ function WebsiteContent() {
       if (res.ok) {
         const data = await res.json();
         const p = data.property;
-        const c = data.config;
+        // Prioritize draftConfig if available so operator sees their active working draft
+        const c = data.draftConfig || data.config;
+        setHasDraftChanges(Boolean(data.hasDraftChanges));
+        setIsPublished(Boolean(data.isPublished));
 
         if (p) {
           if (p.id) setPropertyId(p.id);
@@ -160,41 +170,86 @@ function WebsiteContent() {
         }
 
         if (c) {
-          setTheme(c.theme || 'sena_one');
-          if (c.brandColors) {
-            setPrimaryColor(c.brandColors.primaryColor || '#71382D');
-            setAccentColor(c.brandColors.accentColor || '#B85C3E');
+          const chosenTheme = c.theme || 'sena_one';
+          const pColor = c.brandColors?.primaryColor || '#71382D';
+          const aColor = c.brandColors?.accentColor || '#B85C3E';
+          const hFont = c.typography?.headingFont || 'serif';
+          const bStyle = c.buttonStyle || 'soft';
+          const lUrl = c.logoUrl || '';
+          const hHeadline = c.heroHeadline || `Experience Warm Hospitality at ${p?.name || 'Our Property'}`;
+          const hSubheading = c.heroSubheading || '';
+          const hImageUrl = c.heroImageUrl || '';
+          const hCta = c.heroCtaLabel || 'Reserve Your Stay';
+          const wEyebrow = c.welcomeEyebrow || 'Hospitality, Simplified';
+          const wTitle = c.welcomeTitle || 'A Tranquil Sanctuary in the City';
+          const wBody = c.welcomeBody || '';
+          const aStory = c.aboutStory || '';
+          const gImages = c.galleryImages && Array.isArray(c.galleryImages) && c.galleryImages.length > 0
+            ? c.galleryImages
+            : [
+                { url: 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=1000&q=80', category: 'Rooms', caption: 'Executive Suite' },
+                { url: 'https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&w=1000&q=80', category: 'Rooms', caption: 'Deluxe Residence' },
+                { url: 'https://images.unsplash.com/photo-1571896349842-33c89424de2d?auto=format&fit=crop&w=1000&q=80', category: 'Property', caption: 'Garden & Pool' },
+                { url: 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=1000&q=80', category: 'Experiences', caption: 'Evening Lounge' },
+              ];
+          const cPhone = c.contactPhone || p?.phone || '';
+          const cEmail = c.contactEmail || p?.email || '';
+          const cWhatsapp = c.contactWhatsapp || p?.phone || '';
+          const wEnabled = c.whatsappEnabled ?? true;
+          const sTitle = c.seoTitle || `${p?.name || 'Hotel'} | Boutique Direct Stays`;
+          const sDescription = c.seoDescription || '';
+
+          setTheme(chosenTheme);
+          setPrimaryColor(pColor);
+          setAccentColor(aColor);
+          setHeadingFont(hFont);
+          setButtonStyle(bStyle);
+          setLogoUrl(lUrl);
+          setHeroHeadline(hHeadline);
+          setHeroSubheading(hSubheading);
+          setHeroImageUrl(hImageUrl);
+          setHeroCtaLabel(hCta);
+          setWelcomeEyebrow(wEyebrow);
+          setWelcomeTitle(wTitle);
+          setWelcomeBody(wBody);
+          setAboutStory(aStory);
+          setGalleryImages(gImages);
+          setContactPhone(cPhone);
+          setContactEmail(cEmail);
+          setContactWhatsapp(cWhatsapp);
+          setWhatsappEnabled(wEnabled);
+          setSeoTitle(sTitle);
+          setSeoDescription(sDescription);
+
+          if (data.publishedAt || c.publishedAt) {
+            setLastPublished(new Date(data.publishedAt || c.publishedAt).toLocaleString());
           }
-          if (c.typography) {
-            setHeadingFont(c.typography.headingFont || 'serif');
-          }
-          setButtonStyle(c.buttonStyle || 'soft');
-          setLogoUrl(c.logoUrl || '');
-          setHeroHeadline(c.heroHeadline || `Experience Warm Hospitality at ${p?.name || 'Our Property'}`);
-          setHeroSubheading(c.heroSubheading || '');
-          setHeroImageUrl(c.heroImageUrl || '');
-          setHeroCtaLabel(c.heroCtaLabel || 'Reserve Your Stay');
-          setWelcomeEyebrow(c.welcomeEyebrow || 'Hospitality, Simplified');
-          setWelcomeTitle(c.welcomeTitle || 'A Tranquil Sanctuary in the City');
-          setWelcomeBody(c.welcomeBody || '');
-          setAboutStory(c.aboutStory || '');
-          if (c.galleryImages && Array.isArray(c.galleryImages) && c.galleryImages.length > 0) {
-            setGalleryImages(c.galleryImages);
-          } else {
-            setGalleryImages([
-              { url: 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=1000&q=80', category: 'Rooms', caption: 'Executive Suite' },
-              { url: 'https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&w=1000&q=80', category: 'Rooms', caption: 'Deluxe Residence' },
-              { url: 'https://images.unsplash.com/photo-1571896349842-33c89424de2d?auto=format&fit=crop&w=1000&q=80', category: 'Property', caption: 'Garden & Pool' },
-              { url: 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=1000&q=80', category: 'Experiences', caption: 'Evening Lounge' },
-            ]);
-          }
-          setContactPhone(c.contactPhone || p?.phone || '');
-          setContactEmail(c.contactEmail || p?.email || '');
-          setContactWhatsapp(c.contactWhatsapp || p?.phone || '');
-          setWhatsappEnabled(c.whatsappEnabled ?? true);
-          setSeoTitle(c.seoTitle || `${p?.name || 'Hotel'} | Boutique Direct Stays`);
-          setSeoDescription(c.seoDescription || '');
-          if (c.publishedAt) setLastPublished(new Date(c.publishedAt).toLocaleString());
+
+          // Save baseline snapshot to detect unsaved changes
+          const baseline = JSON.stringify({
+            theme: chosenTheme,
+            primaryColor: pColor,
+            accentColor: aColor,
+            buttonStyle: bStyle,
+            headingFont: hFont,
+            logoUrl: lUrl,
+            heroHeadline: hHeadline,
+            heroSubheading: hSubheading,
+            heroImageUrl: hImageUrl,
+            heroCtaLabel: hCta,
+            welcomeEyebrow: wEyebrow,
+            welcomeTitle: wTitle,
+            welcomeBody: wBody,
+            aboutStory: aStory,
+            galleryImages: gImages,
+            contactPhone: cPhone,
+            contactEmail: cEmail,
+            contactWhatsapp: cWhatsapp,
+            whatsappEnabled: wEnabled,
+            seoTitle: sTitle,
+            seoDescription: sDescription,
+          });
+          setInitialSnapshot(baseline);
         }
       }
     } catch (e) {
@@ -220,12 +275,102 @@ function WebsiteContent() {
     fetchReviews();
   }, [fetchWebsiteData, fetchReviews]);
 
-  // Save Draft
+  // Track Unsaved Changes (Dirty State)
+  const currentSnapshot = JSON.stringify({
+    theme,
+    primaryColor,
+    accentColor,
+    buttonStyle,
+    headingFont,
+    logoUrl,
+    heroHeadline,
+    heroSubheading,
+    heroImageUrl,
+    heroCtaLabel,
+    welcomeEyebrow,
+    welcomeTitle,
+    welcomeBody,
+    aboutStory,
+    galleryImages,
+    contactPhone,
+    contactEmail,
+    contactWhatsapp,
+    whatsappEnabled,
+    seoTitle,
+    seoDescription,
+  });
+
+  const isDirty = initialSnapshot !== null && initialSnapshot !== currentSnapshot;
+
+  // Unsaved changes navigation warning
+  React.useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isDirty) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isDirty]);
+
+  // Real-time Preview Sync via postMessage to iframe
+  React.useEffect(() => {
+    if (!iframeRef.current?.contentWindow) return;
+    try {
+      iframeRef.current.contentWindow.postMessage(
+        {
+          type: 'SENA_CMS_PREVIEW_UPDATE',
+          config: {
+            theme,
+            brandColors: { primaryColor, accentColor },
+            typography: { headingFont, bodyFont: 'sans' },
+            buttonStyle,
+            heroHeadline,
+            heroSubheading,
+            heroImageUrl,
+            heroCtaLabel,
+            welcomeEyebrow,
+            welcomeTitle,
+            welcomeBody,
+            aboutStory,
+            contactPhone,
+            contactEmail,
+            contactWhatsapp,
+            whatsappEnabled,
+          },
+        },
+        '*'
+      );
+    } catch {
+      // Ignore cross-origin frame postMessage timing errors
+    }
+  }, [
+    theme,
+    primaryColor,
+    accentColor,
+    buttonStyle,
+    headingFont,
+    heroHeadline,
+    heroSubheading,
+    heroImageUrl,
+    heroCtaLabel,
+    welcomeEyebrow,
+    welcomeTitle,
+    welcomeBody,
+    aboutStory,
+    contactPhone,
+    contactEmail,
+    contactWhatsapp,
+    whatsappEnabled,
+  ]);
+
+  // Save Draft (Only persists to draft_config, leaving public website untouched)
   const handleSaveDraft = async () => {
     setSaving(true);
     try {
       const payload = {
-        draftOnly: false,
+        draftOnly: true,
         theme,
         brandColors: { primaryColor, accentColor },
         typography: { headingFont, bodyFont: 'sans' },
@@ -255,13 +400,16 @@ function WebsiteContent() {
       });
 
       if (res.ok) {
+        setInitialSnapshot(currentSnapshot);
+        setHasDraftChanges(true);
         setSaveSuccess(true);
         setTimeout(() => setSaveSuccess(false), 3000);
       } else {
-        alert('Failed to save changes');
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || 'Failed to save draft changes');
       }
-    } catch (e) {
-      alert('Error saving website config');
+    } catch {
+      alert('Error saving website draft');
     } finally {
       setSaving(false);
     }
@@ -382,11 +530,12 @@ function WebsiteContent() {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          draftOnly: false,
+          draftOnly: true,
           galleryImages: payloadImages,
         }),
       });
       if (res.ok) {
+        setHasDraftChanges(true);
         setSaveSuccess(true);
         setTimeout(() => setSaveSuccess(false), 3000);
       } else {
@@ -414,21 +563,60 @@ function WebsiteContent() {
     await handleSaveGallery(updated);
   };
 
-  // Publish to Live
+  // Publish to Live (Atomically promotes draft configuration to live public website)
   const handlePublish = async () => {
     setPublishing(true);
     try {
-      // First save latest inputs
-      await handleSaveDraft();
+      // First save current inputs as draft
+      const payload = {
+        draftOnly: true,
+        theme,
+        brandColors: { primaryColor, accentColor },
+        typography: { headingFont, bodyFont: 'sans' },
+        buttonStyle,
+        logoUrl: logoUrl || null,
+        heroHeadline,
+        heroSubheading,
+        heroImageUrl,
+        heroCtaLabel,
+        welcomeEyebrow,
+        welcomeTitle,
+        welcomeBody,
+        aboutStory,
+        galleryImages,
+        contactPhone,
+        contactEmail,
+        contactWhatsapp,
+        whatsappEnabled,
+        seoTitle,
+        seoDescription,
+      };
 
+      const saveRes = await fetch('/api/website', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!saveRes.ok) {
+        const err = await saveRes.json().catch(() => ({}));
+        alert(err.error || 'Failed to prepare draft before publishing');
+        setPublishing(false);
+        return;
+      }
+
+      // Promote draft atomically to published state
       const res = await fetch('/api/website', { method: 'PATCH' });
       if (res.ok) {
-        const data = await res.json();
+        setInitialSnapshot(currentSnapshot);
+        setHasDraftChanges(false);
+        setIsPublished(true);
         setPublishSuccess(true);
         setLastPublished(new Date().toLocaleString());
         setTimeout(() => setPublishSuccess(false), 4000);
       } else {
-        alert('Failed to publish website');
+        const err = await res.json().catch(() => ({}));
+        alert(err.error || 'Failed to publish website');
       }
     } catch {
       alert('Error publishing website');
@@ -564,7 +752,7 @@ function WebsiteContent() {
 
   const workingDirectUrl = `https://app.sena.ng/${propertySlug}`;
   const subdomainUrl = `https://${propertySlug}.sena.ng`;
-  const previewUrl = `/site/${propertySlug}`;
+  const previewUrl = propertySlug ? `/site/${propertySlug}?preview=1` : '';
 
   const copyUrl = () => {
     navigator.clipboard?.writeText(subdomainUrl);
@@ -585,10 +773,26 @@ function WebsiteContent() {
                 <h2 className="text-xl sm:text-2xl font-serif font-normal text-[#191816]">
                   {propertyName} Direct Website
                 </h2>
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-800 border border-emerald-200">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  Live &amp; Active
-                </span>
+                {isDirty ? (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-800 border border-amber-200">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                    Unsaved changes
+                  </span>
+                ) : hasDraftChanges ? (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-stone-100 text-stone-700 border border-stone-200">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-stone-500" />
+                    Draft saved &middot; Not published
+                  </span>
+                ) : isPublished ? (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-800 border border-emerald-200">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    Live &amp; Active
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-stone-100 text-stone-600 border border-stone-200">
+                    Draft only
+                  </span>
+                )}
               </div>
               <p className="text-xs text-[#7A7267] mt-1">
                 Luxury direct booking website &middot; Instant confirmation &middot; Powered by Sena Engine
@@ -677,16 +881,16 @@ function WebsiteContent() {
           </div>
         </div>
 
-        {/* Deployment Strategy Switcher */}
+        {/* Website Hosting Switcher */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#FAF8F5] border border-[#E8E2DA] p-3.5 rounded-xl">
           <div>
             <span className="text-[10px] font-mono uppercase tracking-wider text-[#7A7267] font-semibold">
-              Deployment Architecture
+              Website Hosting
             </span>
             <p className="text-xs text-[#191816] font-medium mt-0.5">
               {activeTab === 'connect'
-                ? 'External Custom Website Mode (Next.js / Webflow / Static connected via API & Embeds)'
-                : 'Sena Hosted Engine Mode (Autonomous zero-code luxury website generated by Sena)'}
+                ? 'External Custom Website (Connected via Sena API & Embeds)'
+                : 'Sena Hosted Website (Dynamic Luxury Direct Booking Engine)'}
             </p>
           </div>
           <div className="flex items-center gap-1.5 bg-white border border-[#E8E2DA] p-1 rounded-lg">
@@ -768,6 +972,19 @@ function WebsiteContent() {
                 <Smartphone className="w-3.5 h-3.5" />
                 <span className="text-[11px]">Mobile (375px)</span>
               </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (iframeRef.current) {
+                    iframeRef.current.src = previewUrl;
+                  }
+                }}
+                className="p-1.5 rounded text-xs flex items-center gap-1 text-[#7A7267] hover:text-[#191816] transition-colors"
+                title="Reload preview"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span className="text-[11px]">Reload</span>
+              </button>
             </div>
           )}
         </div>
@@ -792,12 +1009,14 @@ function WebsiteContent() {
                     <ShieldCheck className="w-3 h-3 text-emerald-600" />
                     <span className="text-[#191816] font-mono">https://{propertySlug}.sena.ng</span>
                   </div>
-                  <span className="text-[10px] text-emerald-700 bg-emerald-50 px-1 rounded font-medium">SSL Secure</span>
+                  <span className="text-[10px] text-emerald-700 bg-emerald-50 px-1 rounded font-medium">Draft Preview Mode</span>
                 </div>
               </div>
 
               {/* Embedded Live Iframe or Visual Preview */}
               <iframe
+                ref={iframeRef}
+                key={propertySlug}
                 src={previewUrl}
                 className="w-full h-[640px] border-0 bg-white"
                 title="Website Live Preview"
@@ -825,7 +1044,7 @@ function WebsiteContent() {
                     name: 'Sena One',
                     vibe: 'Modern Luxury',
                     desc: 'Cinematic full-width imagery, clean sans typography, bold room cards, and generous whitespace.',
-                    badge: 'Popular for Suites & Serviced Apts',
+                    badge: 'Suites & Serviced Apts',
                   },
                   {
                     id: 'sena_two',
@@ -874,50 +1093,144 @@ function WebsiteContent() {
               <div>
                 <h3 className="text-base font-semibold text-[#191816]">Brand Palette &amp; Accents</h3>
                 <p className="text-xs text-[#7A7267]">
-                  Define the signature tones that will subtly tint buttons, badges, and highlights across your site.
+                  Define the signature tones that tint buttons, badges, and highlights across your site.
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                <div>
-                  <label className="block text-xs font-medium text-[#191816] mb-1">
-                    Primary Brand Color
-                  </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                {/* Primary Brand Color */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs font-medium text-[#191816]">
+                      Primary Brand Color
+                    </label>
+                    <span className="text-[10px] font-mono text-[#7A7267]">
+                      Buttons &amp; Main CTAs
+                    </span>
+                  </div>
                   <div className="flex items-center gap-3">
                     <input
                       type="color"
-                      value={primaryColor}
+                      value={normalizeHexColor(primaryColor)}
                       onChange={(e) => setPrimaryColor(e.target.value)}
-                      className="w-10 h-10 rounded border border-[#E8E2DA] cursor-pointer p-0.5"
+                      className="w-10 h-10 rounded border border-[#E8E2DA] cursor-pointer p-0.5 shrink-0"
                     />
                     <input
                       type="text"
                       value={primaryColor}
                       onChange={(e) => setPrimaryColor(e.target.value)}
+                      placeholder="#71382D"
                       className="w-28 px-3 py-2 rounded border border-[#E8E2DA] font-mono text-xs text-[#191816]"
                     />
+                  </div>
+                  {/* Preset Swatches */}
+                  <div className="flex items-center gap-1.5 pt-1">
+                    <span className="text-[10px] text-[#7A7267] mr-1">Presets:</span>
+                    {[
+                      { hex: '#71382D', label: 'Sena Heritage' },
+                      { hex: '#191816', label: 'Deep Noir' },
+                      { hex: '#1A365D', label: 'Midnight Navy' },
+                      { hex: '#1B4D3E', label: 'Forest' },
+                      { hex: '#2D3748', label: 'Slate Charcoal' },
+                      { hex: '#8B5A2B', label: 'Warm Bronze' },
+                    ].map((swatch) => (
+                      <button
+                        key={swatch.hex}
+                        type="button"
+                        onClick={() => setPrimaryColor(swatch.hex)}
+                        title={swatch.label}
+                        className={`w-5 h-5 rounded-full border transition-transform ${
+                          primaryColor.toLowerCase() === swatch.hex.toLowerCase()
+                            ? 'scale-110 ring-2 ring-[#71382D]/40 border-white'
+                            : 'border-black/10 hover:scale-105'
+                        }`}
+                        style={{ backgroundColor: swatch.hex }}
+                      />
+                    ))}
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-medium text-[#191816] mb-1">
-                    Secondary Accent Color
-                  </label>
+                {/* Secondary Accent Color */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs font-medium text-[#191816]">
+                      Secondary Accent Color
+                    </label>
+                    <span className="text-[10px] font-mono text-[#7A7267]">
+                      Badges &amp; Highlights
+                    </span>
+                  </div>
                   <div className="flex items-center gap-3">
                     <input
                       type="color"
-                      value={accentColor}
+                      value={normalizeHexColor(accentColor)}
                       onChange={(e) => setAccentColor(e.target.value)}
-                      className="w-10 h-10 rounded border border-[#E8E2DA] cursor-pointer p-0.5"
+                      className="w-10 h-10 rounded border border-[#E8E2DA] cursor-pointer p-0.5 shrink-0"
                     />
                     <input
                       type="text"
                       value={accentColor}
                       onChange={(e) => setAccentColor(e.target.value)}
+                      placeholder="#B85C3E"
                       className="w-28 px-3 py-2 rounded border border-[#E8E2DA] font-mono text-xs text-[#191816]"
                     />
                   </div>
+                  {/* Preset Swatches */}
+                  <div className="flex items-center gap-1.5 pt-1">
+                    <span className="text-[10px] text-[#7A7267] mr-1">Presets:</span>
+                    {[
+                      { hex: '#B85C3E', label: 'Terracotta' },
+                      { hex: '#C5A059', label: 'Champagne Gold' },
+                      { hex: '#4A7C59', label: 'Sage Green' },
+                      { hex: '#8C6D62', label: 'Earthy Taupe' },
+                      { hex: '#2E6B4F', label: 'Emerald' },
+                      { hex: '#7A4B3A', label: 'Warm Rust' },
+                    ].map((swatch) => (
+                      <button
+                        key={swatch.hex}
+                        type="button"
+                        onClick={() => setAccentColor(swatch.hex)}
+                        title={swatch.label}
+                        className={`w-5 h-5 rounded-full border transition-transform ${
+                          accentColor.toLowerCase() === swatch.hex.toLowerCase()
+                            ? 'scale-110 ring-2 ring-[#71382D]/40 border-white'
+                            : 'border-black/10 hover:scale-105'
+                        }`}
+                        style={{ backgroundColor: swatch.hex }}
+                      />
+                    ))}
+                  </div>
                 </div>
+              </div>
+
+              {/* Accessible Contrast & Button Preview Chip */}
+              <div className="p-4 rounded-xl bg-[#FAF7F2] border border-[#E8E2DA] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-mono uppercase tracking-wider text-[#7A7267] font-semibold">
+                      Live Button Contrast &amp; Style Preview
+                    </span>
+                    <span className="text-[10px] text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 font-medium">
+                      WCAG 2.1 Compliant
+                    </span>
+                  </div>
+                  <p className="text-xs text-[#5C564D]">
+                    Primary CTA text automatically chooses{' '}
+                    <strong className="font-mono">{getAccessibleTextColor(primaryColor) === '#ffffff' ? 'White text' : 'Dark text'}</strong>{' '}
+                    for guaranteed high contrast readability.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  style={{
+                    backgroundColor: primaryColor,
+                    color: getAccessibleTextColor(primaryColor),
+                    borderRadius: buttonStyle === 'square' ? '0px' : buttonStyle === 'soft' ? '6px' : '9999px',
+                  }}
+                  className="px-5 py-2.5 text-xs font-semibold shadow-xs shrink-0 transition-all pointer-events-none"
+                >
+                  {heroCtaLabel || 'Reserve Your Stay'}
+                </button>
               </div>
 
               {/* Button Shape */}

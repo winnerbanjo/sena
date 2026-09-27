@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { notFound } from 'next/navigation';
+import { headers } from 'next/headers';
 import { getWebsiteData } from '../../../lib/website-data';
 import { ThemeProvider } from '../../../lib/theme-provider';
 import { Header } from '../../../components/public-site/Header';
@@ -29,14 +30,16 @@ export default async function TenantSiteLayout({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const data = await getWebsiteData(slug);
+  const headerList = await headers();
+  const isPreview = headerList.get('x-sena-preview') === 'true';
+  const data = await getWebsiteData(slug, isPreview);
 
   if (!data) {
     return notFound();
   }
 
   return (
-    <ThemeProvider config={data.config}>
+    <ThemeProvider config={data.config} isPreview={isPreview}>
       <div className="flex flex-col min-h-screen justify-between bg-white">
         <Header data={data} />
         <main className="flex-1">{children}</main>

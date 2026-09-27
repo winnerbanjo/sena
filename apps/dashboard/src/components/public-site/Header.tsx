@@ -4,12 +4,25 @@ import * as React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { WebsiteData } from '../../lib/website-data';
+import { useTheme } from '../../lib/theme-provider';
 import { Menu, X, ArrowRight } from 'lucide-react';
 
 export function Header({ data, currentPath }: { data: WebsiteData; currentPath?: string }) {
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
   const pathname = usePathname();
-  const { property, config } = data;
+  const themeContext = useTheme();
+
+  const config = themeContext?.config || data.config;
+  const primaryButtonStyle = themeContext?.primaryButtonStyle || {
+    backgroundColor: 'var(--theme-primary, #71382D)',
+    color: 'var(--theme-primary-fg, #FFFFFF)',
+    borderRadius: 'var(--theme-radius, 6px)',
+  };
+  const headingStyle = themeContext?.headingStyle || {
+    fontFamily: 'var(--theme-heading-font)',
+  };
+
+  const { property } = data;
   const slug = property.slug;
 
   const isSitePath = pathname?.startsWith('/site/');
@@ -38,7 +51,10 @@ export function Header({ data, currentPath }: { data: WebsiteData; currentPath?:
             />
           ) : (
             <div className="flex flex-col">
-              <span className="font-serif text-xl sm:text-2xl text-[#191816] tracking-tight font-medium group-hover:text-[#71382D] transition-colors">
+              <span
+                style={headingStyle}
+                className="text-xl sm:text-2xl text-[#191816] tracking-tight font-medium group-hover:opacity-80 transition-opacity"
+              >
                 {property.name}
               </span>
               <span className="text-[10px] tracking-widest uppercase font-mono text-[#7A7267] -mt-0.5">
@@ -65,11 +81,8 @@ export function Header({ data, currentPath }: { data: WebsiteData; currentPath?:
         <div className="hidden sm:flex items-center gap-3">
           <Link
             href={`${base}/rooms`}
-            className="px-5 py-2.5 text-xs font-semibold text-white bg-[#71382D] hover:bg-[#5A2C23] shadow-xs hover:shadow-sm transition-all inline-flex items-center justify-center gap-2 whitespace-nowrap active:scale-[0.98]"
-            style={{
-              borderRadius: 'var(--theme-radius, 6px)',
-              backgroundColor: 'var(--theme-primary, #71382D)',
-            }}
+            style={primaryButtonStyle}
+            className="px-5 py-2.5 text-xs font-semibold shadow-xs hover:shadow-sm transition-all inline-flex items-center justify-center gap-2 whitespace-nowrap active:scale-[0.98]"
           >
             <span>{config.heroCtaLabel || 'Reserve Your Stay'}</span>
             <ArrowRight className="w-3.5 h-3.5 shrink-0" />
@@ -106,11 +119,8 @@ export function Header({ data, currentPath }: { data: WebsiteData; currentPath?:
             <Link
               href={`${base}/rooms`}
               onClick={() => setMobileMenuOpen(false)}
-              className="w-full py-3 px-5 text-center text-xs font-semibold text-white bg-[#71382D] hover:bg-[#5A2C23] block shadow-xs transition-all"
-              style={{
-                borderRadius: 'var(--theme-radius, 6px)',
-                backgroundColor: 'var(--theme-primary, #71382D)',
-              }}
+              style={primaryButtonStyle}
+              className="w-full py-3 px-5 text-center text-xs font-semibold block shadow-xs transition-all active:scale-[0.98]"
             >
               {config.heroCtaLabel || 'Reserve Your Stay'}
             </Link>

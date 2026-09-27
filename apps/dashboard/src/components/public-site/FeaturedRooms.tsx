@@ -4,11 +4,28 @@ import * as React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { WebsiteData } from '../../lib/website-data';
+import { useTheme } from '../../lib/theme-provider';
 import { Users, BedDouble, ArrowRight, Check } from 'lucide-react';
 
 export function FeaturedRooms({ data }: { data: WebsiteData }) {
   const pathname = usePathname();
-  const { property, rooms, config } = data;
+  const themeContext = useTheme();
+
+  const config = themeContext?.config || data.config;
+  const tokens = themeContext?.tokens;
+  const primaryButtonStyle = themeContext?.primaryButtonStyle || {
+    backgroundColor: 'var(--theme-primary, #71382D)',
+    color: 'var(--theme-primary-fg, #FFFFFF)',
+    borderRadius: 'var(--theme-radius, 6px)',
+  };
+  const secondaryButtonStyle = themeContext?.secondaryButtonStyle || {
+    borderRadius: 'var(--theme-radius, 6px)',
+  };
+  const headingStyle = themeContext?.headingStyle || {
+    fontFamily: 'var(--theme-heading-font)',
+  };
+
+  const { property, rooms } = data;
   const slug = property.slug;
   const isSitePath = pathname?.startsWith('/site/');
   const base = isSitePath ? `/site/${slug}` : '';
@@ -20,10 +37,16 @@ export function FeaturedRooms({ data }: { data: WebsiteData }) {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-[#E8E2DA] pb-5">
           <div className="space-y-1">
-            <span className="text-[11px] font-mono tracking-widest uppercase text-[#B85C3E] block">
+            <span
+              style={{ color: tokens?.accentColor || 'var(--theme-accent, #B85C3E)' }}
+              className="text-[11px] font-mono tracking-widest uppercase font-semibold block"
+            >
               Accommodations
             </span>
-            <h2 className="text-2xl sm:text-3xl font-serif text-[#191816] font-normal">
+            <h2
+              style={headingStyle}
+              className="text-2xl sm:text-3xl text-[#191816] font-normal"
+            >
               Featured Residences &amp; Suites
             </h2>
             <p className="text-xs sm:text-sm text-[#7A7267] max-w-xl">
@@ -33,7 +56,8 @@ export function FeaturedRooms({ data }: { data: WebsiteData }) {
 
           <Link
             href={`${base}/rooms`}
-            className="text-xs font-medium text-[#71382D] hover:text-[#B85C3E] inline-flex items-center gap-1 group"
+            style={{ color: tokens?.primaryColor || 'var(--theme-primary, #71382D)' }}
+            className="text-xs font-semibold inline-flex items-center gap-1 group"
           >
             <span>View all {rooms.length} suites</span>
             <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-1" />
@@ -44,13 +68,15 @@ export function FeaturedRooms({ data }: { data: WebsiteData }) {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
           {rooms.slice(0, 3).map((room) => {
             const formattedPrice = `₦${(room.basePriceMinorUnits / 100).toLocaleString('en-NG')}`;
-            const photoUrl = room.images[0] || 'https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&w=1000&q=80';
+            const photoUrl =
+              room.images[0] ||
+              'https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&w=1000&q=80';
 
             return (
               <div
                 key={room.id}
                 className="bg-white rounded-xl border border-[#E8E2DA] overflow-hidden shadow-xs hover:shadow-md transition-all flex flex-col group"
-                style={{ borderRadius: 'var(--theme-radius, 12px)' }}
+                style={{ borderRadius: tokens?.borderRadius || 'var(--theme-radius, 12px)' }}
               >
                 {/* Image */}
                 <div className="relative aspect-[16/10] overflow-hidden bg-stone-100">
@@ -67,7 +93,10 @@ export function FeaturedRooms({ data }: { data: WebsiteData }) {
                 {/* Details */}
                 <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
                   <div>
-                    <h3 className="font-serif text-lg font-medium text-[#191816] group-hover:text-[#71382D] transition-colors">
+                    <h3
+                      style={headingStyle}
+                      className="text-lg font-medium text-[#191816] transition-colors"
+                    >
                       {room.name}
                     </h3>
 
@@ -104,15 +133,15 @@ export function FeaturedRooms({ data }: { data: WebsiteData }) {
                   <div className="pt-2 border-t border-[#F0ECE4] flex items-center gap-3">
                     <Link
                       href={`${base}/rooms/${room.id}`}
-                      className="flex-1 text-center py-2.5 px-3 rounded text-xs font-semibold text-white bg-[#71382D] hover:bg-[#5A2C23] shadow-xs transition-colors"
-                      style={{ borderRadius: 'var(--theme-radius, 6px)' }}
+                      style={primaryButtonStyle}
+                      className="flex-1 text-center py-2.5 px-3 text-xs font-semibold shadow-xs transition-colors active:scale-[0.98]"
                     >
                       Reserve Suite
                     </Link>
                     <Link
                       href={`${base}/rooms/${room.id}`}
-                      className="py-2.5 px-3 rounded text-xs font-medium text-[#191816] border border-[#E8E2DA] hover:bg-[#FAF7F2] transition-colors"
-                      style={{ borderRadius: 'var(--theme-radius, 6px)' }}
+                      style={secondaryButtonStyle}
+                      className="py-2.5 px-3 text-xs font-medium text-[#191816] border border-[#E8E2DA] hover:bg-[#FAF7F2] transition-colors"
                     >
                       Details
                     </Link>

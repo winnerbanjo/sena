@@ -4,20 +4,41 @@ import * as React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { WebsiteData } from '../../lib/website-data';
+import { useTheme } from '../../lib/theme-provider';
 import { ArrowRight, Star, ShieldCheck } from 'lucide-react';
 
 export function Hero({ data }: { data: WebsiteData }) {
   const pathname = usePathname();
-  const { property, config, reviews } = data;
+  const themeContext = useTheme();
+
+  const config = themeContext?.config || data.config;
+  const tokens = themeContext?.tokens;
+  const primaryButtonStyle = themeContext?.primaryButtonStyle || {
+    backgroundColor: 'var(--theme-primary, #71382D)',
+    color: 'var(--theme-primary-fg, #FFFFFF)',
+    borderRadius: 'var(--theme-radius, 6px)',
+  };
+  const secondaryButtonStyle = themeContext?.secondaryButtonStyle || {
+    borderRadius: 'var(--theme-radius, 6px)',
+  };
+  const accentBadgeStyle = themeContext?.accentBadgeStyle || {
+    backgroundColor: 'var(--theme-accent, #B85C3E)',
+    color: 'var(--theme-accent-fg, #FFFFFF)',
+  };
+  const headingStyle = themeContext?.headingStyle || {
+    fontFamily: 'var(--theme-heading-font)',
+  };
+
+  const { property, reviews } = data;
   const isSitePath = pathname?.startsWith('/site/');
   const base = isSitePath ? `/site/${property.slug}` : '';
   const theme = config.theme || 'sena_one';
 
-  // THEME 1: SENA ONE - Modern Luxury (Full-width cinematic background)
+  // THEME 1: SENA ONE - Modern Luxury (Full-width cinematic background, generous whitespace)
   if (theme === 'sena_one') {
     return (
       <section className="relative min-h-[580px] sm:min-h-[680px] flex items-center justify-center text-white overflow-hidden bg-stone-900">
-        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-black/30 z-10" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/50 to-black/35 z-10" />
         <div
           className="absolute inset-0 bg-cover bg-center transition-transform duration-1000 scale-105"
           style={{ backgroundImage: `url(${config.heroImageUrl})` }}
@@ -29,7 +50,10 @@ export function Hero({ data }: { data: WebsiteData }) {
             <span>{property.name} &middot; {property.propertyType}</span>
           </div>
 
-          <h1 className="text-3xl sm:text-5xl md:text-6xl font-serif font-normal leading-[1.15] tracking-tight max-w-3xl mx-auto">
+          <h1
+            style={headingStyle}
+            className="text-3xl sm:text-5xl md:text-6xl font-normal leading-[1.15] tracking-tight max-w-3xl mx-auto"
+          >
             {config.heroHeadline}
           </h1>
 
@@ -40,8 +64,8 @@ export function Hero({ data }: { data: WebsiteData }) {
           <div className="pt-4 flex flex-wrap items-center justify-center gap-4">
             <Link
               href={`${base}/rooms`}
-              className="px-7 py-3.5 rounded text-xs font-semibold text-white bg-[#B85C3E] hover:bg-[#A34F33] shadow-lg transition-all inline-flex items-center gap-2 group"
-              style={{ borderRadius: 'var(--theme-radius, 6px)' }}
+              style={primaryButtonStyle}
+              className="px-7 py-3.5 text-xs font-semibold shadow-lg transition-all inline-flex items-center gap-2 group active:scale-[0.98]"
             >
               <span>{config.heroCtaLabel || 'Reserve Your Stay'}</span>
               <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
@@ -49,8 +73,8 @@ export function Hero({ data }: { data: WebsiteData }) {
 
             <Link
               href={`${base}/rooms`}
-              className="px-6 py-3.5 rounded text-xs font-medium text-white bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/30 transition-colors"
-              style={{ borderRadius: 'var(--theme-radius, 6px)' }}
+              style={secondaryButtonStyle}
+              className="px-6 py-3.5 text-xs font-medium text-white bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/30 transition-colors"
             >
               Explore Suites
             </Link>
@@ -73,19 +97,25 @@ export function Hero({ data }: { data: WebsiteData }) {
     );
   }
 
-  // THEME 2: SENA TWO - Editorial Boutique (Warm, magazine-like typography & framed asymmetry)
+  // THEME 2: SENA TWO - Editorial Boutique (Asymmetric framed layout, refined hospitality editorial typography)
   if (theme === 'sena_two') {
     return (
-      <section className="bg-[#F8F5F0] border-b border-[#E8E2DA] py-12 sm:py-20 lg:py-24">
+      <section className="bg-[#FAF7F2] border-b border-[#E8E2DA] py-12 sm:py-20 lg:py-24">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
             {/* Left Editorial Text */}
             <div className="lg:col-span-6 space-y-6">
-              <span className="text-[11px] font-mono tracking-widest uppercase text-[#71382D] block">
+              <span
+                style={{ color: tokens?.primaryColor || 'var(--theme-primary, #71382D)' }}
+                className="text-[11px] font-mono tracking-widest uppercase font-semibold block"
+              >
                 {property.address} &middot; Residence
               </span>
 
-              <h1 className="text-3xl sm:text-5xl lg:text-5xl font-serif text-[#191816] font-normal leading-[1.18] tracking-tight">
+              <h1
+                style={headingStyle}
+                className="text-3xl sm:text-5xl lg:text-5xl text-[#191816] font-normal leading-[1.18] tracking-tight"
+              >
                 {config.heroHeadline}
               </h1>
 
@@ -96,8 +126,8 @@ export function Hero({ data }: { data: WebsiteData }) {
               <div className="pt-2 flex flex-wrap items-center gap-4">
                 <Link
                   href={`${base}/rooms`}
-                  className="px-6 py-3.5 rounded text-xs font-semibold text-white bg-[#71382D] hover:bg-[#5A2C23] shadow-xs transition-all inline-flex items-center gap-2"
-                  style={{ borderRadius: 'var(--theme-radius, 4px)' }}
+                  style={primaryButtonStyle}
+                  className="px-6 py-3.5 text-xs font-semibold shadow-xs transition-all inline-flex items-center gap-2 active:scale-[0.98]"
                 >
                   <span>{config.heroCtaLabel || 'Reserve Your Stay'}</span>
                   <ArrowRight className="w-4 h-4" />
@@ -105,7 +135,8 @@ export function Hero({ data }: { data: WebsiteData }) {
 
                 <Link
                   href={`${base}/about`}
-                  className="text-xs text-[#71382D] font-medium hover:underline underline-offset-4 decoration-[#E5D4BC]"
+                  style={{ color: tokens?.primaryColor || 'var(--theme-primary, #71382D)' }}
+                  className="text-xs font-medium hover:underline underline-offset-4 decoration-[#E5D4BC]"
                 >
                   Read Our Story &rarr;
                 </Link>
@@ -137,7 +168,10 @@ export function Hero({ data }: { data: WebsiteData }) {
                   Guest Rating
                 </span>
                 <div className="flex items-center gap-1.5 mt-0.5">
-                  <span className="text-xl font-serif font-bold text-[#71382D]">
+                  <span
+                    style={headingStyle}
+                    className="text-xl font-bold text-[#191816]"
+                  >
                     {reviews.averageRating}
                   </span>
                   <div className="flex text-amber-500">
@@ -155,7 +189,7 @@ export function Hero({ data }: { data: WebsiteData }) {
 
   // THEME 3: SENA THREE - Warm Resort (Earthy tones, soft rounded elements & immersive leisure vibe)
   return (
-    <section className="bg-[#FAF7F2] py-8 sm:py-16">
+    <section className="bg-[#F7F3EC] py-8 sm:py-16">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="relative rounded-3xl overflow-hidden shadow-xl bg-stone-900 min-h-[500px] sm:min-h-[580px] flex items-end">
           <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent z-10" />
@@ -166,11 +200,17 @@ export function Hero({ data }: { data: WebsiteData }) {
           />
 
           <div className="relative z-20 p-6 sm:p-12 lg:p-16 max-w-3xl space-y-4">
-            <span className="inline-block px-3 py-1 rounded-full text-xs font-medium bg-[#B85C3E] text-white">
+            <span
+              style={accentBadgeStyle}
+              className="inline-block px-3 py-1 rounded-full text-xs font-medium shadow-xs"
+            >
               {property.name} Resort &amp; Suites
             </span>
 
-            <h1 className="text-2xl sm:text-4xl md:text-5xl font-serif text-white font-normal leading-tight">
+            <h1
+              style={headingStyle}
+              className="text-2xl sm:text-4xl md:text-5xl text-white font-normal leading-tight"
+            >
               {config.heroHeadline}
             </h1>
 
@@ -181,7 +221,8 @@ export function Hero({ data }: { data: WebsiteData }) {
             <div className="pt-2 flex flex-wrap items-center gap-3">
               <Link
                 href={`${base}/rooms`}
-                className="px-6 py-3 rounded-full text-xs font-semibold text-white bg-[#B85C3E] hover:bg-[#A34F33] shadow-md transition-all inline-flex items-center gap-2"
+                style={primaryButtonStyle}
+                className="px-6 py-3 text-xs font-semibold shadow-md transition-all inline-flex items-center gap-2 active:scale-[0.98]"
               >
                 <span>{config.heroCtaLabel || 'Reserve Your Stay'}</span>
                 <ArrowRight className="w-4 h-4" />

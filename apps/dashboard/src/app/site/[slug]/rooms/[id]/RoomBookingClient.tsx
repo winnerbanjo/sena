@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { Calendar, Users, ShieldCheck, Clock, CheckCircle2, ArrowRight } from 'lucide-react';
+import { useTheme } from '../../../../../lib/theme-provider';
 
 export function RoomBookingClient({
   property,
@@ -18,6 +19,17 @@ export function RoomBookingClient({
   initialGuests?: number;
   onlinePaymentAvailable?: boolean;
 }) {
+  const themeContext = useTheme();
+  const tokens = themeContext?.tokens;
+  const primaryButtonStyle = themeContext?.primaryButtonStyle || {
+    backgroundColor: 'var(--theme-primary, #71382D)',
+    color: 'var(--theme-primary-fg, #ffffff)',
+    borderRadius: 'var(--theme-radius, 8px)',
+  };
+  const headingStyle = themeContext?.headingStyle || {
+    fontFamily: 'var(--theme-heading-font)',
+  };
+
   const todayStr = new Date().toISOString().split('T')[0];
   const defaultOut = new Date(Date.now() + 2 * 86400000).toISOString().split('T')[0];
 
@@ -198,7 +210,8 @@ export function RoomBookingClient({
             setHoldId(null);
             setConfirmedRef('');
           }}
-          className="w-full py-2.5 rounded bg-[#71382D] hover:bg-[#5A2C23] text-white text-xs font-semibold"
+          style={primaryButtonStyle}
+          className="w-full py-2.5 text-xs font-semibold hover:opacity-90 transition-opacity"
         >
           Make Another Booking
         </button>
@@ -304,7 +317,8 @@ export function RoomBookingClient({
             <button
               type="submit"
               disabled={submitting}
-              className="w-full min-h-11 py-3 rounded text-white text-sm font-semibold bg-[#71382D] hover:bg-[#5A2C23] flex items-center justify-center gap-2 disabled:opacity-50"
+              style={primaryButtonStyle}
+              className="w-full min-h-11 py-3 text-sm font-semibold flex items-center justify-center gap-2 hover:opacity-90 disabled:opacity-50 transition-opacity"
             >
               <span>{submitting ? 'Confirming stay...' : paymentChoice === 'paystack' ? `Pay online (${formattedTotal})` : `Confirm reservation (${formattedTotal})`}</span>
               <ArrowRight className="w-3.5 h-3.5" />
@@ -391,7 +405,8 @@ export function RoomBookingClient({
         <button
           type="submit"
           disabled={submitting}
-          className="w-full py-3.5 rounded text-white text-xs font-semibold bg-[#71382D] hover:bg-[#5A2C23] shadow-xs transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+          style={primaryButtonStyle}
+          className="w-full py-3.5 text-xs font-semibold shadow-xs hover:opacity-90 transition-opacity flex items-center justify-center gap-2 disabled:opacity-50"
         >
           <span>{submitting ? 'Holding Suite...' : 'Hold & Continue'}</span>
           <ArrowRight className="w-3.5 h-3.5" />

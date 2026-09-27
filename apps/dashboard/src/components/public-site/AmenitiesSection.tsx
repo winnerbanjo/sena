@@ -2,22 +2,34 @@
 
 import * as React from 'react';
 import { WebsiteData } from '../../lib/website-data';
-import { Check, Sparkles } from 'lucide-react';
+import { useTheme } from '../../lib/theme-provider';
+import { Check } from 'lucide-react';
 
 export function AmenitiesSection({ data }: { data: WebsiteData }) {
-  const { config } = data;
-  const list = config.amenities || [];
+  const themeContext = useTheme();
+  const config = themeContext?.config || data.config;
+  const tokens = themeContext?.tokens;
+  const headingStyle = themeContext?.headingStyle || {
+    fontFamily: 'var(--theme-heading-font)',
+  };
 
+  const list = config.amenities || [];
   if (list.length === 0) return null;
 
   return (
     <section className="py-14 sm:py-20 bg-white border-b border-[#E8E2DA]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10">
         <div className="text-center max-w-2xl mx-auto space-y-2">
-          <span className="text-[11px] font-mono tracking-widest uppercase text-[#B85C3E] block">
+          <span
+            style={{ color: tokens?.accentColor || 'var(--theme-accent, #B85C3E)' }}
+            className="text-[11px] font-mono tracking-widest uppercase font-semibold block"
+          >
             Comforts &amp; Features
           </span>
-          <h2 className="text-2xl sm:text-3xl font-serif text-[#191816]">
+          <h2
+            style={headingStyle}
+            className="text-2xl sm:text-3xl text-[#191816] font-normal"
+          >
             Included in Every Stay
           </h2>
           <p className="text-xs sm:text-sm text-[#7A7267]">
@@ -30,9 +42,12 @@ export function AmenitiesSection({ data }: { data: WebsiteData }) {
             <div
               key={idx}
               className="p-4 rounded-lg border border-[#E8E2DA] bg-[#FAF7F2] flex items-center gap-3"
-              style={{ borderRadius: 'var(--theme-radius, 8px)' }}
+              style={{ borderRadius: tokens?.borderRadius || 'var(--theme-radius, 8px)' }}
             >
-              <div className="w-7 h-7 rounded-full bg-white border border-[#E8E2DA] flex items-center justify-center text-[#2E6B4F] flex-shrink-0">
+              <div
+                style={{ color: tokens?.primaryColor || '#2E6B4F' }}
+                className="w-7 h-7 rounded-full bg-white border border-[#E8E2DA] flex items-center justify-center flex-shrink-0"
+              >
                 <Check className="w-3.5 h-3.5" />
               </div>
               <div>

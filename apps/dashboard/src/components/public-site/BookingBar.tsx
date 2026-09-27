@@ -3,11 +3,20 @@
 import * as React from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { WebsiteData } from '../../lib/website-data';
+import { useTheme } from '../../lib/theme-provider';
 import { Calendar, Users, Search, ArrowRight } from 'lucide-react';
 
 export function BookingBar({ data }: { data: WebsiteData }) {
   const router = useRouter();
   const pathname = usePathname();
+  const themeContext = useTheme();
+
+  const primaryButtonStyle = themeContext?.primaryButtonStyle || {
+    backgroundColor: 'var(--theme-primary, #71382D)',
+    color: 'var(--theme-primary-fg, #FFFFFF)',
+    borderRadius: 'var(--theme-radius, 8px)',
+  };
+  const primaryColor = themeContext?.tokens?.primaryColor || 'var(--theme-primary, #71382D)';
   const { property } = data;
 
   const isSitePath = pathname?.startsWith('/site/');
@@ -37,7 +46,7 @@ export function BookingBar({ data }: { data: WebsiteData }) {
         {/* Check-In */}
         <div className="lg:col-span-3 p-2 rounded-lg bg-[#FAF7F2] border border-[#F0ECE4]">
           <label className="block text-[10px] uppercase font-mono tracking-wider text-[#7A7267] mb-1 flex items-center gap-1.5">
-            <Calendar className="w-3.5 h-3.5 text-[#71382D]" />
+            <Calendar className="w-3.5 h-3.5" style={{ color: primaryColor }} />
             <span>Check-in</span>
           </label>
           <input
@@ -52,7 +61,7 @@ export function BookingBar({ data }: { data: WebsiteData }) {
         {/* Check-Out */}
         <div className="lg:col-span-3 p-2 rounded-lg bg-[#FAF7F2] border border-[#F0ECE4]">
           <label className="block text-[10px] uppercase font-mono tracking-wider text-[#7A7267] mb-1 flex items-center gap-1.5">
-            <Calendar className="w-3.5 h-3.5 text-[#71382D]" />
+            <Calendar className="w-3.5 h-3.5" style={{ color: primaryColor }} />
             <span>Check-out</span>
           </label>
           <input
@@ -67,7 +76,7 @@ export function BookingBar({ data }: { data: WebsiteData }) {
         {/* Guests */}
         <div className="lg:col-span-3 p-2 rounded-lg bg-[#FAF7F2] border border-[#F0ECE4]">
           <label className="block text-[10px] uppercase font-mono tracking-wider text-[#7A7267] mb-1 flex items-center gap-1.5">
-            <Users className="w-3.5 h-3.5 text-[#71382D]" />
+            <Users className="w-3.5 h-3.5" style={{ color: primaryColor }} />
             <span>Guests</span>
           </label>
           <select
@@ -87,8 +96,8 @@ export function BookingBar({ data }: { data: WebsiteData }) {
         <div className="lg:col-span-3 flex items-center">
           <button
             type="submit"
-            className="w-full py-3 sm:py-3.5 px-4 rounded-lg bg-[#71382D] hover:bg-[#5A2C23] text-white text-xs font-semibold shadow-xs transition-colors flex items-center justify-center gap-2"
-            style={{ borderRadius: 'var(--theme-radius, 8px)' }}
+            style={primaryButtonStyle}
+            className="w-full py-3 sm:py-3.5 px-4 text-xs font-semibold shadow-xs transition-colors flex items-center justify-center gap-2 active:scale-[0.98]"
           >
             <Search className="w-3.5 h-3.5" />
             <span>Check Availability</span>
