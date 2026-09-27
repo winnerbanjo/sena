@@ -70,4 +70,24 @@ export interface RefundConfirmationParams {
     reason?: string;
 }
 export declare function renderRefundConfirmationEmail(params: RefundConfirmationParams): EmailRenderResult;
+export interface InvoiceIssuedParams {
+    guestName: string;
+    invoiceNumber: string;
+    propertyName: string;
+    propertyAddress?: string;
+    propertyPhone?: string;
+    propertyEmail?: string;
+    totalFormatted: string;
+    paidFormatted: string;
+    amountDueFormatted: string;
+    dueDate?: string;
+    payable: boolean;
+    invoiceStatus?: string;
+    summaryLines: Array<{
+        label: string;
+        amount: string;
+    }>;
+    invoiceUrl: string;
+}
+export declare function renderInvoiceIssuedEmail(params: InvoiceIssuedParams): EmailRenderResult;
 //# sourceMappingURL=payment.d.ts.map

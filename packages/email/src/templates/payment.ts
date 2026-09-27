@@ -357,6 +357,47 @@ export function renderRefundConfirmationEmail(
   return { subject, html, text: htmlToPlainText(html) };
 }
 
+export interface InvoiceIssuedParams {
+  guestName: string;
+  invoiceNumber: string;
+  propertyName: string;
+  propertyAddress?: string;
+  propertyPhone?: string;
+  propertyEmail?: string;
+  totalFormatted: string;
+  paidFormatted: string;
+  amountDueFormatted: string;
+  dueDate?: string;
+  payable: boolean;
+  invoiceStatus?: string;
+  summaryLines: Array<{ label: string; amount: string }>;
+  invoiceUrl: string;
+}
+
+export function renderInvoiceIssuedEmail(params: InvoiceIssuedParams): EmailRenderResult {
+  const subject = `Invoice ${params.invoiceNumber} from ${params.propertyName}`;
+  const paidInFull = params.invoiceStatus === 'paid' || (!['void', 'cancelled', 'draft'].includes(params.invoiceStatus || '') && params.amountDueFormatted === '₦0.00');
+  const content = `
+    ${renderHeading('Invoice ' + escapeHtml(params.invoiceNumber), `${escapeHtml(params.propertyName)} has sent you an invoice.`)}
+    ${renderParagraph(`Dear ${escapeHtml(params.guestName)},`)}
+    ${renderParagraph(`Total ${escapeHtml(params.totalFormatted)}. Paid ${escapeHtml(params.paidFormatted)}. Balance due <strong>${escapeHtml(params.amountDueFormatted)}</strong>${params.dueDate ? `. Due ${escapeHtml(params.dueDate)}` : ''}.`)}
+    ${renderAmountSummary({ lines: params.summaryLines, total: params.totalFormatted, balanceDue: params.payable ? params.amountDueFormatted : undefined, isPaid: paidInFull })}
+    ${renderButton(params.payable ? 'View & Pay Invoice' : 'View invoice', params.invoiceUrl)}
+    ${renderParagraph(params.payable ? 'This link opens your invoice on Sena. It is not a receipt, and opening it does not mark the invoice paid.' : paidInFull ? 'Payment is complete. This invoice is paid in full.' : 'This invoice is not awaiting online payment. The link opens the invoice on Sena.', true)}
+  `;
+  const html = renderSenaEmailLayout(content, {
+    title: subject,
+    previewText: `${params.propertyName} invoice ${params.invoiceNumber}. ${params.amountDueFormatted} due.`,
+    headerType: 'property',
+    propertyName: params.propertyName,
+    propertyAddress: params.propertyAddress,
+    propertyPhone: params.propertyPhone,
+    propertyEmail: params.propertyEmail,
+    footerType: 'property',
+  });
+  return { subject, html, text: htmlToPlainText(html) };
+}
+
 function escapeHtml(str: string): string {
   return str
     .replace(/&/g, '&amp;')

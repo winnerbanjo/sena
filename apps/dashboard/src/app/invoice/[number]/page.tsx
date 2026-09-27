@@ -20,7 +20,6 @@ export default function PublicInvoicePage() {
   const params = useParams();
   const searchParams = useSearchParams();
   const invoiceNumber = params.number as string;
-  const isPaymentSuccess = searchParams.get('payment') === 'success';
   const isPaymentConfirming = searchParams.get('payment') === 'confirming';
 
   const [invoice, setInvoice] = React.useState<PropertyInvoice | null>(null);
@@ -50,7 +49,7 @@ export default function PublicInvoicePage() {
     if (!invoice) return;
     setPaying(true);
     try {
-      const res = await fetch(`/api/invoices/public/${invoice.id}/checkout`, {
+      const res = await fetch(`/api/invoices/public/${invoiceNumber}/checkout`, {
         method: 'POST',
       });
       const data = await res.json();
@@ -86,7 +85,7 @@ export default function PublicInvoicePage() {
           <AlertCircle className="w-10 h-10 text-red-600 mx-auto" />
           <h1 className="text-xl font-serif text-[#191816]">Statement Not Found</h1>
           <p className="text-xs text-[#7A7267]">
-            The invoice reference &quot;{invoiceNumber}&quot; does not exist or has been archived.
+            This invoice link is unavailable. Ask the property for a new link.
           </p>
         </div>
       </div>
@@ -94,13 +93,15 @@ export default function PublicInvoicePage() {
   }
 
   const balanceMinorUnits = Math.max(0, invoice.totalAmountMinorUnits - invoice.paidAmountMinorUnits);
-  const isPaid = invoice.status === 'paid' || balanceMinorUnits === 0;
+  const unavailable = ['void', 'draft', 'cancelled'].includes(invoice.status);
+  const isPaid = !unavailable && (invoice.status === 'paid' || balanceMinorUnits === 0);
+  const canPayOnline = !isPaid && !['void', 'draft', 'cancelled'].includes(invoice.status);
 
   return (
     <div className="min-h-screen bg-[#FAF7F2] py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-3xl mx-auto space-y-6">
         {/* Top Floating Actions (hidden in print) */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-4 rounded-xl border border-[#E8E2DA] shadow-sm print:hidden">
+        <div className="flex flex-col gap-4 bg-white p-4 rounded-xl border border-[#E8E2DA] print:hidden">
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-[#71382D]" />
             <span className="text-xs font-mono font-semibold text-[#191816]">
@@ -112,12 +113,12 @@ export default function PublicInvoicePage() {
             </span>
           </div>
 
-          <div className="flex items-center gap-2.5 flex-wrap">
-            {!isPaid && (
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2.5">
+            {canPayOnline && (
               <Button
                 onClick={handlePayOnline}
                 disabled={paying}
-                className="bg-[#2E6B4F] hover:bg-[#255740] text-white text-xs flex items-center gap-1.5"
+                className="min-h-11 w-full sm:w-auto bg-[#2E6B4F] hover:bg-[#255740] text-white text-sm flex items-center justify-center gap-1.5"
               >
                 {paying ? (
                   <>
@@ -137,7 +138,7 @@ export default function PublicInvoicePage() {
               variant="secondary"
               size="sm"
               onClick={handlePrint}
-              className="text-xs border-[#E8E2DA] hover:bg-stone-50 text-[#191816]"
+              className="min-h-11 w-full sm:w-auto text-sm border-[#E8E2DA] hover:bg-stone-50 text-[#191816]"
             >
               <Printer className="w-3.5 h-3.5 mr-1" />
               Print / Save PDF
@@ -146,7 +147,7 @@ export default function PublicInvoicePage() {
         </div>
 
         {/* Payment Success Banner */}
-        {isPaymentSuccess && (
+        {isPaid && (
           <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-xl flex items-center gap-3 text-emerald-900 print:hidden">
             <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
             <div className="text-xs">
@@ -193,7 +194,7 @@ export default function PublicInvoicePage() {
                     : 'border-[#B85C3E] text-[#B85C3E] bg-[#B85C3E]/10 ring-2 ring-[#B85C3E]/20'
                 }`}
               >
-                {isPaid ? 'PAID IN FULL' : invoice.status === 'overdue' ? 'OVERDUE' : 'PAYMENT DUE'}
+                {unavailable ? invoice.status.toUpperCase() : isPaid ? 'PAID IN FULL' : invoice.status === 'overdue' ? 'OVERDUE' : 'PAYMENT DUE'}
               </div>
 
               <div className="text-xs font-mono space-y-0.5 sm:text-right">

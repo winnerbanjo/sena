@@ -21,6 +21,12 @@ export function Topbar({ title, onOpenNewReservation, onOpenSearch }: TopbarProp
 
   const handleOpenSearch = onOpenSearch || contextOpenSearch;
   const handleOpenNewRes = onOpenNewReservation || contextOpenNewReservation;
+  const [unread, setUnread] = React.useState(0);
+  React.useEffect(() => {
+    fetch('/api/notifications').then((res) => res.ok ? res.json() : null).then((data) => {
+      if (data && typeof data.unread === 'number') setUnread(data.unread);
+    }).catch(() => setUnread(0));
+  }, []);
 
   // Desktop shortcuts: N for New reservation, / for Search
   React.useEffect(() => {
@@ -110,11 +116,12 @@ export function Topbar({ title, onOpenNewReservation, onOpenSearch }: TopbarProp
         <button
           type="button"
           onClick={toggleNotifications}
-          className="w-8 h-8 sm:w-9 sm:h-9 rounded border border-[#E8E2DA] bg-white flex items-center justify-center text-[#191816] hover:bg-[#F9F9F9] transition-colors relative flex-shrink-0 cursor-pointer"
-          aria-label="Notifications"
+          className="min-h-11 min-w-11 rounded border border-[#E8E2DA] bg-white flex items-center justify-center text-[#191816] hover:bg-[#F9F9F9] relative flex-shrink-0"
+          aria-label={unread > 0 ? `Notifications, ${unread} unread` : 'Notifications'}
           title="View recent alerts and events"
         >
           <Bell className="w-4 h-4" />
+          {unread > 0 && <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-[#71382D]" />}
 
         </button>
       </div>

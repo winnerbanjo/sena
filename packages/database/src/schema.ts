@@ -1027,3 +1027,22 @@ export const adminAuditLogs = pgTable(
     index('admin_audit_target_idx').on(t.targetType, t.targetId),
   ]
 );
+
+export const operationalNotifications = pgTable(
+  'operational_notifications',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    propertyId: uuid('property_id').references(() => properties.id, { onDelete: 'cascade' }).notNull(),
+    dedupeKey: varchar('dedupe_key', { length: 200 }).notNull(),
+    kind: varchar('kind', { length: 40 }).notNull(),
+    title: varchar('title', { length: 160 }).notNull(),
+    body: text('body').notNull(),
+    href: varchar('href', { length: 300 }),
+    readAt: timestamp('read_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex('operational_notifications_dedupe_idx').on(t.propertyId, t.dedupeKey),
+    index('operational_notifications_prop_idx').on(t.propertyId, t.createdAt),
+  ]
+);

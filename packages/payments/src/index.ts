@@ -52,6 +52,8 @@ export class PaymentService {
       }
 
       const res = resList[0];
+      const outstanding = res.totalAmountMinorUnits - res.paidAmountMinorUnits;
+      if (input.amountMinorUnits > outstanding) throw new Error('Amount is more than the outstanding balance.');
 
       const property = await tx.query.properties.findFirst({ where: eq(properties.id, res.propertyId) });
       if (!property) throw new Error('Property not found');

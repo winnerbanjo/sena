@@ -1,3 +1,4 @@
+import { createPublicInvoiceToken } from '@/lib/public-invoice-token';
 import { apiError } from '@/lib/api-error';
 import { withMerchant } from '@/lib/merchant-route';
 import { NextRequest, NextResponse } from 'next/server';
@@ -45,59 +46,42 @@ async function handlePOST(
       });
     }
 
-    const appUrl = process.env.NEXTAUTH_URL || 'https://app.sena.ng';
-    const publicInvoiceUrl = `${appUrl}/invoice/${invoice.id}`;
-
-    const items = (invoice.items as any[]) || [];
-    const formattedLines = items.map((item) => ({
-      label: `${item.description} (x${item.quantity})`,
-      amount: `₦${((item.totalMinorUnits || 0) / 100).toLocaleString('en-NG', { minimumFractionDigits: 2 })}`,
+    const origin = process.env.SENA_PUBLIC_APP_ORIGIN || process.env.NEXTAUTH_URL || 'https://app.sena.ng';
+    const publicInvoiceUrl = `${origin.replace(/\/$/, '')}/invoice/${createPublicInvoiceToken(invoice.id)}`;
+    const balanceMinorUnits = Math.max(0, invoice.totalAmountMinorUnits - invoice.paidAmountMinorUnits);
+    const money = (amount: number) => `₦${(amount / 100).toLocaleString('en-NG', { minimumFractionDigits: 2 })}`;
+    const items = (invoice.items as Array<{ description?: string; quantity?: number; totalMinorUnits?: number }>) || [];
+    const summaryLines = items.slice(0, 6).map((item) => ({
+      label: `${item.description || 'Item'}${item.quantity ? ` × ${item.quantity}` : ''}`,
+      amount: money(item.totalMinorUnits || 0),
     }));
-
-    if (invoice.taxVatMinorUnits > 0) {
-      formattedLines.push({
-        label: 'Value Added Tax (VAT 7.5%)',
-        amount: `₦${(invoice.taxVatMinorUnits / 100).toLocaleString('en-NG', { minimumFractionDigits: 2 })}`,
-      });
-    }
-    if (invoice.taxConsumptionMinorUnits > 0) {
-      formattedLines.push({
-        label: 'State Consumption Tax (5%)',
-        amount: `₦${(invoice.taxConsumptionMinorUnits / 100).toLocaleString('en-NG', { minimumFractionDigits: 2 })}`,
-      });
-    }
-    if (invoice.serviceChargeMinorUnits > 0) {
-      formattedLines.push({
-        label: 'Hospitality Service Charge (10%)',
-        amount: `₦${(invoice.serviceChargeMinorUnits / 100).toLocaleString('en-NG', { minimumFractionDigits: 2 })}`,
-      });
-    }
-
-    const totalFormatted = `₦${(invoice.totalAmountMinorUnits / 100).toLocaleString('en-NG', { minimumFractionDigits: 2 })}`;
+    if (res?.reference) summaryLines.unshift({ label: 'Reservation', amount: res.reference });
 
     let emailSent = false;
     let emailError: string | null = null;
 
     try {
       const emailResult = await sendSenaEmail(
-        'stay.stay_receipt',
+        'payment.invoice_issued',
         {
           guestName: invoice.recipientName,
-          reference: res?.reference || invoice.invoiceNumber,
-          folioNumber: invoice.invoiceNumber,
-          propertyName: prop?.name || 'Sena Property',
-          propertyAddress: prop?.address || 'Victoria Island, Lagos',
-          propertyPhone: prop?.phone || '+234 1 234 5678',
-          propertyEmail: prop?.email || 'reservations@sena.ng',
-          checkInDate: res?.checkInDate || invoice.issueDate,
-          checkOutDate: res?.checkOutDate || invoice.dueDate,
-          folioItems: formattedLines,
-          totalAmountFormatted: totalFormatted,
-          downloadUrl: publicInvoiceUrl,
+          invoiceNumber: invoice.invoiceNumber,
+          propertyName: prop?.name || 'Your hotel',
+          propertyAddress: prop?.address || undefined,
+          propertyPhone: prop?.phone || undefined,
+          propertyEmail: prop?.email || undefined,
+          totalFormatted: money(invoice.totalAmountMinorUnits),
+          paidFormatted: money(invoice.paidAmountMinorUnits),
+          amountDueFormatted: money(balanceMinorUnits),
+          dueDate: invoice.dueDate,
+          invoiceStatus: invoice.status,
+          payable: balanceMinorUnits > 0 && !['paid', 'void', 'draft', 'cancelled'].includes(invoice.status),
+          summaryLines,
+          invoiceUrl: publicInvoiceUrl,
         },
         {
           to: targetEmail,
-          idempotencyKey: `inv_email_${invoice.invoiceNumber}_${Date.now()}`,
+          idempotencyKey: `invoice_issued_${invoice.id}_${invoice.updatedAt?.toISOString?.() || invoice.updatedAt}_${balanceMinorUnits}`,
           propertyId: prop?.id,
           relatedEntity: 'invoice',
           relatedId: invoice.id,
@@ -114,13 +98,14 @@ async function handlePOST(
       emailError = e.message;
     }
 
+    if (!emailSent) {
+      return NextResponse.json({ success: false, emailSent: false, error: emailError || 'The invoice email could not be sent.', publicInvoiceUrl }, { status: 502 });
+    }
+
     return NextResponse.json({
       success: true,
       emailSent,
-      emailError,
-      message: emailSent
-        ? `Invoice ${invoice.invoiceNumber} delivered to ${targetEmail}`
-        : `Invoice saved. Email status: ${emailError || 'Pending delivery'}`,
+      message: `Invoice ${invoice.invoiceNumber} sent to ${targetEmail}`,
       publicInvoiceUrl,
     });
   } catch (error: any) {

@@ -1,3 +1,4 @@
+import { createPublicInvoiceToken } from '@/lib/public-invoice-token';
 import { apiError } from '@/lib/api-error';
 import { withMerchant } from '@/lib/merchant-route';
 import { NextRequest, NextResponse } from 'next/server';
@@ -38,7 +39,7 @@ async function handleGET(
     }
 
     return NextResponse.json({
-      invoice,
+      invoice: { ...invoice, publicToken: createPublicInvoiceToken(invoice.id) },
       property: prop,
       reservation,
     });

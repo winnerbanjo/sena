@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { formatNaira } from '@sena/config';
+import { useDialogA11y } from './use-dialog-a11y';
 import { Badge, Button } from '@sena/ui';
 import {
   X,
@@ -18,6 +19,7 @@ import {
 } from 'lucide-react';
 
 export interface PropertyInvoice {
+  publicToken?: string;
   id: string;
   invoiceNumber: string;
   invoiceType: string;
@@ -88,6 +90,8 @@ export function InvoiceViewModal({
   const [sendingEmail, setSendingEmail] = React.useState(false);
   const [emailStatus, setEmailStatus] = React.useState<{ success: boolean; message: string } | null>(null);
   const [copiedLink, setCopiedLink] = React.useState(false);
+  const [shareMessage, setShareMessage] = React.useState('');
+  const dialogRef = useDialogA11y(isOpen && Boolean(invoice), onClose);
 
   if (!isOpen || !invoice) return null;
 
@@ -139,8 +143,8 @@ export function InvoiceViewModal({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to send invoice email');
       setEmailStatus({
-        success: true,
-        message: `Official invoice dispatched to ${invoice.recipientEmail || 'recipient'}!`,
+        success: Boolean(data.emailSent),
+        message: data.message || `Invoice sent to ${invoice.recipientEmail || 'recipient'}.`,
       });
     } catch (err: any) {
       setEmailStatus({
@@ -152,12 +156,51 @@ export function InvoiceViewModal({
     }
   }
 
-  function handleCopyPayLink() {
+  async function invoiceUrl() {
+    if (!invoice) throw new Error('Invoice unavailable');
+    if (invoice.publicToken) {
+      return `${window.location.origin}/invoice/${invoice.publicToken}`;
+    }
+    const response = await fetch(`/api/invoices/${invoice.id}`);
+    const data = await response.json();
+    if (!response.ok || !data.invoice?.publicToken) throw new Error('Could not create invoice link. Try again.');
+    return `${window.location.origin}/invoice/${data.invoice.publicToken}`;
+  }
+
+  async function handleCopyPayLink() {
     if (!invoice) return;
-    const url = `${window.location.origin}/invoice/${invoice.id}`;
-    navigator.clipboard.writeText(url);
-    setCopiedLink(true);
-    setTimeout(() => setCopiedLink(false), 2500);
+    try {
+      await navigator.clipboard.writeText(await invoiceUrl());
+      setCopiedLink(true);
+      setShareMessage('Invoice link copied.');
+      setTimeout(() => setCopiedLink(false), 2500);
+    } catch (err: any) {
+      setShareMessage(err.message || 'Could not copy link.');
+      setTimeout(() => setShareMessage(''), 2500);
+    }
+  }
+
+  async function handleShareInvoice() {
+    if (!invoice) return;
+    try {
+      const url = await invoiceUrl();
+      const payload = { title: `Invoice ${invoice.invoiceNumber}`, text: `${invoice.invoiceNumber} from ${propertyName}. Amount due ${formatNaira(balanceMinorUnits)}.`, url };
+      if (typeof navigator.share === 'function') {
+        try {
+          await navigator.share(payload);
+          setShareMessage('Invoice share sheet opened.');
+          return;
+        } catch (error: any) {
+          if (error?.name === 'AbortError') return;
+        }
+      }
+      await navigator.clipboard.writeText(url);
+      setCopiedLink(true);
+      setShareMessage('Sharing is not available on this device. The invoice link was copied instead.');
+    } catch (err: any) {
+      setShareMessage(err.message || 'Could not share invoice.');
+      setTimeout(() => setShareMessage(''), 2500);
+    }
   }
 
   function handlePrint() {
@@ -165,29 +208,37 @@ export function InvoiceViewModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/60 backdrop-blur-sm overflow-y-auto animate-in fade-in">
-      <div className="relative w-full max-w-4xl bg-white rounded-xl shadow-2xl border border-[#E8E2DA] my-auto overflow-hidden flex flex-col max-h-[95vh]">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-2 sm:p-6 bg-black/60 overflow-y-auto">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="invoice-dialog-title" className="relative w-full max-w-4xl bg-white rounded-xl border border-[#E8E2DA] my-auto overflow-hidden flex flex-col max-h-[95vh]">
         {/* Modal Top Action Bar (hidden in print) */}
-        <div className="flex items-center justify-between px-6 py-3.5 bg-[#FAF7F2] border-b border-[#E8E2DA] print:hidden">
+        <div className="flex flex-col gap-3 px-4 sm:px-6 py-3.5 bg-[#FAF7F2] border-b border-[#E8E2DA] print:hidden">
           <div className="flex items-center gap-2">
-            <span className="text-xs font-mono font-semibold text-[#71382D] tracking-wider">
-              {invoice.invoiceNumber}
-            </span>
+            <h2 id="invoice-dialog-title" className="text-sm font-semibold text-[#191816]">
+              Invoice {invoice.invoiceNumber}
+            </h2>
             <span className="text-xs text-[#7A7267]">·</span>
             <span className="text-xs text-[#7A7267] capitalize">
               {invoice.invoiceType.replace('_', ' ')}
             </span>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button
               variant="secondary"
               size="sm"
               onClick={handleCopyPayLink}
-              className="text-xs bg-white hover:bg-stone-50 border-[#E8E2DA] text-[#191816]"
+              className="min-h-11 text-sm bg-white hover:bg-stone-50 border-[#E8E2DA] text-[#191816]"
             >
               {copiedLink ? <Check className="w-3.5 h-3.5 mr-1 text-emerald-600" /> : <Copy className="w-3.5 h-3.5 mr-1" />}
-              {copiedLink ? 'Link Copied' : 'Share Link'}
+              {copiedLink ? 'Link copied' : 'Copy invoice link'}
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleShareInvoice}
+              className="min-h-11 text-sm bg-white hover:bg-stone-50 border-[#E8E2DA] text-[#191816]"
+            >
+              Share invoice
             </Button>
 
             {invoice.recipientEmail && (
@@ -196,10 +247,10 @@ export function InvoiceViewModal({
                 size="sm"
                 onClick={handleSendEmail}
                 disabled={sendingEmail}
-                className="text-xs bg-white hover:bg-stone-50 border-[#E8E2DA] text-[#191816]"
+                className="min-h-11 text-sm bg-white hover:bg-stone-50 border-[#E8E2DA] text-[#191816]"
               >
                 {sendingEmail ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <Mail className="w-3.5 h-3.5 mr-1" />}
-                Send to Email
+                Send invoice
               </Button>
             )}
 
@@ -210,7 +261,7 @@ export function InvoiceViewModal({
                   setPayAmount((balanceMinorUnits / 100).toString());
                   setRecordPaymentOpen(true);
                 }}
-                className="text-xs bg-[#2E6B4F] hover:bg-[#255740] text-white"
+                className="min-h-11 text-sm bg-[#2E6B4F] hover:bg-[#255740] text-white"
               >
                 <CreditCard className="w-3.5 h-3.5 mr-1" />
                 Record Payment
@@ -221,15 +272,17 @@ export function InvoiceViewModal({
               variant="secondary"
               size="sm"
               onClick={handlePrint}
-              className="text-xs bg-white hover:bg-stone-50 border-[#E8E2DA] text-[#191816]"
+              className="min-h-11 text-sm bg-white hover:bg-stone-50 border-[#E8E2DA] text-[#191816]"
             >
               <Printer className="w-3.5 h-3.5 mr-1" />
-              Print / PDF
+              Print
             </Button>
 
             <button
+              type="button"
               onClick={onClose}
-              className="p-1.5 rounded-lg text-[#7A7267] hover:text-[#191816] hover:bg-stone-200/50 transition-colors ml-1"
+              aria-label="Close invoice"
+              className="min-h-11 min-w-11 rounded-lg text-[#7A7267] hover:text-[#191816] hover:bg-stone-200/50"
             >
               <X className="w-5 h-5" />
             </button>
@@ -237,16 +290,17 @@ export function InvoiceViewModal({
         </div>
 
         {/* Email Toast Banner */}
-        {emailStatus && (
+        {(emailStatus || shareMessage) && (
           <div
-            className={`px-6 py-2.5 text-xs flex items-center justify-between border-b ${
-              emailStatus.success
-                ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                : 'bg-red-50 text-red-800 border-red-200'
+            role="status"
+            className={`px-4 sm:px-6 py-2.5 text-sm flex items-center justify-between gap-3 border-b ${
+              emailStatus && !emailStatus.success
+                ? 'bg-red-50 text-red-800 border-red-200'
+                : 'bg-emerald-50 text-emerald-800 border-emerald-200'
             }`}
           >
-            <span>{emailStatus.message}</span>
-            <button onClick={() => setEmailStatus(null)} className="text-current hover:opacity-75">
+            <span>{emailStatus?.message || shareMessage}</span>
+            <button type="button" aria-label="Dismiss message" onClick={() => { setEmailStatus(null); setShareMessage(''); }} className="min-h-11 min-w-11 text-current">
               ×
             </button>
           </div>

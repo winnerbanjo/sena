@@ -5,6 +5,7 @@ exports.renderBankTransferInstructionsEmail = renderBankTransferInstructionsEmai
 exports.renderPaymentPendingEmail = renderPaymentPendingEmail;
 exports.renderPaymentFailedEmail = renderPaymentFailedEmail;
 exports.renderRefundConfirmationEmail = renderRefundConfirmationEmail;
+exports.renderInvoiceIssuedEmail = renderInvoiceIssuedEmail;
 const brand_1 = require("../components/brand");
 const layout_1 = require("../components/layout");
 const elements_1 = require("../components/elements");
@@ -166,6 +167,29 @@ function renderRefundConfirmationEmail(params) {
     const html = (0, layout_1.renderSenaEmailLayout)(content, {
         title: subject,
         previewText: `Refund of ${params.refundAmountFormatted} processed for booking ${params.reference}.`,
+        headerType: 'property',
+        propertyName: params.propertyName,
+        propertyAddress: params.propertyAddress,
+        propertyPhone: params.propertyPhone,
+        propertyEmail: params.propertyEmail,
+        footerType: 'property',
+    });
+    return { subject, html, text: (0, layout_1.htmlToPlainText)(html) };
+}
+function renderInvoiceIssuedEmail(params) {
+    const subject = `Invoice ${params.invoiceNumber} from ${params.propertyName}`;
+    const paidInFull = params.invoiceStatus === 'paid' || (!['void', 'cancelled', 'draft'].includes(params.invoiceStatus || '') && params.amountDueFormatted === '₦0.00');
+    const content = `
+    ${(0, elements_1.renderHeading)('Invoice ' + escapeHtml(params.invoiceNumber), `${escapeHtml(params.propertyName)} has sent you an invoice.`)}
+    ${(0, elements_1.renderParagraph)(`Dear ${escapeHtml(params.guestName)},`)}
+    ${(0, elements_1.renderParagraph)(`Total ${escapeHtml(params.totalFormatted)}. Paid ${escapeHtml(params.paidFormatted)}. Balance due <strong>${escapeHtml(params.amountDueFormatted)}</strong>${params.dueDate ? `. Due ${escapeHtml(params.dueDate)}` : ''}.`)}
+    ${(0, elements_1.renderAmountSummary)({ lines: params.summaryLines, total: params.totalFormatted, balanceDue: params.payable ? params.amountDueFormatted : undefined, isPaid: paidInFull })}
+    ${(0, elements_1.renderButton)(params.payable ? 'View & Pay Invoice' : 'View invoice', params.invoiceUrl)}
+    ${(0, elements_1.renderParagraph)(params.payable ? 'This link opens your invoice on Sena. It is not a receipt, and opening it does not mark the invoice paid.' : paidInFull ? 'Payment is complete. This invoice is paid in full.' : 'This invoice is not awaiting online payment. The link opens the invoice on Sena.', true)}
+  `;
+    const html = (0, layout_1.renderSenaEmailLayout)(content, {
+        title: subject,
+        previewText: `${params.propertyName} invoice ${params.invoiceNumber}. ${params.amountDueFormatted} due.`,
         headerType: 'property',
         propertyName: params.propertyName,
         propertyAddress: params.propertyAddress,

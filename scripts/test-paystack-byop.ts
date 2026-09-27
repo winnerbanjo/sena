@@ -77,6 +77,12 @@ async function run() {
   const bad = await webhook.POST(new Request(`https://preview.invalid/api/webhooks/paystack/${token}`, { method: 'POST', headers: { 'x-paystack-signature': 'bad' }, body: rawEvent }) as any, { params: Promise.resolve({ token }) });
   assert.equal(bad.status, 401);
   const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async () => new Response('{}', { status: 503 })) as typeof fetch;
+  try {
+    const failed = await webhook.POST(new Request(`https://preview.invalid/api/webhooks/paystack/${token}`, { method: 'POST', headers: { 'x-paystack-signature': signature }, body: rawEvent }) as any, { params: Promise.resolve({ token }) });
+    assert.equal(failed.status, 500);
+  } finally { globalThis.fetch = originalFetch; }
+
   globalThis.fetch = (async () => new Response(JSON.stringify({ status: true, data: verified }), { status: 200, headers: { 'content-type': 'application/json' } })) as typeof fetch;
   try {
     const responses = await Promise.all(Array.from({ length: 6 }, () => webhook.POST(new Request(`https://preview.invalid/api/webhooks/paystack/${token}`, { method: 'POST', headers: { 'x-paystack-signature': signature }, body: rawEvent }) as any, { params: Promise.resolve({ token }) })));

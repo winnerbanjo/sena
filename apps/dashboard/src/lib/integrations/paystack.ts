@@ -65,6 +65,18 @@ export function assertPaystackPayable(integration: { status: string; metadata: u
   if (source === 'invoice' && !controls.invoices) throw new Error('PAYSTACK_PAYMENTS_DISABLED');
 }
 
+export async function directBookingPaymentAvailable(propertyId: string) {
+  try {
+    const record = await getPropertyPaystack(propertyId);
+    if (!record?.credential || record.integration.status !== 'connected') return false;
+    assertPaystackPayable(record.integration, 'direct_booking');
+    decryptIntegrationSecret(record.credential.encryptedValue);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export async function requireConnectedPaystack(propertyId: string) {
   const record = await getPropertyPaystack(propertyId);
   if (!record || record.integration.status !== 'connected' || !record.credential) throw new Error('PAYSTACK_NOT_CONNECTED');

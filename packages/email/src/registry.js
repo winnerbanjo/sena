@@ -60,6 +60,7 @@ exports.EMAIL_RENDERERS = {
     'payment.payment_pending': payment.renderPaymentPendingEmail,
     'payment.payment_failed': payment.renderPaymentFailedEmail,
     'payment.refund_confirmation': payment.renderRefundConfirmationEmail,
+    'payment.invoice_issued': payment.renderInvoiceIssuedEmail,
     'stay.upcoming_stay': stay.renderUpcomingStayEmail,
     'stay.checkin_confirmation': stay.renderCheckinConfirmationEmail,
     'stay.checkout_thank_you': stay.renderCheckoutThankYouEmail,

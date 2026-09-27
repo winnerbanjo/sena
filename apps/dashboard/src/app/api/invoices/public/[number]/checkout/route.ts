@@ -1,3 +1,4 @@
+import { resolvePublicInvoiceToken } from '@/lib/public-invoice-token';
 import { NextRequest, NextResponse } from 'next/server';
 import {
   db,
@@ -13,17 +14,18 @@ export async function POST(
   try {
     const { number } = await params;
 
-    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(number)) return NextResponse.json({ error: 'Please ask the property for a fresh invoice link.' }, { status: 404 });
+    const invoiceId = resolvePublicInvoiceToken(number);
+    if (!invoiceId) return NextResponse.json({ error: 'Please ask the property for a fresh invoice link.' }, { status: 404 });
 
     const invoice = await db.query.propertyInvoices.findFirst({
-      where: eq(propertyInvoices.id, number),
+      where: eq(propertyInvoices.id, invoiceId),
     });
 
     if (!invoice) {
       return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
     }
 
-    if (!invoice.recipientEmail || ['void', 'draft'].includes(invoice.status)) return NextResponse.json({ error: 'Contact the property to arrange payment.' }, { status: 400 });
+    if (!invoice.recipientEmail || ['void', 'draft', 'cancelled'].includes(invoice.status)) return NextResponse.json({ error: 'Contact the property to arrange payment.' }, { status: 400 });
 
     const balanceMinorUnits = Math.max(0, invoice.totalAmountMinorUnits - invoice.paidAmountMinorUnits);
     if (balanceMinorUnits <= 0 || invoice.status === 'paid') {
@@ -32,7 +34,7 @@ export async function POST(
 
     const host = req.headers.get('host') || 'app.sena.ng';
     const proto = host.includes('localhost') ? 'http' : 'https';
-    const callbackUrl = `${proto}://${host}/invoice/${invoice.id}?payment=confirming`;
+    const callbackUrl = `${proto}://${host}/invoice/${number}?payment=confirming`;
 
     const initialized = await initializePropertyPaystack({ propertyId: invoice.propertyId, invoiceId: invoice.id, reservationId: invoice.reservationId, email: invoice.recipientEmail, amountMinorUnits: balanceMinorUnits, currency: invoice.currency, source: 'invoice', callbackUrl, idempotencyKey: req.headers.get('idempotency-key') || undefined });
 

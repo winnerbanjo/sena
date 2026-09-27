@@ -45,12 +45,26 @@ async function run() {
  const property=await db.query.properties.findFirst({where:eq(properties.id,fixture.propertyId)});
  const [invoice]=await db.insert(propertyInvoices).values({propertyId:fixture.propertyId,organizationId:property!.organizationId,invoiceNumber:`QA-${crypto.randomUUID()}`,recipientName:'Local HTTP Invoice',issueDate:'2026-09-26',dueDate:'2026-09-30',totalAmountMinorUnits:1000,status:'issued'}).returning();
  assert.equal((await request(`/api/invoices/${invoice.id}`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'paid'})})).status,400);pass('invoice cannot be marked paid without a receipt');
- assert.equal((await fetch(base+'/api/invoices/public/'+invoice.invoiceNumber)).status,404);assert.equal((await fetch(base+'/api/invoices/public/'+invoice.id)).status,200);pass('public invoice requires unguessable share reference');
+ assert.equal((await fetch(base+'/api/invoices/public/'+invoice.invoiceNumber)).status,404);assert.equal((await fetch(base+'/api/invoices/public/'+invoice.id)).status,404); const share = await (await request(`/api/invoices/${invoice.id}`)).json(); assert.equal((await fetch(base+'/api/invoices/public/'+share.invoice.publicToken)).status,200);pass('public invoice requires unguessable share reference');
  const [staffUser]=await db.insert(users).values({fullName:'Local Revocation QA',email:`revoke-${crypto.randomUUID()}@example.invalid`,isActive:true}).returning();
  const [member]=await db.insert(propertyMembers).values({propertyId:fixture.propertyId,userId:staffUser.id,role:'front_desk'}).returning();
  const revoke=await request('/api/staff',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({memberId:member.id,action:'revoke'})});assert.equal(revoke.status,200);assert.ok((await db.query.propertyMembers.findFirst({where:eq(propertyMembers.id,member.id)}))?.permissions?.includes('status:revoked'));pass('staff revocation preserves membership history and removes access');
  const self=await db.query.propertyMembers.findFirst({where});assert.equal((await request('/api/staff',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({memberId:self!.id,action:'revoke'})})).status,409);pass('staff revocation protects owner and current account');
  assert.equal((await request('/api/calendar?startDate=2026-02-30&endDate=2026-03-03')).status,400);pass('calendar rejects impossible dates');
+
+ const manualPath = `/api/invoices/${invoice.id}/payments`;
+ const recordInvoice = (amount: number, key: string, extra: Record<string, unknown> = {}) => request(manualPath, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Idempotency-Key': key }, body: JSON.stringify({ amountMinorUnits: amount, method: 'cash', ...extra }) });
+ assert.equal((await recordInvoice(1001, crypto.randomUUID())).status, 422); pass('manual invoice overpayment is rejected');
+ assert.equal((await recordInvoice(100, crypto.randomUUID(), { propertyId: fixture.otherPropertyId })).status, 404); pass('manual invoice cannot select another property');
+ const invoiceKey = crypto.randomUUID();
+ const retries = await Promise.all(Array.from({length: 4}, () => recordInvoice(400, invoiceKey)));
+ for (const response of retries) assert.equal(response.status, 200);
+ const { payments, operationalNotifications } = await import('../packages/database/src/index');
+ assert.equal((await db.query.propertyInvoices.findFirst({where:eq(propertyInvoices.id,invoice.id)}))?.paidAmountMinorUnits,400);
+ const receipts = await db.select().from(payments).where(eq(payments.invoiceId,invoice.id));
+ assert.equal(receipts.length,1);
+ assert.equal((await db.select().from(operationalNotifications).where(eq(operationalNotifications.dedupeKey, `manual:${receipts[0].id}`))).length,1);
+ pass('standalone manual invoice retries record one receipt, ledger entry, notification and balance update');
  console.log(`${count} authenticated HTTP checks passed.`);process.exit(0);
 }
 run().catch(error=>{console.error(error);process.exit(1)});
