@@ -37,6 +37,7 @@ const DASHBOARD_ROUTES = new Set([
   'invoice',
   'offers',
   'channels',
+  'apps',
   'connect',
   'analytics',
   'reports',

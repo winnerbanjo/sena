@@ -33,6 +33,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
     return NextResponse.json(result);
   } catch {
     await db.update(integrationWebhookEvents).set({ status: 'failed', processedAt: new Date(), errorMessage: 'Payment verification or settlement failed.' }).where(eq(integrationWebhookEvents.id, inserted[0].id));
+    await db.update(integrations).set({ webhookStatus: 'needs_attention', updatedAt: new Date() }).where(eq(integrations.id, integration.id));
     return NextResponse.json({ error: 'Payment could not be verified. Retry this event.' }, { status: 500 });
   }
 }

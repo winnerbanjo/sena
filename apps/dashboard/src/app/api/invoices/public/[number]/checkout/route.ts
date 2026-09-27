@@ -42,7 +42,8 @@ export async function POST(
       reference: initialized.reference,
     });
   } catch (error: any) {
-    const unavailable = error?.message === 'PAYSTACK_NOT_CONNECTED' ? 'Online payments are unavailable. Contact the property.' : error?.message === 'PROVIDER_UNAVAILABLE' ? 'Paystack is temporarily unavailable. Try again shortly.' : "We couldn't start the payment. No charge has been made. Try again.";
-    return NextResponse.json({ error: unavailable }, { status: error?.message === 'PAYSTACK_NOT_CONNECTED' ? 503 : 502 });
+    const paused = error?.message === 'PAYSTACK_NOT_CONNECTED' || error?.message === 'PAYSTACK_PAYMENTS_DISABLED';
+    const unavailable = paused ? 'Online payments are unavailable. Contact the property.' : error?.message === 'PROVIDER_UNAVAILABLE' ? 'Paystack is temporarily unavailable. Try again shortly.' : "We couldn't start the payment. No charge has been made. Try again.";
+    return NextResponse.json({ error: unavailable }, { status: paused ? 503 : 502 });
   }
 }

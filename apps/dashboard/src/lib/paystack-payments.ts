@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 import { and, eq, sql } from 'drizzle-orm';
 import { db, paymentAttempts, payments, propertyInvoices, reservations } from '@sena/database';
-import { requireConnectedPaystack } from './integrations/paystack';
+import { assertPaystackPayable, requireConnectedPaystack } from './integrations/paystack';
 
 const SUPPORTED_CURRENCIES = new Set(['NGN', 'GHS', 'ZAR', 'USD', 'KES', 'XOF']);
 
@@ -28,6 +28,7 @@ export async function initializePropertyPaystack(input: InitializeInput, fetcher
       const prior = await tx.query.paymentAttempts.findFirst({ where: and(eq(paymentAttempts.propertyId, input.propertyId), eq(paymentAttempts.idempotencyKey, input.idempotencyKey)) });
       if (prior?.status === 'initialized') return prior.metadata as any;
     }
+    assertPaystackPayable(integration, input.source);
     const internalReference = `SENA_${crypto.randomBytes(18).toString('hex')}`;
     const [attempt] = await tx.insert(paymentAttempts).values({
       propertyId: input.propertyId, integrationId: integration.id, invoiceId: input.invoiceId || null,

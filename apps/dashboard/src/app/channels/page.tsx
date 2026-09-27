@@ -78,10 +78,10 @@ const INTEGRATIONS: IntegrationItem[] = [
   // 2. Payments
   {
     id: 'paystack',
-    name: 'Paystack Gateway',
+    name: 'Paystack',
     category: 'Payments',
     status: 'active',
-    description: 'Connect the property’s own Paystack account for online payments and verified reconciliation.',
+    description: 'Connect this property’s own Paystack account for online payments.',
     actionText: 'Manage Gateway',
     actionHref: '/apps',
   },
@@ -144,8 +144,35 @@ const INTEGRATIONS: IntegrationItem[] = [
   },
 ];
 
+function PaystackCatalogueState({ state }: { state: { displayStatus: string; mode?: string } | null }) {
+  const status = state?.displayStatus || 'disconnected';
+  const label = status === 'connected' ? 'Connected' : status === 'needs_attention' ? 'Needs attention' : status === 'disabled' ? 'Disabled' : 'Not connected';
+  const action = status === 'disconnected' ? 'Connect' : 'Manage Gateway';
+  const tone = status === 'connected' ? 'text-[#2E6B4F]' : status === 'disconnected' ? 'text-[#7A7267]' : 'text-amber-700';
+  return (
+    <div className="flex w-full items-center justify-between gap-3">
+      <div>
+        <p className={`text-xs font-medium ${tone}`}>{label}</p>
+        {status === 'connected' && state?.mode && <p className="text-[11px] text-[#7A7267]">{state.mode === 'test' ? 'Test mode' : 'Live mode'}</p>}
+      </div>
+      <Link href="/apps" className="text-xs font-medium text-[#191816] hover:text-[#B85C3E] flex items-center gap-1">
+        <span>{action}</span>
+        <ArrowRight className="w-3 h-3" />
+      </Link>
+    </div>
+  );
+}
+
 export default function ChannelsPage() {
   const [selectedChannel, setSelectedChannel] = React.useState<IntegrationItem | null>(null);
+  const [paystack, setPaystack] = React.useState<{ displayStatus: string; mode?: string } | null>(null);
+  React.useEffect(() => {
+    void fetch('/api/apps/paystack', { cache: 'no-store' }).then(async (response) => {
+      if (!response.ok) return;
+      const data = await response.json();
+      setPaystack({ displayStatus: data.paystack?.displayStatus || data.paystack?.status || 'disconnected', mode: data.paystack?.mode });
+    }).catch(() => undefined);
+  }, []);
   const categories: ('Booking & Distribution' | 'Payments' | 'Communication')[] = [
     'Booking & Distribution',
     'Payments',
@@ -194,6 +221,16 @@ export default function ChannelsPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                 {items.map((item) => {
                   const isActive = item.status === 'active';
+                  const paystackStatus = paystack?.displayStatus || 'disconnected';
+                  const catalogueBadge = item.id !== 'paystack'
+                    ? (isActive ? 'Available' : 'Coming Soon')
+                    : paystackStatus === 'connected'
+                      ? 'Connected'
+                      : paystackStatus === 'needs_attention'
+                        ? 'Needs attention'
+                        : paystackStatus === 'disabled'
+                          ? 'Disabled'
+                          : 'Available';
 
                   return (
                     <div
@@ -207,12 +244,12 @@ export default function ChannelsPage() {
                           </span>
                           <span
                             className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full ${
-                              isActive
-                                ? 'bg-[#EBF3EE] text-[#2E6B4F] border border-[#2E6B4F]/20'
-                                : 'bg-[#FAF8F5] text-[#7A7267] border border-[#E8E2DA]'
+                              catalogueBadge === 'Coming Soon' || catalogueBadge === 'Needs attention' || catalogueBadge === 'Disabled'
+                                ? 'bg-[#FAF8F5] text-[#7A7267] border border-[#E8E2DA]'
+                                : 'bg-[#EBF3EE] text-[#2E6B4F] border border-[#2E6B4F]/20'
                             }`}
                           >
-                            {isActive ? 'Available' : 'Coming Soon'}
+                            {catalogueBadge}
                           </span>
                         </div>
                         <strong className="text-base font-serif text-[#191816] block">
@@ -224,7 +261,9 @@ export default function ChannelsPage() {
                       </div>
 
                       <div className="pt-3 border-t border-[#E8E2DA] flex items-center justify-between">
-                        {isActive ? (
+                        {item.id === 'paystack' ? (
+                          <PaystackCatalogueState state={paystack} />
+                        ) : isActive ? (
                           <div className="flex items-center justify-between w-full">
                             <span className="text-xs text-[#2E6B4F] font-medium flex items-center gap-1">
                               <Check className="w-3.5 h-3.5" /> Certified & Online

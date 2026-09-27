@@ -107,7 +107,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(responsePayload, { status: 200 });
   } catch (error: any) {
     console.error('API Error /v1/payments/initialize:', error instanceof Error ? error.message : 'unknown');
-    const notConnected = error?.message === 'PAYSTACK_NOT_CONNECTED';
+    const notConnected = error?.message === 'PAYSTACK_NOT_CONNECTED' || error?.message === 'PAYSTACK_PAYMENTS_DISABLED';
     return NextResponse.json(
       { error: { code: notConnected ? 'PAYSTACK_NOT_CONNECTED' : 'PAYMENT_GATEWAY_ERROR', message: notConnected ? 'Online payments are not configured for this property.' : 'Payment provider could not initialize the transaction.' } },
       { status: notConnected ? 409 : 502 }

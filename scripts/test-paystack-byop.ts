@@ -40,7 +40,8 @@ async function run() {
 
   const verifyFetch = async () => new Response(JSON.stringify({ status: true, data: [{ currency: 'NGN', balance: 0 }] }), { status: 200, headers: { 'content-type': 'application/json' } });
   await paystack.connectPaystack(ids.property, ids.user, plaintext, false, verifyFetch as typeof fetch);
-  const credential = await db.query.integrationCredentials.findFirst();
+  const connectedIntegration = await db.query.integrations.findFirst({ where: eq(integrations.propertyId, ids.property) });
+  const credential = await db.query.integrationCredentials.findFirst({ where: eq(integrationCredentials.integrationId, connectedIntegration!.id) });
   assert(credential && !credential.encryptedValue.includes(plaintext) && credential.maskedSuffix === '1234');
   assert.equal((await db.query.integrationAuditLogs.findMany({ where: eq(integrationAuditLogs.propertyId, ids.property) })).length, 1);
   await assert.rejects(paystack.connectPaystack(ids.otherProperty, ids.user, 'bad-key', false, verifyFetch as typeof fetch), /INVALID_CREDENTIAL/);
@@ -95,13 +96,44 @@ async function run() {
   assert.equal((await db.query.payments.findMany({ where: eq(payments.providerReference, invoiceInit.reference) })).length, 1);
   console.log('PASS invoice settlement records one receipt without requiring a reservation');
 
+  const disconnected = paystack.safePaystackState(await paystack.getPropertyPaystack(ids.otherProperty), 'https://app.sena.ng');
+  assert.equal(disconnected.displayStatus, 'disconnected');
+  assert.equal('webhookUrl' in disconnected, false);
+  const connectedState = paystack.safePaystackState(await paystack.getPropertyPaystack(ids.property), 'https://app.sena.ng');
+  assert.equal(connectedState.displayStatus, 'connected');
+  assert.equal(connectedState.mode, 'test');
+  assert.equal(connectedState.secret, '••••••••••••••1234');
+  assert.equal(JSON.stringify(connectedState).includes(plaintext), false);
+  assert.match(connectedState.webhookUrl || '', /^https:\/\/app\.sena\.ng\/api\/webhooks\/paystack\/.+/);
+  await assert.rejects(paystack.updatePaystackPaymentControls(ids.otherProperty, ids.user, { acceptOnlinePayments: false }), /PAYSTACK_NOT_CONNECTED/);
+  console.log('PASS unconnected and connected states stay on the authorized property');
+
+  await paystack.updatePaystackPaymentControls(ids.property, ids.user, { acceptOnlinePayments: false });
+  assert.equal(paystack.paystackDisplayStatus(await paystack.getPropertyPaystack(ids.property)), 'disabled');
+  await assert.rejects(paymentFlow.initializePropertyPaystack({ propertyId: ids.property, invoiceId: invoice.id, email: 'guest@qa.invalid', amountMinorUnits: 1000, currency: 'NGN', source: 'invoice', callbackUrl: 'https://preview.invalid/invoice' }, invoiceFetch as typeof fetch), /PAYSTACK_PAYMENTS_DISABLED/);
+  await paystack.updatePaystackPaymentControls(ids.property, ids.user, { acceptOnlinePayments: true, directBooking: false, invoices: true });
+  await assert.rejects(paymentFlow.initializePropertyPaystack({ propertyId: ids.property, reservationId: ids.reservation, email: 'guest@qa.invalid', amountMinorUnits: 1000, currency: 'NGN', source: 'direct_booking', callbackUrl: 'https://preview.invalid/booking' }, invoiceFetch as typeof fetch), /PAYSTACK_PAYMENTS_DISABLED/);
+  const invoiceWhileBookingOff = await paymentFlow.initializePropertyPaystack({ propertyId: ids.property, invoiceId: invoice.id, email: 'guest@qa.invalid', amountMinorUnits: 1000, currency: 'NGN', source: 'invoice', callbackUrl: 'https://preview.invalid/invoice', idempotencyKey: 'surface-invoice' }, invoiceFetch as typeof fetch);
+  assert.match(invoiceWhileBookingOff.reference, /^SENA_/);
+  await paystack.updatePaystackPaymentControls(ids.property, ids.user, { directBooking: true, invoices: false });
+  await assert.rejects(paymentFlow.initializePropertyPaystack({ propertyId: ids.property, invoiceId: invoice.id, email: 'guest@qa.invalid', amountMinorUnits: 1000, currency: 'NGN', source: 'invoice', callbackUrl: 'https://preview.invalid/invoice', idempotencyKey: 'surface-invoice-off' }, invoiceFetch as typeof fetch), /PAYSTACK_PAYMENTS_DISABLED/);
+  await paystack.updatePaystackPaymentControls(ids.property, ids.user, { acceptOnlinePayments: true, directBooking: true, invoices: true });
+  await paystack.testPaystackConnection(ids.property, verifyFetch as typeof fetch);
+  assert.equal((await paystack.getPropertyPaystack(ids.property))?.integration.status, 'connected');
+  console.log('PASS payment controls block only new initialization and test connection does not charge');
+
+  const failingVerify = async () => new Response(JSON.stringify({ status: false }), { status: 401, headers: { 'content-type': 'application/json' } });
+  await assert.rejects(paystack.connectPaystack(ids.property, ids.user, 'sk_test_rejected_key_9999', true, failingVerify as typeof fetch), /INVALID_CREDENTIAL/);
+  assert.equal((await paystack.requireConnectedPaystack(ids.property)).secret, plaintext);
+  console.log('PASS replacement is rejected before the stored secret changes');
+
   await paystack.connectPaystack(ids.property, ids.user, 'sk_test_rotated_secret_5678', true, verifyFetch as typeof fetch);
   assert.equal((await paystack.requireConnectedPaystack(ids.property)).secret, 'sk_test_rotated_secret_5678');
   await paystack.disconnectPaystack(ids.property, ids.user);
   await assert.rejects(paystack.requireConnectedPaystack(ids.property), /PAYSTACK_NOT_CONNECTED/);
   assert.equal((await db.query.payments.findMany({ where: eq(payments.providerReference, initialized.reference) })).length, 1);
   console.log('PASS key rotation and disconnect preserve financial history');
-  console.log('7 Paystack BYOP groups passed with synthetic data and mocked provider calls.');
+  console.log('Paystack BYOP groups passed with synthetic data and mocked provider calls.');
   process.exit(0);
 }
 

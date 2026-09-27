@@ -8,5 +8,6 @@ export function apiError(error: unknown): string {
   if (/Only confirmed reservations/i.test(message)) return 'Only confirmed reservations can be checked in.';
   if (/Only checked-in stays/i.test(message)) return 'Only checked-in stays can be checked out.';
   if (/valid payment amount/i.test(message)) return 'Enter a payment amount greater than zero.';
+  if (message === 'PAYSTACK_NOT_CONNECTED' || message === 'PAYSTACK_PAYMENTS_DISABLED') return 'Online payments are unavailable. Contact the property.';
   return 'We could not complete this request. Check your information and try again.';
 }
