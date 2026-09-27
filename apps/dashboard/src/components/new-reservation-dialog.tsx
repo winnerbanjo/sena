@@ -15,6 +15,8 @@ import {
   Label,
 } from '@sena/ui';
 import type { ReservationItem } from './mock-data';
+import { PhysicalRoomSelect } from './physical-room-select';
+import type { EligiblePhysicalRoom } from './reservation-room';
 import { Loader2 } from 'lucide-react';
 
 interface NewReservationDialogProps {
@@ -48,6 +50,9 @@ export function NewReservationDialog({
   const [roomOptions, setRoomOptions] = React.useState<RoomTypeOption[]>([]);
   const [loadingRooms, setLoadingRooms] = React.useState(false);
   const [selectedRoomId, setSelectedRoomId] = React.useState<string>('');
+  const [physicalRoomId, setPhysicalRoomId] = React.useState<string>('');
+  const [eligibleRooms, setEligibleRooms] = React.useState<EligiblePhysicalRoom[]>([]);
+  const [loadingEligible, setLoadingEligible] = React.useState(false);
   const [guestName, setGuestName] = React.useState('');
   const [guestPhone, setGuestPhone] = React.useState('');
   const [guestEmail, setGuestEmail] = React.useState('');
@@ -61,6 +66,8 @@ export function NewReservationDialog({
     if (open) {
       setCheckIn(getTodayStr());
       setCheckOut(getTomorrowStr());
+      setPhysicalRoomId('');
+      setEligibleRooms([]);
       setLoadingRooms(true);
 
       fetch('/api/rooms')
@@ -88,6 +95,35 @@ export function NewReservationDialog({
     }
   }, [open]);
 
+  React.useEffect(() => {
+    if (!open || !selectedRoomId || !checkIn || !checkOut || checkOut <= checkIn) {
+      setEligibleRooms([]);
+      setPhysicalRoomId('');
+      return;
+    }
+
+    const controller = new AbortController();
+    setLoadingEligible(true);
+    fetch(`/api/rooms/eligible?roomTypeId=${encodeURIComponent(selectedRoomId)}&checkInDate=${encodeURIComponent(checkIn)}&checkOutDate=${encodeURIComponent(checkOut)}`, { signal: controller.signal })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        const nextRooms: EligiblePhysicalRoom[] = Array.isArray(data?.rooms) ? data.rooms : [];
+        setEligibleRooms(nextRooms);
+        setPhysicalRoomId((current) => (nextRooms.some((room) => room.id === current && room.eligible) ? current : ''));
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) {
+          setEligibleRooms([]);
+          setPhysicalRoomId('');
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoadingEligible(false);
+      });
+
+    return () => controller.abort();
+  }, [open, selectedRoomId, checkIn, checkOut]);
+
   const nights = (() => { try { return calculateNights(checkIn, checkOut); } catch { return 0; } })();
   const selectedRoomObj = roomOptions.find((r) => r.id === selectedRoomId) || null;
   const totalAmountMinorUnits = selectedRoomObj ? selectedRoomObj.price * nights : 0;
@@ -109,6 +145,7 @@ export function NewReservationDialog({
         headers: { 'Content-Type': 'application/json', 'Idempotency-Key': requestKey.current },
         body: JSON.stringify({
           roomTypeId: selectedRoomId,
+          roomId: physicalRoomId || undefined,
           checkInDate: checkIn,
           checkOutDate: checkOut,
           numGuests: 2,
@@ -149,7 +186,8 @@ export function NewReservationDialog({
         guestEmail: guestEmail || `${guestName.toLowerCase().replace(/\s+/g, '.')}@example.com`,
         guestPhone: guestPhone || '+234 800 000 0000',
         roomType: selectedRoomObj?.name || 'Unassigned',
-        roomNumber: 'Unassigned',
+        roomId: physicalRoomId || null,
+        roomNumber: eligibleRooms.find((room) => room.id === physicalRoomId)?.roomNumber || 'Unassigned',
         checkInDate: checkIn,
         checkOutDate: checkOut,
         nights,
@@ -258,6 +296,35 @@ export function NewReservationDialog({
                   ))
                 )}
               </div>
+            </div>
+
+            <div>
+              <Label id="assign-room-label">Assign Room</Label>
+              <div className="flex flex-wrap gap-2 mb-2">
+                <button
+                  type="button"
+                  onClick={() => setPhysicalRoomId('')}
+                  aria-pressed={!physicalRoomId}
+                  className={`px-2.5 py-1.5 rounded border text-xs ${
+                    !physicalRoomId
+                      ? 'border-[#B85C3E] bg-[#FAFAFA] text-[#71382D]'
+                      : 'border-[#E8E2DA] bg-white text-[#191816] hover:border-[#7A7267]'
+                  }`}
+                >
+                  Assign later
+                </button>
+              </div>
+              <PhysicalRoomSelect
+                rooms={eligibleRooms}
+                value={physicalRoomId}
+                onChange={setPhysicalRoomId}
+                loading={loadingEligible}
+                labelledBy="assign-room-label"
+                emptyLabel="No physical rooms in this category yet. Inventory will still be reserved."
+              />
+              <p className="text-[11px] text-[#8C8275] mt-1.5">
+                Optional. You can reserve the room type now and assign a specific room at check-in.
+              </p>
             </div>
 
             {/* Guest Details */}

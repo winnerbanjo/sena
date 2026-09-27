@@ -1,5 +1,6 @@
 'use client';
-import { findReadyRoom } from '../../components/reservation-room';
+import { formatAssignedRoom, mapReservationItem } from '../../components/reservation-room';
+import { CheckInRoomDialog, type RoomAssignmentMode } from '../../components/check-in-room-dialog';
 
 import { PageLoadState, readJsonResponse } from '../../components/page-load-state';
 import * as React from 'react';
@@ -26,6 +27,10 @@ function ReservationsContent() {
   const [drawerOpen, setDrawerOpen] = React.useState(false);
   const [newResOpen, setNewResOpen] = React.useState(false);
   const [successReservation, setSuccessReservation] = React.useState<ReservationItem | null>(null);
+  const [assignment, setAssignment] = React.useState<{
+    reservation: ReservationItem;
+    mode: RoomAssignmentMode;
+  } | null>(null);
 
   const fetchReservations = React.useCallback(async () => {
     try {
@@ -34,26 +39,7 @@ function ReservationsContent() {
       if (res.ok) {
         const data = await res.json();
         if (data.reservations) {
-          const mapped: ReservationItem[] = data.reservations.map((r: any) => ({
-            id: r.id,
-            reference: r.reference,
-            guestName: r.guestName || 'Unnamed Guest',
-            guestEmail: r.guestEmail || '',
-            guestPhone: r.guestPhone || '',
-            roomType: r.roomTypeName || 'Room type unavailable',
-            roomTypeId: r.roomTypeId,
-            roomNumber: r.roomNumber || 'Unassigned',
-            checkInDate: r.checkInDate,
-            checkOutDate: r.checkOutDate,
-            nights: r.nights,
-            numGuests: r.numGuests || 1,
-            source: r.source || 'direct',
-            status: r.status,
-            paymentStatus: r.paymentStatus,
-            totalAmountMinorUnits: r.totalAmountMinorUnits,
-            paidAmountMinorUnits: r.paidAmountMinorUnits,
-            timeline: r.timeline || [],
-          }));
+          const mapped: ReservationItem[] = data.reservations.map(mapReservationItem);
           setReservations(mapped);
         }
       }
@@ -230,7 +216,7 @@ function ReservationsContent() {
                         </td>
                         <td className="py-4 px-5">
                           <span className="font-medium text-[#191816] block">
-                            Room {res.roomNumber}
+                            {formatAssignedRoom(res.roomNumber)}
                           </span>
                           <span className="text-[11px] text-[#8C8275]">{res.roomType}</span>
                         </td>
@@ -276,30 +262,13 @@ function ReservationsContent() {
         reservation={selectedRes}
         open={drawerOpen}
         onOpenChange={setDrawerOpen}
-        onCheckIn={async (id) => {
-          try {
-            const roomRes = await fetch('/api/rooms');
-            const roomData = await roomRes.json();
-            const availableRoom = roomData.rooms?.find((rm: any) => rm.operational === 'available');
-            if (!availableRoom) {
-              toast.error('No clean rooms available', 'Please assign or clean a room before checking in.');
-              return;
-            }
-            const res = await fetch(`/api/reservations/${id}/check-in`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ roomId: availableRoom.id }),
-            });
-            if (res.ok) {
-              toast.success('Guest Checked In', `Room ${availableRoom.number} assigned.`);
-              fetchReservations();
-              if (selectedRes && selectedRes.id === id) {
-                setSelectedRes((prev) => (prev ? { ...prev, status: 'checked_in', roomNumber: availableRoom.number } : null));
-              }
-            }
-          } catch (e: any) {
-            toast.error('Check-in Error', e.message || 'Check in failed');
-          }
+        onCheckIn={(id) => {
+          const reservation = reservations.find((item) => item.id === id) || selectedRes;
+          if (reservation) setAssignment({ reservation, mode: 'check-in' });
+        }}
+        onAssignRoom={(id) => {
+          const reservation = reservations.find((item) => item.id === id) || selectedRes;
+          if (reservation) setAssignment({ reservation, mode: reservation.roomId ? 'change' : 'assign' });
         }}
         onCheckOut={async (id) => {
           try {
@@ -318,6 +287,23 @@ function ReservationsContent() {
           } catch (e: any) {
             toast.error('Check-out Error', e.message || 'Check out failed');
           }
+        }}
+      />
+
+      <CheckInRoomDialog
+        reservation={assignment?.reservation || null}
+        mode={assignment?.mode || 'check-in'}
+        open={!!assignment}
+        onOpenChange={(open) => {
+          if (!open) setAssignment(null);
+        }}
+        onCompleted={(update) => {
+          fetchReservations();
+          setSelectedRes((prev) =>
+            prev && assignment && prev.id === assignment.reservation.id
+              ? { ...prev, roomId: update.roomId, roomNumber: update.roomNumber, status: update.status || prev.status }
+              : prev
+          );
         }}
       />
 

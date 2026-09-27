@@ -13,10 +13,13 @@ async function handlePOST(
   try {
     const { id: reservationId } = await params;
     const body = await req.json();
-    const { roomId } = body;
+    const roomId = typeof body.roomId === 'string' ? body.roomId : '';
 
     if (!roomId) {
-      return NextResponse.json({ error: 'Room ID is required for check-in' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Select a physical room before checking in.', code: 'ROOM_ASSIGNMENT_REQUIRED' },
+        { status: 400 }
+      );
     }
 
     const session = await auth();

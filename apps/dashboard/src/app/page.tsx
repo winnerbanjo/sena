@@ -1,5 +1,6 @@
 'use client';
-import { findReadyRoom } from '../components/reservation-room';
+import { formatAssignedRoom, mapReservationItem } from '../components/reservation-room';
+import { CheckInRoomDialog, type RoomAssignmentMode } from '../components/check-in-room-dialog';
 
 import { useWorkspace } from '../components/workspace-access';
 import * as React from 'react';
@@ -55,6 +56,10 @@ export default function OverviewPage() {
   const [userName, setUserName] = React.useState('');
   const [propertyName, setPropertyName] = React.useState('');
   const [propertySlug, setPropertySlug] = React.useState('');
+  const [assignment, setAssignment] = React.useState<{
+    reservation: ReservationItem;
+    mode: RoomAssignmentMode;
+  } | null>(null);
 
   React.useEffect(() => {
     if (!workspace) return;
@@ -88,26 +93,7 @@ export default function OverviewPage() {
       if (resRes.ok) {
         const data = await resRes.json();
         if (data.reservations) {
-          const mapped: ReservationItem[] = data.reservations.map((r: any) => ({
-            id: r.id,
-            reference: r.reference,
-            guestName: r.guestName || 'Unnamed Guest',
-            guestEmail: r.guestEmail || '',
-            guestPhone: r.guestPhone || '',
-            roomType: r.roomTypeName || 'Room type unavailable',
-            roomTypeId: r.roomTypeId,
-            roomNumber: r.roomNumber || 'Unassigned',
-            checkInDate: r.checkInDate,
-            checkOutDate: r.checkOutDate,
-            nights: r.nights,
-            numGuests: r.numGuests || 1,
-            source: r.source || 'direct',
-            status: r.status,
-            paymentStatus: r.paymentStatus,
-            totalAmountMinorUnits: r.totalAmountMinorUnits,
-            paidAmountMinorUnits: r.paidAmountMinorUnits,
-            timeline: r.timeline || [],
-          }));
+          const mapped: ReservationItem[] = data.reservations.map(mapReservationItem);
           setReservations(mapped);
         }
       }
@@ -128,29 +114,10 @@ export default function OverviewPage() {
     fetchData();
   }, [fetchData]);
 
-  // Check In handler
-  async function handleCheckIn(id: string) {
-    try {
-      const availableRoom = findReadyRoom(rooms, reservations.find(reservation => reservation.id === id));
-      if (!availableRoom) {
-        toast.error('No clean rooms available', 'Please assign or clean a room before checking in.');
-        return;
-      }
-      const res = await fetch(`/api/reservations/${id}/check-in`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ roomId: availableRoom.id }),
-      });
-      if (res.ok) {
-        toast.success('Guest Checked In', `Room ${availableRoom.number || availableRoom.roomNumber} assigned successfully.`);
-        fetchData();
-        if (selectedRes && selectedRes.id === id) {
-          setSelectedRes((prev) => prev ? { ...prev, status: 'checked_in' } : null);
-        }
-      }
-    } catch (e: any) {
-      toast.error('Check-in Error', e.message || 'Check in failed');
-    }
+  function openAssignment(id: string, mode: RoomAssignmentMode) {
+    const reservation = reservations.find((item) => item.id === id) || selectedRes;
+    if (!reservation) return;
+    setAssignment({ reservation, mode });
   }
 
   // Check Out handler
@@ -403,7 +370,7 @@ export default function OverviewPage() {
                             </span>
                           </div>
                           <span className="text-xs text-[#7A7267] block truncate mt-0.5">
-                            {res.roomType} &middot; <strong className="text-[#71382D] font-medium">{res.roomNumber}</strong>
+                            {res.roomType} &middot; <strong className="text-[#71382D] font-medium">{formatAssignedRoom(res.roomNumber)}</strong>
                           </span>
                         </div>
                       </div>
@@ -432,7 +399,7 @@ export default function OverviewPage() {
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleCheckIn(res.id);
+                              openAssignment(res.id, 'check-in');
                             }}
                             className="px-3 py-1.5 rounded-lg bg-[#71382D] hover:bg-[#5A2C23] text-white text-xs font-semibold shadow-xs transition-colors"
                           >
@@ -545,8 +512,26 @@ export default function OverviewPage() {
         reservation={selectedRes}
         open={drawerOpen}
         onOpenChange={setDrawerOpen}
-        onCheckIn={handleCheckIn}
+        onCheckIn={(id) => openAssignment(id, 'check-in')}
+        onAssignRoom={(id) => openAssignment(id, selectedRes && selectedRes.roomId ? 'change' : 'assign')}
         onCheckOut={handleCheckOut}
+      />
+
+      <CheckInRoomDialog
+        reservation={assignment?.reservation || null}
+        mode={assignment?.mode || 'check-in'}
+        open={!!assignment}
+        onOpenChange={(open) => {
+          if (!open) setAssignment(null);
+        }}
+        onCompleted={(update) => {
+          fetchData();
+          setSelectedRes((prev) =>
+            prev && assignment && prev.id === assignment.reservation.id
+              ? { ...prev, roomId: update.roomId, roomNumber: update.roomNumber, status: update.status || prev.status }
+              : prev
+          );
+        }}
       />
 
       {/* New Reservation Dialog */}

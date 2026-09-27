@@ -4,7 +4,16 @@ import { PageLoadState, readJsonResponse } from '../../components/page-load-stat
 import * as React from 'react';
 import Link from 'next/link';
 import { formatNaira } from '@sena/config';
-import { Badge, Button } from '@sena/ui';
+import {
+  Badge,
+  Button,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@sena/ui';
 import {
   Bed,
   CheckCircle2,
@@ -17,9 +26,11 @@ import {
   Users,
 } from 'lucide-react';
 import {
+  type ReservationItem,
   type RoomCategory,
   type RoomItem,
 } from '../../components/mock-data';
+import { mapReservationItem } from '../../components/reservation-room';
 import { AddCategoryDialog } from '../../components/add-category-dialog';
 import { AddRoomDialog } from '../../components/add-room-dialog';
 import { Topbar } from '../../components/topbar';
@@ -36,6 +47,11 @@ export default function RoomsPage() {
 
   // Success alert message
   const [toastMessage, setToastMessage] = React.useState<string | null>(null);
+  const [assignRoom, setAssignRoom] = React.useState<RoomItem | null>(null);
+  const [assignArrivals, setAssignArrivals] = React.useState<ReservationItem[]>([]);
+  const [assignLoading, setAssignLoading] = React.useState(false);
+  const [assigningId, setAssigningId] = React.useState<string | null>(null);
+  const [assignError, setAssignError] = React.useState<string | null>(null);
 
   // Persistent Rooms & Categories state from PostgreSQL
   const [rooms, setRooms] = React.useState<RoomItem[]>([]);
@@ -72,6 +88,7 @@ export default function RoomsPage() {
               id: r.id,
               number: r.roomNumber,
               type: r.roomTypeName,
+              roomTypeId: r.roomTypeId,
               floor: r.floor || 'Floor 1',
               operational: r.operationalStatus || 'available',
               housekeeping: r.housekeepingStatus || 'clean',
@@ -111,6 +128,51 @@ export default function RoomsPage() {
   function showToast(msg: string) {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 4000);
+  }
+
+  React.useEffect(() => {
+    if (!assignRoom) return;
+    setAssignLoading(true);
+    setAssignError(null);
+    fetch('/api/reservations')
+      .then((res) => (res.ok ? res.json() : Promise.reject(new Error('Could not load arrivals'))))
+      .then((data) => {
+        const mapped: ReservationItem[] = (data.reservations || []).map(mapReservationItem);
+        setAssignArrivals(
+          mapped.filter(
+            (reservation) =>
+              reservation.status === 'confirmed' &&
+              !reservation.roomId &&
+              (assignRoom.roomTypeId
+                ? reservation.roomTypeId === assignRoom.roomTypeId
+                : reservation.roomType === assignRoom.type)
+          )
+        );
+      })
+      .catch((error) => setAssignError(error.message || 'Could not load arrivals'))
+      .finally(() => setAssignLoading(false));
+  }, [assignRoom]);
+
+  async function handleAssignArrival(reservationId: string) {
+    if (!assignRoom) return;
+    setAssigningId(reservationId);
+    setAssignError(null);
+    try {
+      const res = await fetch(`/api/reservations/${reservationId}/assign-room`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ roomId: assignRoom.id }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Could not assign this room.');
+      showToast(`Room ${assignRoom.number} assigned.`);
+      setAssignRoom(null);
+      fetchRoomsData();
+    } catch (error: any) {
+      setAssignError(error.message || 'Could not assign this room.');
+    } finally {
+      setAssigningId(null);
+    }
   }
 
   // Handle Add Room (persists to PostgreSQL)
@@ -579,12 +641,13 @@ export default function RoomsPage() {
                                     Folio →
                                   </Link>
                                 ) : (
-                                  <Link
-                                    href="/front-desk"
+                                  <button
+                                    type="button"
+                                    onClick={() => setAssignRoom(room)}
                                     className="text-[#7A7267] hover:text-[#191816] hover:underline"
                                   >
                                     Assign →
-                                  </Link>
+                                  </button>
                                 )}
                               </div>
                             </div>
@@ -741,6 +804,55 @@ export default function RoomsPage() {
         onOpenChange={setAddCategoryOpen}
         onAddCategory={handleAddCategory}
       />
+
+      <Dialog open={!!assignRoom} onOpenChange={(open) => { if (!open) setAssignRoom(null); }}>
+        <DialogContent className="max-w-md bg-white border border-[#E8E1D5]">
+          <DialogHeader>
+            <DialogTitle className="font-serif text-lg text-[#71382D]">
+              Assign Room {assignRoom?.number}
+            </DialogTitle>
+            <DialogDescription className="text-xs text-[#7A7267]">
+              Choose an unassigned expected arrival in {assignRoom?.type}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            {assignLoading ? (
+              <p className="text-xs text-[#7A7267]">Loading expected arrivals…</p>
+            ) : assignArrivals.length === 0 ? (
+              <p className="text-xs text-[#7A7267]">
+                No unassigned arrivals for this room type. Reservations can also be assigned from Front Desk or Reservations.
+              </p>
+            ) : (
+              <div className="max-h-56 overflow-y-auto divide-y divide-[#E8E2DA] rounded border border-[#E8E2DA]">
+                {assignArrivals.map((arrival) => (
+                  <button
+                    key={arrival.id}
+                    type="button"
+                    disabled={assigningId === arrival.id}
+                    onClick={() => handleAssignArrival(arrival.id)}
+                    className="w-full text-left px-3 py-2.5 text-xs hover:bg-[#FAF7F2]"
+                  >
+                    <strong className="block text-[#191816]">{arrival.guestName}</strong>
+                    <span className="text-[11px] text-[#8C8275]">
+                      {arrival.reference} · {arrival.checkInDate} → {arrival.checkOutDate}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+            {assignError && (
+              <p className="rounded bg-red-50 text-red-700 px-2.5 py-2 text-xs font-medium" role="alert">
+                {assignError}
+              </p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setAssignRoom(null)}>
+              Cancel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

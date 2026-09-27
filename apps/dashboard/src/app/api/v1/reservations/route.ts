@@ -101,6 +101,7 @@ export async function POST(req: NextRequest) {
         source,
         paymentStatus: 'pay_later',
         paidAmountMinorUnits: 0,
+        roomId: undefined,
         specialRequests,
         guest: {
           fullName: guestName,

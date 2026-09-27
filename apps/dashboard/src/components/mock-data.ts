@@ -6,6 +6,7 @@ export interface ReservationItem {
   guestPhone: string;
   roomType: string;
   roomTypeId?: string;
+  roomId?: string | null;
   roomNumber: string;
   checkInDate: string;
   checkOutDate: string;
@@ -36,6 +37,7 @@ export interface RoomItem {
   id: string;
   number: string;
   type: string;
+  roomTypeId?: string;
   floor: string;
   operational: 'available' | 'occupied' | 'maintenance';
   housekeeping: 'clean' | 'cleaning' | 'dirty' | 'inspection';
