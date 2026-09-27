@@ -23,10 +23,12 @@ const nextAuth = NextAuth({
         const email = String(credentials.email).toLowerCase().trim();
         const password = String(credentials.password);
 
-        // Fetch user from PostgreSQL
+        // Resolve the account and its property in one database round trip.
         const userResults = await db
-          .select()
+          .select({ user: users, propertyId: propertyMembers.propertyId, role: propertyMembers.role, propertyName: properties.name })
           .from(users)
+          .leftJoin(propertyMembers, eq(propertyMembers.userId, users.id))
+          .leftJoin(properties, eq(propertyMembers.propertyId, properties.id))
           .where(eq(users.email, email))
           .limit(1);
 
@@ -34,7 +36,8 @@ const nextAuth = NextAuth({
           return null;
         }
 
-        const user = userResults[0];
+        const account = userResults[0];
+        const user = account.user;
         if (!user.isActive || !user.passwordHash) {
           return null;
         }
@@ -44,28 +47,14 @@ const nextAuth = NextAuth({
           return null;
         }
 
-        // Fetch property association if available
-        const memberResults = await db
-          .select({
-            propertyId: propertyMembers.propertyId,
-            role: propertyMembers.role,
-            propertyName: properties.name,
-          })
-          .from(propertyMembers)
-          .innerJoin(properties, eq(propertyMembers.propertyId, properties.id))
-          .where(eq(propertyMembers.userId, user.id))
-          .limit(1);
-
-        const property = memberResults[0];
-
         return {
           id: user.id,
           email: user.email,
           name: user.fullName,
           image: user.avatarUrl,
-          propertyId: property?.propertyId,
-          propertyName: property?.propertyName,
-          role: property?.role || 'owner',
+          propertyId: account.propertyId || undefined,
+          propertyName: account.propertyName || undefined,
+          role: account.role || 'owner',
         };
       },
     }),
