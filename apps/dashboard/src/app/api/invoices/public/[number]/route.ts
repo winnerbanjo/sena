@@ -8,6 +8,7 @@ import {
   reservations,
   eq,
 } from '@sena/database';
+import { invoicePaymentAvailable } from '@/lib/integrations/paystack';
 
 export async function GET(
   req: NextRequest,
@@ -27,6 +28,8 @@ export async function GET(
       return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
     }
 
+    const onlinePaymentAvailable = await invoicePaymentAvailable(invoice.propertyId);
+
     const prop = await db.query.properties.findFirst({
       where: eq(properties.id, invoice.propertyId),
     });
@@ -39,6 +42,7 @@ export async function GET(
     }
 
     return NextResponse.json({
+      onlinePaymentAvailable,
       invoice: {
         invoiceNumber: invoice.invoiceNumber, invoiceType: invoice.invoiceType,
         status: invoice.status, recipientName: invoice.recipientName,

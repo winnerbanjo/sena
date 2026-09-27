@@ -35,7 +35,15 @@ export async function GET(req: NextRequest) {
   const state = await stateFor(result.resolved.propertyId, origin(req));
   const canManage = ownerOnly(result.resolved.role);
   if (!canManage) {
-    return NextResponse.json({ canManage: false, paystack: { status: state.status, displayStatus: state.displayStatus, mode: 'mode' in state ? state.mode : undefined } });
+    return NextResponse.json({
+      canManage: false,
+      paystack: {
+        status: state.status,
+        displayStatus: state.displayStatus,
+        mode: 'mode' in state ? state.mode : undefined,
+        enabled: 'enabled' in state ? state.enabled : false,
+      },
+    });
   }
   return NextResponse.json({ canManage: true, paystack: state });
 }
@@ -63,9 +71,9 @@ export async function PATCH(req: NextRequest) {
       await testPaystackConnection(result.resolved.propertyId);
     } else if (body.action === 'replace' && typeof body.secretKey === 'string' && body.secretKey.trim()) {
       await connectPaystack(result.resolved.propertyId, result.resolved.userId, body.secretKey, true);
-    } else if (body.action === 'payments') {
+    } else if (body.action === 'payments' || body.action === 'toggle_enabled') {
       const patch: Record<string, boolean> = {};
-      for (const key of ['acceptOnlinePayments', 'directBooking', 'invoices'] as const) {
+      for (const key of ['enabled', 'acceptOnlinePayments', 'directBooking', 'invoices'] as const) {
         if (typeof body[key] === 'boolean') patch[key] = body[key];
       }
       if (!Object.keys(patch).length) return NextResponse.json({ error: 'Choose a payment setting to update.' }, { status: 422 });
