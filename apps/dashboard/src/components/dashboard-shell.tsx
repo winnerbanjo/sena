@@ -13,6 +13,7 @@ import { NetworkStatusBanner } from './network-status';
 import { PwaInstallDialog } from './pwa-install-dialog';
 import { ToastProvider } from './toast-notification';
 import { ReservationSuccessModal } from './reservation-success-modal';
+import type { ServerWorkspaceResult } from '@/lib/workspace';
 
 interface DashboardContextType {
   // Mobile Nav
@@ -68,7 +69,7 @@ export function useDashboard() {
   return React.useContext(DashboardContext);
 }
 
-export function DashboardShell({ children }: { children: React.ReactNode }) {
+export function DashboardShell({ children, workspaceResult }: { children: React.ReactNode; workspaceResult: ServerWorkspaceResult | null }) {
   const pathname = usePathname();
   const [isTenantHost, setIsTenantHost] = React.useState(false);
 
@@ -138,7 +139,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <WorkspaceAccess><PwaProvider>
+    <WorkspaceAccess result={workspaceResult}><PwaProvider>
       <ToastProvider>
         <DashboardContext.Provider
         value={{

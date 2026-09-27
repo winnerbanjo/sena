@@ -1,4 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
+import NextAuth from 'next-auth';
+import { authConfig } from './auth.config';
+
+const { auth } = NextAuth(authConfig);
 
 const RESERVED_SUBDOMAINS = new Set([
   'www',
@@ -47,7 +51,7 @@ const DASHBOARD_ROUTES = new Set([
   'site',
 ]);
 
-export function middleware(req: NextRequest) {
+export const middleware = auth((req) => {
   const url = req.nextUrl;
   const pathname = url.pathname;
 
@@ -95,6 +99,7 @@ export function middleware(req: NextRequest) {
     const requestHeaders = new Headers(req.headers);
     requestHeaders.set('x-sena-slug', slug);
     requestHeaders.set('x-sena-is-tenant', 'true');
+    requestHeaders.set('x-sena-pathname', pathname);
     const res = NextResponse.rewrite(rewriteUrl, {
       request: {
         headers: requestHeaders,
@@ -113,6 +118,7 @@ export function middleware(req: NextRequest) {
     const requestHeaders = new Headers(req.headers);
     requestHeaders.set('x-sena-slug', firstSegment);
     requestHeaders.set('x-sena-is-tenant', 'true');
+    requestHeaders.set('x-sena-pathname', pathname);
     const res = NextResponse.rewrite(rewriteUrl, {
       request: {
         headers: requestHeaders,
@@ -123,8 +129,25 @@ export function middleware(req: NextRequest) {
     return res;
   }
 
-  return NextResponse.next();
-}
+  const isPublicOrAuthPath =
+    pathname === '/login' ||
+    pathname.startsWith('/login/') ||
+    pathname === '/signup' ||
+    pathname.startsWith('/signup/') ||
+    pathname === '/onboarding' ||
+    pathname.startsWith('/onboarding/') ||
+    pathname.startsWith('/site/') ||
+    pathname.startsWith('/invoice/') ||
+    pathname.startsWith('/embed/');
+
+  if (!isPublicOrAuthPath && !req.auth?.user?.id) {
+    return NextResponse.redirect(new URL('/login', req.url));
+  }
+
+  const requestHeaders = new Headers(req.headers);
+  requestHeaders.set('x-sena-pathname', pathname);
+  return NextResponse.next({ request: { headers: requestHeaders } });
+});
 
 export const config = {
   matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],

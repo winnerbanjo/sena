@@ -36,13 +36,17 @@ test('current membership role is authoritative', async () => {
 });
 test('missing test URL blocks release suite before database access', () => assert.throws(() => requireIsolatedTestDatabase({}), /SAFETY BLOCK/));
 test('remote and customer database URLs are rejected', () => {
-  for (const url of ['postgres://user:pass@db.example.com/sena_test', 'postgres://user:pass@localhost/sena']) assert.throws(() => requireIsolatedTestDatabase({ SENA_TEST_DATABASE_URL: url }), /SAFETY BLOCK/);
+  for (const url of ['postgres://user:pass@db.example.com/sena_test', 'postgres://user:pass@localhost/sena', 'postgres://user:pass@localhost/sena_prod']) assert.throws(() => requireIsolatedTestDatabase({ SENA_TEST_DATABASE_URL: url, SENA_PRODUCTION_DATABASE_URL: 'postgres://production.example/sena_prod' }), /SAFETY BLOCK/);
 });
 test('live payment and delivery credentials block synthetic tests', () => {
-  for (const extra of [{ PAYSTACK_SECRET_KEY: 'sk_live_test' }, { RESEND_API_KEY: 'test' }]) assert.throws(() => requireIsolatedTestDatabase({ SENA_TEST_DATABASE_URL: 'postgres://localhost/sena_test', ...extra }), /SAFETY BLOCK/);
+  for (const extra of [{ PAYSTACK_SECRET_KEY: 'sk_live_test' }, { RESEND_API_KEY: 'test' }]) assert.throws(() => requireIsolatedTestDatabase({ SENA_TEST_DATABASE_URL: 'postgres://localhost/sena_test', SENA_PRODUCTION_DATABASE_URL: 'postgres://production.example/sena_prod', ...extra }), /SAFETY BLOCK/);
+});
+test('test and production URLs cannot be identical', () => {
+  const url = 'postgres://localhost/sena_test';
+  assert.throws(() => requireIsolatedTestDatabase({ SENA_TEST_DATABASE_URL: url, SENA_PRODUCTION_DATABASE_URL: url }), /identical/);
 });
 test('isolated local database is explicitly selected', () => {
-  const env = { SENA_TEST_DATABASE_URL: 'postgres://localhost/sena_test_craft', DATABASE_URL: 'postgres://production/sena' };
+  const env = { SENA_TEST_DATABASE_URL: 'postgres://localhost/sena_test_craft', SENA_PRODUCTION_DATABASE_URL: 'postgres://production.example/sena_prod', DATABASE_URL: 'postgres://production.example/sena_prod' };
   requireIsolatedTestDatabase(env);
   assert.equal(env.DATABASE_URL, env.SENA_TEST_DATABASE_URL);
 });
