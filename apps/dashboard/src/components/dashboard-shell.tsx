@@ -14,60 +14,10 @@ import { PwaInstallDialog } from './pwa-install-dialog';
 import { ToastProvider } from './toast-notification';
 import { ReservationSuccessModal } from './reservation-success-modal';
 import type { ServerWorkspaceResult } from '@/lib/workspace';
+import { DashboardContext } from './dashboard-context';
 
-interface DashboardContextType {
-  // Mobile Nav
-  isOpen: boolean;
-  openMobileNav: () => void;
-  closeMobileNav: () => void;
-  toggleMobileNav: () => void;
-
-  // Global Search / Command Palette
-  isSearchOpen: boolean;
-  openSearch: () => void;
-  closeSearch: () => void;
-  toggleSearch: () => void;
-
-  // Notifications
-  isNotificationsOpen: boolean;
-  openNotifications: () => void;
-  closeNotifications: () => void;
-  toggleNotifications: () => void;
-
-  // Global New Reservation
-  isNewResOpen: boolean;
-  openNewReservation: () => void;
-  closeNewReservation: () => void;
-}
-
-export const DashboardContext = React.createContext<DashboardContextType>({
-  isOpen: false,
-  openMobileNav: () => {},
-  closeMobileNav: () => {},
-  toggleMobileNav: () => {},
-
-  isSearchOpen: false,
-  openSearch: () => {},
-  closeSearch: () => {},
-  toggleSearch: () => {},
-
-  isNotificationsOpen: false,
-  openNotifications: () => {},
-  closeNotifications: () => {},
-  toggleNotifications: () => {},
-
-  isNewResOpen: false,
-  openNewReservation: () => {},
-  closeNewReservation: () => {},
-});
-
-export function useMobileNav() {
-  return React.useContext(DashboardContext);
-}
-
-export function useDashboard() {
-  return React.useContext(DashboardContext);
-}
+export { useDashboard, useMobileNav } from './dashboard-context';
+export { DashboardContext };
 
 export function DashboardShell({ children, workspaceResult }: { children: React.ReactNode; workspaceResult: ServerWorkspaceResult | null }) {
   const pathname = usePathname();
@@ -76,7 +26,7 @@ export function DashboardShell({ children, workspaceResult }: { children: React.
   React.useEffect(() => {
     if (typeof window !== 'undefined') {
       const host = window.location.hostname.toLowerCase();
-      const RESERVED_HOSTS = ['app.sena.ng', 'sena.ng', 'www.sena.ng', 'admin.sena.ng', 'api.sena.ng', 'localhost', 'app.localhost'];
+      const RESERVED_HOSTS = ['app.sena.ng', 'sena.ng', 'www.sena.ng', 'admin.sena.ng', 'api.sena.ng', 'localhost', '127.0.0.1', '::1', 'app.localhost'];
       if (
         !RESERVED_HOSTS.includes(host) &&
         (host.endsWith('.sena.ng') ||

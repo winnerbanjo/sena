@@ -49,7 +49,7 @@ export default function PublicInvoicePage() {
     if (!invoice) return;
     setPaying(true);
     try {
-      const res = await fetch(`/api/invoices/public/${invoice.id}/checkout`, {
+      const res = await fetch(`/api/invoices/public/${invoiceNumber}/checkout`, {
         method: 'POST',
       });
       const data = await res.json();
@@ -93,7 +93,8 @@ export default function PublicInvoicePage() {
   }
 
   const balanceMinorUnits = Math.max(0, invoice.totalAmountMinorUnits - invoice.paidAmountMinorUnits);
-  const isPaid = invoice.status === 'paid' || balanceMinorUnits === 0;
+  const unavailable = ['void', 'draft', 'cancelled'].includes(invoice.status);
+  const isPaid = !unavailable && (invoice.status === 'paid' || balanceMinorUnits === 0);
   const canPayOnline = !isPaid && !['void', 'draft', 'cancelled'].includes(invoice.status);
 
   return (
@@ -193,7 +194,7 @@ export default function PublicInvoicePage() {
                     : 'border-[#B85C3E] text-[#B85C3E] bg-[#B85C3E]/10 ring-2 ring-[#B85C3E]/20'
                 }`}
               >
-                {isPaid ? 'PAID IN FULL' : invoice.status === 'overdue' ? 'OVERDUE' : 'PAYMENT DUE'}
+                {unavailable ? invoice.status.toUpperCase() : isPaid ? 'PAID IN FULL' : invoice.status === 'overdue' ? 'OVERDUE' : 'PAYMENT DUE'}
               </div>
 
               <div className="text-xs font-mono space-y-0.5 sm:text-right">

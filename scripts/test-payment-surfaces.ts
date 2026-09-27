@@ -10,13 +10,21 @@ async function run() {
     guestName: 'Ada Guest',
     invoiceNumber: 'SRF-1',
     propertyName: 'Surface Hotel',
+    totalFormatted: '₦1,500.00',
+    paidFormatted: '₦500.00',
     amountDueFormatted: '₦1,000.00',
     dueDate: '2032-04-08',
+    payable: true,
     summaryLines: [{ label: 'Room', amount: '₦1,000.00' }],
     invoiceUrl: 'https://app.sena.ng/invoice/30000000-0000-4000-8000-000000000008',
   });
   assert.match(renderedInvoice.subject, /^Invoice SRF-1 from Surface Hotel$/);
   assert.match(renderedInvoice.html, /View &amp; Pay Invoice|View & Pay Invoice/);
+  const paidInvoice = invoiceEmail.renderInvoiceIssuedEmail({ ...{
+    guestName: 'Ada Guest', invoiceNumber: 'SRF-PAID', propertyName: 'Surface Hotel', totalFormatted: '₦1,000.00', paidFormatted: '₦1,000.00', amountDueFormatted: '₦0.00', payable: false, summaryLines: [], invoiceUrl: 'https://app.sena.ng/invoice/paid',
+  } });
+  assert.doesNotMatch(paidInvoice.html, /View &amp; Pay Invoice|View & Pay Invoice/);
+  assert.match(paidInvoice.html, /View invoice/);
   assert.match(renderedInvoice.html, /https:\/\/app\.sena\.ng\/invoice\/30000000-0000-4000-8000-000000000008/);
   assert.doesNotMatch(renderedInvoice.html, /checkout\.paystack|authorization_url|Final Folio/);
   assert.match(renderedInvoice.text, /not a receipt/i);
@@ -104,9 +112,69 @@ async function run() {
   assert.equal(afterManual?.paymentStatus, 'part_payment');
   console.log('PASS manual cash, POS, transfer, overpayment block, and idempotency');
 
+  const { createPublicInvoiceToken, resolvePublicInvoiceToken } = await import('../apps/dashboard/src/lib/public-invoice-token');
+  const shareToken = createPublicInvoiceToken(ids.invoice);
+  assert.equal(resolvePublicInvoiceToken(shareToken), ids.invoice);
+  assert.equal(resolvePublicInvoiceToken(ids.invoice), null);
+  assert.equal(resolvePublicInvoiceToken(shareToken.slice(0, -4) + 'AAAA'), null);
+  assert.equal(resolvePublicInvoiceToken('not-a-token'), null);
+  assert.equal(resolvePublicInvoiceToken('v1_tooshort'), null);
+
+  const publicInvoice = await import('../apps/dashboard/src/app/api/invoices/public/[number]/route');
   const checkout = await import('../apps/dashboard/src/app/api/invoices/public/[number]/checkout/route');
-  const voidPay = await checkout.POST(new Request('https://preview.invalid/api/invoices/public/x/checkout', { method: 'POST' }) as any, { params: Promise.resolve({ number: ids.voidInvoice }) });
+
+  // Test malformed and invalid token requests return 404
+  const malformedGet = await publicInvoice.GET(new Request('https://preview.invalid') as any, { params: Promise.resolve({ number: 'malformed-token' }) });
+  assert.equal(malformedGet.status, 404);
+  const legacyIdGet = await publicInvoice.GET(new Request('https://preview.invalid') as any, { params: Promise.resolve({ number: ids.invoice }) });
+  assert.equal(legacyIdGet.status, 404);
+  const invalidGet = await publicInvoice.GET(new Request('https://preview.invalid') as any, { params: Promise.resolve({ number: shareToken.slice(0, -4) + 'AAAA' }) });
+  assert.equal(invalidGet.status, 404);
+
+  // Test valid token returns sanitized fields only
+  const publicResponse = await publicInvoice.GET(new Request('https://preview.invalid') as any, { params: Promise.resolve({ number: shareToken }) });
+  assert.equal(publicResponse.status, 200);
+  const publicData = await publicResponse.json();
+  for (const field of ['id', 'propertyId', 'organizationId', 'reservationId']) {
+    assert.equal(publicData.invoice[field], undefined, `public invoice excludes ${field}`);
+  }
+  assert.equal(publicData.property.id, undefined, 'public property excludes id');
+  assert.ok(publicData.invoice.invoiceNumber, 'public invoice has invoiceNumber');
+
+  // Test another property's token isolation
+  const [otherInvoice] = await db.insert(propertyInvoices).values({ propertyId: ids.other, organizationId: ids.organization, invoiceNumber: `QA-OTH-${Date.now()}`, recipientName: 'Other Guest', issueDate: '2026-09-26', dueDate: '2026-09-30', totalAmountMinorUnits: 50000, paidAmountMinorUnits: 0, status: 'issued' }).returning();
+  const otherShareToken = createPublicInvoiceToken(otherInvoice.id);
+  assert.notEqual(shareToken, otherShareToken);
+  assert.equal(resolvePublicInvoiceToken(otherShareToken), otherInvoice.id);
+  assert.notEqual(resolvePublicInvoiceToken(otherShareToken), ids.invoice);
+  const otherResponse = await publicInvoice.GET(new Request('https://preview.invalid') as any, { params: Promise.resolve({ number: otherShareToken }) });
+  assert.equal(otherResponse.status, 200);
+  const otherData = await otherResponse.json();
+  assert.equal(otherData.invoice.invoiceNumber, otherInvoice.invoiceNumber);
+  assert.equal(otherData.property.name, 'Other Hotel');
+
+  // Test void and cancelled invoices block checkout
+  const voidPay = await checkout.POST(new Request('https://preview.invalid/api/invoices/public/x/checkout', { method: 'POST' }) as any, { params: Promise.resolve({ number: createPublicInvoiceToken(ids.voidInvoice) }) });
   assert.equal(voidPay.status, 400);
+  await db.update(propertyInvoices).set({ status: 'cancelled' }).where(eq(propertyInvoices.id, ids.voidInvoice));
+  const cancelledPay = await checkout.POST(new Request('https://preview.invalid/api/invoices/public/x/checkout', { method: 'POST' }) as any, { params: Promise.resolve({ number: createPublicInvoiceToken(ids.voidInvoice) }) });
+  assert.equal(cancelledPay.status, 400);
+
+  // Test payable invoice checkout
+  const origFetch = globalThis.fetch;
+  globalThis.fetch = (async (_url: string | URL | Request, init?: RequestInit) => {
+    const payload = JSON.parse(String(init?.body));
+    return new Response(JSON.stringify({ status: true, data: { authorization_url: 'https://checkout.paystack.test/surface', reference: payload.reference } }), { status: 200 });
+  }) as typeof fetch;
+  try {
+    const payablePay = await checkout.POST(new Request('https://preview.invalid/api/invoices/public/x/checkout', { method: 'POST' }) as any, { params: Promise.resolve({ number: shareToken }) });
+    assert.equal(payablePay.status, 200);
+    const payableData = await payablePay.json();
+    assert.ok(payableData.authorizationUrl, 'payable invoice returned authorizationUrl');
+  } finally {
+    globalThis.fetch = origFetch;
+  }
+
   const initializeFetch = async (_url: string | URL | Request, init?: RequestInit) => {
     const payload = JSON.parse(String(init?.body));
     assert.equal(payload.amount, 100000);
@@ -127,6 +195,8 @@ async function run() {
   const invoiceAfter = await db.query.propertyInvoices.findFirst({ where: eq(propertyInvoices.id, ids.invoice) });
   assert.equal(invoiceAfter?.status, 'paid');
   assert.equal(invoiceAfter?.paidAmountMinorUnits, 150000);
+  const paidPay = await checkout.POST(new Request('https://preview.invalid/api/invoices/public/x/checkout', { method: 'POST' }) as any, { params: Promise.resolve({ number: shareToken }) });
+  assert.equal(paidPay.status, 400);
   const notices = await db.select().from(operationalNotifications).where(eq(operationalNotifications.propertyId, ids.property));
   assert.equal(notices.length, 1);
   assert.equal((await db.select().from(payments).where(eq(payments.invoiceId, ids.invoice))).length, 1);

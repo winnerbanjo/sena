@@ -1,3 +1,4 @@
+import { createPublicInvoiceToken } from '@/lib/public-invoice-token';
 import { apiError } from '@/lib/api-error';
 import { withMerchant } from '@/lib/merchant-route';
 import { NextRequest, NextResponse } from 'next/server';
@@ -46,7 +47,7 @@ async function handlePOST(
     }
 
     const origin = process.env.SENA_PUBLIC_APP_ORIGIN || process.env.NEXTAUTH_URL || 'https://app.sena.ng';
-    const publicInvoiceUrl = `${origin.replace(/\/$/, '')}/invoice/${invoice.id}`;
+    const publicInvoiceUrl = `${origin.replace(/\/$/, '')}/invoice/${createPublicInvoiceToken(invoice.id)}`;
     const balanceMinorUnits = Math.max(0, invoice.totalAmountMinorUnits - invoice.paidAmountMinorUnits);
     const money = (amount: number) => `₦${(amount / 100).toLocaleString('en-NG', { minimumFractionDigits: 2 })}`;
     const items = (invoice.items as Array<{ description?: string; quantity?: number; totalMinorUnits?: number }>) || [];
@@ -69,8 +70,12 @@ async function handlePOST(
           propertyAddress: prop?.address || undefined,
           propertyPhone: prop?.phone || undefined,
           propertyEmail: prop?.email || undefined,
+          totalFormatted: money(invoice.totalAmountMinorUnits),
+          paidFormatted: money(invoice.paidAmountMinorUnits),
           amountDueFormatted: money(balanceMinorUnits),
           dueDate: invoice.dueDate,
+          invoiceStatus: invoice.status,
+          payable: balanceMinorUnits > 0 && !['paid', 'void', 'draft', 'cancelled'].includes(invoice.status),
           summaryLines,
           invoiceUrl: publicInvoiceUrl,
         },

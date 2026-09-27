@@ -39,6 +39,8 @@ export default async function RootLayout({
     'admin.sena.ng',
     'api.sena.ng',
     'localhost',
+    '127.0.0.1',
+    '::1',
     'app.localhost',
   ]);
 

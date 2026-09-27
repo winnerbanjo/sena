@@ -3,10 +3,8 @@
 import * as React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useRouter } from 'next/navigation';
 
 export default function LoginPage() {
-  const router = useRouter();
   const [email, setEmail] = React.useState('');
   const [password, setPassword] = React.useState('');
   const [showPassword, setShowPassword] = React.useState(false);
@@ -55,7 +53,8 @@ export default function LoginPage() {
       }
 
       setIsLoading(false);
-      router.push('/');
+      // Reload the server layout after authentication; the login layout has no workspace.
+      window.location.assign('/');
     } catch (err: any) {
       console.error('Login error:', err);
       setError('Unable to sign in at the moment. Please verify your connection.');
@@ -144,7 +143,7 @@ export default function LoginPage() {
               </div>
             )}
 
-            <form onSubmit={handleSubmit} className="space-y-5">
+            <form method="post" onSubmit={handleSubmit} className="space-y-5">
               <div>
                 <label htmlFor="login-email" className="block text-xs font-medium text-[#191816] mb-1.5">
                   Work Email

@@ -1,3 +1,4 @@
+import { resolvePublicInvoiceToken } from '@/lib/public-invoice-token';
 import { apiError } from '@/lib/api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import {
@@ -15,10 +16,11 @@ export async function GET(
   try {
     const { number } = await params;
 
-    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(number)) return NextResponse.json({ error: 'Please ask the property for a fresh invoice link.' }, { status: 404 });
+    const invoiceId = resolvePublicInvoiceToken(number);
+    if (!invoiceId) return NextResponse.json({ error: 'Please ask the property for a fresh invoice link.' }, { status: 404 });
 
     const invoice = await db.query.propertyInvoices.findFirst({
-      where: eq(propertyInvoices.id, number),
+      where: eq(propertyInvoices.id, invoiceId),
     });
 
     if (!invoice) {
@@ -37,7 +39,18 @@ export async function GET(
     }
 
     return NextResponse.json({
-      invoice,
+      invoice: {
+        invoiceNumber: invoice.invoiceNumber, invoiceType: invoice.invoiceType,
+        status: invoice.status, recipientName: invoice.recipientName,
+        recipientEmail: invoice.recipientEmail, recipientPhone: invoice.recipientPhone,
+        recipientAddress: invoice.recipientAddress, companyTin: invoice.companyTin,
+        issueDate: invoice.issueDate, dueDate: invoice.dueDate, currency: invoice.currency,
+        subtotalMinorUnits: invoice.subtotalMinorUnits, taxVatMinorUnits: invoice.taxVatMinorUnits,
+        taxConsumptionMinorUnits: invoice.taxConsumptionMinorUnits, serviceChargeMinorUnits: invoice.serviceChargeMinorUnits,
+        discountMinorUnits: invoice.discountMinorUnits, totalAmountMinorUnits: invoice.totalAmountMinorUnits,
+        paidAmountMinorUnits: invoice.paidAmountMinorUnits, items: invoice.items,
+        bankDetails: invoice.bankDetails, paymentTerms: invoice.paymentTerms, notes: invoice.notes,
+      },
       property: {
         name: prop?.name,
         address: prop?.address,

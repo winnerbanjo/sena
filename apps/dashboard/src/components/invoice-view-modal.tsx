@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 
 export interface PropertyInvoice {
+  publicToken?: string;
   id: string;
   invoiceNumber: string;
   invoiceType: string;
@@ -155,34 +156,51 @@ export function InvoiceViewModal({
     }
   }
 
-  function invoiceUrl() {
-    return `${window.location.origin}/invoice/${invoice?.id}`;
+  async function invoiceUrl() {
+    if (!invoice) throw new Error('Invoice unavailable');
+    if (invoice.publicToken) {
+      return `${window.location.origin}/invoice/${invoice.publicToken}`;
+    }
+    const response = await fetch(`/api/invoices/${invoice.id}`);
+    const data = await response.json();
+    if (!response.ok || !data.invoice?.publicToken) throw new Error('Could not create invoice link. Try again.');
+    return `${window.location.origin}/invoice/${data.invoice.publicToken}`;
   }
 
   async function handleCopyPayLink() {
     if (!invoice) return;
-    await navigator.clipboard.writeText(invoiceUrl());
-    setCopiedLink(true);
-    setShareMessage('Invoice link copied.');
-    setTimeout(() => setCopiedLink(false), 2500);
+    try {
+      await navigator.clipboard.writeText(await invoiceUrl());
+      setCopiedLink(true);
+      setShareMessage('Invoice link copied.');
+      setTimeout(() => setCopiedLink(false), 2500);
+    } catch (err: any) {
+      setShareMessage(err.message || 'Could not copy link.');
+      setTimeout(() => setShareMessage(''), 2500);
+    }
   }
 
   async function handleShareInvoice() {
     if (!invoice) return;
-    const url = invoiceUrl();
-    const payload = { title: `Invoice ${invoice.invoiceNumber}`, text: `${invoice.invoiceNumber} from ${propertyName}. Amount due ${formatNaira(balanceMinorUnits)}.`, url };
-    if (typeof navigator.share === 'function') {
-      try {
-        await navigator.share(payload);
-        setShareMessage('Invoice share sheet opened.');
-        return;
-      } catch (error: any) {
-        if (error?.name === 'AbortError') return;
+    try {
+      const url = await invoiceUrl();
+      const payload = { title: `Invoice ${invoice.invoiceNumber}`, text: `${invoice.invoiceNumber} from ${propertyName}. Amount due ${formatNaira(balanceMinorUnits)}.`, url };
+      if (typeof navigator.share === 'function') {
+        try {
+          await navigator.share(payload);
+          setShareMessage('Invoice share sheet opened.');
+          return;
+        } catch (error: any) {
+          if (error?.name === 'AbortError') return;
+        }
       }
+      await navigator.clipboard.writeText(url);
+      setCopiedLink(true);
+      setShareMessage('Sharing is not available on this device. The invoice link was copied instead.');
+    } catch (err: any) {
+      setShareMessage(err.message || 'Could not share invoice.');
+      setTimeout(() => setShareMessage(''), 2500);
     }
-    await navigator.clipboard.writeText(url);
-    setCopiedLink(true);
-    setShareMessage('Sharing is not available on this device. The invoice link was copied instead.');
   }
 
   function handlePrint() {

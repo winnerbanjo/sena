@@ -83,7 +83,7 @@ export async function settlePropertyPaystack(attemptId: string, verified: any) {
     if (!Number.isFinite(paidAt.getTime())) throw new Error('INVALID_PAYMENT_DATE');
     if (attempt.invoiceId) {
       const [invoice] = await tx.select().from(propertyInvoices).where(eq(propertyInvoices.id, attempt.invoiceId)).for('update');
-      if (!invoice || invoice.propertyId !== attempt.propertyId || invoice.currency !== attempt.currency || ['draft', 'void'].includes(invoice.status)) throw new Error('INVOICE_UNAVAILABLE');
+      if (!invoice || invoice.propertyId !== attempt.propertyId || invoice.currency !== attempt.currency || ['draft', 'void', 'cancelled'].includes(invoice.status)) throw new Error('INVOICE_UNAVAILABLE');
       const outstanding = invoice.totalAmountMinorUnits - invoice.paidAmountMinorUnits;
       if (outstanding < attempt.amountMinorUnits) throw new Error('PAYMENT_EXCEEDS_BALANCE');
       const paid = invoice.paidAmountMinorUnits + attempt.amountMinorUnits;

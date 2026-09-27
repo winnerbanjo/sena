@@ -2,8 +2,8 @@
 
 import * as React from 'react';
 
-export function useDialogA11y(open: boolean, onClose: () => void) {
-  const ref = React.useRef<HTMLElement>(null);
+export function useDialogA11y<T extends HTMLElement = HTMLDivElement>(open: boolean, onClose: () => void) {
+  const ref = React.useRef<T>(null);
   const closeRef = React.useRef(onClose);
   closeRef.current = onClose;
 

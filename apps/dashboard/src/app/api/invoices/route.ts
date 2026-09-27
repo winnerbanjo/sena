@@ -1,3 +1,4 @@
+import { createPublicInvoiceToken } from '@/lib/public-invoice-token';
 import { apiError } from '@/lib/api-error';
 import { withMerchant } from '@/lib/merchant-route';
 import { NextRequest, NextResponse } from 'next/server';
@@ -61,7 +62,7 @@ async function handleGET(req: NextRequest) {
       ) {
         currentStatus = 'overdue';
       }
-      return { ...inv, status: currentStatus };
+      return { ...inv, status: currentStatus, publicToken: createPublicInvoiceToken(inv.id) };
     });
 
     // 3. Compute High-Level Financial Metrics
@@ -268,7 +269,10 @@ async function handlePOST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       message: `Invoice ${invoiceNumber} issued successfully`,
-      invoice: newInvoice,
+      invoice: {
+        ...newInvoice,
+        publicToken: createPublicInvoiceToken(newInvoice.id),
+      },
     });
   } catch (error: any) {
     console.error('[INVOICE POST ERROR]', error);

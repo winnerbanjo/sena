@@ -39,7 +39,7 @@ export default function PaymentsPage() {
   const [recording, setRecording] = React.useState(false);
   const [recordForm, setRecordForm] = React.useState({ reservationId: '', amount: '', method: 'cash', reference: '', note: '' });
   const idempotencyKey = React.useRef('');
-  const recordDialogRef = useDialogA11y(recordOpen, () => setRecordOpen(false));
+  const recordDialogRef = useDialogA11y<HTMLFormElement>(recordOpen, () => setRecordOpen(false));
 
   React.useEffect(() => {
     Promise.all([
