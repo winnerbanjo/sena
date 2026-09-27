@@ -15,6 +15,13 @@
       "when": 1790518057089,
       "tag": "0001_first_purifiers",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790610000000,
+      "tag": "0002_operational_notifications",
+      "breakpoints": true
     }
   ]
 }

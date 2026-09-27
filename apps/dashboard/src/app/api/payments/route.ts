@@ -2,9 +2,9 @@ import { apiError } from '@/lib/api-error';
 import { withMerchant } from '@/lib/merchant-route';
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
-import { db, properties, payments, reservations, guests , propertyMembers, organizationMembers } from '@sena/database';
+import { db, operationalNotifications, properties, payments, reservations, guests , propertyMembers, organizationMembers } from '@sena/database';
 import { PaymentService } from '@sena/payments';
-import { eq, desc } from 'drizzle-orm';
+import { desc, eq } from 'drizzle-orm';
 
 import { resolveTenantForRequest } from '@/lib/tenant';
 
@@ -54,9 +54,20 @@ async function handlePOST(req: NextRequest) {
     const session = await auth();
     const body = await req.json();
 
-    const idempotencyKey =
-      req.headers.get('idempotency-key') ||
-      `pay_${body.reservationId}_${Date.now()}`;
+    const tenant = await resolveTenantForRequest(session, req);
+    if (!tenant?.propertyId || !body.reservationId) {
+      return NextResponse.json({ error: 'Choose a reservation at this property.' }, { status: 400 });
+    }
+    const reservation = await db.query.reservations.findFirst({ where: eq(reservations.id, body.reservationId) });
+    if (!reservation || reservation.propertyId !== tenant.propertyId) {
+      return NextResponse.json({ error: 'Reservation not found' }, { status: 404 });
+    }
+    const allowedMethods = ['cash', 'pos', 'bank_transfer'];
+    if (!allowedMethods.includes(body.method)) {
+      return NextResponse.json({ error: 'Choose cash, POS, or bank transfer.' }, { status: 400 });
+    }
+
+    const idempotencyKey = req.headers.get('idempotency-key') || undefined;
 
     const actor = {
       id: session?.user?.id || '',
@@ -75,6 +86,15 @@ async function handlePOST(req: NextRequest) {
       idempotencyKey,
       actor
     );
+
+    await db.insert(operationalNotifications).values({
+      propertyId: tenant.propertyId,
+      dedupeKey: `manual:${payment.id}`,
+      kind: 'payment',
+      title: 'Payment received',
+      body: 'A front-desk payment was recorded.',
+      href: '/payments',
+    }).onConflictDoNothing();
 
     return NextResponse.json({ success: true, payment });
   } catch (error: any) {

@@ -1,6 +1,6 @@
 import crypto from 'node:crypto';
 import { and, eq, sql } from 'drizzle-orm';
-import { db, paymentAttempts, payments, propertyInvoices, reservations } from '@sena/database';
+import { db, operationalNotifications, paymentAttempts, payments, propertyInvoices, reservations } from '@sena/database';
 import { assertPaystackPayable, requireConnectedPaystack } from './integrations/paystack';
 
 const SUPPORTED_CURRENCIES = new Set(['NGN', 'GHS', 'ZAR', 'USD', 'KES', 'XOF']);
@@ -104,6 +104,14 @@ export async function settlePropertyPaystack(attemptId: string, verified: any) {
       await tx.insert(payments).values({ propertyId: attempt.propertyId, reservationId: reservation.id, integrationId: attempt.integrationId, internalReference: attempt.internalReference, amountMinorUnits: attempt.amountMinorUnits, currency: attempt.currency, provider: 'paystack', providerReference: verified.reference, providerTransactionId: verified.id ? String(verified.id) : null, method: verified.channel || 'card', status: 'successful', source: attempt.source, paidAt });
       await tx.update(reservations).set({ paidAmountMinorUnits: paid, paymentStatus: paid >= reservation.totalAmountMinorUnits ? 'paid' : 'part_payment', updatedAt: new Date() }).where(eq(reservations.id, reservation.id));
     } else throw new Error('PAYMENT_TARGET_MISSING');
+    await tx.insert(operationalNotifications).values({
+      propertyId: attempt.propertyId,
+      dedupeKey: `paystack:${attempt.internalReference}`,
+      kind: attempt.source === 'invoice' ? 'invoice' : 'payment',
+      title: attempt.source === 'invoice' ? 'Invoice paid' : 'Payment received',
+      body: attempt.source === 'invoice' ? 'An invoice payment was received through Paystack.' : 'A booking payment was received through Paystack.',
+      href: attempt.source === 'invoice' ? '/invoices' : '/payments',
+    }).onConflictDoNothing();
     await tx.update(paymentAttempts).set({ status: 'completed', completedAt: paidAt, updatedAt: new Date() }).where(eq(paymentAttempts.id, attempt.id));
     return { status: 'success', attemptId: attempt.id };
   });

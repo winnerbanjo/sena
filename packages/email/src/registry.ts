@@ -28,6 +28,7 @@ export type SenaEmailType =
   | 'payment.payment_pending'
   | 'payment.payment_failed'
   | 'payment.refund_confirmation'
+  | 'payment.invoice_issued'
   // 4. Stay Lifecycle
   | 'stay.upcoming_stay'
   | 'stay.checkin_confirmation'
@@ -80,6 +81,7 @@ export interface EmailParamMap {
   'payment.payment_pending': payment.PaymentPendingParams;
   'payment.payment_failed': payment.PaymentFailedParams;
   'payment.refund_confirmation': payment.RefundConfirmationParams;
+  'payment.invoice_issued': payment.InvoiceIssuedParams;
 
   'stay.upcoming_stay': stay.UpcomingStayParams;
   'stay.checkin_confirmation': stay.CheckinConfirmationParams;
@@ -135,6 +137,7 @@ export const EMAIL_RENDERERS: {
   'payment.payment_pending': payment.renderPaymentPendingEmail,
   'payment.payment_failed': payment.renderPaymentFailedEmail,
   'payment.refund_confirmation': payment.renderRefundConfirmationEmail,
+  'payment.invoice_issued': payment.renderInvoiceIssuedEmail,
 
   'stay.upcoming_stay': stay.renderUpcomingStayEmail,
   'stay.checkin_confirmation': stay.renderCheckinConfirmationEmail,

@@ -16,6 +16,7 @@ import {
 } from '@sena/ui';
 import { CreditCard, Download, Plus } from 'lucide-react';
 import { Topbar } from '../../components/topbar';
+import { useDialogA11y } from '../../components/use-dialog-a11y';
 
 interface PaymentItem {
   id: string;
@@ -33,6 +34,12 @@ export default function PaymentsPage() {
   const [reservations, setReservations] = React.useState<any[]>([]);
   const [loadError, setLoadError] = React.useState(false);
   const [loading, setLoading] = React.useState(true);
+  const [recordOpen, setRecordOpen] = React.useState(false);
+  const [recordError, setRecordError] = React.useState('');
+  const [recording, setRecording] = React.useState(false);
+  const [recordForm, setRecordForm] = React.useState({ reservationId: '', amount: '', method: 'cash', reference: '', note: '' });
+  const idempotencyKey = React.useRef('');
+  const recordDialogRef = useDialogA11y(recordOpen, () => setRecordOpen(false));
 
   React.useEffect(() => {
     Promise.all([
@@ -81,6 +88,43 @@ export default function PaymentsPage() {
   const directBookingShare = reservations.length > 0
     ? Math.round((directReservationsCount / reservations.length) * 100)
     : 0;
+  const outstandingReservations = reservations.filter((reservation) => reservation.status !== 'cancelled' && Number(reservation.totalAmountMinorUnits || 0) > Number(reservation.paidAmountMinorUnits || 0));
+
+  async function submitRecordPayment(event: React.FormEvent) {
+    event.preventDefault();
+    setRecording(true);
+    setRecordError('');
+    if (!idempotencyKey.current) idempotencyKey.current = crypto.randomUUID();
+    try {
+      const reservation = outstandingReservations.find((item) => item.id === recordForm.reservationId);
+      const outstanding = reservation ? Number(reservation.totalAmountMinorUnits) - Number(reservation.paidAmountMinorUnits || 0) : 0;
+      const amountMinorUnits = Math.round(Number(recordForm.amount) * 100);
+      if (!reservation || !Number.isInteger(amountMinorUnits) || amountMinorUnits <= 0 || amountMinorUnits > outstanding) {
+        throw new Error('Enter an amount up to the outstanding balance.');
+      }
+      const res = await fetch('/api/payments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Idempotency-Key': idempotencyKey.current },
+        body: JSON.stringify({
+          reservationId: reservation.id,
+          amountMinorUnits,
+          method: recordForm.method,
+          providerReference: recordForm.reference || undefined,
+          notes: recordForm.note || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Payment could not be recorded.');
+      setRecordOpen(false);
+      idempotencyKey.current = '';
+      window.location.reload();
+    } catch (error: any) {
+      setRecordError(error.message || 'Payment could not be recorded.');
+    } finally {
+      setRecording(false);
+    }
+  }
+
   if (loading || loadError) return <PageLoadState title="Payments" failed={loadError} />;
 
   return (
@@ -94,7 +138,7 @@ export default function PaymentsPage() {
               Financials & Transactions
             </h2>
             <p className="text-xs text-[#7A7267] mt-1">
-              Recorded revenue, Paystack verified transactions, and outstanding guest balances.
+              Successful recorded payments and outstanding guest balances.
             </p>
           </div>
 
@@ -103,7 +147,7 @@ export default function PaymentsPage() {
               <Download className="w-3.5 h-3.5 mr-1" />
               Export CSV
             </Button>
-            <Button size="sm" className="text-xs">
+            <Button size="sm" className="text-xs" onClick={() => setRecordOpen(true)}>
               <Plus className="w-3.5 h-3.5 mr-1" />
               Record payment
             </Button>
@@ -123,7 +167,7 @@ export default function PaymentsPage() {
             </div>
             <div className="flex items-center gap-2 text-xs text-[#7A7267] pt-2 border-t border-[#E8E2DA]">
               <span className="w-2 h-2 rounded-full bg-emerald-500" />
-              <span>Verified server-side via Paystack webhook automation</span>
+              <span>Successful recorded payments</span>
             </div>
           </div>
 
@@ -137,7 +181,7 @@ export default function PaymentsPage() {
               </strong>
             </div>
             <p className="text-[11px] text-[#7A7267]">
-              Unsettled balances due at front desk upon check-in or checkout.
+              Outstanding guest balances.
             </p>
           </div>
 
@@ -151,7 +195,7 @@ export default function PaymentsPage() {
               </strong>
             </div>
             <p className="text-[11px] text-[#7A7267]">
-              Zero-commission stays captured via your property website.
+              Share of bookings from the direct channel.
             </p>
           </div>
         </div>
@@ -167,7 +211,17 @@ export default function PaymentsPage() {
             </span>
           </div>
 
-          <Table className="min-w-[700px]">
+          <div className="sm:hidden divide-y divide-[#E8E2DA]">
+            {payments.map((pay) => (
+              <div key={pay.id} className="p-4 space-y-1">
+                <p className="font-medium">{pay.guestName}</p>
+                <p className="font-serif text-lg">{formatNaira(pay.amountMinorUnits)}</p>
+                <p className="text-sm text-[#5C564D]">{pay.provider === 'paystack' ? 'Paystack' : 'Manual'} · {pay.provider === 'paystack' ? 'Online' : pay.method === 'bank_transfer' ? 'Bank transfer' : pay.method === 'pos' ? 'POS' : 'Cash'} · {pay.status}</p>
+                <p className="text-sm text-[#7A7267]">{pay.reference} · {pay.date}</p>
+              </div>
+            ))}
+          </div>
+          <Table className="hidden sm:table min-w-[700px]">
             <TableHeader>
               <TableRow className="bg-[#FAF9F6] border-b border-[#E8E2DA]">
                 <TableHead className="font-serif font-normal text-[#7A7267] text-xs">Reference</TableHead>
@@ -205,11 +259,11 @@ export default function PaymentsPage() {
                   <TableCell className="font-serif font-medium text-sm text-[#191816]">
                     {formatNaira(pay.amountMinorUnits)}
                   </TableCell>
-                  <TableCell className="capitalize text-xs text-[#7A7267]">
-                    {pay.provider}
+                  <TableCell className="text-xs text-[#7A7267]">
+                    {pay.provider === 'paystack' ? 'Paystack' : 'Manual'}
                   </TableCell>
-                  <TableCell className="capitalize text-xs text-[#7A7267]">
-                    {pay.method.replace('_', ' ')}
+                  <TableCell className="text-xs text-[#7A7267]">
+                    {pay.provider === 'paystack' ? 'Online' : pay.method === 'bank_transfer' ? 'Bank transfer' : pay.method === 'pos' ? 'POS' : 'Cash'}
                   </TableCell>
                   <TableCell>
                     <Badge variant={pay.status === 'successful' ? 'paid' : 'pending'}>
@@ -223,6 +277,42 @@ export default function PaymentsPage() {
           </Table>
         </div>
       </main>
+      {recordOpen && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-end sm:items-center justify-center p-3">
+          <form ref={recordDialogRef} onSubmit={submitRecordPayment} role="dialog" aria-modal="true" aria-labelledby="record-payment-title" className="w-full max-w-md max-h-[90vh] overflow-y-auto bg-white rounded-lg p-5 space-y-4">
+            <h2 id="record-payment-title" className="font-serif text-xl">Record payment</h2>
+            <label htmlFor="record-reservation" className="block text-sm">Reservation
+              <select id="record-reservation" required value={recordForm.reservationId} onChange={(event) => setRecordForm({ ...recordForm, reservationId: event.target.value })} className="mt-1 w-full min-h-11 border border-[#E8E2DA] rounded px-3 py-2">
+                <option value="">Select a stay</option>
+                {outstandingReservations.map((reservation) => (
+                  <option key={reservation.id} value={reservation.id}>{reservation.reference} · {reservation.guestName || 'Guest'} · {formatNaira(Number(reservation.totalAmountMinorUnits) - Number(reservation.paidAmountMinorUnits || 0))} due</option>
+                ))}
+              </select>
+            </label>
+            <label htmlFor="record-amount" className="block text-sm">Amount in naira
+              <input id="record-amount" required inputMode="decimal" value={recordForm.amount} onChange={(event) => setRecordForm({ ...recordForm, amount: event.target.value })} className="mt-1 w-full min-h-11 border border-[#E8E2DA] rounded px-3 py-2" />
+            </label>
+            <label htmlFor="record-method" className="block text-sm">Method
+              <select id="record-method" value={recordForm.method} onChange={(event) => setRecordForm({ ...recordForm, method: event.target.value })} className="mt-1 w-full min-h-11 border border-[#E8E2DA] rounded px-3 py-2">
+                <option value="cash">Cash</option>
+                <option value="pos">POS</option>
+                <option value="bank_transfer">Bank transfer</option>
+              </select>
+            </label>
+            <label htmlFor="record-reference" className="block text-sm">Reference
+              <input id="record-reference" value={recordForm.reference} onChange={(event) => setRecordForm({ ...recordForm, reference: event.target.value })} className="mt-1 w-full min-h-11 border border-[#E8E2DA] rounded px-3 py-2" />
+            </label>
+            <label htmlFor="record-note" className="block text-sm">Note
+              <input id="record-note" value={recordForm.note} onChange={(event) => setRecordForm({ ...recordForm, note: event.target.value })} className="mt-1 w-full min-h-11 border border-[#E8E2DA] rounded px-3 py-2" />
+            </label>
+            {recordError && <p className="text-sm text-red-700" role="alert">{recordError}</p>}
+            <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
+              <Button type="button" variant="secondary" className="min-h-11" onClick={() => setRecordOpen(false)}>Cancel</Button>
+              <Button type="submit" className="min-h-11" disabled={recording}>{recording ? 'Recording...' : 'Confirm payment'}</Button>
+            </div>
+          </form>
+        </div>
+      )}
     </div>
   );
 }

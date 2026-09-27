@@ -9,12 +9,14 @@ export function RoomBookingClient({
   initialCheckIn,
   initialCheckOut,
   initialGuests,
+  onlinePaymentAvailable = false,
 }: {
   property: any;
   room: any;
   initialCheckIn?: string;
   initialCheckOut?: string;
   initialGuests?: number;
+  onlinePaymentAvailable?: boolean;
 }) {
   const todayStr = new Date().toISOString().split('T')[0];
   const defaultOut = new Date(Date.now() + 2 * 86400000).toISOString().split('T')[0];
@@ -34,6 +36,8 @@ export function RoomBookingClient({
   const [guestEmail, setGuestEmail] = React.useState('');
   const [guestPhone, setGuestPhone] = React.useState('');
   const [confirmedRef, setConfirmedRef] = React.useState('');
+  const [paymentChoice, setPaymentChoice] = React.useState<'paystack' | 'pay_at_property'>(onlinePaymentAvailable ? 'paystack' : 'pay_at_property');
+  const [paymentState, setPaymentState] = React.useState<'pay_at_property' | 'pending' | 'failed'>('pay_at_property');
 
   // Calculate nights
   const nights = React.useMemo(() => {
@@ -125,15 +129,21 @@ export function RoomBookingClient({
           guestName,
           guestEmail,
           guestPhone,
-          paymentMethod: 'pay_at_property',
+          paymentMethod: paymentChoice,
         }),
       });
 
       const data = await res.json();
       if (res.ok && data.success) {
+        if (paymentChoice === 'paystack' && data.payment?.authorizationUrl) {
+          window.location.href = data.payment.authorizationUrl;
+          return;
+        }
         setConfirmedRef(data.reservation.reference);
+        setPaymentState(data.paymentState === 'pending' ? 'pending' : 'pay_at_property');
         setStage('confirmed');
       } else {
+        setPaymentState('failed');
         alert(data.error || 'Failed to complete reservation.');
       }
     } catch (err: any) {
@@ -156,7 +166,8 @@ export function RoomBookingClient({
         <div className="w-12 h-12 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto">
           <CheckCircle2 className="w-6 h-6" />
         </div>
-        <h3 className="font-serif text-xl text-[#191816]">Reservation confirmed</h3><p className="text-sm">Payment is due at the property. No online payment has been taken.</p>
+        <h3 className="font-serif text-xl text-[#191816]">{paymentState === 'pending' ? 'Reservation received' : 'Reservation confirmed'}</h3>
+        <p className="text-sm">{paymentState === 'pending' ? `Payment confirmation is pending. ${formattedTotal} has not been marked paid.` : `Payment is due at the property. ${formattedTotal} remains outstanding.`}</p>
         <p className="text-xs text-[#7A7267]">
           Thank you, <strong className="text-[#191816]">{guestName}</strong>. Your reservation is saved. Your contact email is{' '}
           <strong className="text-[#191816]">{guestEmail}</strong>.
@@ -176,7 +187,7 @@ export function RoomBookingClient({
             <span className="text-[#191816]">{checkIn} &rarr; {checkOut} ({nights} nights)</span>
           </div>
           <div className="flex justify-between border-t border-[#E8E2DA] pt-2">
-            <span className="text-[#7A7267]">Total Charged:</span>
+            <span className="text-[#7A7267]">{paymentState === 'pay_at_property' ? 'Amount due:' : 'Amount:'}</span>
             <strong className="text-[#191816]">{formattedTotal}</strong>
           </div>
         </div>
@@ -229,47 +240,73 @@ export function RoomBookingClient({
         {/* Form */}
         <form onSubmit={handleCheckout} className="space-y-3 text-xs">
           <div>
-            <label className="block text-[#191816] font-medium mb-1">Full Name *</label>
+            <label htmlFor="guest-name" className="block text-[#191816] font-medium mb-1">Full name</label>
             <input
+              id="guest-name"
               type="text"
               required
+              autoComplete="name"
               value={guestName}
               placeholder="e.g. Samuel Adekunle"
               onChange={(e) => setGuestName(e.target.value)}
-              className="w-full px-3 py-2 rounded border border-[#E8E2DA] focus:outline-none focus:ring-1 focus:ring-[#71382D]"
+              className="w-full min-h-11 px-3 py-2 rounded border border-[#E8E2DA] focus:outline-none focus:ring-1 focus:ring-[#71382D]"
             />
           </div>
 
           <div>
-            <label className="block text-[#191816] font-medium mb-1">Email Address *</label>
+            <label htmlFor="guest-email" className="block text-[#191816] font-medium mb-1">Email address</label>
             <input
+              id="guest-email"
               type="email"
               required
+              autoComplete="email"
               value={guestEmail}
               placeholder="samuel@example.com"
               onChange={(e) => setGuestEmail(e.target.value)}
-              className="w-full px-3 py-2 rounded border border-[#E8E2DA] focus:outline-none focus:ring-1 focus:ring-[#71382D]"
+              className="w-full min-h-11 px-3 py-2 rounded border border-[#E8E2DA] focus:outline-none focus:ring-1 focus:ring-[#71382D]"
             />
           </div>
 
           <div>
-            <label className="block text-[#191816] font-medium mb-1">Phone Number</label>
+            <label htmlFor="guest-phone" className="block text-[#191816] font-medium mb-1">Phone number</label>
             <input
+              id="guest-phone"
               type="tel"
+              autoComplete="tel"
               value={guestPhone}
               placeholder="+234 800 000 0000"
               onChange={(e) => setGuestPhone(e.target.value)}
-              className="w-full px-3 py-2 rounded border border-[#E8E2DA] focus:outline-none focus:ring-1 focus:ring-[#71382D]"
+              className="w-full min-h-11 px-3 py-2 rounded border border-[#E8E2DA] focus:outline-none focus:ring-1 focus:ring-[#71382D]"
             />
           </div>
+
+          <fieldset className="space-y-2">
+            <legend className="text-sm font-medium text-[#191816]">Payment</legend>
+            {onlinePaymentAvailable && (
+              <label className="flex items-start gap-3 rounded border border-[#E8E2DA] p-3 min-h-11">
+                <input type="radio" name="payment" className="mt-1 h-5 w-5" checked={paymentChoice === 'paystack'} onChange={() => setPaymentChoice('paystack')} />
+                <span>
+                  <span className="block font-medium text-[#191816]">Pay online</span>
+                  <span className="block text-[#7A7267]">Secure payment through Paystack. The stay is paid after Paystack confirms it.</span>
+                </span>
+              </label>
+            )}
+            <label className="flex items-start gap-3 rounded border border-[#E8E2DA] p-3 min-h-11">
+              <input type="radio" name="payment" className="mt-1 h-5 w-5" checked={paymentChoice === 'pay_at_property'} onChange={() => setPaymentChoice('pay_at_property')} />
+              <span>
+                <span className="block font-medium text-[#191816]">Pay at the property</span>
+                <span className="block text-[#7A7267]">Reserve now and pay {formattedTotal} when you arrive. Nothing is charged online.</span>
+              </span>
+            </label>
+          </fieldset>
 
           <div className="pt-2">
             <button
               type="submit"
               disabled={submitting}
-              className="w-full py-3 rounded text-white text-xs font-semibold bg-[#71382D] hover:bg-[#5A2C23] shadow-xs flex items-center justify-center gap-2 disabled:opacity-50"
+              className="w-full min-h-11 py-3 rounded text-white text-sm font-semibold bg-[#71382D] hover:bg-[#5A2C23] flex items-center justify-center gap-2 disabled:opacity-50"
             >
-              <span>{submitting ? 'Confirming Stay...' : `Confirm reservation (${formattedTotal})`}</span>
+              <span>{submitting ? 'Confirming stay...' : paymentChoice === 'paystack' ? `Pay online (${formattedTotal})` : `Confirm reservation (${formattedTotal})`}</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>

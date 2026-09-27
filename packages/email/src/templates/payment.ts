@@ -357,6 +357,42 @@ export function renderRefundConfirmationEmail(
   return { subject, html, text: htmlToPlainText(html) };
 }
 
+export interface InvoiceIssuedParams {
+  guestName: string;
+  invoiceNumber: string;
+  propertyName: string;
+  propertyAddress?: string;
+  propertyPhone?: string;
+  propertyEmail?: string;
+  amountDueFormatted: string;
+  dueDate?: string;
+  summaryLines: Array<{ label: string; amount: string }>;
+  invoiceUrl: string;
+}
+
+export function renderInvoiceIssuedEmail(params: InvoiceIssuedParams): EmailRenderResult {
+  const subject = `Invoice ${params.invoiceNumber} from ${params.propertyName}`;
+  const content = `
+    ${renderHeading('Invoice ' + escapeHtml(params.invoiceNumber), `${escapeHtml(params.propertyName)} has sent you an invoice.`)}
+    ${renderParagraph(`Dear ${escapeHtml(params.guestName)},`)}
+    ${renderParagraph(`Amount due: <strong>${escapeHtml(params.amountDueFormatted)}</strong>${params.dueDate ? `. Due ${escapeHtml(params.dueDate)}` : ''}.`)}
+    ${renderAmountSummary({ lines: params.summaryLines, total: params.amountDueFormatted, balanceDue: params.amountDueFormatted })}
+    ${renderButton('View & Pay Invoice', params.invoiceUrl)}
+    ${renderParagraph('This link opens your invoice on Sena. It is not a receipt, and opening it does not mark the invoice paid.', true)}
+  `;
+  const html = renderSenaEmailLayout(content, {
+    title: subject,
+    previewText: `${params.propertyName} invoice ${params.invoiceNumber}. ${params.amountDueFormatted} due.`,
+    headerType: 'property',
+    propertyName: params.propertyName,
+    propertyAddress: params.propertyAddress,
+    propertyPhone: params.propertyPhone,
+    propertyEmail: params.propertyEmail,
+    footerType: 'property',
+  });
+  return { subject, html, text: htmlToPlainText(html) };
+}
+
 function escapeHtml(str: string): string {
   return str
     .replace(/&/g, '&amp;')

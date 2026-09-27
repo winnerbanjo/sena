@@ -35,6 +35,7 @@ import { ReservationSuccessModal } from '../components/reservation-success-modal
 import { OccupancyChart } from '../components/occupancy-chart';
 import { ReservationDrawer } from '../components/reservation-drawer';
 import { Topbar } from '../components/topbar';
+import { useDialogA11y } from '../components/use-dialog-a11y';
 
 export default function OverviewPage() {
   const toast = useToast();
@@ -45,6 +46,8 @@ export default function OverviewPage() {
   const [timezone, setTimezone] = React.useState('Africa/Lagos');
   const [loading, setLoading] = React.useState(true);
   const [selectedRes, setSelectedRes] = React.useState<ReservationItem | null>(null);
+  const [selectedRoom, setSelectedRoom] = React.useState<any>(null);
+  const roomDialogRef = useDialogA11y(Boolean(selectedRoom), () => setSelectedRoom(null));
   const [drawerOpen, setDrawerOpen] = React.useState(false);
   const [newResOpen, setNewResOpen] = React.useState(false);
   const [successReservation, setSuccessReservation] = React.useState<ReservationItem | null>(null);
@@ -201,291 +204,79 @@ export default function OverviewPage() {
 
       <main className="flex-1 overflow-y-auto p-4 sm:p-8 lg:p-10 space-y-8 max-w-7xl w-full mx-auto">
         {/* Warm Executive Hospitality Briefing Banner */}
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#FFFDF9] via-[#FAF4ED] to-[#F5ECE0] border border-[#E8DACB] p-6 sm:p-8 shadow-xs">
-          {/* Subtle Ambient Decorative Glow */}
-          <div className="absolute top-0 right-0 -mt-10 -mr-10 w-72 h-72 bg-gradient-to-br from-[#B85C3E]/10 to-[#71382D]/5 rounded-full blur-3xl pointer-events-none" />
-
-          <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-            <div className="space-y-2">
-              <div className="flex items-center gap-2.5 flex-wrap">
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-mono uppercase tracking-wider bg-white/90 text-[#71382D] border border-[#E5DACD] shadow-2xs">
-                  <Clock className="w-3 h-3 text-[#B85C3E]" />
-                  {currentDateStr || 'Today'} &middot; Run of House
-                </span>
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-800 border border-emerald-200 shadow-2xs">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  Front Desk Operational
-                </span>
-                <a
-                  href={directWebsiteUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-mono font-medium bg-white text-[#71382D] hover:bg-[#FAF4EF] border border-[#E8DACB] transition-colors shadow-2xs"
-                  title="Visit live public website"
-                >
-                  <Globe className="w-3 h-3 text-[#B85C3E]" />
-                  {propertySlug}.sena.ng
-                  <ExternalLink className="w-2.5 h-2.5 text-[#A8583B]" />
-                </a>
-              </div>
-
-              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-serif text-[#191816] font-normal tracking-tight">
-                Good day,{' '}
-                {userName
-                  ? userName.split(' ')[0]
-                  : <span className="inline-block w-20 h-4 bg-[#E8E2DA] rounded animate-pulse align-middle" />}
-              </h1>
-              <p className="text-xs sm:text-sm text-[#7A7267] max-w-2xl leading-relaxed">
-                Here is today's overview for{' '}
-                <strong className="text-[#71382D] font-semibold">
-                  {propertyName || <span className="inline-block w-32 h-3.5 bg-[#E8E2DA] rounded animate-pulse align-middle" />}
-                </strong>
-                . Review arrivals, room availability, and outstanding tasks.
-              </p>
-            </div>
-
-            {/* Quick Action Ribbon */}
-            <div className="flex items-center gap-2.5 flex-wrap">
-              <button
-                type="button"
-                onClick={() => setNewResOpen(true)}
-                className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-[#71382D] hover:bg-[#5A2C23] text-white text-xs font-semibold shadow-xs transition-all hover:shadow-sm cursor-pointer"
-              >
-                <Plus className="w-4 h-4" />
-                <span>New Reservation</span>
-              </button>
-
-              <Link
-                href="/front-desk"
-                className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-white hover:bg-stone-50 border border-[#D5CFC7] text-xs font-medium text-[#191816] transition-all shadow-2xs"
-              >
-                <DoorOpen className="w-4 h-4 text-[#B85C3E]" />
-                <span>Front desk</span>
-              </Link>
-
-              <Link
-                href="/invoices"
-                className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-white hover:bg-stone-50 border border-[#D5CFC7] text-xs font-medium text-[#191816] transition-all shadow-2xs"
-              >
-                <FileText className="w-4 h-4 text-[#3B66A8]" />
-                <span>Invoices</span>
-              </Link>
-            </div>
+        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
+          <div className="space-y-2">
+            <p className="text-sm text-[#7A7267]">{currentDateStr || 'Today'} · {propertyName}</p>
+            <h1 className="text-3xl sm:text-4xl font-serif text-[#191816]">
+              Good day, {userName ? userName.split(' ')[0] : 'there'}
+            </h1>
+            <p className="text-sm text-[#5C564D]">{arrivals.length} arrivals · {departures.length} departures · {dirtyRooms.length} rooms need attention</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <a href={directWebsiteUrl} className="text-sm text-[#5C564D] underline">{propertySlug ? `${propertySlug}.sena.ng` : 'Website'}</a>
+            <button type="button" onClick={() => setNewResOpen(true)} className="px-4 py-2.5 rounded-md bg-[#71382D] text-white text-sm">New reservation</button>
           </div>
         </div>
 
-        {/* 5 Distinct Colorful Operational KPI Stat Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-          {/* 1. Live Occupancy */}
-          <div className="relative overflow-hidden bg-[#FAF8F5] border border-[#E8DACB] hover:border-[#C86D51] hover:bg-white transition-all rounded-2xl p-5 shadow-xs hover:shadow-md group">
-            <div className="h-1 bg-gradient-to-r from-[#B85C3E] to-[#71382D] absolute top-0 left-0 right-0" />
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-mono uppercase tracking-wider text-[#A8583B] font-semibold">
-                Live Occupancy
-              </span>
-              <div className="w-8 h-8 rounded-lg bg-white border border-[#E8DACB]/60 text-[#71382D] flex items-center justify-center shadow-2xs">
-                <BedDouble className="w-4 h-4" />
-              </div>
-            </div>
-            <div className="mt-3 flex items-baseline gap-2">
-              <span className="text-3xl sm:text-4xl font-serif text-[#71382D] font-normal">
-                {occupancyRate}%
-              </span>
-              <span className="text-xs text-[#7A7267]">
-                ({occupiedCount}/{rooms.length} rooms)
-              </span>
-            </div>
-            {/* Visual occupancy bar */}
-            <div className="mt-3 w-full bg-white border border-[#E8DACB]/60 h-1.5 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-gradient-to-r from-[#B85C3E] to-[#71382D] rounded-full transition-all duration-500"
-                style={{ width: `${Math.max(occupancyRate, 3)}%` }}
-              />
-            </div>
-            <span className="text-[11px] text-[#8C6D58] block mt-2.5">
-              {readyRooms.length} rooms available tonight
-            </span>
-          </div>
-
-          {/* 2. Arrivals Today */}
-          <Link
-            href="/front-desk"
-            className="relative overflow-hidden bg-[#FAF8F5] border border-[#E8DACB] hover:border-amber-400 hover:bg-white transition-all rounded-2xl p-5 shadow-xs hover:shadow-md group block"
-          >
-            <div className="h-1 bg-gradient-to-r from-amber-400 to-amber-600 absolute top-0 left-0 right-0" />
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-mono uppercase tracking-wider text-[#9E6E17] font-semibold group-hover:text-amber-800 transition-colors">
-                Arrivals Today
-              </span>
-              <div className="w-8 h-8 rounded-lg bg-white border border-amber-200/60 text-amber-800 flex items-center justify-center shadow-2xs">
-                <KeyRound className="w-4 h-4" />
-              </div>
-            </div>
-            <div className="mt-3 flex items-baseline gap-2">
-              <span className="text-3xl sm:text-4xl font-serif text-[#191816] font-normal group-hover:text-[#71382D] transition-colors">
-                {arrivals.length}
-              </span>
-              <span className="text-[11px] px-2 py-0.5 rounded-full bg-white text-amber-800 border border-amber-200/80 font-medium">
-                {inHouse.length} in-house
-              </span>
-            </div>
-            <span className="text-[11px] text-[#7A7267] block mt-4">
-              Scheduled check-ins for today
-            </span>
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-8 border-y border-[#E8E2DA] py-6">
+          <Link href="/rooms" className="space-y-1">
+            <p className="text-sm text-[#7A7267]">Occupancy</p>
+            <p className="font-serif text-3xl">{occupancyRate}%</p>
+            <p className="text-sm text-[#5C564D]">{occupiedCount} of {rooms.length} rooms</p>
           </Link>
-
-          {/* 3. Departures */}
-          <Link
-            href="/front-desk"
-            className="relative overflow-hidden bg-[#FAF8F5] border border-[#E8DACB] hover:border-sky-400 hover:bg-white transition-all rounded-2xl p-5 shadow-xs hover:shadow-md group block"
-          >
-            <div className="h-1 bg-gradient-to-r from-sky-400 to-blue-600 absolute top-0 left-0 right-0" />
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-mono uppercase tracking-wider text-[#3B66A8] font-semibold group-hover:text-blue-800 transition-colors">
-                Departures
-              </span>
-              <div className="w-8 h-8 rounded-lg bg-white border border-sky-200/60 text-sky-800 flex items-center justify-center shadow-2xs">
-                <LogOut className="w-4 h-4" />
-              </div>
-            </div>
-            <div className="mt-3 flex items-baseline gap-2">
-              <span className="text-3xl sm:text-4xl font-serif text-[#191816] font-normal group-hover:text-[#71382D] transition-colors">
-                {departures.length}
-              </span>
-              <span className="text-[11px] px-2 py-0.5 rounded-full bg-white text-sky-800 border border-sky-200/80 font-medium">
-                Checkout {workspace?.property.checkOutTime || '—'}
-              </span>
-            </div>
-            <span className="text-[11px] text-[#7A7267] block mt-4">
-              Expected room releases today
-            </span>
+          <Link href="/front-desk" className="space-y-1">
+            <p className="text-sm text-[#7A7267]">Arrivals</p>
+            <p className="font-serif text-3xl">{arrivals.length}</p>
+            <p className="text-sm text-[#5C564D]">Today</p>
           </Link>
-
-          {/* 4. Housekeeping */}
-          <Link
-            href="/housekeeping"
-            className="relative overflow-hidden bg-[#FAF8F5] border border-[#E8DACB] hover:border-[#71382D] hover:bg-white transition-all rounded-2xl p-5 shadow-xs hover:shadow-md group block"
-          >
-            <div className="h-1 bg-gradient-to-r from-[#8C7A6B] to-[#71382D] absolute top-0 left-0 right-0" />
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-mono uppercase tracking-wider text-[#7A7267] font-semibold group-hover:text-[#71382D] transition-colors">
-                Housekeeping
-              </span>
-              <div className="w-8 h-8 rounded-lg bg-white border border-[#E8DACB]/60 text-[#71382D] flex items-center justify-center shadow-2xs">
-                <Brush className="w-4 h-4" />
-              </div>
-            </div>
-            <div className="mt-3 flex items-baseline gap-2">
-              <span className="text-3xl sm:text-4xl font-serif text-[#191816] font-normal group-hover:text-[#71382D] transition-colors">
-                {dirtyRooms.length}
-              </span>
-              <span className="text-[11px] px-2 py-0.5 rounded-full bg-white text-[#5C564D] border border-[#E8DFD5] font-medium font-mono">
-                {cleanRooms.length} clean &amp; ready
-              </span>
-            </div>
-            <span className="text-[11px] text-[#7A7267] block mt-4">
-              {dirtyRooms.length === 0 ? 'All rooms inspected & clean' : 'Rooms awaiting turnover'}
-            </span>
+          <Link href="/front-desk" className="space-y-1">
+            <p className="text-sm text-[#7A7267]">Departures</p>
+            <p className="font-serif text-3xl">{departures.length}</p>
+            <p className="text-sm text-[#5C564D]">Today</p>
           </Link>
-
-          {/* 5. Recorded Payments */}
-          <Link
-            href="/payments"
-            className="relative overflow-hidden bg-[#FAF8F5] border border-[#E8DACB] hover:border-emerald-400 hover:bg-white transition-all rounded-2xl p-5 shadow-xs hover:shadow-md group block"
-          >
-            <div className="h-1 bg-gradient-to-r from-emerald-400 to-emerald-600 absolute top-0 left-0 right-0" />
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-mono uppercase tracking-wider text-[#1F7A46] font-semibold group-hover:text-emerald-900 transition-colors">
-                Recorded Payments
-              </span>
-              <div className="w-8 h-8 rounded-lg bg-white border border-emerald-200/60 text-emerald-800 flex items-center justify-center shadow-2xs">
-                <TrendingUp className="w-4 h-4" />
-              </div>
-            </div>
-            <div className="mt-3 flex items-baseline gap-2">
-              <span className="text-2xl sm:text-3xl font-serif text-[#166534] font-normal group-hover:text-emerald-800 transition-colors">
-                {formatNaira(monthRevenueMinorUnits)}
-              </span>
-            </div>
-            <span className="text-[11px] text-emerald-700 font-medium block mt-4">
-              0% Sena commission kept
-            </span>
+          <Link href="/housekeeping" className="space-y-1">
+            <p className="text-sm text-[#7A7267]">Housekeeping</p>
+            <p className="font-serif text-3xl">{dirtyRooms.length}</p>
+            <p className="text-sm text-[#5C564D]">{dirtyRooms.length === 0 ? 'No rooms waiting' : 'Rooms waiting'}</p>
+          </Link>
+          <Link href="/payments" className="space-y-1">
+            <p className="text-sm text-[#7A7267]">Payments</p>
+            <p className="font-serif text-3xl">{formatNaira(monthRevenueMinorUnits)}</p>
+            <p className="text-sm text-[#5C564D]">Recorded</p>
           </Link>
         </div>
 
         {/* Live Room Key Rack / Real Inventory Strip */}
         {rooms.length > 0 && (
-          <div className="bg-[#FAF8F5] border border-[#E8DACB] rounded-2xl p-5 sm:p-6 space-y-4 shadow-xs">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#E8DACB]/80 pb-3">
-              <div>
-                <h3 className="font-serif text-base text-[#191816] font-medium flex items-center gap-2">
-                  <Building2 className="w-4 h-4 text-[#71382D]" />
-                  Live Room Rack &amp; Inventory Status
-                </h3>
-                <p className="text-xs text-[#7A7267] mt-0.5">
-                  Real-time status of all {rooms.length} rooms configured at {propertyName}.
-                </p>
-              </div>
-
-              <Link
-                href="/rooms"
-                className="text-xs text-[#71382D] hover:text-[#B85C3E] font-medium inline-flex items-center gap-1 self-start sm:self-auto"
-              >
-                <span>Manage Inventory &rarr;</span>
-              </Link>
+          <section className="space-y-4">
+            <div className="flex items-baseline justify-between">
+              <h2 className="font-serif text-xl">Rooms</h2>
+              <Link href="/rooms" className="text-sm text-[#5C564D]">All rooms</Link>
             </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
               {rooms.map((rm) => {
-                const isOccupied = rm.operational === 'occupied' || rm.operationalStatus === 'occupied';
-                const isDirty = rm.housekeeping === 'dirty' || rm.housekeepingStatus === 'dirty';
-                const isClean = !isDirty;
-
+                const occupied = rm.operational === 'occupied' || rm.operationalStatus === 'occupied';
+                const dirty = rm.housekeeping === 'dirty' || rm.housekeepingStatus === 'dirty';
+                const state = occupied ? 'Occupied' : dirty ? 'Needs cleaning' : 'Available';
                 return (
-                  <div
-                    key={rm.id}
-                    className="p-3.5 rounded-xl border border-[#E8DFD5] bg-white hover:border-[#71382D]/40 hover:shadow-xs transition-all space-y-2"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono text-sm font-bold text-[#191816]">
-                          Room {rm.roomNumber || rm.number}
-                        </span>
-                        <span className="text-xs text-[#7A7267]">
-                          &middot; {rm.roomType?.name || rm.roomTypeName || 'Suite'}
-                        </span>
-                      </div>
-                      <span
-                        className={`w-2.5 h-2.5 rounded-full ${
-                          isOccupied
-                            ? 'bg-amber-500 ring-4 ring-amber-100'
-                            : isDirty
-                            ? 'bg-rose-500 ring-4 ring-rose-100'
-                            : 'bg-emerald-500 ring-4 ring-emerald-100'
-                        }`}
-                        title={isOccupied ? 'Occupied' : isDirty ? 'Needs Cleaning' : 'Clean & Available'}
-                      />
-                    </div>
-
-                    <div className="flex items-center justify-between text-xs pt-1 border-t border-[#E8DFD5]/60">
-                      <span className="text-[11px] text-[#7A7267] font-mono">
-                        {rm.roomType?.bedType || rm.bedType || ''}
-                      </span>
-                      <span
-                        className={`text-[10px] font-mono font-medium px-2 py-0.5 rounded-full ${
-                          isOccupied
-                            ? 'bg-amber-50 text-amber-800 border border-amber-200'
-                            : isDirty
-                            ? 'bg-rose-50 text-rose-800 border border-rose-200'
-                            : 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                        }`}
-                      >
-                        {isOccupied ? 'Occupied' : isDirty ? 'Awaiting Clean' : 'Clean & Available'}
-                      </span>
-                    </div>
-                  </div>
+                  <button key={rm.id} type="button" onClick={() => setSelectedRoom(rm)} className="text-left p-3 rounded-md hover:bg-[#FAF7F2]">
+                    <p className="font-serif text-lg">{rm.roomNumber || rm.number}</p>
+                    <p className="text-sm text-[#5C564D]">{rm.roomType?.name || rm.roomTypeName || 'Room'}</p>
+                    <p className="text-sm text-[#7A7267]">{state}</p>
+                  </button>
                 );
               })}
+            </div>
+          </section>
+        )}
+        {selectedRoom && (
+          <div className="fixed inset-0 z-40 flex justify-end bg-black/20">
+            <button className="flex-1" aria-label="Close room" onClick={() => setSelectedRoom(null)} />
+            <div ref={roomDialogRef} role="dialog" aria-modal="true" aria-labelledby="room-dialog-title" className="w-full max-w-sm bg-white h-full p-6 space-y-3 overflow-y-auto">
+              <h2 id="room-dialog-title" className="font-serif text-2xl">Room {selectedRoom.roomNumber || selectedRoom.number}</h2>
+              <p>{selectedRoom.roomType?.name || selectedRoom.roomTypeName || 'Room'}</p>
+              <p className="text-sm text-[#5C564D]">Housekeeping: {selectedRoom.housekeepingStatus || selectedRoom.housekeeping || 'Unknown'}</p>
+              <button type="button" className="min-h-11 text-sm underline" onClick={() => setSelectedRoom(null)}>Close</button>
             </div>
           </div>
         )}

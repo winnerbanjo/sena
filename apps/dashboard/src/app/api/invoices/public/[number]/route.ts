@@ -39,7 +39,6 @@ export async function GET(
     return NextResponse.json({
       invoice,
       property: {
-        id: prop?.id,
         name: prop?.name,
         address: prop?.address,
         phone: prop?.phone,

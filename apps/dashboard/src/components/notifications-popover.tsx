@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
+import { useDialogA11y } from './use-dialog-a11y';
 import {
   Bell,
   X,
@@ -33,7 +34,15 @@ interface NotificationsPopoverProps {
 
 export function NotificationsPopover({ open, onClose }: NotificationsPopoverProps) {
   const router = useRouter();
+  const dialogRef = useDialogA11y(open, onClose);
   const [notifications, setNotifications] = React.useState<NotificationItem[]>(INITIAL_NOTIFICATIONS);
+
+  React.useEffect(() => {
+    if (!open) return;
+    fetch('/api/notifications').then((res) => res.ok ? res.json() : { notifications: [] }).then((data) => {
+      if (Array.isArray(data.notifications)) setNotifications(data.notifications);
+    }).catch(() => setNotifications([]));
+  }, [open]);
 
   if (!open) return null;
 
@@ -41,12 +50,14 @@ export function NotificationsPopover({ open, onClose }: NotificationsPopoverProp
 
   const markAllAsRead = () => {
     setNotifications((prev) => prev.map((n) => ({ ...n, unread: false })));
+    fetch('/api/notifications', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ all: true }) });
   };
 
   const handleClickItem = (item: NotificationItem) => {
     setNotifications((prev) =>
       prev.map((n) => (n.id === item.id ? { ...n, unread: false } : n))
     );
+    fetch('/api/notifications', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: item.id }) });
     router.push(item.href);
     onClose();
   };
@@ -75,13 +86,13 @@ export function NotificationsPopover({ open, onClose }: NotificationsPopoverProp
       />
 
       {/* Popover Card */}
-      <div className="relative w-full max-w-sm bg-white rounded-xl shadow-2xl border border-[#E8E2DA] overflow-hidden z-10 animate-in fade-in zoom-in-95 duration-150">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="notifications-title" className="relative w-full max-w-sm bg-white rounded-xl border border-[#E8E2DA] overflow-hidden z-10">
         <div className="p-4 border-b border-[#E8E2DA] flex items-center justify-between bg-[#FAFAFA]">
           <div className="flex items-center gap-2">
             <Bell className="w-4 h-4 text-[#B85C3E]" />
-            <h3 className="text-sm font-semibold text-[#191816]">
+            <h2 id="notifications-title" className="text-sm font-semibold text-[#191816]">
               Notifications
-            </h3>
+            </h2>
             {unreadCount > 0 && (
               <span className="px-1.5 py-0.2 rounded-full text-[10px] font-semibold bg-[#B85C3E] text-white">
                 {unreadCount} new
@@ -100,8 +111,10 @@ export function NotificationsPopover({ open, onClose }: NotificationsPopoverProp
               </button>
             )}
             <button
+              type="button"
               onClick={onClose}
-              className="p-1 rounded text-[#7A7267] hover:text-[#191816]"
+              aria-label="Close notifications"
+              className="min-h-11 min-w-11 rounded text-[#7A7267] hover:text-[#191816]"
             >
               <X className="w-4 h-4" />
             </button>
@@ -116,10 +129,11 @@ export function NotificationsPopover({ open, onClose }: NotificationsPopoverProp
             </div>
           ) : (
             notifications.map((item) => (
-              <div
+              <button
+                type="button"
                 key={item.id}
                 onClick={() => handleClickItem(item)}
-                className={`p-3.5 flex items-start gap-3 hover:bg-[#FAFAFA] transition-colors cursor-pointer ${
+                className={`w-full text-left p-3.5 flex items-start gap-3 hover:bg-[#FAFAFA] min-h-11 ${
                   item.unread ? 'bg-[#FDFBF9]' : 'bg-white'
                 }`}
               >
@@ -142,9 +156,9 @@ export function NotificationsPopover({ open, onClose }: NotificationsPopoverProp
                 </div>
 
                 {item.unread && (
-                  <span className="w-2 h-2 rounded-full bg-[#B85C3E] flex-shrink-0 mt-1.5 ring-2 ring-white" />
+                  <span className="w-2 h-2 rounded-full bg-[#B85C3E] flex-shrink-0 mt-1.5"><span className="sr-only">Unread</span></span>
                 )}
-              </div>
+              </button>
             ))
           )}
         </div>

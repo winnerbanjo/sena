@@ -2,8 +2,11 @@ import * as React from 'react';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { getWebsiteData, getTenantBasePath } from '../../../../../lib/website-data';
+import { directBookingPaymentAvailable } from '../../../../../lib/integrations/paystack';
 import { RoomBookingClient } from './RoomBookingClient';
 import { ArrowLeft, Users, BedDouble, Check, ShieldCheck, Clock, MapPin } from 'lucide-react';
+
+export const dynamic = 'force-dynamic';
 
 export default async function RoomDetailPage({
   params,
@@ -24,6 +27,7 @@ export default async function RoomDetailPage({
   if (!room) return notFound();
 
   const { property, config } = data;
+  const onlinePaymentAvailable = await directBookingPaymentAvailable(property.id);
   const formattedPrice = `₦${(room.basePriceMinorUnits / 100).toLocaleString('en-NG')}`;
 
   return (
@@ -136,6 +140,7 @@ export default async function RoomDetailPage({
             <RoomBookingClient
               property={property}
               room={room}
+              onlinePaymentAvailable={onlinePaymentAvailable}
               initialCheckIn={checkIn}
               initialCheckOut={checkOut}
               initialGuests={guests ? Number(guests) : 2}

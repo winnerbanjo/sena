@@ -8,7 +8,7 @@ import * as subscription from './templates/subscription';
 import * as security from './templates/security';
 import * as support from './templates/support';
 import * as editorial from './templates/editorial';
-export type SenaEmailType = 'account.welcome' | 'account.verify_email' | 'account.property_setup_complete' | 'account.sign_in_alert' | 'account.password_reset' | 'account.password_changed' | 'reservation.booking_confirmation' | 'reservation.new_booking_hotel' | 'reservation.booking_modified' | 'reservation.booking_cancelled' | 'payment.payment_received' | 'payment.bank_transfer_instructions' | 'payment.payment_pending' | 'payment.payment_failed' | 'payment.refund_confirmation' | 'stay.upcoming_stay' | 'stay.checkin_confirmation' | 'stay.checkout_thank_you' | 'stay.stay_receipt' | 'staff.invitation' | 'staff.invitation_accepted' | 'staff.access_removed' | 'operations.daily_brief' | 'operations.end_of_day_summary' | 'operations.direct_booking_alert' | 'subscription.activated' | 'subscription.upgraded' | 'subscription.renewal_reminder' | 'subscription.invoice_receipt' | 'subscription.payment_failed' | 'subscription.limit_approaching' | 'subscription.cancelled' | 'security.email_changed' | 'security.new_device_session' | 'security.suspicious_login' | 'security.mfa_enabled' | 'security.mfa_disabled' | 'support.request_received' | 'support.staff_reply' | 'support.ticket_resolved' | 'editorial.product_update';
+export type SenaEmailType = 'account.welcome' | 'account.verify_email' | 'account.property_setup_complete' | 'account.sign_in_alert' | 'account.password_reset' | 'account.password_changed' | 'reservation.booking_confirmation' | 'reservation.new_booking_hotel' | 'reservation.booking_modified' | 'reservation.booking_cancelled' | 'payment.payment_received' | 'payment.bank_transfer_instructions' | 'payment.payment_pending' | 'payment.payment_failed' | 'payment.refund_confirmation' | 'payment.invoice_issued' | 'stay.upcoming_stay' | 'stay.checkin_confirmation' | 'stay.checkout_thank_you' | 'stay.stay_receipt' | 'staff.invitation' | 'staff.invitation_accepted' | 'staff.access_removed' | 'operations.daily_brief' | 'operations.end_of_day_summary' | 'operations.direct_booking_alert' | 'subscription.activated' | 'subscription.upgraded' | 'subscription.renewal_reminder' | 'subscription.invoice_receipt' | 'subscription.payment_failed' | 'subscription.limit_approaching' | 'subscription.cancelled' | 'security.email_changed' | 'security.new_device_session' | 'security.suspicious_login' | 'security.mfa_enabled' | 'security.mfa_disabled' | 'support.request_received' | 'support.staff_reply' | 'support.ticket_resolved' | 'editorial.product_update';
 export interface EmailParamMap {
     'account.welcome': account.WelcomeEmailParams;
     'account.verify_email': account.VerifyEmailParams;
@@ -25,6 +25,7 @@ export interface EmailParamMap {
     'payment.payment_pending': payment.PaymentPendingParams;
     'payment.payment_failed': payment.PaymentFailedParams;
     'payment.refund_confirmation': payment.RefundConfirmationParams;
+    'payment.invoice_issued': payment.InvoiceIssuedParams;
     'stay.upcoming_stay': stay.UpcomingStayParams;
     'stay.checkin_confirmation': stay.CheckinConfirmationParams;
     'stay.checkout_thank_you': stay.CheckoutThankYouParams;
