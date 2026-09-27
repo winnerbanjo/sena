@@ -27,6 +27,7 @@ import {
   Receipt,
   X,
   Download,
+  Plug,
 } from 'lucide-react';
 import { useMobileNav } from './dashboard-shell';
 import { usePwa } from './pwa-provider';
@@ -79,6 +80,7 @@ const NAV_SECTIONS: NavSection[] = [
     title: 'MANAGE',
     items: [
       { label: 'Staff', href: '/staff', icon: Users },
+      { label: 'Apps', href: '/apps', icon: Plug },
       { label: 'Billing & Plan', href: '/billing', icon: CreditCard },
       { label: 'Settings', href: '/settings', icon: Settings },
       { label: 'Setup Wizard', href: '/onboarding', icon: HelpCircle },

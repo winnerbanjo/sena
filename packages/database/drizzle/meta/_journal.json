@@ -8,6 +8,13 @@
       "when": 1790471707076,
       "tag": "0000_amazing_leo",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1790518057089,
+      "tag": "0001_first_purifiers",
+      "breakpoints": true
     }
   ]
 }

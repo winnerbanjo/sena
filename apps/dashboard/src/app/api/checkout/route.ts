@@ -1,8 +1,9 @@
 import { apiError } from '@/lib/api-error';
 import { NextRequest, NextResponse } from 'next/server';
-import { db, properties, payments, eq } from '@sena/database';
+import { db, properties, eq } from '@sena/database';
 import { ReservationService } from '@sena/reservations';
 import { sendBookingConfirmationEmail } from '@sena/email';
+import { initializePropertyPaystack } from '@/lib/paystack-payments';
 
 export async function POST(req: NextRequest) {
   try {
@@ -77,8 +78,16 @@ export async function POST(req: NextRequest) {
       console.error('Non-critical: Confirmation email dispatch failed:', emailErr);
     }
 
+    let onlinePayment;
+    if (paymentMethod === 'paystack') {
+      const host = req.headers.get('host') || 'app.sena.ng';
+      const proto = host.includes('localhost') ? 'http' : 'https';
+      onlinePayment = await initializePropertyPaystack({ propertyId: property.id, reservationId: reservation.id, email: guestEmail.trim().toLowerCase(), amountMinorUnits: reservation.totalAmountMinorUnits - reservation.paidAmountMinorUnits, currency: property.currency, source: 'direct_booking', callbackUrl: `${proto}://${host}/booking-preview?reference=${encodeURIComponent(reservation.reference)}&payment=confirming`, idempotencyKey: req.headers.get('idempotency-key') || holdId || undefined });
+    }
+
     return NextResponse.json({
       success: true,
+      payment: onlinePayment,
       reservation: {
         id: reservation.id,
         reference: reservation.reference,
