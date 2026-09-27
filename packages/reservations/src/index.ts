@@ -1,10 +1,8 @@
 import { calculateNights, getDatesBetween } from '@sena/config';
 import {
-  activityLogs,
   bookingHolds,
   db,
   guests,
-  housekeepingTasks,
   idempotencyKeys,
   properties,
   reservationEvents,
@@ -12,6 +10,7 @@ import {
   rooms,
   roomTypes,
 } from '@sena/database';
+import { ensureOpenHousekeepingTask } from '@sena/housekeeping';
 import {
   releaseInventoryInTransaction,
   reserveInventoryInTransaction,
@@ -384,10 +383,9 @@ export class ReservationService {
           .where(eq(rooms.id, res.roomId));
 
         // Create Housekeeping Task
-        await tx.insert(housekeepingTasks).values({
+        await ensureOpenHousekeepingTask(tx, {
           propertyId: res.propertyId,
           roomId: res.roomId,
-          status: 'dirty',
           notes: `Guest checked out from reservation ${res.reference}`,
         });
       }

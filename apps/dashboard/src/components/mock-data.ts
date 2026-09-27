@@ -41,5 +41,6 @@ export interface RoomItem {
   floor: string;
   operational: 'available' | 'occupied' | 'maintenance';
   housekeeping: 'clean' | 'cleaning' | 'dirty' | 'inspection';
+  housekeepingAssignee?: string | null;
   imageUrl?: string;
 }

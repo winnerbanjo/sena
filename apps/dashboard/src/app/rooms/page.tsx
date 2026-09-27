@@ -52,6 +52,7 @@ export default function RoomsPage() {
   const [assignLoading, setAssignLoading] = React.useState(false);
   const [assigningId, setAssigningId] = React.useState<string | null>(null);
   const [assignError, setAssignError] = React.useState<string | null>(null);
+  const [sendingHousekeepingId, setSendingHousekeepingId] = React.useState<string | null>(null);
 
   // Persistent Rooms & Categories state from PostgreSQL
   const [rooms, setRooms] = React.useState<RoomItem[]>([]);
@@ -92,6 +93,7 @@ export default function RoomsPage() {
               floor: r.floor || 'Floor 1',
               operational: r.operationalStatus || 'available',
               housekeeping: r.housekeepingStatus || 'clean',
+              housekeepingAssignee: r.housekeepingAssignee || null,
               imageUrl: img || undefined,
             };
           });
@@ -152,6 +154,26 @@ export default function RoomsPage() {
       .catch((error) => setAssignError(error.message || 'Could not load arrivals'))
       .finally(() => setAssignLoading(false));
   }, [assignRoom]);
+
+  async function handleSendToHousekeeping(room: RoomItem) {
+    setSendingHousekeepingId(room.id);
+    try {
+      const res = await fetch('/api/housekeeping', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        cache: 'no-store',
+        body: JSON.stringify({ roomId: room.id, action: 'send_to_housekeeping' }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Could not send this room to housekeeping.');
+      showToast(`Room ${room.number} sent to housekeeping.`);
+      fetchRoomsData();
+    } catch (error: any) {
+      showToast(error.message || 'Could not send this room to housekeeping.');
+    } finally {
+      setSendingHousekeepingId(null);
+    }
+  }
 
   async function handleAssignArrival(reservationId: string) {
     if (!assignRoom) return;
@@ -624,31 +646,57 @@ export default function RoomsPage() {
 
                               <div className="pt-2 border-t border-[#E8E2DA] flex items-center justify-between text-[11px]">
                                 <span className="font-mono text-[#7A7267]">
-                                  {isDirty ? 'Turnover' : isCleaning ? 'Cleaning' : isOccupied ? 'In-house' : 'Clean & Ready'}
+                                  {isOccupied
+                                    ? 'In-house'
+                                    : isDirty
+                                      ? room.housekeepingAssignee
+                                        ? `Turnover · ${room.housekeepingAssignee}`
+                                        : 'Turnover'
+                                      : isCleaning
+                                        ? room.housekeepingAssignee
+                                          ? `Cleaning · ${room.housekeepingAssignee}`
+                                          : 'Cleaning'
+                                        : isMaintenance
+                                          ? 'Out of service'
+                                          : 'Clean & Ready'}
                                 </span>
-                                {isDirty ? (
-                                  <Link
-                                    href="/housekeeping"
-                                    className="text-[#B85C3E] hover:underline font-medium"
-                                  >
-                                    Service →
-                                  </Link>
-                                ) : isOccupied ? (
-                                  <Link
-                                    href={`/reservations?search=${room.number}`}
-                                    className="text-[#71382D] hover:underline font-medium"
-                                  >
-                                    Folio →
-                                  </Link>
-                                ) : (
-                                  <button
-                                    type="button"
-                                    onClick={() => setAssignRoom(room)}
-                                    className="text-[#7A7267] hover:text-[#191816] hover:underline"
-                                  >
-                                    Assign →
-                                  </button>
-                                )}
+                                <span className="flex items-center gap-2">
+                                  {isDirty || isCleaning ? (
+                                    <Link
+                                      href="/housekeeping"
+                                      className="text-[#B85C3E] hover:underline font-medium"
+                                    >
+                                      Housekeeping →
+                                    </Link>
+                                  ) : isOccupied ? (
+                                    <Link
+                                      href={`/reservations?search=${room.number}`}
+                                      className="text-[#71382D] hover:underline font-medium"
+                                    >
+                                      Folio →
+                                    </Link>
+                                  ) : (
+                                    <>
+                                      <button
+                                        type="button"
+                                        onClick={() => setAssignRoom(room)}
+                                        className="text-[#71382D] hover:underline font-medium"
+                                      >
+                                        Assign Guest
+                                      </button>
+                                      {!isMaintenance && (
+                                        <button
+                                          type="button"
+                                          disabled={sendingHousekeepingId === room.id}
+                                          onClick={() => handleSendToHousekeeping(room)}
+                                          className="text-[#7A7267] hover:text-[#191816] hover:underline disabled:opacity-50"
+                                        >
+                                          Send to Housekeeping
+                                        </button>
+                                      )}
+                                    </>
+                                  )}
+                                </span>
                               </div>
                             </div>
                           );
