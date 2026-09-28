@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 import { and, eq } from 'drizzle-orm';
 import { db, integrationAuditLogs, integrationCredentials, integrations } from '@sena/database';
-import { decryptIntegrationSecret, encryptIntegrationSecret, maskSecret } from './crypto';
+import { decryptIntegrationSecret, encryptIntegrationSecret, maskSecret, readIntegrationSecret } from './crypto';
 
 export type PaystackMode = 'test' | 'live';
 
@@ -115,14 +115,16 @@ export async function connectPaystack(propertyId: string, actorUserId: string, s
     const now = new Date();
     const previous = paystackPaymentControls(current?.metadata);
     const metadata = { ...(current?.metadata && typeof current.metadata === 'object' ? current.metadata : {}), currencies: verified.currencies, ...previous };
+    const existingToken = current ? readIntegrationSecret(current.webhookTokenEncrypted) : null;
+    const replaceUnreadToken = Boolean(current && !existingToken);
     const [integration] = current
-      ? await tx.update(integrations).set({ status: 'connected', mode: verified.mode, externalAccountId: verified.accountLabel, connectedAt: current.connectedAt || now, verifiedAt: now, disconnectedAt: null, lastErrorAt: null, lastErrorMessage: null, metadata, updatedAt: now }).where(eq(integrations.id, current.id)).returning()
+      ? await tx.update(integrations).set({ status: 'connected', mode: verified.mode, externalAccountId: verified.accountLabel, connectedAt: current.connectedAt || now, verifiedAt: now, disconnectedAt: null, lastErrorAt: null, lastErrorMessage: null, metadata, updatedAt: now, ...(replaceUnreadToken ? { webhookTokenHash, webhookTokenEncrypted } : {}) }).where(eq(integrations.id, current.id)).returning()
       : await tx.insert(integrations).values({ propertyId, provider: 'paystack', category: 'payments', status: 'connected', mode: verified.mode, externalAccountId: verified.accountLabel, webhookTokenHash, webhookTokenEncrypted, connectedAt: now, verifiedAt: now, metadata: { currencies: verified.currencies, enabled: true, acceptOnlinePayments: true, directBooking: true, invoices: true } }).returning();
     const existingCredential = await tx.query.integrationCredentials.findFirst({ where: and(eq(integrationCredentials.integrationId, integration.id), eq(integrationCredentials.credentialType, 'secret_key')) });
     if (existingCredential) await tx.update(integrationCredentials).set({ encryptedValue, maskedSuffix: suffix, rotatedAt: now }).where(eq(integrationCredentials.id, existingCredential.id));
     else await tx.insert(integrationCredentials).values({ integrationId: integration.id, credentialType: 'secret_key', encryptedValue, maskedSuffix: suffix });
     await tx.insert(integrationAuditLogs).values({ integrationId: integration.id, propertyId, actorUserId, action: replace ? 'paystack.key_replaced' : 'paystack.connected', mode: verified.mode, details: { account: verified.accountLabel } });
-    return { integration, webhookToken: current ? decryptIntegrationSecret(current.webhookTokenEncrypted) : webhookToken, maskedSecret: maskSecret(suffix) };
+    return { integration, webhookToken: existingToken || webhookToken, maskedSecret: maskSecret(suffix) };
   });
 }
 

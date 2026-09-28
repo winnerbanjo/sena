@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 import { and, eq, sql } from 'drizzle-orm';
 import { db, integrationAuditLogs, integrationCatalog, integrationCredentials, integrations, properties } from '@sena/database';
-import { decryptIntegrationSecret, encryptIntegrationSecret, maskSecret } from './crypto';
+import { decryptIntegrationSecret, encryptIntegrationSecret, maskSecret, readIntegrationSecret } from './crypto';
 
 export type FlutterwaveMode = 'test' | 'live';
 
@@ -144,8 +144,10 @@ export async function connectFlutterwave(propertyId: string, actorUserId: string
     const now = new Date();
     const previous = flutterwavePaymentControls(current?.metadata);
     const metadata = { ...(current?.metadata && typeof current.metadata === 'object' ? current.metadata : {}), currencies: verified.currencies, ...previous };
+    const existingToken = current ? readIntegrationSecret(current.webhookTokenEncrypted) : null;
+    const replaceUnreadToken = Boolean(current && !existingToken);
     const [integration] = current
-      ? await tx.update(integrations).set({ status: 'connected', mode: verified.mode, externalAccountId: verified.accountLabel, connectedAt: current.connectedAt || now, verifiedAt: now, disconnectedAt: null, lastErrorAt: null, lastErrorMessage: null, metadata, updatedAt: now }).where(eq(integrations.id, current.id)).returning()
+      ? await tx.update(integrations).set({ status: 'connected', mode: verified.mode, externalAccountId: verified.accountLabel, connectedAt: current.connectedAt || now, verifiedAt: now, disconnectedAt: null, lastErrorAt: null, lastErrorMessage: null, metadata, updatedAt: now, ...(replaceUnreadToken ? { webhookTokenHash, webhookTokenEncrypted } : {}) }).where(eq(integrations.id, current.id)).returning()
       : await tx.insert(integrations).values({ propertyId, provider: 'flutterwave', category: 'payments', status: 'connected', mode: verified.mode, externalAccountId: verified.accountLabel, webhookTokenHash, webhookTokenEncrypted, connectedAt: now, verifiedAt: now, metadata: { currencies: verified.currencies, enabled: true, acceptOnlinePayments: true, directBooking: true, invoices: true } }).returning();
     const existingCredential = await tx.query.integrationCredentials.findFirst({ where: and(eq(integrationCredentials.integrationId, integration.id), eq(integrationCredentials.credentialType, 'secret_key')) });
     if (existingCredential) await tx.update(integrationCredentials).set({ encryptedValue, maskedSuffix: suffix, rotatedAt: now }).where(eq(integrationCredentials.id, existingCredential.id));
@@ -155,11 +157,14 @@ export async function connectFlutterwave(propertyId: string, actorUserId: string
     if (!existingHash) {
       await tx.insert(integrationCredentials).values({ integrationId: integration.id, credentialType: 'webhook_secret', encryptedValue: webhookSecretEncrypted, maskedSuffix: webhookSuffix });
       revealedWebhookSecret = webhookSecretValue;
+    } else if (!readIntegrationSecret(existingHash.encryptedValue)) {
+      await tx.update(integrationCredentials).set({ encryptedValue: webhookSecretEncrypted, maskedSuffix: webhookSuffix, rotatedAt: now }).where(eq(integrationCredentials.id, existingHash.id));
+      revealedWebhookSecret = webhookSecretValue;
     }
     await tx.insert(integrationAuditLogs).values({ integrationId: integration.id, propertyId, actorUserId, action: replace ? 'flutterwave.key_replaced' : 'flutterwave.connected', mode: verified.mode, details: { account: verified.accountLabel } });
     return {
       integration,
-      webhookToken: current ? decryptIntegrationSecret(current.webhookTokenEncrypted) : webhookToken,
+      webhookToken: existingToken || webhookToken,
       maskedSecret: maskSecret(suffix),
       webhookSecret: revealedWebhookSecret,
     };

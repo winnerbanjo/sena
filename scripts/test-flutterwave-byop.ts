@@ -7,7 +7,7 @@ process.env.SENA_INTEGRATION_ENCRYPTION_KEY ||= '22'.repeat(32);
 async function run() {
   const database = await import('../packages/database/src/index');
   const {
-    db, guests, integrationCredentials, integrations, organizations, payments, paymentAttempts,
+    db, emailLogs, guests, integrationCredentials, integrations, organizations, payments, paymentAttempts,
     properties, propertyInvoices, reservations, roomTypes, users, and, eq, sql,
   } = database;
   const flutterwave = await import('../apps/dashboard/src/lib/integrations/flutterwave');
@@ -162,7 +162,22 @@ async function run() {
   });
   assert.equal((await db.query.propertyInvoices.findFirst({ where: eq(propertyInvoices.id, invoice.id) }))?.status, 'paid');
   assert.equal((await db.query.payments.findMany({ where: eq(payments.providerReference, invoiceInit.reference) })).length, 1);
-  console.log('PASS invoice settlement records one receipt');
+  const { sendVerifiedPaymentNotice } = await import('../apps/dashboard/src/lib/settle-paystack');
+  const invoiceReceipt = paymentFlow.flutterwaveReceiptPayload(invoiceAttempt!, {
+    id: 88002, status: 'successful', tx_ref: invoiceInit.reference, amount: 1200, currency: 'NGN', payment_type: 'card', created_at: '2030-02-01T13:00:00Z',
+  });
+  await sendVerifiedPaymentNotice(invoiceReceipt);
+  await sendVerifiedPaymentNotice(invoiceReceipt);
+  const invoiceReceipts = await db.query.emailLogs.findMany({ where: eq(emailLogs.idempotencyKey, `payment_receipt_${invoiceInit.reference}`) });
+  assert.equal(invoiceReceipts.length, 1);
+  assert.equal(invoiceReceipts[0]?.status, 'sent');
+  const [silentInvoice] = await db.insert(propertyInvoices).values({
+    propertyId: ids.property, organizationId: ids.organization, invoiceNumber: 'SYN-FLW-INV-SILENT', recipientName: 'No Email',
+    issueDate: '2030-02-01', dueDate: '2030-02-02', totalAmountMinorUnits: 1000, currency: 'NGN', status: 'issued',
+  }).returning();
+  await sendVerifiedPaymentNotice({ reference: 'SENA_silent_receipt', amount: 1000, currency: 'NGN', metadata: { type: 'invoice_settlement', invoiceId: silentInvoice.id, providerLabel: 'Flutterwave' } });
+  assert.equal((await db.query.emailLogs.findMany({ where: eq(emailLogs.idempotencyKey, 'payment_receipt_SENA_silent_receipt') })).length, 0);
+  console.log('PASS invoice settlement records one receipt email only when a recipient exists');
 
   await flutterwave.updateFlutterwavePaymentControls(ids.property, ids.user, { enabled: false });
   assert.equal(flutterwave.flutterwaveDisplayStatus(await flutterwave.getPropertyFlutterwave(ids.property)), 'disabled');
@@ -189,6 +204,16 @@ async function run() {
   const untouched = await db.query.properties.findFirst({ where: eq(properties.id, ids.otherProperty) });
   assert.equal(untouched?.preferredOnlineProvider || null, null);
   console.log('PASS preferred provider is deterministic and unset properties keep Paystack default');
+
+  const previousKey = process.env.SENA_INTEGRATION_ENCRYPTION_KEY;
+  process.env.SENA_INTEGRATION_ENCRYPTION_KEY = '44'.repeat(32);
+  const healed = await flutterwave.connectFlutterwave(ids.property, ids.user, plaintext, true, verifyFetch as typeof fetch);
+  assert.equal(typeof healed.webhookSecret, 'string');
+  const healedConnection = await flutterwave.requireConnectedFlutterwave(ids.property);
+  assert.equal(healedConnection.secret, plaintext);
+  assert.equal(healedConnection.webhookSecret, healed.webhookSecret);
+  process.env.SENA_INTEGRATION_ENCRYPTION_KEY = previousKey;
+  console.log('PASS unreadable webhook material is replaced without rejecting a valid secret');
 
   await flutterwave.disconnectFlutterwave(ids.property, ids.user);
   await assert.rejects(flutterwave.requireConnectedFlutterwave(ids.property), /FLUTTERWAVE_NOT_CONNECTED/);
