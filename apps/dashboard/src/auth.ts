@@ -4,6 +4,7 @@ import { db, users, propertyMembers, properties } from '@sena/database';
 import { eq } from 'drizzle-orm';
 import bcrypt from 'bcryptjs';
 import { authConfig } from './auth.config';
+import { membershipIsUsable } from './lib/membership-access';
 
 const nextAuth = NextAuth({
   ...authConfig,
@@ -48,10 +49,7 @@ const nextAuth = NextAuth({
           .innerJoin(properties, eq(propertyMembers.propertyId, properties.id))
           .where(eq(propertyMembers.userId, user.id));
 
-        const usable = memberships.filter((row) => {
-          const permissions = row.permissions || [];
-          return !permissions.includes('status:invited') && !permissions.includes('status:revoked');
-        });
+        const usable = memberships.filter((row) => membershipIsUsable(row.permissions));
 
         const selected = propertySlug
           ? usable.find((row) => row.propertySlug === propertySlug)
