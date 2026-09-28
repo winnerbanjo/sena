@@ -26,9 +26,14 @@ export default function PublicInvoicePage() {
   const [property, setProperty] = React.useState<any>(null);
   const [reservation, setReservation] = React.useState<any>(null);
   const [onlinePaymentAvailable, setOnlinePaymentAvailable] = React.useState(true);
+  const [bankTransferAvailable, setBankTransferAvailable] = React.useState(false);
+  const [bankAccounts, setBankAccounts] = React.useState<any[]>([]);
+  const [transferProofStatus, setTransferProofStatus] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [paying, setPaying] = React.useState(false);
+  const [proofError, setProofError] = React.useState('');
+  const [proofSubmitting, setProofSubmitting] = React.useState(false);
 
   React.useEffect(() => {
     if (!invoiceNumber) return;
@@ -42,6 +47,9 @@ export default function PublicInvoicePage() {
         setProperty(data.property);
         setReservation(data.reservation);
         setOnlinePaymentAvailable(Boolean(data.onlinePaymentAvailable));
+        setBankTransferAvailable(Boolean(data.bankTransferAvailable));
+        setBankAccounts(Array.isArray(data.bankAccounts) ? data.bankAccounts : []);
+        setTransferProofStatus(data.transferProofStatus || null);
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
@@ -98,7 +106,8 @@ export default function PublicInvoicePage() {
   const unavailable = ['void', 'draft', 'cancelled'].includes(invoice.status);
   const isPaid = !unavailable && (invoice.status === 'paid' || balanceMinorUnits === 0);
   const canPayOnline = !isPaid && !unavailable && onlinePaymentAvailable;
-  const onlinePaymentUnavailable = !isPaid && !unavailable && !onlinePaymentAvailable;
+  const canPayByTransfer = !isPaid && !unavailable && bankTransferAvailable;
+  const onlinePaymentUnavailable = !isPaid && !unavailable && !onlinePaymentAvailable && !bankTransferAvailable;
 
   return (
     <div className="min-h-screen bg-[#FAF7F2] py-8 px-4 sm:px-6 lg:px-8">
@@ -135,6 +144,12 @@ export default function PublicInvoicePage() {
                   </>
                 )}
               </Button>
+            )}
+
+            {canPayByTransfer && (
+              <div className="w-full sm:w-auto text-xs text-[#71382D] px-3.5 py-2.5 rounded-lg bg-[#FAF7F2] border border-[#E5D4BC]">
+                Bank transfer is available below. Selecting it does not mark this invoice paid.
+              </div>
             )}
 
             {onlinePaymentUnavailable && (
@@ -390,6 +405,64 @@ export default function PublicInvoicePage() {
               </div>
             </div>
           </div>
+
+          {canPayByTransfer && (
+            <div className="pt-4 border-t border-[#E8E2DA] space-y-3 print:hidden">
+              <h3 className="text-xs font-mono uppercase tracking-wider text-[#7A7267] font-bold">Pay by bank transfer</h3>
+              {(bankAccounts.length > 0 ? bankAccounts : invoice.bankDetails ? [invoice.bankDetails] : []).map((account: any, index: number) => (
+                <div key={`${account.accountNumber}-${index}`} className="rounded-lg border border-[#E8E2DA] p-4 text-xs space-y-1">
+                  <p><span className="text-[#7A7267]">Bank:</span> {account.bankName}</p>
+                  <p><span className="text-[#7A7267]">Account name:</span> {account.accountName}</p>
+                  <p><span className="text-[#7A7267]">Account number:</span> {account.accountNumber}</p>
+                  <p><span className="text-[#7A7267]">Currency:</span> {account.currency || invoice.currency}</p>
+                  <p><span className="text-[#7A7267]">Reference:</span> {reservation?.reference || invoice.invoiceNumber}</p>
+                  <p><span className="text-[#7A7267]">Amount due:</span> {formatNaira(balanceMinorUnits)}</p>
+                </div>
+              ))}
+              {transferProofStatus === 'pending' && <p className="text-xs text-amber-800">Transfer proof is pending hotel verification. This invoice is not paid yet.</p>}
+              {transferProofStatus === 'rejected' && <p className="text-xs text-red-700">The previous proof was not accepted. Upload a corrected proof.</p>}
+              {transferProofStatus !== 'pending' && (
+                <form
+                  className="space-y-2"
+                  onSubmit={async (event) => {
+                    event.preventDefault();
+                    const form = event.currentTarget;
+                    const file = (form.elements.namedItem('proof') as HTMLInputElement)?.files?.[0];
+                    if (!file) {
+                      setProofError('Upload a transfer screenshot or PDF.');
+                      return;
+                    }
+                    setProofSubmitting(true);
+                    setProofError('');
+                    try {
+                      const body = new FormData();
+                      body.append('amountMinorUnits', String(balanceMinorUnits));
+                      body.append('payerName', invoice.recipientName);
+                      body.append('transferReference', (form.elements.namedItem('transferReference') as HTMLInputElement)?.value || '');
+                      body.append('file', file);
+                      const res = await fetch(`/api/invoices/public/${invoiceNumber}/transfer-proof`, { method: 'POST', body });
+                      const data = await res.json();
+                      if (!res.ok) throw new Error(data.error || 'Could not submit proof.');
+                      setTransferProofStatus('pending');
+                    } catch (err: any) {
+                      setProofError(err.message || 'Could not submit proof.');
+                    } finally {
+                      setProofSubmitting(false);
+                    }
+                  }}
+                >
+                  <label className="block text-xs">Transfer reference
+                    <input name="transferReference" className="mt-1 w-full min-h-11 border border-[#E8E2DA] rounded px-3" />
+                  </label>
+                  <label className="block text-xs">Upload proof of transfer
+                    <input name="proof" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" className="mt-1 block w-full text-xs" />
+                  </label>
+                  {proofError && <p className="text-xs text-red-700" role="alert">{proofError}</p>}
+                  <Button type="submit" disabled={proofSubmitting} className="min-h-11 w-full sm:w-auto">{proofSubmitting ? 'Submitting…' : 'Submit proof for verification'}</Button>
+                </form>
+              )}
+            </div>
+          )}
 
           {/* Notes */}
           {invoice.notes && (

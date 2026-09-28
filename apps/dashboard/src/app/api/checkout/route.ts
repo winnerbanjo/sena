@@ -2,6 +2,7 @@ import { apiError } from '@/lib/api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { db, properties, eq } from '@sena/database';
 import { ReservationService } from '@sena/reservations';
+import { PaymentService } from '@sena/payments';
 import { sendBookingConfirmationEmail } from '@sena/email';
 import { directBookingPaymentAvailable } from '@/lib/integrations/paystack';
 import { initializePropertyPaystack } from '@/lib/paystack-payments';
@@ -38,6 +39,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Property not found' }, { status: 404 });
     }
 
+    const bankAccounts = await PaymentService.listPublicBankAccounts(property.id);
+    const payAtPropertyEnabled = property.directBookingPayAtProperty !== false;
+    const bankTransferEnabled = property.directBookingBankTransfer !== false && bankAccounts.length > 0;
+
     if (paymentMethod === 'paystack') {
       const isAvailable = await directBookingPaymentAvailable(property.id);
       if (!isAvailable) {
@@ -46,6 +51,16 @@ export async function POST(req: NextRequest) {
           { status: 400 }
         );
       }
+    } else if (paymentMethod === 'bank_transfer') {
+      if (!bankTransferEnabled) {
+        return NextResponse.json({ error: 'Bank transfer is not available for this property.' }, { status: 400 });
+      }
+    } else if (paymentMethod === 'pay_at_property' || paymentMethod === 'direct') {
+      if (!payAtPropertyEnabled) {
+        return NextResponse.json({ error: 'Pay at property is not available for this booking.' }, { status: 400 });
+      }
+    } else {
+      return NextResponse.json({ error: 'Choose a valid payment method.' }, { status: 400 });
     }
 
     // Create reservation (which converts hold atomically)
@@ -100,7 +115,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       payment: onlinePayment ? { authorizationUrl: onlinePayment.authorizationUrl, reference: onlinePayment.reference } : null,
-      paymentState: paymentMethod === 'paystack' ? 'pending' : 'pay_at_property',
+      paymentState:
+        paymentMethod === 'paystack'
+          ? 'pending'
+          : paymentMethod === 'bank_transfer'
+            ? 'bank_transfer'
+            : 'pay_at_property',
+      bankAccounts: paymentMethod === 'bank_transfer' ? bankAccounts : [],
       reservation: {
         id: reservation.id,
         reference: reservation.reference,
@@ -109,6 +130,7 @@ export async function POST(req: NextRequest) {
         checkOutDate,
         nights: reservation.nights,
         totalAmountMinorUnits: reservation.totalAmountMinorUnits,
+        paidAmountMinorUnits: reservation.paidAmountMinorUnits,
       },
     });
   } catch (error: any) {

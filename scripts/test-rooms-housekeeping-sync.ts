@@ -80,7 +80,7 @@ async function run() {
     paidAmountMinorUnits: 0,
     guest: guest('Checkout Guest'),
   });
-  await ReservationService.checkIn(stay.id, room3008.id);
+  await ReservationService.checkIn(stay.id, room3008.id, { id: '', name: 'Reception' }, { allowOutstandingBalance: true });
   await ReservationService.checkOut(stay.id, { id: '', name: 'Reception' }, true);
 
   const afterCheckout = await db.query.rooms.findFirst({ where: eq(rooms.id, room3008.id) });

@@ -117,6 +117,10 @@ export const properties = pgTable('properties', {
   currency: varchar('currency', { length: 10 }).notNull().default('NGN'),
   checkInTime: varchar('check_in_time', { length: 10 }).notNull().default('14:00'),
   checkOutTime: varchar('check_out_time', { length: 10 }).notNull().default('11:00'),
+  checkInPaymentPolicy: varchar('check_in_payment_policy', { length: 40 }).notNull().default('allow_outstanding'),
+  checkOutPaymentPolicy: varchar('check_out_payment_policy', { length: 40 }).notNull().default('allow_outstanding'),
+  directBookingPayAtProperty: boolean('direct_booking_pay_at_property').notNull().default(true),
+  directBookingBankTransfer: boolean('direct_booking_bank_transfer').notNull().default(true),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 });
@@ -840,6 +844,7 @@ export interface InvoiceBankDetails {
   accountName: string;
   accountNumber: string;
   sortCode?: string;
+  currency?: string;
 }
 
 export const propertyInvoices = pgTable(
@@ -1044,5 +1049,54 @@ export const operationalNotifications = pgTable(
   (t) => [
     uniqueIndex('operational_notifications_dedupe_idx').on(t.propertyId, t.dedupeKey),
     index('operational_notifications_prop_idx').on(t.propertyId, t.createdAt),
+  ]
+);
+
+export const propertyBankAccounts = pgTable(
+  'property_bank_accounts',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    propertyId: uuid('property_id')
+      .references(() => properties.id, { onDelete: 'cascade' })
+      .notNull(),
+    accountName: varchar('account_name', { length: 255 }).notNull(),
+    bankName: varchar('bank_name', { length: 255 }).notNull(),
+    accountNumber: varchar('account_number', { length: 50 }).notNull(),
+    currency: varchar('currency', { length: 10 }).notNull().default('NGN'),
+    isPrimary: boolean('is_primary').notNull().default(false),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    index('prop_bank_accounts_prop_idx').on(t.propertyId),
+    uniqueIndex('prop_bank_accounts_number_idx').on(t.propertyId, t.accountNumber, t.currency),
+  ]
+);
+
+export const transferProofs = pgTable(
+  'transfer_proofs',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    propertyId: uuid('property_id')
+      .references(() => properties.id, { onDelete: 'cascade' })
+      .notNull(),
+    reservationId: uuid('reservation_id').references(() => reservations.id, { onDelete: 'set null' }),
+    invoiceId: uuid('invoice_id').references(() => propertyInvoices.id, { onDelete: 'set null' }),
+    amountMinorUnits: integer('amount_minor_units').notNull(),
+    currency: varchar('currency', { length: 10 }).notNull().default('NGN'),
+    payerName: varchar('payer_name', { length: 255 }),
+    transferReference: varchar('transfer_reference', { length: 255 }),
+    proofUrl: text('proof_url').notNull(),
+    status: varchar('status', { length: 30 }).notNull().default('pending'),
+    paymentId: uuid('payment_id').references(() => payments.id, { onDelete: 'set null' }),
+    staffNote: text('staff_note'),
+    submittedAt: timestamp('submitted_at', { withTimezone: true }).defaultNow().notNull(),
+    reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
+    reviewedByUserId: uuid('reviewed_by_user_id').references(() => users.id),
+  },
+  (t) => [
+    index('transfer_proofs_prop_idx').on(t.propertyId, t.status, t.submittedAt),
+    index('transfer_proofs_res_idx').on(t.reservationId),
+    index('transfer_proofs_inv_idx').on(t.invoiceId),
   ]
 );

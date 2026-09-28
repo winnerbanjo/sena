@@ -14,6 +14,8 @@ export interface WebsiteData {
     currency: string;
     checkInTime: string;
     checkOutTime: string;
+    directBookingPayAtProperty: boolean;
+    directBookingBankTransfer: boolean;
   };
   config: {
     theme: 'sena_one' | 'sena_two' | 'sena_three';
@@ -177,6 +179,8 @@ export async function getWebsiteData(slug: string, isPreview = false): Promise<W
         currency: property.currency,
         checkInTime: property.checkInTime,
         checkOutTime: property.checkOutTime,
+        directBookingPayAtProperty: property.directBookingPayAtProperty !== false,
+        directBookingBankTransfer: property.directBookingBankTransfer !== false,
       },
       config: {
         theme: effectiveConfig.theme || 'sena_one',

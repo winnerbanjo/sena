@@ -40,6 +40,7 @@ export default function FrontDeskPage() {
     reservation: ReservationItem;
     mode: RoomAssignmentMode;
   } | null>(null);
+  const [requireCheckoutSettlement, setRequireCheckoutSettlement] = React.useState(false);
 
   const fetchReservations = React.useCallback(async () => {
     try {
@@ -61,6 +62,10 @@ export default function FrontDeskPage() {
 
   React.useEffect(() => {
     fetchReservations();
+    fetch('/api/me')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => setRequireCheckoutSettlement(data?.property?.checkOutPaymentPolicy === 'require_settlement'))
+      .catch(() => undefined);
   }, [fetchReservations]);
 
   function openAssignment(id: string, mode: RoomAssignmentMode) {
@@ -281,7 +286,7 @@ export default function FrontDeskPage() {
                           <span className="inline-flex items-center gap-1.5 text-[11px]">
                             <span className={`w-1.5 h-1.5 rounded-full ${isPaid ? 'bg-[#2E6B4F]' : 'bg-[#A3681F]'}`} />
                             <span className={isPaid ? 'text-[#2E6B4F]' : 'text-[#A3681F]'}>
-                              {isPaid ? 'Settled' : `Due: ${formatNaira(balance)}`}
+                              {isPaid ? 'Settled' : Number(res.paidAmountMinorUnits || 0) > 0 ? `Partially Paid: ${formatNaira(balance)}` : `Due: ${formatNaira(balance)}`}
                             </span>
                           </span>
                         </td>
@@ -337,15 +342,17 @@ export default function FrontDeskPage() {
                 onClick={() => setCheckoutWarning(null)}
                 className="px-3.5 py-1.5 rounded-md border border-[#E8E1D5] text-xs font-medium text-[#191816] hover:bg-[#FAF7F2]"
               >
-                Collect at Desk First
+                Record payment first
               </button>
+              {!requireCheckoutSettlement && (
               <button
                 type="button"
                 onClick={() => executeCheckOut(checkoutWarning.res.id, true)}
                 className="px-3.5 py-1.5 rounded-md bg-[#71382D] text-white text-xs font-medium hover:bg-[#5A2C23]"
               >
-                Proceed &amp; Record Invoice Due
+                Check out with outstanding balance
               </button>
+              )}
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -361,6 +368,7 @@ export default function FrontDeskPage() {
         onCheckOut={(id) => {
           if (selectedRes) initiateCheckOut(selectedRes);
         }}
+        onPaymentRecorded={() => fetchReservations()}
       />
 
       <CheckInRoomDialog

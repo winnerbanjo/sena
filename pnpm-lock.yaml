@@ -428,6 +428,9 @@ importers:
       '@sena/inventory':
         specifier: workspace:*
         version: link:../inventory
+      '@sena/payments':
+        specifier: workspace:*
+        version: link:../payments
       '@sena/types':
         specifier: workspace:*
         version: link:../types

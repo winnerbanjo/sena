@@ -52,6 +52,7 @@ export interface PropertyInvoice {
     accountName: string;
     accountNumber: string;
     sortCode?: string;
+    currency?: string;
   } | null;
   paymentTerms?: string | null;
   notes?: string | null;
@@ -439,11 +440,11 @@ export function InvoiceViewModal({
 
           {/* Totals & Tax Computation */}
           <div className="flex flex-col sm:flex-row justify-between items-start gap-8 pt-2">
-            {/* Bank Transfer Instructions */}
+            {invoice.bankDetails?.accountNumber ? (
             <div className="w-full sm:max-w-xs p-4 rounded-lg bg-[#FAF7F2] border border-[#E8E2DA] text-xs space-y-2">
               <div className="flex items-center gap-1.5 text-[#71382D] font-serif font-bold text-sm">
                 <Building2 className="w-4 h-4" />
-                <span>Hotel Bank Settlement</span>
+                <span>Pay by bank transfer</span>
               </div>
               <p className="text-[11px] text-[#7A7267]">
                 Please reference <strong className="font-mono text-[#191816]">{invoice.invoiceNumber}</strong> on bank transfers.
@@ -451,20 +452,29 @@ export function InvoiceViewModal({
               <div className="pt-2 border-t border-[#E8E2DA] space-y-1 font-mono text-[11px]">
                 <div>
                   <span className="text-[#7A7267]">Bank: </span>
-                  <strong className="text-[#191816]">{invoice.bankDetails?.bankName || 'Not provided'}</strong>
+                  <strong className="text-[#191816]">{invoice.bankDetails.bankName}</strong>
                 </div>
                 <div>
                   <span className="text-[#7A7267]">Account Name: </span>
-                  <span className="text-[#191816]">{invoice.bankDetails?.accountName || 'Not provided'}</span>
+                  <span className="text-[#191816]">{invoice.bankDetails.accountName}</span>
                 </div>
                 <div>
                   <span className="text-[#7A7267]">Account No: </span>
                   <strong className="text-emerald-800 text-xs font-bold tracking-wider">
-                    {invoice.bankDetails?.accountNumber || 'Contact the property for payment details'}
+                    {invoice.bankDetails.accountNumber}
                   </strong>
                 </div>
+                {invoice.bankDetails.currency && (
+                  <div>
+                    <span className="text-[#7A7267]">Currency: </span>
+                    <span className="text-[#191816]">{invoice.bankDetails.currency}</span>
+                  </div>
+                )}
               </div>
             </div>
+            ) : (
+              <div className="w-full sm:max-w-xs text-xs text-[#7A7267]">Bank transfer instructions appear after the property configures a bank account.</div>
+            )}
 
             {/* Subtotal, VAT, Consumption, Service Charge, Total */}
             <div className="w-full sm:w-72 space-y-2 text-xs">

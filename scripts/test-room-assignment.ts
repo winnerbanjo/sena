@@ -145,7 +145,7 @@ async function run() {
   assert.equal(checkInEligible.some((room) => room.id === roomExec.id), false);
   pass('TEST 12/13 eligibility engine hides other categories and dirty rooms at check-in');
 
-  await ReservationService.checkIn(arrival.id, room302.id, { id: '', name: 'Receptionist' });
+  await ReservationService.checkIn(arrival.id, room302.id, { id: '', name: 'Receptionist' }, { allowOutstandingBalance: true });
   const checkedIn = await db.query.reservations.findFirst({ where: eq(reservations.id, arrival.id) });
   const occupied302 = await db.query.rooms.findFirst({ where: eq(rooms.id, room302.id) });
   assert.equal(checkedIn?.status, 'checked_in');
@@ -160,7 +160,7 @@ async function run() {
     roomId: room303.id,
     guest: guest('Already Assigned'),
   });
-  await ReservationService.checkIn(preassigned.id, room303.id);
+  await ReservationService.checkIn(preassigned.id, room303.id, { id: '', name: 'Receptionist' }, { allowOutstandingBalance: true });
   const kept = await db.query.reservations.findFirst({ where: eq(reservations.id, preassigned.id) });
   assert.equal(kept?.roomId, room303.id);
   assert.equal(kept?.status, 'checked_in');

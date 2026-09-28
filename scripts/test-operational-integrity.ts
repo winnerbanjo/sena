@@ -31,7 +31,7 @@ async function run() {
   await assert.rejects(ReservationService.checkIn(stay.id, room.id));
   await db.update(rooms).set({ housekeepingStatus: 'clean' }).where(eq(rooms.id, room.id));
   pass('dirty room cannot be checked in');
-  const checkins = await Promise.all([ReservationService.checkIn(stay.id, room.id), ReservationService.checkIn(stay.id, room.id)]);
+  const checkins = await Promise.all([ReservationService.checkIn(stay.id, room.id, { id: '', name: 'Reception' }, { allowOutstandingBalance: true }), ReservationService.checkIn(stay.id, room.id, { id: '', name: 'Reception' }, { allowOutstandingBalance: true })]);
   assert.equal((await db.query.rooms.findFirst({ where: eq(rooms.id, room.id) }))?.operationalStatus, 'occupied');
   pass('repeated check-in is idempotent');
   const pay = { reservationId: stay.id, amountMinorUnits: 10000, provider: 'manual' as const, method: 'cash' as const };
