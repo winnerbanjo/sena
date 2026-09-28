@@ -183,6 +183,13 @@ async function run() {
   assert.equal((await db.query.payments.findMany({ where: eq(payments.providerReference, initialized.reference) })).length, 1);
   assert.equal((await db.query.reservations.findFirst({ where: eq(reservations.id, ids.reservation) }))?.paidAmountMinorUnits, 24000000);
   assert.equal((await db.query.integrations.findFirst({ where: eq(integrations.id, connectedIntegration!.id) }))?.webhookStatus, 'active');
+  const typedEvent = JSON.stringify({ type: 'charge.completed', data: { ...verified, id: 88011, tx_ref: initialized.reference } });
+  globalThis.fetch = (async () => new Response(JSON.stringify({ status: 'success', data: { ...verified, id: 88011 } }), { status: 200, headers: { 'content-type': 'application/json' } })) as typeof fetch;
+  try {
+    const typed = await webhook.POST(new Request(`https://preview.invalid/api/webhooks/flutterwave/${token}`, { method: 'POST', headers: { 'verif-hash': connected.webhookSecret! }, body: typedEvent }) as any, { params: Promise.resolve({ token }) });
+    assert.equal(typed.status, 200);
+  } finally { globalThis.fetch = originalFetch; }
+  assert.equal((await db.query.payments.findMany({ where: eq(payments.providerReference, initialized.reference) })).length, 1);
   console.log('PASS signed Flutterwave webhook verifies, settles once, and rejects invalid authenticity');
 
   const otherTokenState = flutterwave.safeFlutterwaveState(await flutterwave.getPropertyFlutterwave(ids.otherProperty), 'https://preview.invalid');
