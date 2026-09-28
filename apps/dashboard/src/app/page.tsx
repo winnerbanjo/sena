@@ -41,6 +41,7 @@ import { OccupancyChart } from '../components/occupancy-chart';
 import { ReservationDrawer } from '../components/reservation-drawer';
 import { Topbar } from '../components/topbar';
 import { useDialogA11y } from '../components/use-dialog-a11y';
+import { OverviewRoomBoard } from '../components/overview-room-board';
 
 export default function OverviewPage() {
   const t = useTranslations('overview');
@@ -261,28 +262,13 @@ export default function OverviewPage() {
           </Link>
         </div>
 
-        {/* Live Room Key Rack / Real Inventory Strip */}
         {rooms.length > 0 && (
-          <section className="space-y-4">
-            <div className="flex items-baseline justify-between">
-              <h2 className="font-serif text-xl">Rooms</h2>
-              <Link href="/rooms" className="text-sm text-[#5C564D]">All rooms</Link>
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-              {rooms.map((rm) => {
-                const occupied = rm.operational === 'occupied' || rm.operationalStatus === 'occupied';
-                const dirty = rm.housekeeping === 'dirty' || rm.housekeepingStatus === 'dirty';
-                const state = occupied ? 'Occupied' : dirty ? 'Needs cleaning' : 'Available';
-                return (
-                  <button key={rm.id} type="button" onClick={() => setSelectedRoom(rm)} className="text-left p-3 rounded-md hover:bg-[#FAF7F2]">
-                    <p className="font-serif text-lg">{rm.roomNumber || rm.number}</p>
-                    <p className="text-sm text-[#5C564D]">{rm.roomType?.name || rm.roomTypeName || 'Room'}</p>
-                    <p className="text-sm text-[#7A7267]">{state}</p>
-                  </button>
-                );
-              })}
-            </div>
-          </section>
+          <OverviewRoomBoard
+            rooms={rooms}
+            occupiedCount={occupiedCount}
+            attentionCount={dirtyRooms.length}
+            onSelectRoom={setSelectedRoom}
+          />
         )}
         {selectedRoom && (
           <div className="fixed inset-0 z-40 flex justify-end bg-black/20">

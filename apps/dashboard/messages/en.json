@@ -136,7 +136,17 @@
     "viewStay": "View stay",
     "noArrivals": "No arrivals scheduled for today.",
     "occupancyTrend": "Occupancy trend",
-    "inHouseLabel": "In house"
+    "inHouseLabel": "In house",
+    "viewAllRooms": "View all rooms",
+    "boardCount": "{count, plural, one {# room} other {# rooms}}",
+    "boardOccupied": "{count, plural, one {# occupied} other {# occupied}}",
+    "boardAttention": "{count, plural, =0 {none need attention} one {# needs attention} other {# need attention}}",
+    "boardStatusAvailable": "Available",
+    "boardStatusOccupied": "Occupied",
+    "boardStatusNeedsCleaning": "Needs cleaning",
+    "boardStatusCleaning": "Cleaning",
+    "boardStatusOutOfService": "Out of service",
+    "roomCardAria": "Room {number}, {category}, {status}"
   },
   "reservations": {
     "title": "Reservations",

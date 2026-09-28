@@ -136,7 +136,17 @@
     "viewStay": "عرض الإقامة",
     "noArrivals": "لا وصول مجدول اليوم.",
     "occupancyTrend": "اتجاه الإشغال",
-    "inHouseLabel": "في المنشأة"
+    "inHouseLabel": "في المنشأة",
+    "viewAllRooms": "عرض كل الغرف",
+    "boardCount": "{count, plural, zero {لا غرف} one {غرفة واحدة} two {غرفتان} few {# غرف} many {# غرفة} other {# غرفة}}",
+    "boardOccupied": "{count, plural, zero {لا غرف مشغولة} one {غرفة مشغولة واحدة} two {غرفتان مشغولتان} few {# غرف مشغولة} many {# غرفة مشغولة} other {# غرفة مشغولة}}",
+    "boardAttention": "{count, plural, zero {لا غرف تحتاج اهتمامًا} one {غرفة تحتاج اهتمامًا} two {غرفتان تحتاجان اهتمامًا} few {# غرف تحتاج اهتمامًا} many {# غرفة تحتاج اهتمامًا} other {# غرف تحتاج اهتمامًا}}",
+    "boardStatusAvailable": "متاحة",
+    "boardStatusOccupied": "مشغولة",
+    "boardStatusNeedsCleaning": "تحتاج تنظيفًا",
+    "boardStatusCleaning": "قيد التنظيف",
+    "boardStatusOutOfService": "خارج الخدمة",
+    "roomCardAria": "الغرفة {number}، {category}، {status}"
   },
   "reservations": {
     "title": "الحجوزات",

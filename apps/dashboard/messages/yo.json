@@ -136,7 +136,17 @@
     "viewStay": "Wo ìdágbé",
     "noArrivals": "Kò sí ẹni tí yóò dé lónìí.",
     "occupancyTrend": "Ìṣísẹ̀ kíkún",
-    "inHouseLabel": "Nínú ilé"
+    "inHouseLabel": "Nínú ilé",
+    "viewAllRooms": "Wo gbogbo àwọn yàrá",
+    "boardCount": "{count, plural, one {yàrá #} other {àwọn yàrá #}}",
+    "boardOccupied": "{count, plural, one {# tí wọ́n ti tẹ̀} other {# tí wọ́n ti tẹ̀}}",
+    "boardAttention": "{count, plural, =0 {kò sí èyí tó nílò àfiyèsí} one {# nílò àfiyèsí} other {# nílò àfiyèsí}}",
+    "boardStatusAvailable": "Ó ṣí sílẹ̀",
+    "boardStatusOccupied": "Wọ́n ti tẹ̀ ẹ́",
+    "boardStatusNeedsCleaning": "Nílò ìtọ́jú",
+    "boardStatusCleaning": "Ń wẹ̀",
+    "boardStatusOutOfService": "Kò ṣiṣẹ́",
+    "roomCardAria": "Yàrá {number}, {category}, {status}"
   },
   "reservations": {
     "title": "Àwọn ìfipamọ́",

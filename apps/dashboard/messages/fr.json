@@ -136,7 +136,17 @@
     "viewStay": "Voir le séjour",
     "noArrivals": "Aucune arrivée prévue aujourd'hui.",
     "occupancyTrend": "Tendance d'occupation",
-    "inHouseLabel": "En maison"
+    "inHouseLabel": "En maison",
+    "viewAllRooms": "Voir toutes les chambres",
+    "boardCount": "{count, plural, one {# chambre} other {# chambres}}",
+    "boardOccupied": "{count, plural, one {# occupée} other {# occupées}}",
+    "boardAttention": "{count, plural, =0 {aucune à traiter} one {# à traiter} other {# à traiter}}",
+    "boardStatusAvailable": "Disponible",
+    "boardStatusOccupied": "Occupée",
+    "boardStatusNeedsCleaning": "À nettoyer",
+    "boardStatusCleaning": "En nettoyage",
+    "boardStatusOutOfService": "Hors service",
+    "roomCardAria": "Chambre {number}, {category}, {status}"
   },
   "reservations": {
     "title": "Réservations",
