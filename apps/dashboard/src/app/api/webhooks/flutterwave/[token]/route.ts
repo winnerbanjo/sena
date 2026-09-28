@@ -4,42 +4,7 @@ import { db, integrationWebhookEvents, integrations, paymentAttempts, eq, and } 
 import { flutterwaveWebhookAuthentic, requireConnectedFlutterwave } from '@/lib/integrations/flutterwave';
 import { flutterwaveReceiptPayload, settlePropertyFlutterwave, verifyPropertyFlutterwaveTransaction } from '@/lib/flutterwave-payments';
 import { sendVerifiedPaymentNotice } from '@/lib/settle-paystack';
-
-type SafeWebhookBody = {
-  event: any;
-  eventType: string;
-  txRef: string | null;
-  transactionId: string | null;
-  parseable: boolean;
-  topKeys: string;
-};
-
-function parseSafeWebhookBody(rawBody: string): SafeWebhookBody {
-  try {
-    const event = JSON.parse(rawBody);
-    const eventName = typeof event?.event === 'string'
-      ? event.event
-      : typeof event?.type === 'string'
-        ? event.type
-        : null;
-    const eventType = eventName ? eventName.slice(0, 100) : 'unparseable';
-    const data = event?.data && typeof event.data === 'object' ? event.data : {};
-    const txRef = typeof data.tx_ref === 'string'
-      ? data.tx_ref.slice(0, 255)
-      : typeof data.txRef === 'string'
-        ? data.txRef.slice(0, 255)
-        : null;
-    const transactionId = data.id != null ? String(data.id).slice(0, 64) : null;
-    const topKeys = event && typeof event === 'object' && !Array.isArray(event)
-      ? Object.keys(event).sort().slice(0, 12).join(',')
-      : Array.isArray(event)
-        ? 'array'
-        : typeof event;
-    return { event, eventType, txRef, transactionId, parseable: true, topKeys };
-  } catch {
-    return { event: null, eventType: 'unparseable', txRef: null, transactionId: null, parseable: false, topKeys: 'invalid_json' };
-  }
-}
+import { parseSafeWebhookBody } from '@/lib/flutterwave-webhook-parse';
 
 function signaturePresence(verifHash: string | null, signature: string | null) {
   if (verifHash && signature) return 'verif-hash+flutterwave-signature';

@@ -196,6 +196,30 @@ async function run() {
   assert.equal((await db.query.payments.findMany({ where: eq(payments.providerReference, initialized.reference) })).length, 1);
   console.log('PASS signed Flutterwave webhook verifies, settles once, and rejects invalid authenticity');
 
+  const flatEvent = JSON.stringify({
+    id: 88022,
+    txRef: initialized.reference,
+    flwRef: 'FLW-FLAT-1',
+    amount: 240000,
+    charged_amount: 240000,
+    appfee: 0,
+    currency: 'NGN',
+    charge_type: 'normal',
+    createdAt: '2030-02-01T12:00:00Z',
+    customer: { email: 'guest-fw@qa.invalid' },
+    entity: { account_id: 1 },
+    IP: '127.0.0.1',
+    'event.type': 'charge.completed',
+    status: 'successful',
+  });
+  globalThis.fetch = (async () => new Response(JSON.stringify({ status: 'success', data: { ...verified, id: 88022 } }), { status: 200, headers: { 'content-type': 'application/json' } })) as typeof fetch;
+  try {
+    const flat = await webhook.POST(new Request(`https://preview.invalid/api/webhooks/flutterwave/${token}`, { method: 'POST', headers: { 'verif-hash': connected.webhookSecret! }, body: flatEvent }) as any, { params: Promise.resolve({ token }) });
+    assert.equal(flat.status, 200);
+  } finally { globalThis.fetch = originalFetch; }
+  assert.equal((await db.query.payments.findMany({ where: eq(payments.providerReference, initialized.reference) })).length, 1);
+  console.log('PASS flat event.type charge.completed webhook settles once without duplicating payment');
+
   const otherTokenState = flutterwave.safeFlutterwaveState(await flutterwave.getPropertyFlutterwave(ids.otherProperty), 'https://preview.invalid');
   assert.equal(otherTokenState.displayStatus, 'disconnected');
   const cross = await webhook.POST(new Request(`https://preview.invalid/api/webhooks/flutterwave/${token}`, {
