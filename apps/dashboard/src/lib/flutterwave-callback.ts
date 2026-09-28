@@ -19,6 +19,22 @@ function fromRedirect(redirectUrl: string) {
   }
 }
 
+function txRefOf(record: any) {
+  if (!record || typeof record !== 'object') return '';
+  if (typeof record.txRef === 'string') return record.txRef;
+  if (typeof record.tx_ref === 'string') return record.tx_ref;
+  return '';
+}
+
+/** Hosted checkout puts the charge on `data.tx` and a status wrapper on `data.data`. Either shape may arrive alone. */
+function transactionRecord(parsed: any) {
+  const candidates = [parsed?.data?.tx, parsed?.tx, parsed?.data?.data, parsed?.data, parsed];
+  for (const candidate of candidates) {
+    if (SENA_REF.test(txRefOf(candidate))) return candidate;
+  }
+  return {};
+}
+
 /** Recover the Sena reference from a Flutterwave return. Amount, currency, and status in `resp` are ignored. */
 export function flutterwaveReturnContext(params: { get(name: string): string | null }): FlutterwaveReturnContext {
   const directRef = params.get('tx_ref') || '';
@@ -32,8 +48,8 @@ export function flutterwaveReturnContext(params: { get(name: string): string | n
   if (!raw) return { txRef: '', transactionId: directTransactionId, confirming: directConfirming, reference: directReference };
   try {
     const parsed = JSON.parse(raw) as any;
-    const tx = parsed?.data?.data || parsed?.data?.tx || parsed?.data || parsed?.tx || {};
-    const txRef = typeof tx.txRef === 'string' ? tx.txRef : typeof tx.tx_ref === 'string' ? tx.tx_ref : '';
+    const tx = transactionRecord(parsed);
+    const txRef = txRefOf(tx);
     const transactionId = tx.id != null ? String(tx.id) : directTransactionId;
     const redirect = fromRedirect(typeof tx.redirectUrl === 'string' ? tx.redirectUrl : '');
     if (!SENA_REF.test(txRef)) {

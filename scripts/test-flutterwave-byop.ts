@@ -61,6 +61,27 @@ async function run() {
   assert.equal(returned.reference, 'SYN-FLW-001');
   assert.equal(returned.confirming, true);
   assert.equal(Object.hasOwn(returned, 'amount'), false);
+  const hosted = callback.flutterwaveReturnContext(new URLSearchParams({
+    resp: JSON.stringify({
+      status: 'success',
+      data: {
+        data: { responsecode: '00', responsemessage: 'successful' },
+        tx: {
+          id: 88001,
+          txRef: `SENA_${'cd'.repeat(18)}`,
+          amount: 1,
+          currency: 'USD',
+          status: 'successful',
+          redirectUrl: 'https://app.sena.ng/synthetic-fw-one/confirmation?reference=SYN-FLW-001&payment=confirming',
+        },
+      },
+    }),
+  }));
+  assert.equal(hosted.txRef, `SENA_${'cd'.repeat(18)}`);
+  assert.equal(hosted.transactionId, '88001');
+  assert.equal(hosted.reference, 'SYN-FLW-001');
+  assert.equal(hosted.confirming, true);
+  assert.equal(Object.hasOwn(hosted, 'amount'), false);
   console.log('PASS Flutterwave return recovers the reference and ignores callback amount, currency, and status');
 
   const plaintext = 'FLWSECK_TEST-synthetic_secret_abcd';
