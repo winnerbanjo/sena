@@ -16,6 +16,7 @@ import {
 } from '@sena/database';
 
 import { resolveTenantForRequest } from '@/lib/tenant';
+import { PaymentService } from '@sena/payments';
 
 async function handleGET(req: NextRequest) {
   try {
@@ -115,7 +116,7 @@ async function handleGET(req: NextRequest) {
       );
     }
 
-    const defaultBank = null;
+    const defaultBank = await PaymentService.primaryBankDetails(propertyId);
 
     return NextResponse.json({
       invoices: filtered,
@@ -231,7 +232,7 @@ async function handlePOST(req: NextRequest) {
     const resolvedIssueDate = issueDate || todayStr;
     const resolvedDueDate = dueDate || todayStr;
 
-    const defaultBank = null;
+    const defaultBank = await PaymentService.primaryBankDetails(propertyId);
 
     // 5. Insert Invoice into DB
     const [newInvoice] = await db

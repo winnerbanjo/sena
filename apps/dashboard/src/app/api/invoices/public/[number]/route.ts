@@ -6,9 +6,12 @@ import {
   propertyInvoices,
   properties,
   reservations,
+  transferProofs,
+  desc,
   eq,
 } from '@sena/database';
 import { invoicePaymentAvailable } from '@/lib/integrations/paystack';
+import { PaymentService } from '@sena/payments';
 
 export async function GET(
   req: NextRequest,
@@ -29,6 +32,8 @@ export async function GET(
     }
 
     const onlinePaymentAvailable = await invoicePaymentAvailable(invoice.propertyId);
+    const bankAccounts = await PaymentService.listPublicBankAccounts(invoice.propertyId);
+    const bankDetails = invoice.bankDetails || bankAccounts[0] || null;
 
     const prop = await db.query.properties.findFirst({
       where: eq(properties.id, invoice.propertyId),
@@ -41,8 +46,18 @@ export async function GET(
       });
     }
 
+    const [latestProof] = await db
+      .select({ status: transferProofs.status })
+      .from(transferProofs)
+      .where(eq(transferProofs.invoiceId, invoice.id))
+      .orderBy(desc(transferProofs.submittedAt))
+      .limit(1);
+
     return NextResponse.json({
       onlinePaymentAvailable,
+      bankTransferAvailable: bankAccounts.length > 0,
+      bankAccounts,
+      transferProofStatus: latestProof?.status || null,
       invoice: {
         invoiceNumber: invoice.invoiceNumber, invoiceType: invoice.invoiceType,
         status: invoice.status, recipientName: invoice.recipientName,
@@ -53,7 +68,7 @@ export async function GET(
         taxConsumptionMinorUnits: invoice.taxConsumptionMinorUnits, serviceChargeMinorUnits: invoice.serviceChargeMinorUnits,
         discountMinorUnits: invoice.discountMinorUnits, totalAmountMinorUnits: invoice.totalAmountMinorUnits,
         paidAmountMinorUnits: invoice.paidAmountMinorUnits, items: invoice.items,
-        bankDetails: invoice.bankDetails, paymentTerms: invoice.paymentTerms, notes: invoice.notes,
+        bankDetails, paymentTerms: invoice.paymentTerms, notes: invoice.notes,
       },
       property: {
         name: prop?.name,

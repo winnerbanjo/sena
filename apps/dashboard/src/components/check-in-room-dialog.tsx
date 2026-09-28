@@ -1,7 +1,8 @@
 'use client';
 
 import * as React from 'react';
-import { formatStayDates } from '@sena/config';
+import { formatNaira, formatStayDates } from '@sena/config';
+import { folioBalance } from '../lib/financial-status';
 import {
   Button,
   Dialog,
@@ -41,6 +42,8 @@ export function CheckInRoomDialog({
   const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
   const [selectedRoomId, setSelectedRoomId] = React.useState('');
   const [changingRoom, setChangingRoom] = React.useState(false);
+  const [checkInPolicy, setCheckInPolicy] = React.useState<'require_full' | 'allow_outstanding'>('allow_outstanding');
+  const [allowOutstanding, setAllowOutstanding] = React.useState(false);
 
   const assigned = reservation ? isPhysicalRoomAssigned(reservation) : false;
   const forCheckIn = mode === 'check-in';
@@ -66,6 +69,15 @@ export function CheckInRoomDialog({
       })
       .catch(() => setErrorMsg('Could not load eligible rooms.'))
       .finally(() => setLoading(false));
+
+    fetch('/api/me')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.property?.checkInPaymentPolicy === 'require_full') setCheckInPolicy('require_full');
+        else setCheckInPolicy('allow_outstanding');
+      })
+      .catch(() => undefined);
+    setAllowOutstanding(false);
   }, [open, reservation, mode]);
 
   if (!reservation) return null;
@@ -92,7 +104,7 @@ export function CheckInRoomDialog({
       const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ roomId }),
+        body: JSON.stringify({ roomId, allowOutstandingBalance: allowOutstanding }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -172,6 +184,20 @@ export function CheckInRoomDialog({
             </button>
           )}
 
+          {forCheckIn && folioBalance(reservation.totalAmountMinorUnits, reservation.paidAmountMinorUnits) > 0 && (
+            <div className="rounded border border-[#E5D4BC] bg-[#FAF7F2] p-3 space-y-2">
+              <p className="font-medium text-[#71382D]">Outstanding balance {formatNaira(folioBalance(reservation.totalAmountMinorUnits, reservation.paidAmountMinorUnits))}</p>
+              {checkInPolicy === 'require_full' ? (
+                <p>Payment required before check-in. Record payment, send an invoice, or view the folio first.</p>
+              ) : (
+                <label className="flex items-start gap-2">
+                  <input type="checkbox" className="mt-0.5 h-4 w-4" checked={allowOutstanding} onChange={(event) => setAllowOutstanding(event.target.checked)} />
+                  <span>Check in with outstanding balance. This stay will remain collectible.</span>
+                </label>
+              )}
+            </div>
+          )}
+
           {mustChooseRoom && (
             <div>
               <Label id="check-in-room-label">{assigned ? 'Select another room' : 'Select Room'}</Label>
@@ -200,7 +226,14 @@ export function CheckInRoomDialog({
           <Button
             type="button"
             className="bg-[#71382D] hover:bg-[#5A2C23] text-white"
-            disabled={submitting || loading || (mustChooseRoom && !selectedRoomId)}
+            disabled={
+              submitting ||
+              loading ||
+              (mustChooseRoom && !selectedRoomId) ||
+              (forCheckIn &&
+                folioBalance(reservation.totalAmountMinorUnits, reservation.paidAmountMinorUnits) > 0 &&
+                (checkInPolicy === 'require_full' || !allowOutstanding))
+            }
             onClick={handleSubmit}
           >
             {submitting ? 'Saving…' : actionLabel}

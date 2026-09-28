@@ -46,6 +46,7 @@ async function run() {
 
   // Clean test scope
   await db.execute(sql`delete from payments where property_id in (${ids.property}, ${ids.otherProperty})`);
+  await db.execute(sql`delete from idempotency_keys where key like 'mst-%' or key like 'paystack-settlement:%'`);
   await db.execute(sql`delete from payment_attempts where property_id in (${ids.property}, ${ids.otherProperty})`);
   await db.execute(sql`delete from integration_webhook_events where property_id in (${ids.property}, ${ids.otherProperty})`);
   await db.execute(sql`delete from integration_audit_logs where property_id in (${ids.property}, ${ids.otherProperty})`);

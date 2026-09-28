@@ -15,6 +15,7 @@ import {
   releaseInventoryInTransaction,
   reserveInventoryInTransaction,
 } from '@sena/inventory';
+import { folioBalance, PaymentPolicyError } from '@sena/payments';
 import type { Reservation, ReservationEvent } from '@sena/types';
 import type { CreateReservationInput } from '@sena/validation';
 import { and, desc, eq, sql } from 'drizzle-orm';
@@ -205,7 +206,8 @@ export class ReservationService {
   static async checkIn(
     reservationId: string,
     roomId?: string | null,
-    actor = { id: '', name: 'Receptionist' }
+    actor = { id: '', name: 'Receptionist' },
+    options?: { allowOutstandingBalance?: boolean }
   ): Promise<void> {
     if (!roomId) throw new Error('ROOM_ASSIGNMENT_REQUIRED');
 
@@ -238,6 +240,18 @@ export class ReservationService {
         roomId
       );
 
+      const property = await tx.query.properties.findFirst({ where: eq(properties.id, res.propertyId) });
+      const policy = property?.checkInPaymentPolicy || 'allow_outstanding';
+      const balance = folioBalance(res.totalAmountMinorUnits, res.paidAmountMinorUnits);
+      if (balance > 0) {
+        if (policy === 'require_full') {
+          throw new PaymentPolicyError('PAYMENT_REQUIRED_BEFORE_CHECK_IN', balance);
+        }
+        if (!options?.allowOutstandingBalance) {
+          throw new PaymentPolicyError('OUTSTANDING_BALANCE_AUTHORIZATION_REQUIRED', balance);
+        }
+      }
+
       await tx
         .update(reservations)
         .set({
@@ -259,8 +273,11 @@ export class ReservationService {
         reservationId,
         actorId: actor.id || undefined,
         actorName: actor.name,
-        eventType: 'checked_in',
-        description: `Checked in by ${actor.name}. Room assigned: ${assignedRoom.roomNumber}.`,
+        eventType: balance > 0 ? 'checked_in_outstanding' : 'checked_in',
+        description:
+          balance > 0
+            ? `Checked in by ${actor.name} with outstanding balance of ₦${(balance / 100).toLocaleString('en-NG')}. Room assigned: ${assignedRoom.roomNumber}.`
+            : `Checked in by ${actor.name}. Room assigned: ${assignedRoom.roomNumber}.`,
       });
     });
   }
@@ -354,9 +371,15 @@ export class ReservationService {
       }
 
       const res = resList[0];
-      const balance = res.totalAmountMinorUnits - res.paidAmountMinorUnits;
+      const balance = folioBalance(res.totalAmountMinorUnits, res.paidAmountMinorUnits);
       if (res.status === 'checked_out') return { outstandingBalanceMinorUnits: balance };
       if (res.status !== 'checked_in') throw new Error('Only checked-in stays can be checked out.');
+
+      const property = await tx.query.properties.findFirst({ where: eq(properties.id, res.propertyId) });
+      const policy = property?.checkOutPaymentPolicy || 'allow_outstanding';
+      if (balance > 0 && policy === 'require_settlement') {
+        throw new PaymentPolicyError('SETTLEMENT_REQUIRED_BEFORE_CHECKOUT', balance);
+      }
 
       if (balance > 0 && !force) {
         return { outstandingBalanceMinorUnits: balance };
@@ -395,8 +418,8 @@ export class ReservationService {
         reservationId,
         actorId: actor.id || undefined,
         actorName: actor.name,
-        eventType: 'checked_out',
-        description: `Checked out by ${actor.name}.${balance > 0 ? ` Outstanding balance: ₦${balance / 100}.` : ''}`,
+        eventType: balance > 0 ? 'checked_out_outstanding' : 'checked_out',
+        description: `Checked out by ${actor.name}.${balance > 0 ? ` Outstanding receivable: ₦${(balance / 100).toLocaleString('en-NG')}.` : ''}`,
       });
 
       return { outstandingBalanceMinorUnits: balance };

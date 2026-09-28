@@ -32,6 +32,8 @@ interface PaymentItem {
 export default function PaymentsPage() {
   const [payments, setPayments] = React.useState<PaymentItem[]>([]);
   const [reservations, setReservations] = React.useState<any[]>([]);
+  const [receivables, setReceivables] = React.useState<any[]>([]);
+  const [proofs, setProofs] = React.useState<any[]>([]);
   const [loadError, setLoadError] = React.useState(false);
   const [loading, setLoading] = React.useState(true);
   const [recordOpen, setRecordOpen] = React.useState(false);
@@ -68,6 +70,8 @@ export default function PaymentsPage() {
         if (resData.reservations) {
           setReservations(resData.reservations);
         }
+        if (payData.receivables) setReceivables(payData.receivables);
+        if (payData.transferProofs) setProofs(payData.transferProofs);
       })
       .catch(() => setLoadError(true))
       .finally(() => setLoading(false));
@@ -275,6 +279,69 @@ export default function PaymentsPage() {
               )))}
             </TableBody>
           </Table>
+        </div>
+
+        <div className="bg-white border border-[#E8E2DA] rounded-lg overflow-x-auto">
+          <div className="p-4 border-b border-[#E8E2DA] bg-[#FAF9F6]">
+            <strong className="text-sm font-serif font-normal text-[#191816]">Outstanding guest balances</strong>
+            <p className="text-xs text-[#7A7267]">Who still owes the hotel, including checked-out receivables.</p>
+          </div>
+          {receivables.length === 0 ? (
+            <p className="p-4 text-sm text-[#7A7267]">No outstanding guest balances.</p>
+          ) : (
+            <div className="divide-y divide-[#E8E2DA]">
+              {receivables.map((row) => (
+                <div key={row.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-sm">
+                  <div>
+                    <strong>{row.guestName || 'Guest'}</strong>
+                    <p className="text-xs text-[#7A7267]">{row.reference} · {row.status.replace('_', ' ')} · Checkout {row.checkOutDate}</p>
+                  </div>
+                  <div className="text-right">
+                    <p>Total {formatNaira(row.totalAmountMinorUnits)}</p>
+                    <p>Paid {formatNaira(row.paidAmountMinorUnits)}</p>
+                    <p className="text-[#B85C3E] font-medium">{row.settlement}: {formatNaira(row.outstandingMinorUnits)}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="bg-white border border-[#E8E2DA] rounded-lg overflow-x-auto">
+          <div className="p-4 border-b border-[#E8E2DA] bg-[#FAF9F6]">
+            <strong className="text-sm font-serif font-normal text-[#191816]">Transfer proofs</strong>
+            <p className="text-xs text-[#7A7267]">Guest-submitted proofs are not payments until verified.</p>
+          </div>
+          {proofs.length === 0 ? (
+            <p className="p-4 text-sm text-[#7A7267]">No transfer proofs submitted.</p>
+          ) : (
+            <div className="divide-y divide-[#E8E2DA]">
+              {proofs.map((proof) => (
+                <div key={proof.id} className="p-4 space-y-2 text-sm">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div>
+                      <strong>{proof.guestName || proof.payerName || 'Guest'}</strong>
+                      <p className="text-xs text-[#7A7267]">{proof.reservationReference || 'Invoice'} · {formatNaira(proof.amountMinorUnits)} · {proof.status.replace('_', ' ')}</p>
+                      <p className="text-xs text-[#7A7267]">{proof.transferReference || 'No transfer reference'} · {new Date(proof.submittedAt).toLocaleString()}</p>
+                    </div>
+                    {proof.status === 'pending' && (
+                      <div className="flex gap-2">
+                        <Button size="sm" onClick={async () => {
+                          await fetch(`/api/payments/transfer-proofs/${proof.id}/verify`, { method: 'POST' });
+                          window.location.reload();
+                        }}>Verify payment</Button>
+                        <Button size="sm" variant="secondary" onClick={async () => {
+                          await fetch(`/api/payments/transfer-proofs/${proof.id}/reject`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
+                          window.location.reload();
+                        }}>Reject</Button>
+                      </div>
+                    )}
+                  </div>
+                  {proof.proofUrl && <a href={proof.proofUrl} target="_blank" rel="noreferrer" className="text-[#71382D] underline text-xs">View submitted proof</a>}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </main>
       {recordOpen && (

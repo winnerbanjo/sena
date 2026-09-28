@@ -17,7 +17,9 @@ import {
 } from '@sena/ui';
 import type { ReservationItem } from './mock-data';
 import { formatAssignedRoom, isPhysicalRoomAssigned } from './reservation-room';
-import { Calendar, CheckCircle2, Clock, CreditCard, Mail, Phone, User } from 'lucide-react';
+import { folioBalance, settlementLabel } from '../lib/financial-status';
+import { RecordPaymentDialog } from './record-payment-dialog';
+import { Calendar, CheckCircle2, Mail, Phone } from 'lucide-react';
 
 interface ReservationDrawerProps {
   reservation: ReservationItem | null;
@@ -26,6 +28,7 @@ interface ReservationDrawerProps {
   onCheckIn?: (id: string) => void;
   onAssignRoom?: (id: string) => void;
   onCheckOut?: (id: string) => void;
+  onPaymentRecorded?: () => void;
 }
 
 export function ReservationDrawer({
@@ -35,12 +38,28 @@ export function ReservationDrawer({
   onCheckIn,
   onAssignRoom,
   onCheckOut,
+  onPaymentRecorded,
 }: ReservationDrawerProps) {
+  const [payOpen, setPayOpen] = React.useState(false);
+  const [history, setHistory] = React.useState<any[]>([]);
+
+  React.useEffect(() => {
+    if (!open || !reservation) return;
+    fetch(`/api/payments?reservationId=${reservation.id}`)
+      .then((res) => (res.ok ? res.json() : { payments: [] }))
+      .then((data) => setHistory(Array.isArray(data.payments) ? data.payments : []))
+      .catch(() => setHistory([]));
+  }, [open, reservation]);
+
   if (!reservation) return null;
 
   const isCheckedIn = reservation.status === 'checked_in';
   const isConfirmed = reservation.status === 'confirmed';
+  const isCheckedOut = reservation.status === 'checked_out';
   const hasRoom = isPhysicalRoomAssigned(reservation);
+  const outstanding = folioBalance(reservation.totalAmountMinorUnits, reservation.paidAmountMinorUnits);
+  const settlement = settlementLabel(reservation.status, reservation.totalAmountMinorUnits, reservation.paidAmountMinorUnits);
+  const paymentActionLabel = isCheckedOut && outstanding > 0 ? 'Settle outstanding' : 'Record payment';
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
@@ -102,9 +121,14 @@ export function ReservationDrawer({
                 Check out
               </Button>
             )}
-            <Button size="sm" variant="secondary">
-              Record payment
-            </Button>
+            {outstanding > 0 && (
+              <Button size="sm" variant="secondary" onClick={() => setPayOpen(true)}>
+                {paymentActionLabel}
+              </Button>
+            )}
+            {outstanding <= 0 && isCheckedOut && (
+              <span className="text-xs font-medium text-[#2E6B4F]">Settled</span>
+            )}
           </div>
           <span className="text-xs text-[#7A7267]">
             Source: <strong className="text-[#191816] capitalize">{reservation.source.replace('_', ' ')}</strong>
@@ -202,8 +226,8 @@ export function ReservationDrawer({
                   <span className="text-xs text-[#7A7267] font-medium uppercase tracking-wider">
                     Total Amount
                   </span>
-                  <Badge variant={reservation.paymentStatus === 'paid' ? 'paid' : 'pending'}>
-                    {reservation.paymentStatus.replace('_', ' ')}
+                  <Badge variant={outstanding <= 0 ? 'paid' : 'pending'}>
+                    {settlement}
                   </Badge>
                 </div>
                 <strong className="text-2xl font-serif text-[#191816] block">
@@ -215,15 +239,26 @@ export function ReservationDrawer({
                     {formatNaira(reservation.paidAmountMinorUnits)}
                   </strong>
                 </div>
-                {reservation.totalAmountMinorUnits > reservation.paidAmountMinorUnits && (
+                {outstanding > 0 && (
                   <div className="flex items-center justify-between text-xs text-[#7A7267]">
-                    <span>Outstanding balance:</span>
+                    <span>{isCheckedOut ? 'Outstanding receivable:' : 'Outstanding balance:'}</span>
                     <strong className="text-[#B85C3E]">
-                      {formatNaira(reservation.totalAmountMinorUnits - reservation.paidAmountMinorUnits)}
+                      {formatNaira(outstanding)}
                     </strong>
                   </div>
                 )}
-                <div className="pt-2 border-t border-[#E8E2DA]">
+                {outstanding > 0 && (
+                  <Button size="sm" className="w-full" onClick={() => setPayOpen(true)}>
+                    {paymentActionLabel}
+                  </Button>
+                )}
+                <div className="pt-2 border-t border-[#E8E2DA] space-y-2">
+                  {history.map((payment) => (
+                    <div key={payment.id} className="flex items-center justify-between text-xs">
+                      <span>{payment.method === 'bank_transfer' ? 'Bank transfer' : payment.method === 'pos' ? 'POS' : payment.provider === 'paystack' ? 'Paystack' : 'Cash'}</span>
+                      <strong>{formatNaira(payment.amountMinorUnits)}</strong>
+                    </div>
+                  ))}
                   <Link
                     href={`/invoices?search=${encodeURIComponent(reservation.reference)}`}
                     className="inline-flex items-center gap-1 text-xs text-[#71382D] hover:underline font-medium"
@@ -254,6 +289,16 @@ export function ReservationDrawer({
             </TabsContent>
           </Tabs>
         </div>
+        <RecordPaymentDialog
+          open={payOpen}
+          onClose={() => setPayOpen(false)}
+          reservationId={reservation.id}
+          guestName={reservation.guestName}
+          reference={reservation.reference}
+          outstandingMinorUnits={outstanding}
+          checkedOut={isCheckedOut}
+          onRecorded={onPaymentRecorded}
+        />
       </DrawerContent>
     </Drawer>
   );

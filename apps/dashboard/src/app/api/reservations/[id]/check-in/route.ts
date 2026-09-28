@@ -1,4 +1,5 @@
 import { apiError } from '@/lib/api-error';
+import { policyErrorResponse } from '@/lib/financial-status';
 import { withMerchant } from '@/lib/merchant-route';
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
@@ -14,6 +15,7 @@ async function handlePOST(
     const { id: reservationId } = await params;
     const body = await req.json();
     const roomId = typeof body.roomId === 'string' ? body.roomId : '';
+    const allowOutstandingBalance = Boolean(body.allowOutstandingBalance);
 
     if (!roomId) {
       return NextResponse.json(
@@ -28,7 +30,7 @@ async function handlePOST(
       name: session?.user?.name || 'Front Desk Staff',
     };
 
-    await ReservationService.checkIn(reservationId, roomId, actor);
+    await ReservationService.checkIn(reservationId, roomId, actor, { allowOutstandingBalance });
 
     // Non-blocking stay checkin email
     try {
@@ -85,6 +87,8 @@ async function handlePOST(
     });
   } catch (error: any) {
     console.error('Check-in error:', error);
+    const policy = policyErrorResponse(error);
+    if (policy) return NextResponse.json(policy.body, { status: policy.status });
     return NextResponse.json({ error: apiError(error) }, { status: 400 });
   }
 }

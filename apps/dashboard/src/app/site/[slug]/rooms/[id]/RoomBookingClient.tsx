@@ -11,6 +11,9 @@ export function RoomBookingClient({
   initialCheckOut,
   initialGuests,
   onlinePaymentAvailable = false,
+  payAtPropertyAvailable = true,
+  bankTransferAvailable = false,
+  bankAccounts = [],
 }: {
   property: any;
   room: any;
@@ -18,6 +21,9 @@ export function RoomBookingClient({
   initialCheckOut?: string;
   initialGuests?: number;
   onlinePaymentAvailable?: boolean;
+  payAtPropertyAvailable?: boolean;
+  bankTransferAvailable?: boolean;
+  bankAccounts?: Array<{ accountName: string; bankName: string; accountNumber: string; currency: string; isPrimary: boolean }>;
 }) {
   const themeContext = useTheme();
   const tokens = themeContext?.tokens;
@@ -48,8 +54,12 @@ export function RoomBookingClient({
   const [guestEmail, setGuestEmail] = React.useState('');
   const [guestPhone, setGuestPhone] = React.useState('');
   const [confirmedRef, setConfirmedRef] = React.useState('');
-  const [paymentChoice, setPaymentChoice] = React.useState<'paystack' | 'pay_at_property'>(onlinePaymentAvailable ? 'paystack' : 'pay_at_property');
-  const [paymentState, setPaymentState] = React.useState<'pay_at_property' | 'pending' | 'failed'>('pay_at_property');
+  const defaultPayment = onlinePaymentAvailable ? 'paystack' : payAtPropertyAvailable ? 'pay_at_property' : bankTransferAvailable ? 'bank_transfer' : 'pay_at_property';
+  const [paymentChoice, setPaymentChoice] = React.useState<'paystack' | 'pay_at_property' | 'bank_transfer'>(defaultPayment);
+  const [paymentState, setPaymentState] = React.useState<'pay_at_property' | 'pending' | 'bank_transfer' | 'failed'>('pay_at_property');
+  const [confirmedBanks, setConfirmedBanks] = React.useState(bankAccounts);
+  const [proofStatus, setProofStatus] = React.useState<'idle' | 'pending' | 'submitted'>('idle');
+  const [proofError, setProofError] = React.useState('');
 
   // Calculate nights
   const nights = React.useMemo(() => {
@@ -152,7 +162,14 @@ export function RoomBookingClient({
           return;
         }
         setConfirmedRef(data.reservation.reference);
-        setPaymentState(data.paymentState === 'pending' ? 'pending' : 'pay_at_property');
+        setConfirmedBanks(Array.isArray(data.bankAccounts) ? data.bankAccounts : bankAccounts);
+        setPaymentState(
+          data.paymentState === 'pending'
+            ? 'pending'
+            : data.paymentState === 'bank_transfer'
+              ? 'bank_transfer'
+              : 'pay_at_property'
+        );
         setStage('confirmed');
       } else {
         setPaymentState('failed');
@@ -179,7 +196,7 @@ export function RoomBookingClient({
           <CheckCircle2 className="w-6 h-6" />
         </div>
         <h3 className="font-serif text-xl text-[#191816]">{paymentState === 'pending' ? 'Reservation received' : 'Reservation confirmed'}</h3>
-        <p className="text-sm">{paymentState === 'pending' ? `Payment confirmation is pending. ${formattedTotal} has not been marked paid.` : `Payment is due at the property. ${formattedTotal} remains outstanding.`}</p>
+        <p className="text-sm">{paymentState === 'pending' ? `Payment confirmation is pending. ${formattedTotal} has not been marked paid.` : paymentState === 'bank_transfer' ? `Transfer ${formattedTotal} using the hotel account below. Uploading proof does not mark the stay paid.` : `Payment is due at the property. ${formattedTotal} remains outstanding.`}</p>
         <p className="text-xs text-[#7A7267]">
           Thank you, <strong className="text-[#191816]">{guestName}</strong>. Your reservation is saved. Your contact email is{' '}
           <strong className="text-[#191816]">{guestEmail}</strong>.
@@ -199,10 +216,67 @@ export function RoomBookingClient({
             <span className="text-[#191816]">{checkIn} &rarr; {checkOut} ({nights} nights)</span>
           </div>
           <div className="flex justify-between border-t border-[#E8E2DA] pt-2">
-            <span className="text-[#7A7267]">{paymentState === 'pay_at_property' ? 'Amount due:' : 'Amount:'}</span>
+            <span className="text-[#7A7267]">{paymentState === 'pay_at_property' || paymentState === 'bank_transfer' ? 'Amount due:' : 'Amount:'}</span>
             <strong className="text-[#191816]">{formattedTotal}</strong>
           </div>
         </div>
+        {paymentState === 'bank_transfer' && confirmedBanks.length > 0 && (
+          <div className="text-left p-4 rounded-lg border border-[#E8E2DA] space-y-2">
+            <p className="text-xs font-medium text-[#191816]">Pay by bank transfer</p>
+            {confirmedBanks.map((account) => (
+              <div key={`${account.bankName}-${account.accountNumber}`} className="text-xs space-y-0.5">
+                <p><span className="text-[#7A7267]">Bank:</span> {account.bankName}</p>
+                <p><span className="text-[#7A7267]">Account name:</span> {account.accountName}</p>
+                <p><span className="text-[#7A7267]">Account number:</span> {account.accountNumber}</p>
+                <p><span className="text-[#7A7267]">Currency:</span> {account.currency}</p>
+                <p><span className="text-[#7A7267]">Reference:</span> {confirmedRef}</p>
+              </div>
+            ))}
+            <form
+              className="space-y-2 pt-2"
+              onSubmit={async (event) => {
+                event.preventDefault();
+                const form = event.currentTarget;
+                const file = (form.elements.namedItem('proof') as HTMLInputElement)?.files?.[0];
+                if (!file) {
+                  setProofError('Upload a transfer screenshot or PDF.');
+                  return;
+                }
+                setProofError('');
+                setProofStatus('pending');
+                try {
+                  const body = new FormData();
+                  body.append('propertyId', property.id);
+                  body.append('reservationReference', confirmedRef);
+                  body.append('guestEmail', guestEmail);
+                  body.append('amountMinorUnits', String(totalMinorUnits));
+                  body.append('payerName', guestName);
+                  body.append('file', file);
+                  const res = await fetch('/api/public/transfer-proofs', { method: 'POST', body });
+                  const data = await res.json();
+                  if (!res.ok) throw new Error(data.error || 'Could not submit proof.');
+                  setProofStatus('submitted');
+                } catch (error: any) {
+                  setProofStatus('idle');
+                  setProofError(error.message || 'Could not submit proof.');
+                }
+              }}
+            >
+              <label className="block text-xs">
+                Upload proof of transfer
+                <input name="proof" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" className="mt-1 block w-full text-xs" />
+              </label>
+              {proofError && <p className="text-xs text-red-700" role="alert">{proofError}</p>}
+              {proofStatus === 'submitted' ? (
+                <p className="text-xs text-[#2E6B4F]">Proof received. The hotel will verify this transfer before marking the stay paid.</p>
+              ) : (
+                <button type="submit" disabled={proofStatus === 'pending'} className="min-h-11 w-full rounded bg-[#71382D] text-white text-xs">
+                  {proofStatus === 'pending' ? 'Submitting…' : 'Submit proof'}
+                </button>
+              )}
+            </form>
+          </div>
+        )}
 
         <button
           onClick={() => {
@@ -304,13 +378,24 @@ export function RoomBookingClient({
                 </span>
               </label>
             )}
-            <label className="flex items-start gap-3 rounded border border-[#E8E2DA] p-3 min-h-11">
-              <input type="radio" name="payment" className="mt-1 h-5 w-5" checked={paymentChoice === 'pay_at_property'} onChange={() => setPaymentChoice('pay_at_property')} />
-              <span>
-                <span className="block font-medium text-[#191816]">Pay at the property</span>
-                <span className="block text-[#7A7267]">Reserve now and pay {formattedTotal} when you arrive. Nothing is charged online.</span>
-              </span>
-            </label>
+            {payAtPropertyAvailable && (
+              <label className="flex items-start gap-3 rounded border border-[#E8E2DA] p-3 min-h-11">
+                <input type="radio" name="payment" className="mt-1 h-5 w-5" checked={paymentChoice === 'pay_at_property'} onChange={() => setPaymentChoice('pay_at_property')} />
+                <span>
+                  <span className="block font-medium text-[#191816]">Pay at the property</span>
+                  <span className="block text-[#7A7267]">Reserve now and pay {formattedTotal} when you arrive. Nothing is charged online.</span>
+                </span>
+              </label>
+            )}
+            {bankTransferAvailable && (
+              <label className="flex items-start gap-3 rounded border border-[#E8E2DA] p-3 min-h-11">
+                <input type="radio" name="payment" className="mt-1 h-5 w-5" checked={paymentChoice === 'bank_transfer'} onChange={() => setPaymentChoice('bank_transfer')} />
+                <span>
+                  <span className="block font-medium text-[#191816]">Bank transfer</span>
+                  <span className="block text-[#7A7267]">Transfer {formattedTotal} to the hotel account. The stay stays unpaid until the hotel verifies it.</span>
+                </span>
+              </label>
+            )}
           </fieldset>
 
           <div className="pt-2">
@@ -320,7 +405,7 @@ export function RoomBookingClient({
               style={primaryButtonStyle}
               className="w-full min-h-11 py-3 text-sm font-semibold flex items-center justify-center gap-2 hover:opacity-90 disabled:opacity-50 transition-opacity"
             >
-              <span>{submitting ? 'Confirming stay...' : paymentChoice === 'paystack' ? `Pay online (${formattedTotal})` : `Confirm reservation (${formattedTotal})`}</span>
+              <span>{submitting ? 'Confirming stay...' : paymentChoice === 'paystack' ? `Pay online (${formattedTotal})` : paymentChoice === 'bank_transfer' ? `Confirm and view transfer details (${formattedTotal})` : `Confirm reservation (${formattedTotal})`}</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>

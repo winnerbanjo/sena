@@ -591,7 +591,7 @@ async function runAudit() {
   // --------------------------------------------------------------------
   try {
     const staffActor = { id: createdUserId, name: 'Chief Receptionist' };
-    await ReservationService.checkIn(createdReservationId, createdRoomId, staffActor);
+    await ReservationService.checkIn(createdReservationId, createdRoomId, staffActor, { allowOutstandingBalance: true });
 
     // Verify reservation status & room assignment in DB
     const [res] = await db.select().from(reservations).where(eq(reservations.id, createdReservationId)).limit(1);

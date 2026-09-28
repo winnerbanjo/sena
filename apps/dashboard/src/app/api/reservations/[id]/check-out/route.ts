@@ -1,4 +1,5 @@
 import { apiError } from '@/lib/api-error';
+import { policyErrorResponse } from '@/lib/financial-status';
 import { withMerchant } from '@/lib/merchant-route';
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
@@ -82,6 +83,8 @@ async function handlePOST(
     });
   } catch (error: any) {
     console.error('Check-out error:', error);
+    const policy = policyErrorResponse(error);
+    if (policy) return NextResponse.json(policy.body, { status: policy.status });
     return NextResponse.json({ error: apiError(error) }, { status: 400 });
   }
 }

@@ -239,7 +239,15 @@ function ReservationsContent() {
                           <span className="inline-flex items-center gap-1.5 font-mono text-[11px]">
                             <span className={`w-1.5 h-1.5 rounded-full ${isPaid ? 'bg-[#2E6B4F]' : 'bg-[#A3681F]'}`} />
                             <span className={isPaid ? 'text-[#2E6B4F]' : 'text-[#A3681F]'}>
-                              {isPaid ? 'Settled' : 'Balance Due'}
+                              {res.status === 'checked_out' && !isPaid
+                                ? Number(res.paidAmountMinorUnits || 0) > 0
+                                  ? 'Outstanding'
+                                  : 'Outstanding'
+                                : isPaid
+                                  ? 'Settled'
+                                  : Number(res.paidAmountMinorUnits || 0) > 0
+                                    ? 'Partially Paid'
+                                    : 'Balance Due'}
                             </span>
                           </span>
                         </td>
@@ -271,23 +279,31 @@ function ReservationsContent() {
           if (reservation) setAssignment({ reservation, mode: reservation.roomId ? 'change' : 'assign' });
         }}
         onCheckOut={async (id) => {
+          const reservation = reservations.find((item) => item.id === id) || selectedRes;
+          const balance = reservation
+            ? reservation.totalAmountMinorUnits - reservation.paidAmountMinorUnits
+            : 0;
           try {
             const res = await fetch(`/api/reservations/${id}/check-out`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ force: true }),
+              body: JSON.stringify({ force: balance > 0 }),
             });
+            const data = await res.json().catch(() => ({}));
             if (res.ok) {
-              toast.success('Guest Checked Out', 'Reservation marked complete.');
+              toast.success('Guest Checked Out', balance > 0 ? 'Stay closed with outstanding receivable.' : 'Reservation marked complete.');
               fetchReservations();
               if (selectedRes && selectedRes.id === id) {
                 setSelectedRes((prev) => (prev ? { ...prev, status: 'checked_out' } : null));
               }
+            } else {
+              toast.error('Check-out Failed', data.error || 'Check out failed');
             }
           } catch (e: any) {
             toast.error('Check-out Error', e.message || 'Check out failed');
           }
         }}
+        onPaymentRecorded={() => fetchReservations()}
       />
 
       <CheckInRoomDialog

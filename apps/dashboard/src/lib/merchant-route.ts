@@ -3,11 +3,11 @@ import type { Role, Permission } from '@sena/types';
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { resolveTenantForRequest } from './tenant';
-import { db, reservations, rooms, roomTypes, guests, propertyInvoices, reviews, apiKeys, webhookEndpoints, housekeepingTasks, propertyMembers, eq, and } from '@sena/database';
+import { db, reservations, rooms, roomTypes, guests, propertyInvoices, reviews, apiKeys, webhookEndpoints, housekeepingTasks, propertyMembers, propertyBankAccounts, transferProofs, eq, and } from '@sena/database';
 
 type Handler = (req: NextRequest, context: any) => Promise<Response>;
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const tables = { reservationId: reservations, roomId: rooms, roomTypeId: roomTypes, guestId: guests, invoiceId: propertyInvoices, reviewId: reviews, keyId: apiKeys, webhookId: webhookEndpoints, taskId: housekeepingTasks, memberId: propertyMembers };
+const tables = { reservationId: reservations, roomId: rooms, roomTypeId: roomTypes, guestId: guests, invoiceId: propertyInvoices, reviewId: reviews, keyId: apiKeys, webhookId: webhookEndpoints, taskId: housekeepingTasks, memberId: propertyMembers, bankAccountId: propertyBankAccounts, proofId: transferProofs };
 
 /** A common boundary for merchant APIs. Public booking and signed webhooks are separate. */
 export function withMerchant(handler: Handler, scope: string): Handler {
@@ -37,7 +37,11 @@ export function withMerchant(handler: Handler, scope: string): Handler {
       if (id) {
         const key = scope === 'reservations' ? 'reservationId' : scope === 'invoices' ? 'invoiceId' : scope === 'reviews' ? 'reviewId'
           : scope === 'rooms' ? (req.nextUrl.searchParams.get('type') === 'category' ? 'roomTypeId' : 'roomId')
-          : req.nextUrl.pathname.includes('/keys') ? 'keyId' : req.nextUrl.pathname.includes('/webhooks') ? 'webhookId' : undefined;
+          : req.nextUrl.pathname.includes('/keys') ? 'keyId'
+          : req.nextUrl.pathname.includes('/webhooks') ? 'webhookId'
+          : req.nextUrl.pathname.includes('/bank-accounts') ? 'bankAccountId'
+          : req.nextUrl.pathname.includes('/transfer-proofs') ? 'proofId'
+          : undefined;
         if (key) references[key] = id;
       }
       for (const [key, table] of Object.entries(tables)) {

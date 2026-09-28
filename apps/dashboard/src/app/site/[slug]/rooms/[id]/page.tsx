@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { getWebsiteData, getTenantBasePath } from '../../../../../lib/website-data';
 import { directBookingPaymentAvailable } from '../../../../../lib/integrations/paystack';
+import { PaymentService } from '@sena/payments';
 import { RoomBookingClient } from './RoomBookingClient';
 import { ArrowLeft, Users, BedDouble, Check, ShieldCheck, Clock, MapPin } from 'lucide-react';
 
@@ -28,6 +29,9 @@ export default async function RoomDetailPage({
 
   const { property, config } = data;
   const onlinePaymentAvailable = await directBookingPaymentAvailable(property.id);
+  const bankAccounts = await PaymentService.listPublicBankAccounts(property.id);
+  const payAtPropertyAvailable = property.directBookingPayAtProperty !== false;
+  const bankTransferAvailable = property.directBookingBankTransfer !== false && bankAccounts.length > 0;
   const formattedPrice = `₦${(room.basePriceMinorUnits / 100).toLocaleString('en-NG')}`;
 
   return (
@@ -141,6 +145,9 @@ export default async function RoomDetailPage({
               property={property}
               room={room}
               onlinePaymentAvailable={onlinePaymentAvailable}
+              payAtPropertyAvailable={payAtPropertyAvailable}
+              bankTransferAvailable={bankTransferAvailable}
+              bankAccounts={bankAccounts}
               initialCheckIn={checkIn}
               initialCheckOut={checkOut}
               initialGuests={guests ? Number(guests) : 2}
