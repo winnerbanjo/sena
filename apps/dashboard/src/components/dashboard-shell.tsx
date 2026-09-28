@@ -38,11 +38,13 @@ export function DashboardShell({ children, workspaceResult }: { children: React.
     }
   }, []);
 
-  const isPublicOrAuth =
+  const isTenantPublic =
     isTenantHost ||
     pathname?.startsWith('/site') ||
     pathname?.startsWith('/invoice/') ||
-    pathname?.startsWith('/embed/') ||
+    pathname?.startsWith('/embed/');
+
+  const isAuthPath =
     pathname === '/login' ||
     pathname === '/signup' ||
     pathname === '/onboarding' ||
@@ -84,8 +86,16 @@ export function DashboardShell({ children, workspaceResult }: { children: React.
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  if (isPublicOrAuth) {
+  if (isTenantPublic) {
     return <main className="min-h-screen bg-white text-[#191816] w-full">{children}</main>;
+  }
+
+  if (isAuthPath) {
+    return (
+      <PwaProvider>
+        <main className="min-h-screen bg-white text-[#191816] w-full">{children}</main>
+      </PwaProvider>
+    );
   }
 
   return (

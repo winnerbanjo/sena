@@ -111,6 +111,8 @@ export function PwaProvider({ children }: { children: React.ReactNode }) {
     window.addEventListener('beforeinstallprompt', handleBeforeInstall);
     window.addEventListener('appinstalled', handleAppInstalled);
 
+    let handleControllerChange: (() => void) | null = null;
+
     // Register Service Worker conditionally (strictly for merchant host, never on tenant site)
     if (process.env.NODE_ENV === 'production' && 'serviceWorker' in navigator) {
       const host = window.location.hostname.toLowerCase();
@@ -130,16 +132,49 @@ export function PwaProvider({ children }: { children: React.ReactNode }) {
           (!host.includes('sena.ng') && !host.includes('localhost') && !host.includes('vercel.app')));
 
       if (!isPublicTenant) {
+        const isStandalone =
+          window.matchMedia('(display-mode: standalone)').matches ||
+          (window.navigator as unknown as { standalone?: boolean }).standalone === true;
+
+        const reloadForUpdatedWorker = () => {
+          try {
+            const key = 'sena-sw-controller-reload';
+            const last = Number(sessionStorage.getItem(key) || '0');
+            if (Date.now() - last < 5000) return;
+            sessionStorage.setItem(key, String(Date.now()));
+          } catch {
+            // Ignore storage failures; still allow a single reload.
+          }
+          window.location.reload();
+        };
+
+        handleControllerChange = () => {
+          const onOfflinePage = window.location.pathname === '/offline.html';
+          if (isStandalone || onOfflinePage) {
+            reloadForUpdatedWorker();
+          }
+        };
+        navigator.serviceWorker.addEventListener('controllerchange', handleControllerChange);
+
         navigator.serviceWorker
-          .register('/sw.js', { scope: '/' })
+          .register('/sw.js', { scope: '/', updateViaCache: 'none' })
           .then((registration) => {
-            if (registration.waiting) setWaitingWorker(registration.waiting);
+            if (registration.waiting) {
+              setWaitingWorker(registration.waiting);
+              if (isStandalone) {
+                registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+              }
+            }
+            registration.update().catch(() => {});
             registration.onupdatefound = () => {
               const installingWorker = registration.installing;
               if (installingWorker) {
                 installingWorker.onstatechange = () => {
                   if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
                     setWaitingWorker(registration.waiting || installingWorker);
+                    if (isStandalone && (registration.waiting || installingWorker)) {
+                      (registration.waiting || installingWorker).postMessage({ type: 'SKIP_WAITING' });
+                    }
                   }
                 };
               }
@@ -155,6 +190,9 @@ export function PwaProvider({ children }: { children: React.ReactNode }) {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
       window.removeEventListener('appinstalled', handleAppInstalled);
       mediaQuery.removeEventListener?.('change', handleMediaChange);
+      if (handleControllerChange && 'serviceWorker' in navigator) {
+        navigator.serviceWorker.removeEventListener('controllerchange', handleControllerChange);
+      }
     };
   }, []);
 

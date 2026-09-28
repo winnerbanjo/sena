@@ -175,5 +175,7 @@ export const middleware = auth((req) => {
 });
 
 export const config = {
-  matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
+  matcher: [
+    '/((?!api|_next/static|_next/image|favicon.ico|sw\\.js|offline\\.html|manifest\\.json|manifest\\.webmanifest|icons/|assets/).*)',
+  ],
 };
