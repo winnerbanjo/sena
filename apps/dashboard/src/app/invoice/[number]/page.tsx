@@ -21,6 +21,8 @@ export default function PublicInvoicePage() {
   const searchParams = useSearchParams();
   const invoiceNumber = params.number as string;
   const isPaymentConfirming = searchParams.get('payment') === 'confirming';
+  const txRef = searchParams.get('tx_ref') || '';
+  const transactionId = searchParams.get('transaction_id') || '';
 
   const [invoice, setInvoice] = React.useState<PropertyInvoice | null>(null);
   const [property, setProperty] = React.useState<any>(null);
@@ -36,24 +38,50 @@ export default function PublicInvoicePage() {
   const [proofSubmitting, setProofSubmitting] = React.useState(false);
 
   React.useEffect(() => {
+    if (isPaymentConfirming && txRef) {
+      void fetch('/api/payments/public/confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tx_ref: txRef, transaction_id: transactionId || undefined }),
+        cache: 'no-store',
+      }).catch(() => undefined);
+    }
+  }, [isPaymentConfirming, txRef, transactionId]);
+
+  React.useEffect(() => {
     if (!invoiceNumber) return;
-    fetch(`/api/invoices/public/${invoiceNumber}`)
-      .then((res) => {
-        if (!res.ok) throw new Error('Invoice not found');
-        return res.json();
-      })
-      .then((data) => {
-        setInvoice(data.invoice);
-        setProperty(data.property);
-        setReservation(data.reservation);
-        setOnlinePaymentAvailable(Boolean(data.onlinePaymentAvailable));
-        setBankTransferAvailable(Boolean(data.bankTransferAvailable));
-        setBankAccounts(Array.isArray(data.bankAccounts) ? data.bankAccounts : []);
-        setTransferProofStatus(data.transferProofStatus || null);
-      })
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false));
-  }, [invoiceNumber]);
+    let stopped = false;
+    function load() {
+      return fetch(`/api/invoices/public/${invoiceNumber}`)
+        .then((res) => {
+          if (!res.ok) throw new Error('Invoice not found');
+          return res.json();
+        })
+        .then((data) => {
+          if (stopped) return;
+          setInvoice(data.invoice);
+          setProperty(data.property);
+          setReservation(data.reservation);
+          setOnlinePaymentAvailable(Boolean(data.onlinePaymentAvailable));
+          setBankTransferAvailable(Boolean(data.bankTransferAvailable));
+          setBankAccounts(Array.isArray(data.bankAccounts) ? data.bankAccounts : []);
+          setTransferProofStatus(data.transferProofStatus || null);
+        })
+        .catch((err) => {
+          if (!stopped) setError(err.message);
+        })
+        .finally(() => {
+          if (!stopped) setLoading(false);
+        });
+    }
+    void load();
+    if (!isPaymentConfirming) return () => { stopped = true; };
+    const timer = window.setInterval(() => { void load(); }, 4000);
+    return () => {
+      stopped = true;
+      window.clearInterval(timer);
+    };
+  }, [invoiceNumber, isPaymentConfirming]);
 
   async function handlePayOnline() {
     if (!invoice) return;

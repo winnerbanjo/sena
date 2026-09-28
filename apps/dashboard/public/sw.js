@@ -23,6 +23,7 @@ const BYPASS_PATH_INCLUDES = ['/_next/data/'];
 const OPERATIONAL_API_HINTS = [
   '/api/reservations',
   '/api/payments',
+  '/api/webhooks',
   '/api/rooms',
   '/api/housekeeping',
   '/api/invoices',

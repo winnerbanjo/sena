@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db, guests, properties, reservations } from '@sena/database';
 import { eq, or, and } from 'drizzle-orm';
 import { authenticateApiRequest, logApiRequest } from '@/lib/api-auth';
-import { initializePropertyPaystack } from '@/lib/paystack-payments';
+import { resolveOnlinePaymentProvider } from '@/lib/online-provider';
+import { initializePayment } from '@/lib/payment-provider';
 
 export async function POST(req: NextRequest) {
   const startTime = Date.now();
@@ -85,11 +86,17 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 4. Initialize Paystack Transaction
+    const provider = await resolveOnlinePaymentProvider(propertyId, 'api_booking');
+    if (!provider) {
+      return NextResponse.json(
+        { error: { code: 'PAYMENTS_NOT_CONNECTED', message: 'Online payments are not configured for this property.' } },
+        { status: 409 }
+      );
+    }
     const host = req.headers.get('host') || 'app.sena.ng';
     const proto = host.includes('localhost') ? 'http' : 'https';
     const fallbackCallback = `${proto}://${host}/booking-preview?reference=${encodeURIComponent(reservationRecord.reference)}&payment=confirming`;
-    const initialized = await initializePropertyPaystack({ propertyId, reservationId: reservationRecord.id, email: guest.email, amountMinorUnits, currency: prop.currency || 'NGN', source: 'api_booking', callbackUrl: fallbackCallback, idempotencyKey: req.headers.get('idempotency-key') || undefined });
+    const initialized = await initializePayment(provider, { propertyId, reservationId: reservationRecord.id, email: guest.email, amountMinorUnits, currency: prop.currency || 'NGN', source: 'api_booking', callbackUrl: fallbackCallback, idempotencyKey: req.headers.get('idempotency-key') || undefined });
 
     const responsePayload = {
       data: {
@@ -107,9 +114,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(responsePayload, { status: 200 });
   } catch (error: any) {
     console.error('API Error /v1/payments/initialize:', error instanceof Error ? error.message : 'unknown');
-    const notConnected = error?.message === 'PAYSTACK_NOT_CONNECTED' || error?.message === 'PAYSTACK_PAYMENTS_DISABLED';
+    const notConnected = error?.message === 'PAYSTACK_NOT_CONNECTED' || error?.message === 'PAYSTACK_PAYMENTS_DISABLED' || error?.message === 'FLUTTERWAVE_NOT_CONNECTED' || error?.message === 'FLUTTERWAVE_PAYMENTS_DISABLED';
     return NextResponse.json(
-      { error: { code: notConnected ? 'PAYSTACK_NOT_CONNECTED' : 'PAYMENT_GATEWAY_ERROR', message: notConnected ? 'Online payments are not configured for this property.' : 'Payment provider could not initialize the transaction.' } },
+      { error: { code: notConnected ? 'PAYMENTS_NOT_CONNECTED' : 'PAYMENT_GATEWAY_ERROR', message: notConnected ? 'Online payments are not configured for this property.' : 'Payment provider could not initialize the transaction.' } },
       { status: notConnected ? 409 : 502 }
     );
   }

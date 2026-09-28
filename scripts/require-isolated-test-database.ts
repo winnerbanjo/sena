@@ -25,6 +25,10 @@ export function requireIsolatedTestDatabase(env: NodeJS.ProcessEnv = process.env
     throw new Error('NOT TESTED - SAFETY BLOCK: test and production database URLs are identical.');
   }
   if (env.PAYSTACK_SECRET_KEY?.startsWith('sk_live_')) throw new Error('NOT TESTED - SAFETY BLOCK: live payment credentials must not be present in release tests.');
+  const flutterwaveKey = env.FLUTTERWAVE_SECRET_KEY || env.FLUTTERWAVE_TEST_SECRET_KEY || '';
+  if (flutterwaveKey.startsWith('FLWSECK-') && !flutterwaveKey.includes('_TEST')) {
+    throw new Error('NOT TESTED - SAFETY BLOCK: live Flutterwave credentials must not be present in release tests.');
+  }
   if (env.RESEND_API_KEY || env.SMTP_PASSWORD) throw new Error('NOT TESTED - SAFETY BLOCK: remove email delivery credentials before running synthetic tests.');
   if (env.REDIS_URL || env.S3_ACCESS_KEY_ID || env.S3_SECRET_ACCESS_KEY) throw new Error('NOT TESTED - SAFETY BLOCK: remove shared cache and storage credentials before synthetic tests.');
   env.DATABASE_URL = raw;

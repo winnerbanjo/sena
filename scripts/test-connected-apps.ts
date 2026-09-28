@@ -18,6 +18,7 @@ function run() {
   const channelsPage = source('apps/dashboard/src/app/channels/page.tsx');
   const nextConfig = source('apps/dashboard/next.config.mjs');
   const panel = source('apps/dashboard/src/components/paystack-connection-panel.tsx');
+  const flutterwavePanel = source('apps/dashboard/src/components/flutterwave-connection-panel.tsx');
   const paystackRoute = source('apps/dashboard/src/app/api/apps/paystack/route.ts');
   const topbar = source('apps/dashboard/src/components/topbar.tsx');
   const en = json('apps/dashboard/messages/en.json');
@@ -47,11 +48,14 @@ function run() {
   assert.doesNotMatch(channelsPage, /redirect\('\/channels'/);
   pass('TEST 3 /channels redirects to /apps');
 
-  assert.match(appsPage, /fetch\('\/api\/apps\/paystack'/);
+  assert.match(appsPage, /fetch\('\/api\/apps\/payments'/);
   assert.match(appsPage, /displayStatus/);
   assert.match(appsPage, /statusConnectedEnabled/);
   assert.match(appsPage, /statusConnectedDisabled/);
   assert.match(appsPage, /statusNotConnected/);
+  assert.match(appsPage, /t\('flutterwave'\)/);
+  assert.equal(en.apps.flutterwave, 'Flutterwave');
+  assert.equal(en.apps.flutterwaveDescription, "Accept online payments directly into your hotel's Flutterwave account.");
   pass('TEST 4 Paystack actual connection state is preserved');
 
   assert.match(appsPage, /manage=paystack/);
@@ -59,6 +63,13 @@ function run() {
   assert.match(panel, /fetch\('\/api\/apps\/paystack'/);
   assert.match(panel, /action: 'payments'/);
   pass('TEST 5 Paystack Manage opens existing management flow');
+
+  assert.match(appsPage, /manage=flutterwave/);
+  assert.match(appsPage, /FlutterwaveConnectionPanel/);
+  assert.match(flutterwavePanel, /fetch\('\/api\/apps\/flutterwave'/);
+  assert.match(flutterwavePanel, /rtl:rotate-180/);
+  assert.match(source('apps/dashboard/src/app/api/apps/flutterwave/route.ts'), /ownerOnly/);
+  pass('TEST Flutterwave Connect / Manage stays owner-scoped');
 
   const paystackLib = source('apps/dashboard/src/lib/integrations/paystack.ts');
   assert.match(paystackLib, /if \(!controls\.enabled \|\| !controls\.acceptOnlinePayments\) return 'disabled' as const/);
@@ -108,6 +119,7 @@ function run() {
   assert.equal(fr.apps.title, 'Applications connectées');
   assert.equal(fr.navigation.apps, 'Applications connectées');
   assert.equal(fr.apps.paystack, 'Paystack');
+  assert.equal(fr.apps.flutterwave, 'Flutterwave');
   pass('TEST 14 French');
 
   assert.equal(ar.apps.title, 'التطبيقات المتصلة');
@@ -123,6 +135,7 @@ function run() {
     ['ig', ig],
   ] as const) {
     assert.equal(catalog.apps.paystack, 'Paystack');
+    assert.equal(catalog.apps.flutterwave, 'Flutterwave');
     assert.equal(catalog.apps.bookingCom, 'Booking.com');
     assert.equal(catalog.apps.airbnb, 'Airbnb');
     assert.equal(catalog.apps.expedia, 'Expedia');
@@ -142,9 +155,9 @@ function run() {
   assert.doesNotMatch(palette, /p-channels/);
   pass('TEST 17 Command palette routes correctly');
 
-  const catalogFetches = appsPage.split("fetch('/api/apps/paystack'").length - 1;
+  const catalogFetches = appsPage.split("void fetch('/api/apps/payments'").length - 1;
   assert.equal(catalogFetches, 1);
-  assert.doesNotMatch(appsPage, /js\.paystack|paystack\.com|api\.booking|api\.airbnb|api\.expedia/i);
+  assert.doesNotMatch(appsPage, /js\.paystack|paystack\.com|api\.booking|api\.airbnb|api\.expedia|flutterwave\.com/i);
   assert.doesNotMatch(appsPage, /fetch\(`\/api\/apps\//);
   pass('TEST 18 No unnecessary external-provider calls on page load');
 

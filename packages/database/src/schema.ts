@@ -122,6 +122,7 @@ export const properties = pgTable('properties', {
   checkOutPaymentPolicy: varchar('check_out_payment_policy', { length: 40 }).notNull().default('allow_outstanding'),
   directBookingPayAtProperty: boolean('direct_booking_pay_at_property').notNull().default(true),
   directBookingBankTransfer: boolean('direct_booking_bank_transfer').notNull().default(true),
+  preferredOnlineProvider: varchar('preferred_online_provider', { length: 50 }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 });
@@ -347,7 +348,7 @@ export const payments = pgTable(
     internalReference: varchar('internal_reference', { length: 255 }),
     amountMinorUnits: integer('amount_minor_units').notNull(),
     currency: varchar('currency', { length: 10 }).notNull().default('NGN'),
-    provider: varchar('provider', { length: 50 }).notNull().default('manual'), // 'paystack', 'manual'
+    provider: varchar('provider', { length: 50 }).notNull().default('manual'), // 'paystack', 'flutterwave', 'manual'
     providerReference: varchar('provider_reference', { length: 255 }),
     providerTransactionId: varchar('provider_transaction_id', { length: 255 }),
     method: varchar('method', { length: 50 }).notNull().default('cash'),

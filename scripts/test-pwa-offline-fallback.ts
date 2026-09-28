@@ -336,6 +336,7 @@ async function run() {
   for (const pathname of [
     '/api/reservations',
     '/api/payments',
+    '/api/webhooks',
     '/api/rooms',
     '/api/housekeeping',
     '/api/auth/session',
