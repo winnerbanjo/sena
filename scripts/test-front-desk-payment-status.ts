@@ -293,9 +293,16 @@ async function run() {
   pass('TEST 9 Continue without payment still requires explicit authorization');
 
   const dialogSource = source('apps/dashboard/src/components/check-in-room-dialog.tsx');
-  assert.match(dialogSource, /Continue without payment\?/);
-  assert.match(dialogSource, /will remain due/);
-  assert.match(dialogSource, /The guest will still owe/);
+  const enMessages = JSON.parse(source('apps/dashboard/messages/en.json'));
+  assert.equal(enMessages.frontDesk.continueWithoutPaymentQuestion, 'Continue without payment?');
+  assert.match(enMessages.frontDesk.willRemainDue, /will remain due/);
+  assert.match(enMessages.frontDesk.guestWillStillOwe, /The guest will still owe/);
+  assert.equal(enMessages.frontDesk.recordPayment, 'Record Payment');
+  assert.equal(enMessages.frontDesk.sendInvoice, 'Send Invoice');
+  assert.equal(enMessages.frontDesk.paymentRequiredBeforeCheckIn, 'Payment required before check-in');
+  assert.match(dialogSource, /continueWithoutPaymentQuestion/);
+  assert.match(dialogSource, /willRemainDue/);
+  assert.match(dialogSource, /guestWillStillOwe/);
   assert.doesNotMatch(dialogSource, /window\.confirm|[^.\w]confirm\(/);
   assert.doesNotMatch(dialogSource, /collectible|outstanding receivable|This stay will remain collectible/i);
   pass('TEST 10 outstanding confirmation uses the Sena dialog, not native confirm');
@@ -381,9 +388,9 @@ async function run() {
   assert.equal(proofStatus.kind, 'paid');
   pass('TEST 17 verified/paid folio stays PAID even if a leftover proof flag is present');
 
-  assert.match(dialogSource, /Record Payment/);
-  assert.match(dialogSource, /Send Invoice/);
-  assert.match(dialogSource, /Payment required before check-in/);
+  assert.match(dialogSource, /recordPayment/);
+  assert.match(dialogSource, /sendInvoice/);
+  assert.match(dialogSource, /paymentRequiredBeforeCheckIn/);
   assert.match(dialogSource, /allowOutstandingBalance/);
   assert.match(dialogSource, /embedded/);
   assert.match(dialogSource, /min-h-11/);

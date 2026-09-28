@@ -1,4 +1,5 @@
 'use client';
+import { useTranslations } from 'next-intl';
 
 import { PageLoadState, readJsonResponse } from '../../components/page-load-state';
 import * as React from 'react';
@@ -26,6 +27,7 @@ import {
 import { useToast } from '../../components/toast-notification';
 
 export default function ReportsPage() {
+  const t = useTranslations('reports');
   const toast = useToast();
   const [newResOpen, setNewResOpen] = React.useState(false);
   const [dateRange, setDateRange] = React.useState<'today' | 'week' | 'month' | 'quarter' | 'year'>('month');
@@ -109,12 +111,12 @@ export default function ReportsPage() {
   const dirtyRoomsCount = rooms.filter((r) => (r.housekeepingStatus || r.housekeeping) === 'dirty').length;
   const cleaningRoomsCount = rooms.filter((r) => (r.housekeepingStatus || r.housekeeping) === 'cleaning').length;
 
-  if (loading || loadError) return <PageLoadState title="Reports" failed={loadError} />;
+  if (loading || loadError) return <PageLoadState title={t('title')} failed={loadError} />;
 
   return (
     <div className="flex-1 flex flex-col h-screen overflow-hidden bg-white">
       <Topbar
-        title="Reports & Exports"
+        title={t('title')}
         onOpenNewReservation={() => setNewResOpen(true)}
       />
 

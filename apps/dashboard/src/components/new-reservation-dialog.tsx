@@ -18,6 +18,7 @@ import type { ReservationItem } from './mock-data';
 import { PhysicalRoomSelect } from './physical-room-select';
 import type { EligiblePhysicalRoom } from './reservation-room';
 import { Loader2 } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 
 interface NewReservationDialogProps {
   open: boolean;
@@ -38,6 +39,9 @@ export function NewReservationDialog({
   onCreateReservation,
 }: NewReservationDialogProps) {
   const workspace = useWorkspace();
+  const t = useTranslations('reservations');
+  const tCommon = useTranslations('common');
+  const tFront = useTranslations('frontDesk');
   const getTodayStr = () => new Intl.DateTimeFormat('en-CA', { timeZone: workspace?.property.timezone || 'Africa/Lagos' }).format(new Date());
   const getTomorrowStr = () => {
     const d = new Date(`${getTodayStr()}T00:00:00Z`);
@@ -224,9 +228,9 @@ export function NewReservationDialog({
       <DialogContent onPointerDownOutside={(event) => event.preventDefault()} onEscapeKeyDown={(event) => { if (submitting) event.preventDefault(); }} className="max-w-lg bg-white border border-[#E8E2DA]">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
-            <DialogTitle>New reservation</DialogTitle>
+            <DialogTitle>{t('createTitle')}</DialogTitle>
             <DialogDescription>
-              Check availability and record a stay directly into the master calendar.
+              {t('subtitle')}
             </DialogDescription>
           </DialogHeader>
 
@@ -234,7 +238,7 @@ export function NewReservationDialog({
             {/* Dates */}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label htmlFor="reservation-check-in">Check-in</Label>
+                <Label htmlFor="reservation-check-in">{t('checkInLabel')}</Label>
                 <Input
                   id="reservation-check-in"
                   type="date"
@@ -244,7 +248,7 @@ export function NewReservationDialog({
                 />
               </div>
               <div>
-                <Label htmlFor="reservation-check-out">Check-out</Label>
+                <Label htmlFor="reservation-check-out">{t('checkOutLabel')}</Label>
                 <Input
                   id="reservation-check-out"
                   min={checkIn}
@@ -258,17 +262,17 @@ export function NewReservationDialog({
 
             {/* Room selection */}
             <div>
-              <Label>Room Category</Label>
+              <Label>{t('roomCategory')}</Label>
               <div className="grid grid-cols-3 gap-2">
                 {loadingRooms ? (
                   <div className="col-span-3 text-xs text-[#7A7267] p-3 bg-[#FAFAFA] rounded border border-[#E8E2DA] flex items-center justify-center gap-2">
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    Loading room categories…
+                    {t('loadingRooms')}
                   </div>
                 ) : roomOptions.length === 0 ? (
                   <div className="col-span-3 p-3 bg-[#FFF8F5] rounded border border-[#F0D5C3] text-xs text-[#71382D]">
-                    <strong className="block mb-0.5">No room categories set up yet.</strong>
-                    Go to <strong>Rooms → Add category</strong> to create your first room type before making reservations.
+                    <strong className="block mb-0.5">{t('noCategories')}</strong>
+                    {t('noCategoriesHint')}
                   </div>
                 ) : (
                   roomOptions.map((rm) => (
@@ -277,7 +281,7 @@ export function NewReservationDialog({
                       type="button"
                       aria-pressed={selectedRoomId === rm.id}
                       onClick={() => setSelectedRoomId(rm.id)}
-                      className={`p-2.5 rounded border text-left text-xs transition-all ${
+                      className={`p-2.5 rounded border text-start text-xs transition-all ${
                         selectedRoomId === rm.id
                           ? 'border-[#B85C3E] bg-[#FAFAFA] ring-1 ring-[#B85C3E]'
                           : 'border-[#E8E2DA] bg-white hover:border-[#7A7267]'
@@ -299,7 +303,7 @@ export function NewReservationDialog({
             </div>
 
             <div>
-              <Label id="assign-room-label">Assign Room</Label>
+              <Label id="assign-room-label">{tFront('assignRoom')}</Label>
               <div className="flex flex-wrap gap-2 mb-2">
                 <button
                   type="button"
@@ -329,11 +333,11 @@ export function NewReservationDialog({
 
             {/* Guest Details */}
             <div className="pt-2 border-t border-[#E8E2DA] space-y-3">
-              <Label>Guest Information</Label>
+              <Label>{t('guestInfo')}</Label>
               <div>
                 <Input
-                  aria-label="Guest full name" autoComplete="name"
-                  placeholder="Full name (e.g. Ada James)"
+                  aria-label={t('guestName')} autoComplete="name"
+                  placeholder={t('guestName')}
                   value={guestName}
                   onChange={(e) => setGuestName(e.target.value)}
                   required
@@ -341,15 +345,15 @@ export function NewReservationDialog({
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <Input
-                  type="tel" aria-label="Guest phone" autoComplete="tel"
-                  placeholder="Phone (+234...)"
+                  type="tel" aria-label={t('guestPhone')} autoComplete="tel"
+                  placeholder={t('guestPhone')}
                   value={guestPhone}
                   onChange={(e) => setGuestPhone(e.target.value)}
                 />
                 <Input
                   type="email"
-                  aria-label="Guest email" autoComplete="email"
-                  placeholder="Email address"
+                  aria-label={t('guestEmail')} autoComplete="email"
+                  placeholder={t('guestEmail')}
                   value={guestEmail}
                   onChange={(e) => setGuestEmail(e.target.value)}
                 />
@@ -359,28 +363,28 @@ export function NewReservationDialog({
             {/* Source & Payment */}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label htmlFor="reservation-source">Source</Label>
+                <Label htmlFor="reservation-source">{t('source')}</Label>
                 <select id="reservation-source"
                   value={source}
                   onChange={(e) => setSource(e.target.value as any)}
                   className="flex h-10 w-full rounded border border-[#E8E2DA] bg-white px-3 py-2 text-xs text-[#191816]"
                 >
-                  <option value="walk_in">Walk-in</option>
-                  <option value="phone">Phone call</option>
-                  <option value="whatsapp">WhatsApp</option>
-                  <option value="direct">Direct Website</option>
+                  <option value="walk_in">{t('walkIn')}</option>
+                  <option value="phone">{t('sourcePhone')}</option>
+                  <option value="whatsapp">{t('sourceWhatsapp')}</option>
+                  <option value="direct">{t('sourceWebsite')}</option>
                 </select>
               </div>
               <div>
-                <Label>Payment</Label>
-                <p className="text-xs text-[#7A7267] mt-2">Record payments from the reservation after saving it. New reservations start unpaid.</p>
+                <Label>{tCommon('actions')}</Label>
+                <p className="text-xs text-[#7A7267] mt-2">{t('paymentNote')}</p>
               </div>
             </div>
 
             {/* Cost summary */}
             <div className="p-3 bg-[#FAFAFA] rounded border border-[#E8E2DA] flex items-center justify-between text-xs">
               <span className="text-[#7A7267]">
-                Total for {nights} {nights === 1 ? 'night' : 'nights'}:
+                {t('nights', { count: nights })}:
               </span>
               <strong className="text-base font-serif text-[#191816]">
                 {formatNaira(totalAmountMinorUnits)}
@@ -400,16 +404,16 @@ export function NewReservationDialog({
               variant="outline"
               onClick={() => onOpenChange(false)}
             >
-              Cancel
+              {tCommon('cancel')}
             </Button>
             <Button type="submit" disabled={submitting || roomOptions.length === 0 || !selectedRoomId} className="bg-[#71382D] hover:bg-[#5D2E25] text-white">
               {submitting ? (
                 <span className="flex items-center gap-2">
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  Confirming reservation...
+                  {t('creating')}
                 </span>
               ) : (
-                'Create reservation'
+                t('confirmCreate')
               )}
             </Button>
           </DialogFooter>

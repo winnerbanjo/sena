@@ -1,10 +1,29 @@
 import type { Metadata, Viewport } from 'next';
-import { headers } from 'next/headers';
+import { headers, cookies } from 'next/headers';
+import { Noto_Sans, Noto_Sans_Arabic } from 'next/font/google';
 import './globals.css';
 import { DashboardShell } from '../components/dashboard-shell';
 import { PostHogProvider } from '../components/posthog-provider';
 import { redirect } from 'next/navigation';
 import { resolveServerWorkspace, type ServerWorkspaceResult } from '@/lib/workspace';
+import { DEFAULT_LOCALE, LOCALE_COOKIE, LOCALE_META, localeDir, parseLocale, type AppLocale } from '@/i18n/config';
+import { loadLocaleMessages } from '@/i18n/messages';
+import { I18nRoot } from '@/i18n/provider';
+
+const notoSans = Noto_Sans({
+  subsets: ['latin', 'latin-ext'],
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-noto-sans',
+  display: 'swap',
+  preload: false,
+});
+
+const notoArabic = Noto_Sans_Arabic({
+  subsets: ['arabic'],
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-noto-arabic',
+  display: 'swap',
+});
 
 export const metadata: Metadata = {
   title: 'Sena — Hospitality, Simplified',
@@ -68,8 +87,27 @@ export default async function RootLayout({
     if (workspaceResult.state === 'unauthenticated') redirect('/login');
   }
 
+  const cookieLocale = parseLocale((await cookies()).get(LOCALE_COOKIE)?.value);
+  const staffLocale: AppLocale =
+    workspaceResult?.state === 'ready' ? parseLocale(workspaceResult.workspace.user.locale) : cookieLocale;
+  const locale = isPublicSite ? DEFAULT_LOCALE : staffLocale;
+  const dir = isPublicSite ? 'ltr' : localeDir(locale);
+  const timeZone =
+    workspaceResult?.state === 'ready' ? workspaceResult.workspace.property.timezone : 'Africa/Lagos';
+  const messages = isPublicSite ? null : await loadLocaleMessages(locale);
+
+  const content = isPublicSite ? (
+    <div className="min-h-screen bg-white text-[#191816] w-full">{children}</div>
+  ) : (
+    <DashboardShell workspaceResult={workspaceResult}>{children}</DashboardShell>
+  );
+
   return (
-    <html lang="en">
+    <html
+      lang={isPublicSite ? 'en' : LOCALE_META[locale].htmlLang}
+      dir={dir}
+      className={`${notoSans.variable} ${notoArabic.variable}`}
+    >
       <head>
         {!isPublicSite && (
           <>
@@ -85,10 +123,12 @@ export default async function RootLayout({
       </head>
       <body className="bg-white text-[#191816] antialiased">
         <PostHogProvider enabled={isPublicSite || !isPublicOrAuthPath}>
-          {isPublicSite ? (
-            <div className="min-h-screen bg-white text-[#191816] w-full">{children}</div>
+          {messages ? (
+            <I18nRoot locale={locale} messages={messages} timeZone={timeZone}>
+              {content}
+            </I18nRoot>
           ) : (
-            <DashboardShell workspaceResult={workspaceResult}>{children}</DashboardShell>
+            content
           )}
         </PostHogProvider>
       </body>

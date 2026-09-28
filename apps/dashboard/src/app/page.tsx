@@ -1,4 +1,5 @@
 'use client';
+import { useTranslations } from 'next-intl';
 import { formatAssignedRoom, mapReservationItem } from '../components/reservation-room';
 import { CheckInRoomDialog, type RoomAssignmentMode } from '../components/check-in-room-dialog';
 import { DeskPaymentBadge } from '../components/check-in-payment-status';
@@ -40,6 +41,7 @@ import { Topbar } from '../components/topbar';
 import { useDialogA11y } from '../components/use-dialog-a11y';
 
 export default function OverviewPage() {
+  const t = useTranslations('overview');
   const toast = useToast();
   const workspace = useWorkspace();
   const [reservations, setReservations] = React.useState<ReservationItem[]>([]);
@@ -164,12 +166,12 @@ export default function OverviewPage() {
   const departuresText = departures.length === 1 ? '1 departure' : `${departures.length} departures`;
   const roomsAttentionText = dirtyRooms.length === 0 ? 'No rooms need attention' : `${dirtyRooms.length} ${dirtyRooms.length === 1 ? 'room needs' : 'rooms need'} attention`;
 
-  if (loading || loadError) return <div className="flex-1 flex flex-col"><Topbar title="Overview" /><main className="p-6 space-y-4" aria-live="polite">{loadError ? <><h2 className="text-xl font-serif">We could not load your overview</h2><p>Check your connection and try again.</p><button onClick={fetchData} className="min-h-11 px-4 rounded bg-[#71382D] text-white">Try again</button></> : <><span className="sr-only">Loading your overview</span><div className="h-40 bg-[#F7F1E8] rounded-xl animate-pulse" /><div className="h-64 bg-[#F7F1E8] rounded-xl animate-pulse" /></>}</main></div>;
+  if (loading || loadError) return <div className="flex-1 flex flex-col"><Topbar title={t('title')} /><main className="p-6 space-y-4" aria-live="polite">{loadError ? <><h2 className="text-xl font-serif">We could not load your overview</h2><p>Check your connection and try again.</p><button onClick={fetchData} className="min-h-11 px-4 rounded bg-[#71382D] text-white">Try again</button></> : <><span className="sr-only">Loading your overview</span><div className="h-40 bg-[#F7F1E8] rounded-xl animate-pulse" /><div className="h-64 bg-[#F7F1E8] rounded-xl animate-pulse" /></>}</main></div>;
 
   return (
     <div className="flex-1 flex flex-col h-screen overflow-hidden bg-white text-[#191816]">
       <Topbar
-        title="Overview"
+        title={t('title')}
         onOpenNewReservation={() => setNewResOpen(true)}
       />
 

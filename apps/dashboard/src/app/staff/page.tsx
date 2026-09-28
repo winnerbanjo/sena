@@ -1,4 +1,5 @@
 'use client';
+import { useTranslations } from 'next-intl';
 
 import * as React from 'react';
 import { PageLoadState, readJsonResponse } from '../../components/page-load-state';
@@ -38,6 +39,7 @@ interface StaffMember {
 }
 
 export default function StaffPage() {
+  const t = useTranslations('staff');
   const workspace = useWorkspace();
   const [removeTarget, setRemoveTarget] = React.useState<StaffMember | null>(null);
   const [removing, setRemoving] = React.useState(false);
@@ -204,12 +206,12 @@ export default function StaffPage() {
     }
   };
 
-  if (loading || loadError) return <PageLoadState title="Staff" failed={loadError} retry={fetchStaff} />;
+  if (loading || loadError) return <PageLoadState title={t('title')} failed={loadError} retry={fetchStaff} />;
 
   return (
     <div className="flex-1 flex flex-col h-screen overflow-hidden bg-white">
       <Topbar
-        title="Staff & Permissions"
+        title={t('title')}
         onOpenNewReservation={() => setNewResOpen(true)}
       />
 

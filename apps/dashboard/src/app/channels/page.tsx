@@ -1,4 +1,5 @@
 'use client';
+import { useTranslations } from 'next-intl';
 
 import * as React from 'react';
 import Link from 'next/link';
@@ -164,6 +165,7 @@ function PaystackCatalogueState({ state }: { state: { displayStatus: string; mod
 }
 
 export default function ChannelsPage() {
+  const t = useTranslations('channels');
   const [selectedChannel, setSelectedChannel] = React.useState<IntegrationItem | null>(null);
   const [paystack, setPaystack] = React.useState<{ displayStatus: string; mode?: string } | null>(null);
   React.useEffect(() => {
@@ -181,7 +183,7 @@ export default function ChannelsPage() {
 
   return (
     <div className="flex-1 flex flex-col h-screen overflow-hidden">
-      <Topbar title="Channels & Integrations" />
+      <Topbar title={t('title')} />
 
       <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-8">
         <div className="border-b border-[#E8E2DA] pb-4">

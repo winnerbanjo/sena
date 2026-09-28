@@ -1,4 +1,5 @@
 'use client';
+import { useTranslations } from 'next-intl';
 
 import { PageLoadState, readJsonResponse } from '../../components/page-load-state';
 import * as React from 'react';
@@ -36,6 +37,7 @@ import { AddRoomDialog } from '../../components/add-room-dialog';
 import { Topbar } from '../../components/topbar';
 
 export default function RoomsPage() {
+  const t = useTranslations('rooms');
   const [activeTab, setActiveTab] = React.useState<'rooms' | 'categories'>('rooms');
   const [filter, setFilter] = React.useState('all');
   const [searchQuery, setSearchQuery] = React.useState('');
@@ -375,11 +377,11 @@ export default function RoomsPage() {
     return true;
   });
 
-  if (loading || loadError) return <PageLoadState title="Rooms" failed={loadError} />;
+  if (loading || loadError) return <PageLoadState title={t('title')} failed={loadError} />;
 
   return (
     <div className="flex-1 flex flex-col h-screen overflow-hidden bg-white">
-      <Topbar title="Rooms" />
+      <Topbar title={t('title')} />
 
       <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6">
         {/* Toast Notification */}

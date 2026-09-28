@@ -3,8 +3,11 @@
 import * as React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { useTranslations } from 'next-intl';
+import { LanguageSelect } from '../../components/language-select';
 
 export default function LoginPage() {
+  const t = useTranslations('setup');
   const [email, setEmail] = React.useState('');
   const [password, setPassword] = React.useState('');
   const [showPassword, setShowPassword] = React.useState(false);
@@ -18,7 +21,7 @@ export default function LoginPage() {
     setError('');
 
     if (!email || !password) {
-      setError('Please provide your work email and password.');
+      setError(t('missingCredentials'));
       return;
     }
 
@@ -33,7 +36,7 @@ export default function LoginPage() {
       });
 
       if (res?.error) {
-        setError('The email or password does not match our records.');
+        setError(t('badCredentials'));
         setIsLoading(false);
         return;
       }
@@ -57,7 +60,7 @@ export default function LoginPage() {
       window.location.assign('/');
     } catch (err: any) {
       console.error('Login error:', err);
-      setError('Unable to sign in at the moment. Please verify your connection.');
+      setError(t('loginUnavailable'));
       setIsLoading(false);
     }
   }
@@ -79,12 +82,14 @@ export default function LoginPage() {
         </Link>
 
         <div className="flex items-center gap-3 text-xs text-[#7A7267]">
-          <span>New here?</span>
+          <label className="sr-only" htmlFor="login-language">{t('chooseLanguage')}</label>
+          <LanguageSelect id="login-language" className="min-h-11 rounded border border-[#E5D4BC] bg-white px-2 text-xs text-[#191816]" />
+          <span>{t('newHere')}</span>
           <Link
             href="/signup"
             className="text-[#71382D] hover:text-[#B85C3E] font-medium transition-colors"
           >
-            Create property account &rarr;
+            {t('createAccount')}
           </Link>
         </div>
       </header>
@@ -96,10 +101,10 @@ export default function LoginPage() {
           <div className="hidden lg:flex lg:col-span-5 flex-col justify-between space-y-8">
             <div className="space-y-4">
               <span className="text-[11px] font-mono tracking-widest text-[#B85C3E] uppercase">
-                Hotelier Console
+                {t('hotelierConsole')}
               </span>
               <h2 className="text-3xl font-serif font-normal text-[#71382D] leading-tight">
-                A quiet morning starts with a quiet system.
+                {t('loginEditorial')}
               </h2>
               <p className="text-sm text-[#7A7267] leading-relaxed">
                 Log in to review today&apos;s expected arrivals, coordinate housekeeping rooms, and monitor live room occupancy across your property.
@@ -130,10 +135,10 @@ export default function LoginPage() {
           <div className="min-w-0 lg:col-span-7 bg-white rounded-xl border border-[#E8E1D5] p-5 sm:p-10 shadow-[0_4px_24px_rgba(25,24,22,0.03)]">
             <div className="mb-8">
               <h1 className="text-2xl font-serif font-normal text-[#191816]">
-                Welcome back
+                {t('loginTitle')}
               </h1>
               <p className="text-sm text-[#7A7267] mt-1.5">
-                Enter your work credentials to open your property workspace.
+                {t('loginSubtitle')}
               </p>
             </div>
 
@@ -146,7 +151,7 @@ export default function LoginPage() {
             <form method="post" onSubmit={handleSubmit} className="space-y-5">
               <div>
                 <label htmlFor="login-email" className="block text-xs font-medium text-[#191816] mb-1.5">
-                  Work Email
+                  {t('workEmail')}
                 </label>
                 <input
                   type="email"
@@ -162,14 +167,14 @@ export default function LoginPage() {
               <div>
                 <div className="flex items-center justify-between mb-1.5">
                   <label htmlFor="login-password" className="block text-xs font-medium text-[#191816]">
-                    Password
+                    {t('password')}
                   </label>
                   <button
                     type="button"
                     onClick={() => setError('For help recovering your account, contact your property owner or Sena support. No reset email has been sent.')}
                     className="text-[11px] text-[#8C8275] hover:text-[#71382D] transition-colors"
                   >
-                    Forgot password?
+                    {t('forgotPassword')}
                   </button>
                 </div>
                 <div className="relative">
@@ -179,15 +184,15 @@ export default function LoginPage() {
                     placeholder="••••••••••••"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full h-11 px-3.5 pr-11 rounded-md border border-[#E8E1D5] bg-[#FAF7F2]/40 text-[#191816] text-sm focus:bg-white focus:outline-none focus:border-[#71382D] transition-all placeholder:text-[#A69E92]"
+                    className="w-full h-11 px-3.5 pe-11 rounded-md border border-[#E8E1D5] bg-[#FAF7F2]/40 text-[#191816] text-sm focus:bg-white focus:outline-none focus:border-[#71382D] transition-all placeholder:text-[#A69E92]"
                     required
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-3 text-xs text-[#8C8275] hover:text-[#191816]"
+                    className="absolute end-3 top-3 text-xs text-[#8C8275] hover:text-[#191816]"
                   >
-                    {showPassword ? 'Hide' : 'Show'}
+                    {showPassword ? t('hide') : t('show')}
                   </button>
                 </div>
               </div>
@@ -200,7 +205,7 @@ export default function LoginPage() {
                     onChange={(e) => setRememberMe(e.target.checked)}
                     className="rounded border-[#E8E1D5] text-[#71382D] focus:ring-[#71382D]"
                   />
-                  <span>Keep me signed in on this device</span>
+                  <span>{t('keepSignedIn')}</span>
                 </label>
               </div>
 
@@ -209,19 +214,19 @@ export default function LoginPage() {
                 disabled={isLoading}
                 className="w-full h-11 rounded-md bg-[#B85C3E] hover:bg-[#A34E32] text-white text-xs font-semibold tracking-wide transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
               >
-                {isLoading ? 'Signing in...' : 'Sign in to Property'}
+                {isLoading ? t('signingIn') : t('signIn')}
               </button>
 
               {/* Prominent Create Account Section */}
               <div className="pt-4 border-t border-[#F0ECE4] text-center">
                 <p className="text-xs text-[#7A7267] mb-2.5">
-                  New hotelier or property manager?
+                  {t('newHotelier')}
                 </p>
                 <Link
                   href="/signup"
                   className="w-full h-11 rounded-md border border-[#E5D4BC] bg-[#FAF7F2] hover:bg-[#F4ECE1] text-[#71382D] hover:text-[#5E2B21] text-xs font-semibold tracking-wide transition-all flex items-center justify-center gap-1.5 shadow-sm"
                 >
-                  <span>Create Property Account (3-Day Free Trial) &rarr;</span>
+                  <span>{t('createTrial')}</span>
                 </Link>
               </div>
             </form>

@@ -24,6 +24,7 @@ import {
   Plus,
   FileSpreadsheet,
 } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 
 interface CommandPaletteProps {
   open: boolean;
@@ -37,12 +38,17 @@ interface CommandItem {
   title: string;
   subtitle?: string;
   badge?: string;
+  aliases?: string;
   icon: React.ComponentType<{ className?: string }>;
   action: () => void;
 }
 
 export function CommandPalette({ open, onClose, onOpenNewReservation }: CommandPaletteProps) {
   const router = useRouter();
+  const tNav = useTranslations('navigation');
+  const tStatus = useTranslations('statuses.reservation');
+  const tHk = useTranslations('statuses.housekeeping');
+  const tCommon = useTranslations('common');
   const [query, setQuery] = React.useState('');
   const [selectedIndex, setSelectedIndex] = React.useState(0);
   const [liveReservations, setLiveReservations] = React.useState<any[]>([]);
@@ -74,22 +80,25 @@ export function CommandPalette({ open, onClose, onOpenNewReservation }: CommandP
 
   // Pages definition
   const pages: CommandItem[] = [
-    { id: 'p-home', category: 'pages', title: 'Overview & Dashboard', subtitle: 'Live property vitals and arrivals', icon: Home, action: () => router.push('/') },
-    { id: 'p-res', category: 'pages', title: 'Reservations', subtitle: 'Manage upcoming, in-house and past stays', icon: ClipboardList, action: () => router.push('/reservations') },
-    { id: 'p-cal', category: 'pages', title: 'Master Calendar', subtitle: 'Interactive 30-day room rack and occupancy timeline', icon: Calendar, action: () => router.push('/calendar') },
-    { id: 'p-front', category: 'pages', title: 'Front Desk Operations', subtitle: 'Arrivals, key issuance, and checkout workflows', icon: DoorOpen, action: () => router.push('/front-desk') },
-    { id: 'p-rooms', category: 'pages', title: 'Room Inventory', subtitle: 'Room availability and readiness', icon: Layers, action: () => router.push('/rooms') },
-    { id: 'p-hk', category: 'pages', title: 'Housekeeping Turnover', subtitle: 'Room readiness, cleaning tasks and inspection scores', icon: Brush, action: () => router.push('/housekeeping') },
-    { id: 'p-guests', category: 'pages', title: 'Guest Directory', subtitle: 'Guest profiles, stay counts and lifetime relationship value', icon: Users, action: () => router.push('/guests') },
-    { id: 'p-web', category: 'pages', title: 'Hotel Website Builder', subtitle: 'CMS showcase, live domain and content editor', icon: Globe, action: () => router.push('/website') },
-    { id: 'p-booking', category: 'pages', title: 'Direct Booking Engine', subtitle: 'Commission-free direct checkout preview & embed snippets', icon: Compass, action: () => router.push('/booking-preview') },
-    { id: 'p-payments', category: 'pages', title: 'Payments & Transactions', subtitle: 'Paystack verified settlements and guest bills', icon: CreditCard, action: () => router.push('/payments') },
-    { id: 'p-offers', category: 'pages', title: 'Offers & Promotions', subtitle: 'Promotional offers — coming soon', icon: Tag, action: () => router.push('/offers') },
-    { id: 'p-channels', category: 'pages', title: 'Channels & OTAs', subtitle: 'Available connections and upcoming channels', icon: Layers, action: () => router.push('/channels') },
-    { id: 'p-analytics', category: 'pages', title: 'Analytics & Insights', subtitle: 'Occupancy, booking value, and booking sources', icon: TrendingUp, action: () => router.push('/analytics') },
-    { id: 'p-reports', category: 'pages', title: 'Reports & Audits', subtitle: 'Financial summary, VAT tax provisions and CSV exports', icon: FileSpreadsheet, action: () => router.push('/reports') },
-    { id: 'p-staff', category: 'pages', title: 'Staff Roster & Permissions', subtitle: 'Team management, active shifts and access controls', icon: Users, action: () => router.push('/staff') },
-    { id: 'p-settings', category: 'pages', title: 'Property Settings', subtitle: 'Policies, check-in times, payout bank account', icon: Settings, action: () => router.push('/settings') },
+    { id: 'p-home', category: 'pages', title: tNav('overview'), subtitle: tNav('overviewSubtitle'), aliases: 'Overview Dashboard', icon: Home, action: () => router.push('/') },
+    { id: 'p-res', category: 'pages', title: tNav('reservations'), subtitle: tNav('reservationsSubtitle'), aliases: 'Reservations', icon: ClipboardList, action: () => router.push('/reservations') },
+    { id: 'p-cal', category: 'pages', title: tNav('calendar'), subtitle: tNav('calendarSubtitle'), aliases: 'Calendar Master', icon: Calendar, action: () => router.push('/calendar') },
+    { id: 'p-front', category: 'pages', title: tNav('frontDesk'), subtitle: tNav('frontDeskSubtitle'), aliases: 'Front Desk', icon: DoorOpen, action: () => router.push('/front-desk') },
+    { id: 'p-rooms', category: 'pages', title: tNav('rooms'), subtitle: tNav('roomsSubtitle'), aliases: 'Rooms Inventory', icon: Layers, action: () => router.push('/rooms') },
+    { id: 'p-hk', category: 'pages', title: tNav('housekeeping'), subtitle: tNav('housekeepingSubtitle'), aliases: 'Housekeeping', icon: Brush, action: () => router.push('/housekeeping') },
+    { id: 'p-guests', category: 'pages', title: tNav('guests'), subtitle: tNav('guestsSubtitle'), aliases: 'Guests Directory', icon: Users, action: () => router.push('/guests') },
+    { id: 'p-web', category: 'pages', title: tNav('website'), subtitle: tNav('websiteSubtitle'), aliases: 'Website CMS', icon: Globe, action: () => router.push('/website') },
+    { id: 'p-booking', category: 'pages', title: tNav('directBooking'), subtitle: tNav('directBookingSubtitle'), aliases: 'Direct Booking', icon: Compass, action: () => router.push('/booking-preview') },
+    { id: 'p-payments', category: 'pages', title: tNav('payments'), subtitle: tNav('paymentsSubtitle'), aliases: 'Payments', icon: CreditCard, action: () => router.push('/payments') },
+    { id: 'p-invoices', category: 'pages', title: tNav('invoices'), subtitle: tNav('invoicesSubtitle'), aliases: 'Invoices Folios', icon: FileSpreadsheet, action: () => router.push('/invoices') },
+    { id: 'p-offers', category: 'pages', title: tNav('offers'), subtitle: tNav('offersSubtitle'), aliases: 'Offers Promotions', icon: Tag, action: () => router.push('/offers') },
+    { id: 'p-channels', category: 'pages', title: tNav('channels'), subtitle: tNav('channelsSubtitle'), aliases: 'Channels OTAs', icon: Layers, action: () => router.push('/channels') },
+    { id: 'p-analytics', category: 'pages', title: tNav('analytics'), subtitle: tNav('analyticsSubtitle'), aliases: 'Analytics Insights', icon: TrendingUp, action: () => router.push('/analytics') },
+    { id: 'p-reports', category: 'pages', title: tNav('reports'), subtitle: tNav('reportsSubtitle'), aliases: 'Reports Audits', icon: FileSpreadsheet, action: () => router.push('/reports') },
+    { id: 'p-staff', category: 'pages', title: tNav('staff'), subtitle: tNav('staffSubtitle'), aliases: 'Staff Roster', icon: Users, action: () => router.push('/staff') },
+    { id: 'p-apps', category: 'pages', title: tNav('apps'), subtitle: tNav('appsSubtitle'), aliases: 'Apps Paystack', icon: CreditCard, action: () => router.push('/apps') },
+    { id: 'p-billing', category: 'pages', title: tNav('billing'), subtitle: tNav('billingSubtitle'), aliases: 'Billing Plan', icon: CreditCard, action: () => router.push('/billing') },
+    { id: 'p-settings', category: 'pages', title: tNav('settings'), subtitle: tNav('settingsSubtitle'), aliases: 'Settings Property', icon: Settings, action: () => router.push('/settings') },
   ];
 
   // Quick actions
@@ -97,9 +106,10 @@ export function CommandPalette({ open, onClose, onOpenNewReservation }: CommandP
     {
       id: 'act-new-res',
       category: 'actions',
-      title: 'Create New Reservation',
-      subtitle: 'Book a room for a direct or walk-in guest',
-      badge: 'Shortcut N',
+      title: tNav('createReservation'),
+      subtitle: tNav('createReservationSubtitle'),
+      badge: tNav('shortcutN'),
+      aliases: 'Create New Reservation',
       icon: Plus,
       action: () => {
         onClose();
@@ -109,36 +119,40 @@ export function CommandPalette({ open, onClose, onOpenNewReservation }: CommandP
     {
       id: 'act-add-room',
       category: 'actions',
-      title: 'Add New Room to Inventory',
-      subtitle: 'Register a new physical room and assign category tier',
-      badge: 'Rooms',
+      title: tNav('addRoom'),
+      subtitle: tNav('addRoomSubtitle'),
+      badge: tNav('rooms'),
+      aliases: 'Add New Room',
       icon: Plus,
       action: () => router.push('/rooms'),
     },
     {
       id: 'act-manage-categories',
       category: 'actions',
-      title: 'Manage Room Categories & Rates',
-      subtitle: 'View, edit, and configure room classes, pricing, and amenities',
-      badge: 'Rooms',
+      title: tNav('manageCategories'),
+      subtitle: tNav('manageCategoriesSubtitle'),
+      badge: tNav('rooms'),
+      aliases: 'Manage Room Categories',
       icon: BedDouble,
       action: () => router.push('/rooms'),
     },
     {
       id: 'act-clean-rooms',
       category: 'actions',
-      title: 'View Housekeeping Queue',
-      subtitle: '6 rooms currently dirty or cleaning',
-      badge: 'Action',
+      title: tNav('housekeepingQueue'),
+      subtitle: tNav('housekeepingSubtitle'),
+      badge: tNav('housekeeping'),
+      aliases: 'Housekeeping Queue',
       icon: Brush,
       action: () => router.push('/housekeeping'),
     },
     {
       id: 'act-front-arrivals',
       category: 'actions',
-      title: 'Check In Arriving Guests',
-      subtitle: '12 arrivals expected today at front desk',
-      badge: 'Today',
+      title: tNav('checkInArrivals'),
+      subtitle: tNav('frontDeskSubtitle'),
+      badge: tNav('frontDesk'),
+      aliases: 'Check In Arriving Guests Front Desk',
       icon: DoorOpen,
       action: () => router.push('/front-desk'),
     },
@@ -148,9 +162,9 @@ export function CommandPalette({ open, onClose, onOpenNewReservation }: CommandP
   const reservations: CommandItem[] = liveReservations.map((r) => ({
     id: `res-${r.id}`,
     category: 'reservations',
-    title: `${r.guestName || 'Guest'} (${r.reference || ''})`,
-    subtitle: `${r.roomTypeName || 'Room'} · ${r.status ? r.status.replace('_', ' ') : 'confirmed'}`,
-    badge: r.status === 'checked_in' ? 'In House' : 'Confirmed',
+    title: `${r.guestName || tCommon('guest')} (${r.reference || ''})`,
+    subtitle: `${r.roomTypeName || tCommon('room')} · ${tStatus.has(r.status as never) ? tStatus(r.status as never) : tStatus('confirmed')}`,
+    badge: r.status === 'checked_in' ? tStatus('checked_in') : tStatus.has(r.status as never) ? tStatus(r.status as never) : tStatus('confirmed'),
     icon: User,
     action: () => router.push(`/reservations?search=${encodeURIComponent(r.guestName || '')}`),
   }));
@@ -159,8 +173,8 @@ export function CommandPalette({ open, onClose, onOpenNewReservation }: CommandP
   const rooms: CommandItem[] = liveRooms.map((rm) => ({
     id: `room-${rm.id}`,
     category: 'rooms',
-    title: `Room ${rm.roomNumber || rm.number} — ${rm.roomTypeName || rm.type || 'Standard'}`,
-    subtitle: `${rm.floor || 'Floor 1'} · Housekeeping: ${rm.housekeepingStatus || rm.housekeeping || 'clean'}`,
+    title: `${tCommon('room')} ${rm.roomNumber || rm.number} — ${rm.roomTypeName || rm.type || 'Standard'}`,
+    subtitle: `${rm.floor || ''} · ${tHk.has((rm.housekeepingStatus || rm.housekeeping || 'clean') as never) ? tHk((rm.housekeepingStatus || rm.housekeeping || 'clean') as never) : tHk('clean')}`,
     badge: rm.operationalStatus || rm.operational || 'available',
     icon: BedDouble,
     action: () => router.push(`/rooms`),
@@ -176,7 +190,8 @@ export function CommandPalette({ open, onClose, onOpenNewReservation }: CommandP
     return allItems.filter(
       (item) =>
         item.title.toLowerCase().includes(q) ||
-        (item.subtitle && item.subtitle.toLowerCase().includes(q))
+        (item.subtitle && item.subtitle.toLowerCase().includes(q)) ||
+        (item.aliases && item.aliases.toLowerCase().includes(q))
     );
   }, [query]);
 
@@ -224,7 +239,7 @@ export function CommandPalette({ open, onClose, onOpenNewReservation }: CommandP
           <input
             ref={inputRef}
             type="text"
-            placeholder="Search guests, rooms, reservations, or jump to page..."
+            placeholder={tNav('commandPlaceholder')}
             value={query}
             onChange={(e) => {
               setQuery(e.target.value);
@@ -250,7 +265,7 @@ export function CommandPalette({ open, onClose, onOpenNewReservation }: CommandP
         <div className="overflow-y-auto p-2 divide-y divide-[#E8E2DA]/40">
           {filteredItems.length === 0 ? (
             <div className="p-8 text-center text-xs text-[#7A7267]">
-              No results found for "<span className="text-[#191816] font-medium">{query}</span>"
+              {tNav('noResults')}
             </div>
           ) : (
             <div className="space-y-0.5">
@@ -266,7 +281,7 @@ export function CommandPalette({ open, onClose, onOpenNewReservation }: CommandP
                       onClose();
                     }}
                     onMouseEnter={() => setSelectedIndex(idx)}
-                    className={`w-full text-left px-3 py-2.5 rounded-lg flex items-center justify-between gap-3 transition-colors ${
+                    className={`w-full text-start px-3 py-2.5 rounded-lg flex items-center justify-between gap-3 transition-colors ${
                       isSelected
                         ? 'bg-[#F9F7F5] border border-[#E8E2DA] text-[#191816]'
                         : 'text-[#191816]/80 hover:bg-[#FAFAFA]'
@@ -316,11 +331,11 @@ export function CommandPalette({ open, onClose, onOpenNewReservation }: CommandP
         {/* Footer shortcuts */}
         <div className="p-2.5 border-t border-[#E8E2DA] bg-[#FAFAFA] flex items-center justify-between text-[11px] text-[#7A7267]">
           <div className="flex items-center gap-3">
-            <span>↑↓ Navigate</span>
-            <span>↵ Select</span>
-            <span>ESC Close</span>
+            <span>↑↓ {tNav('navigateHint')}</span>
+            <span>↵ {tNav('selectHint')}</span>
+            <span>ESC {tNav('closeHint')}</span>
           </div>
-          <span className="text-[#B85C3E] font-medium">Sena Instant Search</span>
+          <span className="text-[#B85C3E] font-medium">{tNav('instantSearch')}</span>
         </div>
       </div>
     </div>

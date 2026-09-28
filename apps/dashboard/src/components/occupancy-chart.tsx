@@ -114,7 +114,7 @@ export function OccupancyChart({
   const weeklyTotalRev = days.reduce((sum, d) => sum + d.revenueMinorUnits, 0);
 
   return (
-    <div className="bg-[#FAF8F5] border border-[#E8DACB] rounded-2xl p-6 space-y-6 shadow-xs">
+    <div className="bg-[#FAF8F5] border border-[#E8DACB] rounded-2xl p-6 space-y-6 shadow-xs occupancy-chart" dir="ltr" data-chart="true">
       {/* Top Header & Dynamic Controls */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#E8DACB] pb-4">
         <div>

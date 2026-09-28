@@ -1,4 +1,5 @@
 'use client';
+import { useTranslations } from 'next-intl';
 
 import * as React from 'react';
 import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input } from '@sena/ui';
@@ -73,6 +74,7 @@ function Toggle({
 }
 
 export default function AppsPage() {
+  const t = useTranslations('apps');
   const [paystack, setPaystack] = React.useState<PaystackState>(empty);
   const [open, setOpen] = React.useState(false);
   const [replace, setReplace] = React.useState(false);
@@ -130,7 +132,7 @@ export default function AppsPage() {
 
   return (
     <div className="flex-1 flex flex-col h-screen overflow-hidden">
-      <Topbar title="Apps" />
+      <Topbar title={t('title')} />
       <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6">
         <div>
           <h1 className="text-2xl font-serif text-[#191816]">Paystack</h1>
