@@ -143,15 +143,28 @@ export const middleware = auth((req) => {
   }
 
   if (pathname.startsWith('/site/')) {
+    // Mark /site/[slug] as a public tenant surface so root layout does not
+    // require a staff session or wrap the guest site in DashboardShell.
+    const siteSlug = pathname.split('/')[2] || '';
     const requestHeaders = new Headers(req.headers);
+    requestHeaders.set('x-sena-pathname', pathname);
+    if (siteSlug) {
+      requestHeaders.set('x-sena-slug', siteSlug);
+      requestHeaders.set('x-sena-is-tenant', 'true');
+    }
     if (url.searchParams.get('preview') === '1') {
       requestHeaders.set('x-sena-preview', 'true');
     }
-    return NextResponse.next({
+    const res = NextResponse.next({
       request: {
         headers: requestHeaders,
       },
     });
+    if (siteSlug) {
+      res.headers.set('x-sena-slug', siteSlug);
+      res.headers.set('x-sena-is-tenant', 'true');
+    }
+    return res;
   }
 
   const isPublicOrAuthPath =
