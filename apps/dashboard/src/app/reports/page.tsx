@@ -72,8 +72,8 @@ export default function ReportsPage() {
     setTimeout(() => {
       setExporting(null);
       toast.success(
-        'Report Export Ready',
-        `Financial and operational ledger prepared in ${format.toUpperCase()} format.`
+        t('exportReady'),
+        t('exportBody', { format: format.toUpperCase() })
       );
     }, 600);
   };
