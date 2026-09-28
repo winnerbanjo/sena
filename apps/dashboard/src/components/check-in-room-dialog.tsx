@@ -19,6 +19,7 @@ import { RecordPaymentDialog } from './record-payment-dialog';
 import { formatAssignedRoom, isPhysicalRoomAssigned, type EligiblePhysicalRoom } from './reservation-room';
 import { PhysicalRoomSelect } from './physical-room-select';
 import { useToast } from './toast-notification';
+import { useWorkspace } from './workspace-access';
 
 export type RoomAssignmentMode = 'check-in' | 'assign' | 'change';
 
@@ -51,6 +52,7 @@ export function CheckInRoomDialog({
   onFolioUpdated,
 }: CheckInRoomDialogProps) {
   const toast = useToast();
+  const workspace = useWorkspace();
   const [rooms, setRooms] = React.useState<EligiblePhysicalRoom[]>([]);
   const [loading, setLoading] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
@@ -122,6 +124,7 @@ export function CheckInRoomDialog({
       invoices: [],
     });
     setLoading(true);
+    setCheckInPolicy(workspace?.property.checkInPaymentPolicy === 'require_full' ? 'require_full' : 'allow_outstanding');
 
     const url =
       mode === 'check-in'
@@ -135,13 +138,6 @@ export function CheckInRoomDialog({
           setRooms(Array.isArray(data.rooms) ? data.rooms : []);
           if (data.assignedRoomId) setSelectedRoomId((current) => current || data.assignedRoomId);
         }),
-      fetch('/api/me')
-        .then((res) => (res.ok ? res.json() : null))
-        .then((data) => {
-          if (data?.property?.checkInPaymentPolicy === 'require_full') setCheckInPolicy('require_full');
-          else setCheckInPolicy('allow_outstanding');
-        })
-        .catch(() => undefined),
       forCheckIn
         ? fetch(`/api/reservations/${reservation.id}/folio`)
             .then((res) => (res.ok ? res.json() : Promise.reject(new Error('Could not load payment status.'))))
@@ -151,7 +147,7 @@ export function CheckInRoomDialog({
     ])
       .catch(() => setErrorMsg('Could not load eligible rooms.'))
       .finally(() => setLoading(false));
-  }, [open, reservation, mode, forCheckIn]);
+  }, [open, reservation, mode, forCheckIn, workspace?.property.checkInPaymentPolicy]);
 
   if (!reservation) return null;
 

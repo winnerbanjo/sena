@@ -4,6 +4,8 @@ import { CheckInRoomDialog, type RoomAssignmentMode } from '../components/check-
 import { DeskPaymentBadge } from '../components/check-in-payment-status';
 
 import { useWorkspace } from '../components/workspace-access';
+import { PageLoadState } from '../components/page-load-state';
+import { classifyLoadFailure, type LoadFailureKind } from '../lib/page-load';
 import * as React from 'react';
 import Link from 'next/link';
 import { formatStayDates, formatNaira } from '@sena/config';
@@ -45,6 +47,7 @@ export default function OverviewPage() {
   const [reservations, setReservations] = React.useState<ReservationItem[]>([]);
   const [rooms, setRooms] = React.useState<any[]>([]);
   const [loadError, setLoadError] = React.useState(false);
+  const [failureKind, setFailureKind] = React.useState<LoadFailureKind>('error');
   const [timezone, setTimezone] = React.useState('Africa/Lagos');
   const [loading, setLoading] = React.useState(true);
   const [selectedRes, setSelectedRes] = React.useState<ReservationItem | null>(null);
@@ -90,21 +93,19 @@ export default function OverviewPage() {
         fetch('/api/rooms'),
       ]);
 
-      if (!resRes.ok || !roomRes.ok) throw new Error('Could not load overview');
-      if (resRes.ok) {
-        const data = await resRes.json();
-        if (data.reservations) {
-          const mapped: ReservationItem[] = data.reservations.map(mapReservationItem);
-          setReservations(mapped);
-        }
+      if (!resRes.ok || !roomRes.ok) {
+        throw new Error(`Could not load overview (${!resRes.ok ? resRes.status : roomRes.status})`);
+      }
+      const data = await resRes.json();
+      if (data.reservations) {
+        const mapped: ReservationItem[] = data.reservations.map(mapReservationItem);
+        setReservations(mapped);
       }
 
-      if (roomRes.ok) {
-        const roomData = await roomRes.json();
-        if (roomData.rooms) setRooms(roomData.rooms);
-      }
-
-    } catch (e) {
+      const roomData = await roomRes.json();
+      if (roomData.rooms) setRooms(roomData.rooms);
+    } catch (error) {
+      setFailureKind(classifyLoadFailure(error, typeof navigator === 'undefined' ? true : navigator.onLine));
       setLoadError(true);
     } finally {
       setLoading(false);
@@ -164,7 +165,7 @@ export default function OverviewPage() {
   const departuresText = departures.length === 1 ? '1 departure' : `${departures.length} departures`;
   const roomsAttentionText = dirtyRooms.length === 0 ? 'No rooms need attention' : `${dirtyRooms.length} ${dirtyRooms.length === 1 ? 'room needs' : 'rooms need'} attention`;
 
-  if (loading || loadError) return <div className="flex-1 flex flex-col"><Topbar title="Overview" /><main className="p-6 space-y-4" aria-live="polite">{loadError ? <><h2 className="text-xl font-serif">We could not load your overview</h2><p>Check your connection and try again.</p><button onClick={fetchData} className="min-h-11 px-4 rounded bg-[#71382D] text-white">Try again</button></> : <><span className="sr-only">Loading your overview</span><div className="h-40 bg-[#F7F1E8] rounded-xl animate-pulse" /><div className="h-64 bg-[#F7F1E8] rounded-xl animate-pulse" /></>}</main></div>;
+  if (loading || loadError) return <PageLoadState title="Overview" failed={loadError} failureKind={failureKind} retry={fetchData} />;
 
   return (
     <div className="flex-1 flex flex-col h-screen overflow-hidden bg-white text-[#191816]">

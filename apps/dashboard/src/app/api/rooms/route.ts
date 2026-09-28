@@ -1,5 +1,5 @@
 import { apiError } from '@/lib/api-error';
-import { withMerchant } from '@/lib/merchant-route';
+import { getMerchantRequest, withMerchant } from '@/lib/merchant-route';
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { db, roomTypes, rooms, reservations, housekeepingTasks, properties, propertyMembers, organizationMembers, users } from '@sena/database';
@@ -16,50 +16,49 @@ async function resolveProperty(session: any, req?: NextRequest): Promise<string 
 
 async function handleGET(req: NextRequest) {
   try {
-    const session = await auth();
-    const propertyId = await resolveProperty(session, req);
+    const propertyId = getMerchantRequest(req)?.tenant.propertyId || (await resolveProperty(await auth(), req));
 
     if (!propertyId) {
       return NextResponse.json({ roomTypes: [], rooms: [] });
     }
 
-    const fetchedRoomTypes = await db
-      .select()
-      .from(roomTypes)
-      .where(eq(roomTypes.propertyId, propertyId))
-      .orderBy(desc(roomTypes.createdAt));
-
-    const fetchedRooms = await db
-      .select({
-        id: rooms.id,
-        roomNumber: rooms.roomNumber,
-        roomTypeId: rooms.roomTypeId,
-        floor: rooms.floor,
-        operationalStatus: rooms.operationalStatus,
-        housekeepingStatus: rooms.housekeepingStatus,
-        notes: rooms.notes,
-        roomTypeName: roomTypes.name,
-        priceMinorUnits: roomTypes.basePriceMinorUnits,
-        bedType: roomTypes.bedType,
-        categoryImages: roomTypes.images,
-      })
-      .from(rooms)
-      .innerJoin(roomTypes, eq(rooms.roomTypeId, roomTypes.id))
-      .where(eq(rooms.propertyId, propertyId))
-      .orderBy(rooms.roomNumber);
-
-    const openTasks = await db
-      .select({
-        roomId: housekeepingTasks.roomId,
-        taskId: housekeepingTasks.id,
-        taskStatus: housekeepingTasks.status,
-        assignedToUserId: housekeepingTasks.assignedToUserId,
-        assignedTo: users.fullName,
-        updatedAt: housekeepingTasks.updatedAt,
-      })
-      .from(housekeepingTasks)
-      .leftJoin(users, eq(housekeepingTasks.assignedToUserId, users.id))
-      .where(and(eq(housekeepingTasks.propertyId, propertyId), inArray(housekeepingTasks.status, ['dirty', 'cleaning'])));
+    const [fetchedRoomTypes, fetchedRooms, openTasks] = await Promise.all([
+      db
+        .select()
+        .from(roomTypes)
+        .where(eq(roomTypes.propertyId, propertyId))
+        .orderBy(desc(roomTypes.createdAt)),
+      db
+        .select({
+          id: rooms.id,
+          roomNumber: rooms.roomNumber,
+          roomTypeId: rooms.roomTypeId,
+          floor: rooms.floor,
+          operationalStatus: rooms.operationalStatus,
+          housekeepingStatus: rooms.housekeepingStatus,
+          notes: rooms.notes,
+          roomTypeName: roomTypes.name,
+          priceMinorUnits: roomTypes.basePriceMinorUnits,
+          bedType: roomTypes.bedType,
+          categoryImages: roomTypes.images,
+        })
+        .from(rooms)
+        .innerJoin(roomTypes, eq(rooms.roomTypeId, roomTypes.id))
+        .where(eq(rooms.propertyId, propertyId))
+        .orderBy(rooms.roomNumber),
+      db
+        .select({
+          roomId: housekeepingTasks.roomId,
+          taskId: housekeepingTasks.id,
+          taskStatus: housekeepingTasks.status,
+          assignedToUserId: housekeepingTasks.assignedToUserId,
+          assignedTo: users.fullName,
+          updatedAt: housekeepingTasks.updatedAt,
+        })
+        .from(housekeepingTasks)
+        .leftJoin(users, eq(housekeepingTasks.assignedToUserId, users.id))
+        .where(and(eq(housekeepingTasks.propertyId, propertyId), inArray(housekeepingTasks.status, ['dirty', 'cleaning']))),
+    ]);
 
     const taskByRoom = new Map<string, (typeof openTasks)[number]>();
     for (const task of openTasks) {

@@ -1,5 +1,5 @@
 import { apiError } from '@/lib/api-error';
-import { withMerchant } from '@/lib/merchant-route';
+import { getMerchantRequest, withMerchant } from '@/lib/merchant-route';
 import { eq, desc, inArray, and } from 'drizzle-orm';
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
@@ -13,11 +13,11 @@ export const dynamic = 'force-dynamic';
 
 async function handleGET(req: NextRequest) {
   try {
-    const session = await auth();
-    const tenant = await resolveTenantForRequest(session, req);
+    const merchant = getMerchantRequest(req);
+    const tenant = merchant?.tenant;
     const propertyId = tenant?.propertyId;
 
-    if (!propertyId) {
+    if (!propertyId || !tenant) {
       return NextResponse.json({ reservations: [] });
     }
 
@@ -51,28 +51,28 @@ async function handleGET(req: NextRequest) {
       .where(eq(reservations.propertyId, propertyId))
       .orderBy(desc(reservations.createdAt));
 
-    const allEvents = resList.length ? await db.select().from(reservationEvents).where(inArray(reservationEvents.reservationId, resList.map(reservation => reservation.id))).orderBy(desc(reservationEvents.createdAt)) : [];
+    const reservationIds = resList.map((reservation) => reservation.id);
+    const [allEvents, pendingProofRows] = reservationIds.length
+      ? await Promise.all([
+          db.select().from(reservationEvents).where(inArray(reservationEvents.reservationId, reservationIds)).orderBy(desc(reservationEvents.createdAt)),
+          db
+            .select({ reservationId: transferProofs.reservationId })
+            .from(transferProofs)
+            .where(
+              and(
+                eq(transferProofs.propertyId, propertyId),
+                eq(transferProofs.status, 'pending'),
+                inArray(transferProofs.reservationId, reservationIds)
+              )
+            ),
+        ])
+      : [[], []];
     const eventsByReservation = new Map<string, Array<{ time: string; text: string; actor: string }>>();
     for (const event of allEvents) {
       const events = eventsByReservation.get(event.reservationId) || [];
-      events.push({ time: new Date(event.createdAt).toLocaleString('en-GB', { timeZone: tenant!.property.timezone, day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }), text: event.description, actor: event.actorName || 'System' });
+      events.push({ time: new Date(event.createdAt).toLocaleString('en-GB', { timeZone: tenant.property.timezone, day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }), text: event.description, actor: event.actorName || 'System' });
       eventsByReservation.set(event.reservationId, events);
     }
-    const pendingProofRows = resList.length
-      ? await db
-          .select({ reservationId: transferProofs.reservationId })
-          .from(transferProofs)
-          .where(
-            and(
-              eq(transferProofs.propertyId, propertyId),
-              eq(transferProofs.status, 'pending'),
-              inArray(
-                transferProofs.reservationId,
-                resList.map((reservation) => reservation.id)
-              )
-            )
-          )
-      : [];
     const pendingProofIds = new Set(pendingProofRows.map((row) => row.reservationId).filter(Boolean));
     const reservationsWithTimeline = resList.map(reservation => ({
       ...reservation,

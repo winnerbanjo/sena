@@ -4,6 +4,7 @@ import * as React from 'react';
 import { Bell, Menu, Plus, Search } from 'lucide-react';
 import { Button } from '@sena/ui';
 import { useDashboard } from './dashboard-shell';
+import { loadUnreadNotificationCount } from '../lib/notification-unread';
 
 interface TopbarProps {
   title: string;
@@ -23,9 +24,7 @@ export function Topbar({ title, onOpenNewReservation, onOpenSearch }: TopbarProp
   const handleOpenNewRes = onOpenNewReservation || contextOpenNewReservation;
   const [unread, setUnread] = React.useState(0);
   React.useEffect(() => {
-    fetch('/api/notifications').then((res) => res.ok ? res.json() : null).then((data) => {
-      if (data && typeof data.unread === 'number') setUnread(data.unread);
-    }).catch(() => setUnread(0));
+    loadUnreadNotificationCount().then(setUnread);
   }, []);
 
   // Desktop shortcuts: N for New reservation, / for Search
