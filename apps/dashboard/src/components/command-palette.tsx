@@ -23,6 +23,7 @@ import {
   User,
   Plus,
   FileSpreadsheet,
+  Plug,
 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 
@@ -92,11 +93,10 @@ export function CommandPalette({ open, onClose, onOpenNewReservation }: CommandP
     { id: 'p-payments', category: 'pages', title: tNav('payments'), subtitle: tNav('paymentsSubtitle'), aliases: 'Payments', icon: CreditCard, action: () => router.push('/payments') },
     { id: 'p-invoices', category: 'pages', title: tNav('invoices'), subtitle: tNav('invoicesSubtitle'), aliases: 'Invoices Folios', icon: FileSpreadsheet, action: () => router.push('/invoices') },
     { id: 'p-offers', category: 'pages', title: tNav('offers'), subtitle: tNav('offersSubtitle'), aliases: 'Offers Promotions', icon: Tag, action: () => router.push('/offers') },
-    { id: 'p-channels', category: 'pages', title: tNav('channels'), subtitle: tNav('channelsSubtitle'), aliases: 'Channels OTAs', icon: Layers, action: () => router.push('/channels') },
     { id: 'p-analytics', category: 'pages', title: tNav('analytics'), subtitle: tNav('analyticsSubtitle'), aliases: 'Analytics Insights', icon: TrendingUp, action: () => router.push('/analytics') },
     { id: 'p-reports', category: 'pages', title: tNav('reports'), subtitle: tNav('reportsSubtitle'), aliases: 'Reports Audits', icon: FileSpreadsheet, action: () => router.push('/reports') },
     { id: 'p-staff', category: 'pages', title: tNav('staff'), subtitle: tNav('staffSubtitle'), aliases: 'Staff Roster', icon: Users, action: () => router.push('/staff') },
-    { id: 'p-apps', category: 'pages', title: tNav('apps'), subtitle: tNav('appsSubtitle'), aliases: 'Apps Paystack', icon: CreditCard, action: () => router.push('/apps') },
+    { id: 'p-apps', category: 'pages', title: tNav('apps'), subtitle: tNav('appsSubtitle'), aliases: 'Connected Apps Apps Channels OTAs Booking.com Airbnb Expedia Paystack', icon: Plug, action: () => router.push('/apps') },
     { id: 'p-billing', category: 'pages', title: tNav('billing'), subtitle: tNav('billingSubtitle'), aliases: 'Billing Plan', icon: CreditCard, action: () => router.push('/billing') },
     { id: 'p-settings', category: 'pages', title: tNav('settings'), subtitle: tNav('settingsSubtitle'), aliases: 'Settings Property', icon: Settings, action: () => router.push('/settings') },
   ];

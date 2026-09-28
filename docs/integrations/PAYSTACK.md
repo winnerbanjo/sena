@@ -1,6 +1,6 @@
 # Paystack BYOP
 
-Each property connects its own Paystack account from **Apps → Paystack**. Sena verifies the Secret Key with Paystack before saving it, encrypts it with AES-256-GCM, and never returns the plaintext key to the browser. Set `SENA_INTEGRATION_ENCRYPTION_KEY` to a dedicated 32-byte base64 value or 64-character hexadecimal value in every runtime that initializes or verifies property payments.
+Each property connects its own Paystack account from **Connected Apps → Paystack**. Sena verifies the Secret Key with Paystack before saving it, encrypts it with AES-256-GCM, and never returns the plaintext key to the browser. Set `SENA_INTEGRATION_ENCRYPTION_KEY` to a dedicated 32-byte base64 value or 64-character hexadecimal value in every runtime that initializes or verifies property payments.
 
 The property owner copies the generated webhook URL into **Paystack Dashboard → Settings → API Keys & Webhooks**. Every property receives a random webhook token. Sena also checks Paystack's HMAC signature using that property's decrypted Secret Key and verifies the transaction directly with Paystack before changing any invoice, reservation, or payment ledger state.
 

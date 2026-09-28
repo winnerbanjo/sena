@@ -27,7 +27,7 @@ const TITLE_KEYS: Array<{ test: (path: string) => boolean; key: string }> = [
   { test: (path) => path.startsWith('/payments'), key: 'payments.title' },
   { test: (path) => path.startsWith('/invoices'), key: 'invoices.title' },
   { test: (path) => path.startsWith('/offers'), key: 'offers.title' },
-  { test: (path) => path.startsWith('/channels'), key: 'channels.title' },
+  { test: (path) => path.startsWith('/channels'), key: 'apps.title' },
   { test: (path) => path.startsWith('/analytics'), key: 'analytics.title' },
   { test: (path) => path.startsWith('/reports'), key: 'reports.title' },
   { test: (path) => path.startsWith('/staff'), key: 'staff.title' },

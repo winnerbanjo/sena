@@ -17,6 +17,12 @@ const nextConfig = {
       bodySizeLimit: '2mb',
     },
   },
+  async redirects() {
+    return [
+      { source: '/channels', destination: '/apps', permanent: false },
+      { source: '/channels/:path*', destination: '/apps', permanent: false },
+    ];
+  },
   async headers() {
     return [
       {
