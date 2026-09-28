@@ -4,13 +4,18 @@ import { db, integrationWebhookEvents, integrations, paymentAttempts, eq, and } 
 import { flutterwaveWebhookAuthentic, requireConnectedFlutterwave } from '@/lib/integrations/flutterwave';
 import { flutterwaveReceiptPayload, settlePropertyFlutterwave, verifyPropertyFlutterwaveTransaction } from '@/lib/flutterwave-payments';
 import { sendVerifiedPaymentNotice } from '@/lib/settle-paystack';
-import { parseSafeWebhookBody } from '@/lib/flutterwave-webhook-parse';
+import { isFlutterwaveSettlementEvent, parseSafeWebhookBody } from '@/lib/flutterwave-webhook-parse';
 
 function signaturePresence(verifHash: string | null, signature: string | null) {
   if (verifHash && signature) return 'verif-hash+flutterwave-signature';
   if (verifHash) return 'verif-hash';
   if (signature) return 'flutterwave-signature';
   return 'absent';
+}
+
+async function markWebhookVerified(integrationId: string, deliveryId: string) {
+  await db.update(integrationWebhookEvents).set({ status: 'processed', processedAt: new Date(), errorMessage: null }).where(eq(integrationWebhookEvents.id, deliveryId));
+  await db.update(integrations).set({ webhookStatus: 'active', webhookVerifiedAt: new Date(), updatedAt: new Date() }).where(eq(integrations.id, integrationId));
 }
 
 async function recordWebhookDelivery(input: {
@@ -95,7 +100,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
     });
     return NextResponse.json({ error: 'Invalid event.' }, { status: 400 });
   }
-  if (parsed.eventType !== 'charge.completed') {
+  if (!isFlutterwaveSettlementEvent(parsed.eventType)) {
     await recordWebhookDelivery({
       integrationId: integration.id,
       propertyId: integration.propertyId,
@@ -121,7 +126,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
     status: 'received',
   });
   if (!delivery) return NextResponse.json({ error: 'Event could not be recorded.' }, { status: 500 });
-  if ('status' in delivery && delivery.status === 'processed') return NextResponse.json({ status: 'already_processed' });
+  if ('status' in delivery && delivery.status === 'processed') {
+    // Duplicate authentic delivery: keep webhook health active without re-settling.
+    if (integration.webhookStatus !== 'active') {
+      await db.update(integrations).set({ webhookStatus: 'active', webhookVerifiedAt: new Date(), updatedAt: new Date() }).where(eq(integrations.id, integration.id));
+    }
+    return NextResponse.json({ status: 'already_processed' });
+  }
 
   try {
     const attempt = await db.query.paymentAttempts.findFirst({ where: eq(paymentAttempts.internalReference, txRef) });
@@ -132,9 +143,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
     }
     const verified = await verifyPropertyFlutterwaveTransaction(integration.propertyId, { transactionId, txRef });
     const result = await settlePropertyFlutterwave(attempt.id, verified);
-    await db.update(integrationWebhookEvents).set({ status: 'processed', processedAt: new Date(), errorMessage: null }).where(eq(integrationWebhookEvents.id, delivery.id));
-    await db.update(integrations).set({ webhookStatus: 'active', webhookVerifiedAt: new Date(), updatedAt: new Date() }).where(eq(integrations.id, integration.id));
-    await sendVerifiedPaymentNotice(flutterwaveReceiptPayload(attempt, verified)).catch(() => undefined);
+    await markWebhookVerified(integration.id, delivery.id);
+    // Already-settled attempts (callback-first) still prove the webhook path without mutating ledger again.
+    if (result.status === 'success') {
+      await sendVerifiedPaymentNotice(flutterwaveReceiptPayload(attempt, verified)).catch(() => undefined);
+    }
     return NextResponse.json(result);
   } catch (error: any) {
     const mismatch = error?.message === 'AMOUNT_MISMATCH' || error?.message === 'CURRENCY_MISMATCH' || error?.message === 'PAYMENT_MISMATCH';

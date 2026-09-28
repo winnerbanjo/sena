@@ -7,6 +7,12 @@ export type SafeWebhookBody = {
   topKeys: string;
 };
 
+const SETTLEMENT_EVENT_TYPES = new Set([
+  'charge.completed',
+  'bank_transfer_transaction',
+  'card_transaction',
+]);
+
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
 }
@@ -25,11 +31,17 @@ function resolveEventType(event: Record<string, unknown>): string | null {
   return null;
 }
 
+/** Flutterwave nested v3 and flat hosted/test settlement event names. */
+export function isFlutterwaveSettlementEvent(eventType: string | null | undefined): boolean {
+  if (!eventType) return false;
+  return SETTLEMENT_EVENT_TYPES.has(eventType.trim().toLowerCase());
+}
+
 function resolveData(event: Record<string, unknown>, eventType: string | null): Record<string, unknown> {
   const nested = asRecord(event.data);
   if (nested) return nested;
-  // Flutterwave hosted/test webhooks may send the charge fields at the top level with event.type.
-  if (eventType === 'charge.completed' || event.id != null || event.tx_ref != null || event.txRef != null || event.flwRef != null || event.flw_ref != null) {
+  // Flat hosted/test webhooks put charge fields at the top level.
+  if (isFlutterwaveSettlementEvent(eventType) || event.id != null || event.tx_ref != null || event.txRef != null || event.flwRef != null || event.flw_ref != null || event.orderRef != null) {
     return event;
   }
   return {};
@@ -39,8 +51,10 @@ function resolveTxRef(data: Record<string, unknown>, event: Record<string, unkno
   return (
     readString(data.tx_ref)
     || readString(data.txRef)
+    || readString(data.orderRef)
     || readString(event.tx_ref)
     || readString(event.txRef)
+    || readString(event.orderRef)
   );
 }
 
@@ -72,7 +86,7 @@ export function parseSafeWebhookBody(rawBody: string): SafeWebhookBody {
     const txRefRaw = resolveTxRef(data, record);
     const txRef = txRefRaw ? txRefRaw.slice(0, 255) : null;
     const transactionId = resolveTransactionId(data, record);
-    const topKeys = Object.keys(record).sort().slice(0, 16).join(',');
+    const topKeys = Object.keys(record).sort().slice(0, 20).join(',');
     return { event, eventType, txRef, transactionId, parseable: true, topKeys };
   } catch {
     return { event: null, eventType: 'unparseable', txRef: null, transactionId: null, parseable: false, topKeys: 'invalid_json' };

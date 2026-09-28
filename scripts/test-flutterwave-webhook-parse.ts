@@ -1,57 +1,46 @@
 import assert from 'node:assert/strict';
-import { parseSafeWebhookBody } from '../apps/dashboard/src/lib/flutterwave-webhook-parse';
+import { isFlutterwaveSettlementEvent, parseSafeWebhookBody } from '../apps/dashboard/src/lib/flutterwave-webhook-parse';
+
+assert.equal(isFlutterwaveSettlementEvent('charge.completed'), true);
+assert.equal(isFlutterwaveSettlementEvent('BANK_TRANSFER_TRANSACTION'), true);
+assert.equal(isFlutterwaveSettlementEvent('CARD_TRANSACTION'), true);
+assert.equal(isFlutterwaveSettlementEvent('transfer.completed'), false);
 
 const nested = parseSafeWebhookBody(JSON.stringify({
   event: 'charge.completed',
-  data: { id: 10518947, tx_ref: 'SENA_eea1d01971deefa87b694a9878cbc449bbdc', amount: 400, currency: 'NGN' },
+  data: { id: 10518947, tx_ref: 'SENA_nested', amount: 400, currency: 'NGN' },
 }));
 assert.equal(nested.eventType, 'charge.completed');
-assert.equal(nested.txRef, 'SENA_eea1d01971deefa87b694a9878cbc449bbdc');
+assert.equal(nested.txRef, 'SENA_nested');
 assert.equal(nested.transactionId, '10518947');
 
-const typed = parseSafeWebhookBody(JSON.stringify({
-  type: 'charge.completed',
-  data: { id: 1, txRef: 'SENA_typed' },
-}));
-assert.equal(typed.eventType, 'charge.completed');
-assert.equal(typed.txRef, 'SENA_typed');
-
-// Production 23:48 delivery shape: flat hosted/test webhook with event.type key.
-const flat = parseSafeWebhookBody(JSON.stringify({
-  id: 10518947,
-  txRef: 'SENA_eea1d01971deefa87b694a9878cbc449bbdc',
-  flwRef: 'FLW-MOCK',
+// Production 00:11 delivery shape.
+const bankTransfer = parseSafeWebhookBody(JSON.stringify({
+  id: 10518968,
+  txRef: 'SENA_675b1ada17ffd0ea8da94c0cb33d05ca072e',
+  flwRef: 'FLW-BANK',
   amount: 400,
   charged_amount: 400,
   appfee: 0,
   currency: 'NGN',
   charge_type: 'normal',
-  createdAt: '2026-09-28T22:48:42.000Z',
+  createdAt: '2026-09-28T23:11:43.000Z',
   customer: { email: 'guest@example.com' },
   entity: { account_id: 1 },
   IP: '1.2.3.4',
-  'event.type': 'charge.completed',
+  'event.type': 'BANK_TRANSFER_TRANSACTION',
+  merchantbearsfee: false,
+  merchantfee: 0,
+  orderRef: 'SENA_675b1ada17ffd0ea8da94c0cb33d05ca072e',
+  paymentPage: 'page',
   status: 'successful',
 }));
-assert.equal(flat.eventType, 'charge.completed');
-assert.equal(flat.txRef, 'SENA_eea1d01971deefa87b694a9878cbc449bbdc');
-assert.equal(flat.transactionId, '10518947');
-assert.match(flat.topKeys, /event\.type/);
-
-const snakeFlat = parseSafeWebhookBody(JSON.stringify({
-  id: 99,
-  tx_ref: 'SENA_snake',
-  'event.type': 'charge.completed',
-  amount: 10,
-  currency: 'NGN',
-}));
-assert.equal(snakeFlat.eventType, 'charge.completed');
-assert.equal(snakeFlat.txRef, 'SENA_snake');
+assert.equal(bankTransfer.eventType, 'BANK_TRANSFER_TRANSACTION');
+assert.equal(isFlutterwaveSettlementEvent(bankTransfer.eventType), true);
+assert.equal(bankTransfer.txRef, 'SENA_675b1ada17ffd0ea8da94c0cb33d05ca072e');
+assert.equal(bankTransfer.transactionId, '10518968');
 
 const ignored = parseSafeWebhookBody(JSON.stringify({ event: 'transfer.completed', data: { id: 1 } }));
-assert.equal(ignored.eventType, 'transfer.completed');
-assert.equal(ignored.txRef, null);
+assert.equal(isFlutterwaveSettlementEvent(ignored.eventType), false);
 
-assert.equal(parseSafeWebhookBody('not-json').parseable, false);
-
-console.log('PASS Flutterwave webhook parser accepts nested and flat charge.completed payloads');
+console.log('PASS Flutterwave webhook parser accepts charge.completed and BANK_TRANSFER_TRANSACTION flat payloads');

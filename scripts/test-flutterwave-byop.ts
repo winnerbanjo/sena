@@ -220,6 +220,51 @@ async function run() {
   assert.equal((await db.query.payments.findMany({ where: eq(payments.providerReference, initialized.reference) })).length, 1);
   console.log('PASS flat event.type charge.completed webhook settles once without duplicating payment');
 
+  // SCENARIO B: callback-first already completed, then authentic BANK_TRANSFER_TRANSACTION webhook must mark ACTIVE.
+  await db.update(integrations).set({ webhookStatus: 'configured', webhookVerifiedAt: null, updatedAt: new Date() }).where(eq(integrations.id, connectedIntegration!.id));
+  const bankTransferEvent = JSON.stringify({
+    id: 88033,
+    txRef: initialized.reference,
+    flwRef: 'FLW-BANK-1',
+    amount: 240000,
+    charged_amount: 240000,
+    appfee: 0,
+    currency: 'NGN',
+    charge_type: 'normal',
+    createdAt: '2030-02-01T12:05:00Z',
+    customer: { email: 'guest-fw@qa.invalid' },
+    entity: { account_id: 1 },
+    IP: '127.0.0.1',
+    'event.type': 'BANK_TRANSFER_TRANSACTION',
+    orderRef: initialized.reference,
+    status: 'successful',
+  });
+  const paymentsBeforeBankWebhook = (await db.query.payments.findMany({ where: eq(payments.providerReference, initialized.reference) })).length;
+  const receiptsBeforeBankWebhook = (await db.query.emailLogs.findMany({ where: eq(emailLogs.idempotencyKey, `payment_receipt_${initialized.reference}`) })).length;
+  globalThis.fetch = (async () => new Response(JSON.stringify({ status: 'success', data: { ...verified, id: 88033, payment_type: 'bank_transfer' } }), { status: 200, headers: { 'content-type': 'application/json' } })) as typeof fetch;
+  try {
+    const bankWebhook = await webhook.POST(new Request(`https://preview.invalid/api/webhooks/flutterwave/${token}`, { method: 'POST', headers: { 'verif-hash': connected.webhookSecret! }, body: bankTransferEvent }) as any, { params: Promise.resolve({ token }) });
+    assert.equal(bankWebhook.status, 200);
+    const bankBody = await bankWebhook.json();
+    assert.equal(bankBody.status, 'already_processed');
+  } finally { globalThis.fetch = originalFetch; }
+  assert.equal((await db.query.payments.findMany({ where: eq(payments.providerReference, initialized.reference) })).length, paymentsBeforeBankWebhook);
+  assert.equal((await db.query.emailLogs.findMany({ where: eq(emailLogs.idempotencyKey, `payment_receipt_${initialized.reference}`) })).length, receiptsBeforeBankWebhook);
+  assert.equal((await db.query.integrations.findFirst({ where: eq(integrations.id, connectedIntegration!.id) }))?.webhookStatus, 'active');
+  assert.ok((await db.query.integrations.findFirst({ where: eq(integrations.id, connectedIntegration!.id) }))?.webhookVerifiedAt);
+  console.log('PASS callback-first BANK_TRANSFER_TRANSACTION webhook verifies ACTIVE without duplicate settlement');
+
+  // SCENARIO C: duplicate authentic webhook
+  globalThis.fetch = (async () => new Response(JSON.stringify({ status: 'success', data: { ...verified, id: 88033, payment_type: 'bank_transfer' } }), { status: 200, headers: { 'content-type': 'application/json' } })) as typeof fetch;
+  try {
+    const dup = await webhook.POST(new Request(`https://preview.invalid/api/webhooks/flutterwave/${token}`, { method: 'POST', headers: { 'verif-hash': connected.webhookSecret! }, body: bankTransferEvent }) as any, { params: Promise.resolve({ token }) });
+    assert.equal(dup.status, 200);
+    assert.equal((await dup.json()).status, 'already_processed');
+  } finally { globalThis.fetch = originalFetch; }
+  assert.equal((await db.query.payments.findMany({ where: eq(payments.providerReference, initialized.reference) })).length, paymentsBeforeBankWebhook);
+  assert.equal((await db.query.integrations.findFirst({ where: eq(integrations.id, connectedIntegration!.id) }))?.webhookStatus, 'active');
+  console.log('PASS duplicate authentic webhook remains ACTIVE without duplicate ledger rows');
+
   const otherTokenState = flutterwave.safeFlutterwaveState(await flutterwave.getPropertyFlutterwave(ids.otherProperty), 'https://preview.invalid');
   assert.equal(otherTokenState.displayStatus, 'disconnected');
   const cross = await webhook.POST(new Request(`https://preview.invalid/api/webhooks/flutterwave/${token}`, {
