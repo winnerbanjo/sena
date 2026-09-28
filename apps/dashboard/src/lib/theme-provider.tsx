@@ -2,6 +2,9 @@
 
 import * as React from 'react';
 import { WebsiteData } from './website-data';
+import { normalizeHexColor } from './hex-color';
+
+export { normalizeHexColor } from './hex-color';
 
 export interface ThemeTokens {
   primaryColor: string;
@@ -34,27 +37,6 @@ const DEFAULT_SERIF_STACK =
   'ui-serif, Georgia, Cambria, "Times New Roman", Times, serif';
 const DEFAULT_SANS_STACK =
   'Inter, InterVariable, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-
-export function normalizeHexColor(input?: string | null, fallback = '#71382D'): string {
-  if (!input) return fallback;
-  let hex = input.trim();
-  if (!hex.startsWith('#')) hex = '#' + hex;
-  if (/^#[0-9A-Fa-f]{3}$/.test(hex)) {
-    return (
-      '#' +
-      hex[1] +
-      hex[1] +
-      hex[2] +
-      hex[2] +
-      hex[3] +
-      hex[3]
-    ).toLowerCase();
-  }
-  if (/^#[0-9A-Fa-f]{6}$/.test(hex)) {
-    return hex.toLowerCase();
-  }
-  return fallback;
-}
 
 /**
  * Calculates WCAG 2.1 relative luminance and returns the contrast-safe foreground color (#FFFFFF or #191816).
