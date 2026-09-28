@@ -1,5 +1,64 @@
+import { formatNaira } from '@sena/config';
+
 export function folioBalance(totalAmountMinorUnits: number, paidAmountMinorUnits: number) {
   return Math.max(0, Number(totalAmountMinorUnits || 0) - Number(paidAmountMinorUnits || 0));
+}
+
+export type DeskPaymentKind = 'paid' | 'partially_paid' | 'not_paid' | 'pending_verification';
+
+export function deskPaymentStatus(input: {
+  totalAmountMinorUnits: number;
+  paidAmountMinorUnits: number;
+  pendingTransferProof?: boolean;
+}) {
+  const total = Number(input.totalAmountMinorUnits || 0);
+  const paid = Number(input.paidAmountMinorUnits || 0);
+  const due = folioBalance(total, paid);
+  const pendingProof = Boolean(input.pendingTransferProof) && due > 0;
+
+  if (due <= 0) {
+    return {
+      kind: 'paid' as const satisfies DeskPaymentKind,
+      label: 'PAID',
+      columnLabel: 'Paid',
+      amountDueMinorUnits: 0,
+      paidMinorUnits: paid,
+      receivedLabel: paid > 0 ? formatNaira(paid) : undefined,
+    };
+  }
+
+  if (pendingProof) {
+    return {
+      kind: 'pending_verification' as const satisfies DeskPaymentKind,
+      label: 'PENDING VERIFICATION',
+      columnLabel: 'Pending Verification',
+      amountDueMinorUnits: due,
+      paidMinorUnits: paid,
+      dueLabel: formatNaira(due),
+      receivedLabel: paid > 0 ? formatNaira(paid) : undefined,
+    };
+  }
+
+  if (paid > 0) {
+    return {
+      kind: 'partially_paid' as const satisfies DeskPaymentKind,
+      label: 'PARTIALLY PAID',
+      columnLabel: `Partially Paid ${formatNaira(due)} due`,
+      amountDueMinorUnits: due,
+      paidMinorUnits: paid,
+      dueLabel: formatNaira(due),
+      receivedLabel: formatNaira(paid),
+    };
+  }
+
+  return {
+    kind: 'not_paid' as const satisfies DeskPaymentKind,
+    label: 'NOT PAID',
+    columnLabel: `Not Paid ${formatNaira(due)} due`,
+    amountDueMinorUnits: due,
+    paidMinorUnits: paid,
+    dueLabel: formatNaira(due),
+  };
 }
 
 export function settlementLabel(

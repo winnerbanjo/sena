@@ -17,6 +17,7 @@ export interface ReservationItem {
   paymentStatus: 'paid' | 'part_payment' | 'pay_later';
   totalAmountMinorUnits: number;
   paidAmountMinorUnits: number;
+  pendingTransferProof?: boolean;
   timeline: { time: string; text: string; actor: string }[];
 }
 

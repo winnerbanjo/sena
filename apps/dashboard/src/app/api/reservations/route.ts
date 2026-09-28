@@ -1,9 +1,9 @@
 import { apiError } from '@/lib/api-error';
 import { withMerchant } from '@/lib/merchant-route';
-import { eq, desc, inArray } from 'drizzle-orm';
+import { eq, desc, inArray, and } from 'drizzle-orm';
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
-import { db, reservations, guests, rooms, roomTypes, properties, reservationEvents , propertyMembers, organizationMembers } from '@sena/database';
+import { db, reservations, guests, rooms, roomTypes, properties, reservationEvents , propertyMembers, organizationMembers, transferProofs } from '@sena/database';
 import { ReservationService } from '@sena/reservations';
 import { sendBookingConfirmationEmail, sendSenaEmail } from '@sena/email';
 import { formatNaira } from '@sena/config';
@@ -58,7 +58,27 @@ async function handleGET(req: NextRequest) {
       events.push({ time: new Date(event.createdAt).toLocaleString('en-GB', { timeZone: tenant!.property.timezone, day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }), text: event.description, actor: event.actorName || 'System' });
       eventsByReservation.set(event.reservationId, events);
     }
-    const reservationsWithTimeline = resList.map(reservation => ({ ...reservation, timeline: eventsByReservation.get(reservation.id) || [] }));
+    const pendingProofRows = resList.length
+      ? await db
+          .select({ reservationId: transferProofs.reservationId })
+          .from(transferProofs)
+          .where(
+            and(
+              eq(transferProofs.propertyId, propertyId),
+              eq(transferProofs.status, 'pending'),
+              inArray(
+                transferProofs.reservationId,
+                resList.map((reservation) => reservation.id)
+              )
+            )
+          )
+      : [];
+    const pendingProofIds = new Set(pendingProofRows.map((row) => row.reservationId).filter(Boolean));
+    const reservationsWithTimeline = resList.map(reservation => ({
+      ...reservation,
+      pendingTransferProof: pendingProofIds.has(reservation.id),
+      timeline: eventsByReservation.get(reservation.id) || [],
+    }));
 
     return NextResponse.json({ reservations: reservationsWithTimeline });
   } catch (error: any) {

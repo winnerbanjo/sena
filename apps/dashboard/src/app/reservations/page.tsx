@@ -1,11 +1,12 @@
 'use client';
 import { formatAssignedRoom, mapReservationItem } from '../../components/reservation-room';
 import { CheckInRoomDialog, type RoomAssignmentMode } from '../../components/check-in-room-dialog';
+import { DeskPaymentBadge } from '../../components/check-in-payment-status';
 
 import { PageLoadState, readJsonResponse } from '../../components/page-load-state';
 import * as React from 'react';
 import { useSearchParams } from 'next/navigation';
-import { formatNaira, formatStayDates } from '@sena/config';
+import { formatStayDates } from '@sena/config';
 import { Search } from 'lucide-react';
 import { type ReservationItem } from '../../components/mock-data';
 import { NewReservationDialog } from '../../components/new-reservation-dialog';
@@ -195,7 +196,6 @@ function ReservationsContent() {
                   </tr>
                 ) : (
                   filtered.map((res) => {
-                    const isPaid = res.paymentStatus === 'paid';
                     return (
                       <tr
                         key={res.id}
@@ -236,20 +236,12 @@ function ReservationsContent() {
                           )}
                         </td>
                         <td className="py-4 px-5">
-                          <span className="inline-flex items-center gap-1.5 font-mono text-[11px]">
-                            <span className={`w-1.5 h-1.5 rounded-full ${isPaid ? 'bg-[#2E6B4F]' : 'bg-[#A3681F]'}`} />
-                            <span className={isPaid ? 'text-[#2E6B4F]' : 'text-[#A3681F]'}>
-                              {res.status === 'checked_out' && !isPaid
-                                ? Number(res.paidAmountMinorUnits || 0) > 0
-                                  ? 'Outstanding'
-                                  : 'Outstanding'
-                                : isPaid
-                                  ? 'Settled'
-                                  : Number(res.paidAmountMinorUnits || 0) > 0
-                                    ? 'Partially Paid'
-                                    : 'Balance Due'}
-                            </span>
-                          </span>
+                          <DeskPaymentBadge
+                            compact
+                            totalAmountMinorUnits={res.totalAmountMinorUnits}
+                            paidAmountMinorUnits={res.paidAmountMinorUnits}
+                            pendingTransferProof={res.pendingTransferProof}
+                          />
                         </td>
                         <td className="py-4 px-5">
                           <span className="px-2 py-0.5 rounded text-[11px] font-mono tracking-wide uppercase bg-[#FAF4EF] text-[#71382D] border border-[#E5D4BC]">
@@ -318,6 +310,30 @@ function ReservationsContent() {
           setSelectedRes((prev) =>
             prev && assignment && prev.id === assignment.reservation.id
               ? { ...prev, roomId: update.roomId, roomNumber: update.roomNumber, status: update.status || prev.status }
+              : prev
+          );
+        }}
+        onFolioUpdated={(update) => {
+          setReservations((prev) =>
+            prev.map((item) =>
+              assignment && item.id === assignment.reservation.id
+                ? {
+                    ...item,
+                    paidAmountMinorUnits: update.paidAmountMinorUnits,
+                    totalAmountMinorUnits: update.totalAmountMinorUnits,
+                    pendingTransferProof: update.pendingTransferProof,
+                  }
+                : item
+            )
+          );
+          setSelectedRes((prev) =>
+            prev && assignment && prev.id === assignment.reservation.id
+              ? {
+                  ...prev,
+                  paidAmountMinorUnits: update.paidAmountMinorUnits,
+                  totalAmountMinorUnits: update.totalAmountMinorUnits,
+                  pendingTransferProof: update.pendingTransferProof,
+                }
               : prev
           );
         }}
