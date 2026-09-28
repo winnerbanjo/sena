@@ -146,9 +146,13 @@ export async function connectFlutterwave(propertyId: string, actorUserId: string
     const metadata = { ...(current?.metadata && typeof current.metadata === 'object' ? current.metadata : {}), currencies: verified.currencies, ...previous };
     const existingToken = current ? readIntegrationSecret(current.webhookTokenEncrypted) : null;
     const replaceUnreadToken = Boolean(current && !existingToken);
+    const webhookConfigured = {
+      webhookStatus: current?.webhookStatus === 'active' && !replaceUnreadToken ? 'active' : 'configured',
+      ...(current?.webhookStatus === 'active' && !replaceUnreadToken ? {} : { webhookVerifiedAt: null as Date | null }),
+    };
     const [integration] = current
-      ? await tx.update(integrations).set({ status: 'connected', mode: verified.mode, externalAccountId: verified.accountLabel, connectedAt: current.connectedAt || now, verifiedAt: now, disconnectedAt: null, lastErrorAt: null, lastErrorMessage: null, metadata, updatedAt: now, ...(replaceUnreadToken ? { webhookTokenHash, webhookTokenEncrypted } : {}) }).where(eq(integrations.id, current.id)).returning()
-      : await tx.insert(integrations).values({ propertyId, provider: 'flutterwave', category: 'payments', status: 'connected', mode: verified.mode, externalAccountId: verified.accountLabel, webhookTokenHash, webhookTokenEncrypted, connectedAt: now, verifiedAt: now, metadata: { currencies: verified.currencies, enabled: true, acceptOnlinePayments: true, directBooking: true, invoices: true } }).returning();
+      ? await tx.update(integrations).set({ status: 'connected', mode: verified.mode, externalAccountId: verified.accountLabel, connectedAt: current.connectedAt || now, verifiedAt: now, disconnectedAt: null, lastErrorAt: null, lastErrorMessage: null, metadata, updatedAt: now, ...webhookConfigured, ...(replaceUnreadToken ? { webhookTokenHash, webhookTokenEncrypted } : {}) }).where(eq(integrations.id, current.id)).returning()
+      : await tx.insert(integrations).values({ propertyId, provider: 'flutterwave', category: 'payments', status: 'connected', mode: verified.mode, externalAccountId: verified.accountLabel, webhookTokenHash, webhookTokenEncrypted, webhookStatus: 'configured', connectedAt: now, verifiedAt: now, metadata: { currencies: verified.currencies, enabled: true, acceptOnlinePayments: true, directBooking: true, invoices: true } }).returning();
     const existingCredential = await tx.query.integrationCredentials.findFirst({ where: and(eq(integrationCredentials.integrationId, integration.id), eq(integrationCredentials.credentialType, 'secret_key')) });
     if (existingCredential) await tx.update(integrationCredentials).set({ encryptedValue, maskedSuffix: suffix, rotatedAt: now }).where(eq(integrationCredentials.id, existingCredential.id));
     else await tx.insert(integrationCredentials).values({ integrationId: integration.id, credentialType: 'secret_key', encryptedValue, maskedSuffix: suffix });
@@ -184,6 +188,7 @@ export async function rotateFlutterwaveWebhookSecret(propertyId: string, actorUs
     } else {
       await tx.insert(integrationCredentials).values({ integrationId: record.integration.id, credentialType: 'webhook_secret', encryptedValue: webhookSecretEncrypted, maskedSuffix: webhookSuffix });
     }
+    await tx.update(integrations).set({ webhookStatus: 'configured', webhookVerifiedAt: null, updatedAt: now }).where(eq(integrations.id, record.integration.id));
     await tx.insert(integrationAuditLogs).values({ integrationId: record.integration.id, propertyId, actorUserId, action: 'flutterwave.webhook_secret_rotated', mode: record.integration.mode });
   });
   return webhookSecretValue;
@@ -240,11 +245,20 @@ export async function disconnectFlutterwave(propertyId: string, actorUserId: str
   });
 }
 
+/** Sena-owned webhook readiness. Flutterwave dashboard paste is external; VERIFIED only after an authentic provider webhook settles. */
+export function flutterwaveWebhookReadiness(webhookStatus: string | null | undefined, hasWebhookUrl: boolean) {
+  if (webhookStatus === 'active') return 'verified' as const;
+  if (webhookStatus === 'needs_attention') return 'needs_attention' as const;
+  if (hasWebhookUrl || webhookStatus === 'configured' || webhookStatus === 'not_configured') return 'configured_unverified' as const;
+  return 'not_configured' as const;
+}
+
 export function safeFlutterwaveState(record: Awaited<ReturnType<typeof getPropertyFlutterwave>>, origin: string, lastWebhookAt?: Date | null, webhookSecretOnce?: string) {
   if (!record || record.integration.status === 'disconnected' || !record.credential) return { status: 'disconnected' as const, displayStatus: 'disconnected' as const, enabled: false };
   const token = decryptIntegrationSecret(record.integration.webhookTokenEncrypted);
   const controls = flutterwavePaymentControls(record.integration.metadata);
   const displayStatus = flutterwaveDisplayStatus(record);
+  const webhookUrl = `${origin.replace(/\/$/, '')}/api/webhooks/flutterwave/${token}`;
   return {
     status: record.integration.status,
     displayStatus,
@@ -253,9 +267,10 @@ export function safeFlutterwaveState(record: Awaited<ReturnType<typeof getProper
     connectedAt: record.integration.connectedAt,
     verifiedAt: record.integration.verifiedAt,
     webhookStatus: record.integration.webhookStatus,
+    webhookReadiness: flutterwaveWebhookReadiness(record.integration.webhookStatus, Boolean(webhookUrl)),
     webhookVerifiedAt: record.integration.webhookVerifiedAt,
     lastWebhookAt: lastWebhookAt || null,
-    webhookUrl: `${origin.replace(/\/$/, '')}/api/webhooks/flutterwave/${token}`,
+    webhookUrl,
     secret: maskSecret(record.credential.maskedSuffix),
     webhookSecret: webhookSecretOnce || (record.webhookSecret ? maskSecret(record.webhookSecret.maskedSuffix) : null),
     webhookSecretRevealed: Boolean(webhookSecretOnce),

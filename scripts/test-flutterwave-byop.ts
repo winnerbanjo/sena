@@ -7,7 +7,7 @@ process.env.SENA_INTEGRATION_ENCRYPTION_KEY ||= '22'.repeat(32);
 async function run() {
   const database = await import('../packages/database/src/index');
   const {
-    db, emailLogs, guests, integrationCredentials, integrations, organizations, payments, paymentAttempts,
+    db, emailLogs, guests, integrationCredentials, integrations, integrationWebhookEvents, organizations, payments, paymentAttempts,
     properties, propertyInvoices, reservations, roomTypes, users, and, eq, sql,
   } = database;
   const callback = await import('../apps/dashboard/src/lib/flutterwave-callback');
@@ -108,6 +108,8 @@ async function run() {
   assert.equal(JSON.stringify(safe).includes(plaintext), false);
   assert.equal(JSON.stringify(safe).includes(connected.webhookSecret || 'missing'), false);
   assert.equal(safe.mode, 'test');
+  assert.equal(safe.webhookStatus, 'configured');
+  assert.equal(safe.webhookReadiness, 'configured_unverified');
   console.log('PASS credential validation, masking, mode, and tenant isolation');
 
   let initializedReference = '';
@@ -148,8 +150,23 @@ async function run() {
   const token = new URL(safe.webhookUrl!).pathname.split('/').pop()!;
   const rawEvent = JSON.stringify({ event: 'charge.completed', data: verified });
   const webhook = await import('../apps/dashboard/src/app/api/webhooks/flutterwave/[token]/route');
+  const paymentsBeforeAuthFail = (await db.query.payments.findMany({ where: eq(payments.providerReference, initialized.reference) })).length;
+
+  const missing = await webhook.POST(new Request(`https://preview.invalid/api/webhooks/flutterwave/${token}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: rawEvent }) as any, { params: Promise.resolve({ token }) });
+  assert.equal(missing.status, 401);
+  const missingDiagnostics = await db.query.integrationWebhookEvents.findMany({ where: and(eq(integrationWebhookEvents.propertyId, ids.property), eq(integrationWebhookEvents.status, 'rejected')) });
+  assert.equal(missingDiagnostics.length >= 1, true);
+  assert.match(missingDiagnostics.at(-1)!.errorMessage || '', /signature_absent/);
+  assert.equal((await db.query.payments.findMany({ where: eq(payments.providerReference, initialized.reference) })).length, paymentsBeforeAuthFail);
+
   const bad = await webhook.POST(new Request(`https://preview.invalid/api/webhooks/flutterwave/${token}`, { method: 'POST', headers: { 'verif-hash': 'bad' }, body: rawEvent }) as any, { params: Promise.resolve({ token }) });
   assert.equal(bad.status, 401);
+  const badDiagnostics = await db.query.integrationWebhookEvents.findMany({ where: and(eq(integrationWebhookEvents.propertyId, ids.property), eq(integrationWebhookEvents.status, 'rejected')) });
+  assert.equal(badDiagnostics.length >= 2, true);
+  assert.match(badDiagnostics.at(-1)!.errorMessage || '', /signature_invalid/);
+  assert.equal((await db.query.payments.findMany({ where: eq(payments.providerReference, initialized.reference) })).length, paymentsBeforeAuthFail);
+  assert.equal((await db.query.integrations.findFirst({ where: eq(integrations.id, connectedIntegration!.id) }))?.webhookStatus, 'needs_attention');
+  console.log('PASS unsigned and wrong-signature webhooks are rejected with durable diagnostics and no payment mutation');
 
   const originalFetch = globalThis.fetch;
   globalThis.fetch = (async () => new Response('{}', { status: 503 })) as typeof fetch;
@@ -165,6 +182,7 @@ async function run() {
   } finally { globalThis.fetch = originalFetch; }
   assert.equal((await db.query.payments.findMany({ where: eq(payments.providerReference, initialized.reference) })).length, 1);
   assert.equal((await db.query.reservations.findFirst({ where: eq(reservations.id, ids.reservation) }))?.paidAmountMinorUnits, 24000000);
+  assert.equal((await db.query.integrations.findFirst({ where: eq(integrations.id, connectedIntegration!.id) }))?.webhookStatus, 'active');
   console.log('PASS signed Flutterwave webhook verifies, settles once, and rejects invalid authenticity');
 
   const otherTokenState = flutterwave.safeFlutterwaveState(await flutterwave.getPropertyFlutterwave(ids.otherProperty), 'https://preview.invalid');
@@ -214,6 +232,63 @@ async function run() {
   } finally { globalThis.fetch = originalFetch; }
   assert.equal((await db.query.reservations.findFirst({ where: eq(reservations.id, raceReservation) }))?.paidAmountMinorUnits, 80000);
   console.log('PASS callback and webhook races settle once');
+
+  const orderReservation = '20000000-0000-4000-8000-000000000009';
+  await db.insert(reservations).values({ id: orderReservation, reference: 'SYN-FLW-ORD', propertyId: ids.property, guestId: ids.guest, roomTypeId: ids.roomType, checkInDate: '2030-04-01', checkOutDate: '2030-04-02', nights: 1, totalAmountMinorUnits: 20000, paidAmountMinorUnits: 0 });
+  globalThis.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
+    const href = String(url);
+    if (href.includes('/transactions/') || href.includes('verify_by_reference')) {
+      return new Response(JSON.stringify({ status: 'success', data: currentVerified }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    if (init?.method === 'POST') {
+      const payload = JSON.parse(String(init.body));
+      return new Response(JSON.stringify({ status: 'success', data: { link: 'https://checkout.flutterwave.test/order' } }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    return new Response('{}', { status: 404 });
+  }) as typeof fetch;
+  try {
+    const callbackFirst = await paymentFlow.initializePropertyFlutterwave({
+      propertyId: ids.property, reservationId: orderReservation, email: 'guest-fw@qa.invalid', amountMinorUnits: 10000, currency: 'NGN',
+      source: 'direct_booking', callbackUrl: 'https://preview.invalid/confirming', idempotencyKey: 'order-callback-first',
+    }, globalThis.fetch);
+    const callbackAttempt = await db.query.paymentAttempts.findFirst({ where: eq(paymentAttempts.providerReference, callbackFirst.reference) });
+    currentVerified = {
+      id: 91001, status: 'successful', tx_ref: callbackFirst.reference, amount: 100, currency: 'NGN', payment_type: 'card', created_at: '2030-04-01T12:00:00Z',
+      meta: { propertyId: ids.property, reservationId: orderReservation, paymentAttemptId: callbackAttempt!.id, source: 'direct_booking' },
+    };
+    const confirmFirst = await confirmRoute.POST(new Request('https://preview.invalid/api/payments/public/confirm', { method: 'POST', body: JSON.stringify({ tx_ref: callbackFirst.reference, transaction_id: 91001 }) }) as any);
+    assert.equal(confirmFirst.status, 200);
+    const webhookSecond = await webhook.POST(new Request(`https://preview.invalid/api/webhooks/flutterwave/${token}`, {
+      method: 'POST', headers: { 'verif-hash': connected.webhookSecret! }, body: JSON.stringify({ event: 'charge.completed', data: currentVerified }),
+    }) as any, { params: Promise.resolve({ token }) });
+    assert.equal(webhookSecond.status, 200);
+    assert.equal((await db.query.payments.findMany({ where: eq(payments.providerReference, callbackFirst.reference) })).length, 1);
+    assert.equal((await db.query.emailLogs.findMany({ where: eq(emailLogs.idempotencyKey, `payment_receipt_${callbackFirst.reference}`) })).length, 1);
+
+    const webhookFirst = await paymentFlow.initializePropertyFlutterwave({
+      propertyId: ids.property, reservationId: orderReservation, email: 'guest-fw@qa.invalid', amountMinorUnits: 10000, currency: 'NGN',
+      source: 'direct_booking', callbackUrl: 'https://preview.invalid/confirming', idempotencyKey: 'order-webhook-first',
+    }, globalThis.fetch);
+    const webhookAttempt = await db.query.paymentAttempts.findFirst({ where: eq(paymentAttempts.providerReference, webhookFirst.reference) });
+    currentVerified = {
+      id: 91002, status: 'successful', tx_ref: webhookFirst.reference, amount: 100, currency: 'NGN', payment_type: 'card', created_at: '2030-04-01T12:05:00Z',
+      meta: { propertyId: ids.property, reservationId: orderReservation, paymentAttemptId: webhookAttempt!.id, source: 'direct_booking' },
+    };
+    const firstWebhook = await webhook.POST(new Request(`https://preview.invalid/api/webhooks/flutterwave/${token}`, {
+      method: 'POST', headers: { 'verif-hash': connected.webhookSecret! }, body: JSON.stringify({ event: 'charge.completed', data: currentVerified }),
+    }) as any, { params: Promise.resolve({ token }) });
+    assert.equal(firstWebhook.status, 200);
+    const confirmSecond = await confirmRoute.POST(new Request('https://preview.invalid/api/payments/public/confirm', { method: 'POST', body: JSON.stringify({ tx_ref: webhookFirst.reference, transaction_id: 91002 }) }) as any);
+    assert.equal(confirmSecond.status, 200);
+    const duplicateWebhook = await webhook.POST(new Request(`https://preview.invalid/api/webhooks/flutterwave/${token}`, {
+      method: 'POST', headers: { 'verif-hash': connected.webhookSecret! }, body: JSON.stringify({ event: 'charge.completed', data: currentVerified }),
+    }) as any, { params: Promise.resolve({ token }) });
+    assert.equal(duplicateWebhook.status, 200);
+    assert.equal((await db.query.payments.findMany({ where: eq(payments.providerReference, webhookFirst.reference) })).length, 1);
+    assert.equal((await db.query.emailLogs.findMany({ where: eq(emailLogs.idempotencyKey, `payment_receipt_${webhookFirst.reference}`) })).length, 1);
+    assert.equal((await db.query.reservations.findFirst({ where: eq(reservations.id, orderReservation) }))?.paidAmountMinorUnits, 20000);
+  } finally { globalThis.fetch = originalFetch; }
+  console.log('PASS callback-first and webhook-first converge once; duplicate webhook is idempotent');
 
   const [invoice] = await db.insert(propertyInvoices).values({
     propertyId: ids.property, organizationId: ids.organization, invoiceNumber: 'SYN-FLW-INV-001', recipientName: 'Synthetic Guest',
