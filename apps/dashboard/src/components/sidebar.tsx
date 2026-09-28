@@ -52,7 +52,6 @@ interface NavSection {
       | 'payments'
       | 'invoices'
       | 'offers'
-      | 'channels'
       | 'analytics'
       | 'reports'
       | 'staff'
@@ -90,7 +89,6 @@ const NAV_SECTIONS: NavSection[] = [
       { id: 'payments', labelKey: 'payments', href: '/payments', icon: CreditCard },
       { id: 'invoices', labelKey: 'invoices', href: '/invoices', icon: Receipt },
       { id: 'offers', labelKey: 'offers', href: '/offers', icon: Tag },
-      { id: 'channels', labelKey: 'channels', href: '/channels', icon: Layers },
     ],
   },
   {
