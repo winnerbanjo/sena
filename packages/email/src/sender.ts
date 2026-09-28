@@ -1,5 +1,5 @@
 import { Resend } from 'resend';
-import { db, emailLogs, emailPreferences, eq, and } from '@sena/database';
+import { db, emailLogs, emailPreferences, eq, and, sql } from '@sena/database';
 import { SENA_BRAND } from './components/brand';
 import { EMAIL_RENDERERS, EmailParamMap, SenaEmailType } from './registry';
 
@@ -44,27 +44,32 @@ export async function sendSenaEmail<K extends SenaEmailType>(
 ): Promise<SendEmailResult> {
   const recipient = Array.isArray(options.to) ? options.to[0] : options.to;
 
-  try {
-    // 1. Idempotency Check
-    if (options.idempotencyKey) {
-      try {
-        const existing = await db
-          .select()
-          .from(emailLogs)
-          .where(eq(emailLogs.idempotencyKey, options.idempotencyKey))
-          .limit(1);
-
-        if (existing.length > 0 && existing[0].status === 'sent') {
-          return {
-            success: true,
-            messageId: existing[0].resendMessageId || undefined,
-            simulated: false,
-          };
+  if (options.idempotencyKey) {
+    try {
+      return await db.transaction(async (tx) => {
+        await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`sena-email:${options.idempotencyKey}`}))`);
+        const existing = await tx.select().from(emailLogs).where(eq(emailLogs.idempotencyKey, options.idempotencyKey!)).limit(1);
+        if (existing[0]?.status === 'sent') {
+          return { success: true, messageId: existing[0].resendMessageId || undefined, simulated: false };
         }
-      } catch (idempErr) {
-        console.warn('[EMAIL] Failed to check idempotency in db:', idempErr);
-      }
+        return deliverSenaEmail(type, params, options, tx);
+      });
+    } catch (error: any) {
+      return { success: false, error: error?.message || 'Unknown email delivery failure' };
     }
+  }
+  return deliverSenaEmail(type, params, options, db);
+}
+
+async function deliverSenaEmail<K extends SenaEmailType>(
+  type: K,
+  params: EmailParamMap[K],
+  options: SendEmailOptions,
+  query: Pick<typeof db, 'insert'>,
+): Promise<SendEmailResult> {
+  const recipient = Array.isArray(options.to) ? options.to[0] : options.to;
+
+  try {
 
     // 2. Preferences Check (for marketing or non-critical operational briefs)
     if (!options.skipPreferencesCheck) {
@@ -144,7 +149,7 @@ export async function sendSenaEmail<K extends SenaEmailType>(
 
     // 6. Audit Log to Database
     try {
-      await db.insert(emailLogs).values({
+      await query.insert(emailLogs).values({
         organizationId: options.organizationId || null,
         propertyId: options.propertyId || null,
         recipient,
@@ -171,7 +176,7 @@ export async function sendSenaEmail<K extends SenaEmailType>(
 
     // Record failure in audit log if possible
     try {
-      await db.insert(emailLogs).values({
+      await query.insert(emailLogs).values({
         organizationId: options.organizationId || null,
         propertyId: options.propertyId || null,
         recipient,

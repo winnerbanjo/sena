@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import { formatNaira } from '@sena/config';
+import { flutterwaveReturnContext } from '@/lib/flutterwave-callback';
 import { Button } from '@sena/ui';
 import {
   Printer,
@@ -20,9 +21,10 @@ export default function PublicInvoicePage() {
   const params = useParams();
   const searchParams = useSearchParams();
   const invoiceNumber = params.number as string;
-  const isPaymentConfirming = searchParams.get('payment') === 'confirming';
-  const txRef = searchParams.get('tx_ref') || '';
-  const transactionId = searchParams.get('transaction_id') || '';
+  const returned = flutterwaveReturnContext(searchParams);
+  const isPaymentConfirming = returned.confirming;
+  const txRef = returned.txRef;
+  const transactionId = returned.transactionId;
 
   const [invoice, setInvoice] = React.useState<PropertyInvoice | null>(null);
   const [property, setProperty] = React.useState<any>(null);

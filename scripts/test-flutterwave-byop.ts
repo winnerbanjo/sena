@@ -10,6 +10,7 @@ async function run() {
     db, emailLogs, guests, integrationCredentials, integrations, organizations, payments, paymentAttempts,
     properties, propertyInvoices, reservations, roomTypes, users, and, eq, sql,
   } = database;
+  const callback = await import('../apps/dashboard/src/lib/flutterwave-callback');
   const flutterwave = await import('../apps/dashboard/src/lib/integrations/flutterwave');
   const paymentFlow = await import('../apps/dashboard/src/lib/flutterwave-payments');
   const paystack = await import('../apps/dashboard/src/lib/integrations/paystack');
@@ -49,6 +50,18 @@ async function run() {
   await db.insert(roomTypes).values({ id: ids.roomType, propertyId: ids.property, name: 'QA Room', bedType: 'Test', basePriceMinorUnits: 24000000 });
   await db.insert(guests).values({ id: ids.guest, organizationId: ids.organization, propertyId: ids.property, fullName: 'Synthetic Guest', email: 'guest-fw@qa.invalid', phone: '+2340000000013' });
   await db.insert(reservations).values({ id: ids.reservation, reference: 'SYN-FLW-001', propertyId: ids.property, guestId: ids.guest, roomTypeId: ids.roomType, checkInDate: '2030-02-01', checkOutDate: '2030-02-02', nights: 1, totalAmountMinorUnits: 24000000 });
+
+  const returned = callback.flutterwaveReturnContext(new URLSearchParams({
+    resp: JSON.stringify({ data: { data: { txRef: `SENA_${'ab'.repeat(18)}`, id: 55, amount: 1, currency: 'USD', status: 'successful', redirectUrl: 'https://app.sena.ng/site/synthetic-fw-one/confirmation?reference=SYN-FLW-001&payment=confirming' } } }),
+    amount: '999',
+    currency: 'USD',
+    status: 'successful',
+  }));
+  assert.equal(returned.txRef, `SENA_${'ab'.repeat(18)}`);
+  assert.equal(returned.reference, 'SYN-FLW-001');
+  assert.equal(returned.confirming, true);
+  assert.equal(Object.hasOwn(returned, 'amount'), false);
+  console.log('PASS Flutterwave return recovers the reference and ignores callback amount, currency, and status');
 
   const plaintext = 'FLWSECK_TEST-synthetic_secret_abcd';
   const encrypted = cryptoModule.encryptIntegrationSecret(plaintext);
@@ -140,8 +153,46 @@ async function run() {
     headers: { 'verif-hash': connected.webhookSecret! },
     body: JSON.stringify({ event: 'charge.completed', data: { ...verified, tx_ref: 'SENA_unknownref00000000000000000000000000' } }),
   }) as any, { params: Promise.resolve({ token }) });
-  assert.notEqual(cross.status, 200);
-  console.log('PASS unknown reference is rejected');
+  assert.equal(cross.status, 404);
+  const paymentsAfterUnknown = await db.query.payments.findMany({ where: eq(payments.propertyId, ids.property) });
+  assert.equal(paymentsAfterUnknown.length, 1);
+  assert.equal((await db.query.emailLogs.findMany({ where: eq(emailLogs.idempotencyKey, 'payment_receipt_SENA_unknownref00000000000000000000000000') })).length, 0);
+  console.log('PASS unknown reference is rejected without a payment or receipt');
+
+  const raceReservation = '20000000-0000-4000-8000-000000000008';
+  await db.insert(reservations).values({ id: raceReservation, reference: 'SYN-FLW-RACE', propertyId: ids.property, guestId: ids.guest, roomTypeId: ids.roomType, checkInDate: '2030-03-01', checkOutDate: '2030-03-02', nights: 1, totalAmountMinorUnits: 80000 });
+  const confirmRoute = await import('../apps/dashboard/src/app/api/payments/public/confirm/route');
+  let currentVerified: any = null;
+  globalThis.fetch = (async (url: string | URL | Request) => {
+    const href = String(url);
+    if (href.includes('/transactions/')) return new Response(JSON.stringify({ status: 'success', data: currentVerified }), { status: 200, headers: { 'content-type': 'application/json' } });
+    return new Response(JSON.stringify({ status: 'success', data: { link: 'https://checkout.flutterwave.test/race' } }), { status: 200, headers: { 'content-type': 'application/json' } });
+  }) as typeof fetch;
+  try {
+    for (let i = 0; i < 8; i++) {
+      const init = await paymentFlow.initializePropertyFlutterwave({
+        propertyId: ids.property, reservationId: raceReservation, email: 'guest-fw@qa.invalid', amountMinorUnits: 10000, currency: 'NGN',
+        source: 'direct_booking', callbackUrl: 'https://preview.invalid/confirming',
+      }, globalThis.fetch);
+      const raceAttempt = await db.query.paymentAttempts.findFirst({ where: eq(paymentAttempts.providerReference, init.reference) });
+      currentVerified = {
+        id: 89000 + i, status: 'successful', tx_ref: init.reference, amount: 100, currency: 'NGN', payment_type: 'card', created_at: '2030-03-01T12:00:00Z',
+        meta: { propertyId: ids.property, reservationId: raceReservation, paymentAttemptId: raceAttempt!.id, source: 'direct_booking' },
+      };
+      const tampered = JSON.stringify({ tx_ref: init.reference, transaction_id: 1, amount: 1, currency: 'USD', status: 'successful' });
+      const event = JSON.stringify({ event: 'charge.completed', data: { ...currentVerified, amount: 1, currency: 'USD' } });
+      await Promise.all([
+        confirmRoute.POST(new Request('https://preview.invalid/api/payments/public/confirm', { method: 'POST', body: tampered }) as any),
+        webhook.POST(new Request(`https://preview.invalid/api/webhooks/flutterwave/${token}`, { method: 'POST', headers: { 'verif-hash': connected.webhookSecret! }, body: event }) as any, { params: Promise.resolve({ token }) }),
+        webhook.POST(new Request(`https://preview.invalid/api/webhooks/flutterwave/${token}`, { method: 'POST', headers: { 'verif-hash': connected.webhookSecret! }, body: event }) as any, { params: Promise.resolve({ token }) }),
+        paymentFlow.settlePropertyFlutterwave(raceAttempt!.id, currentVerified),
+      ]);
+      assert.equal((await db.query.payments.findMany({ where: eq(payments.providerReference, init.reference) })).length, 1);
+      assert.equal((await db.query.emailLogs.findMany({ where: eq(emailLogs.idempotencyKey, `payment_receipt_${init.reference}`) })).length, 1);
+    }
+  } finally { globalThis.fetch = originalFetch; }
+  assert.equal((await db.query.reservations.findFirst({ where: eq(reservations.id, raceReservation) }))?.paidAmountMinorUnits, 80000);
+  console.log('PASS callback and webhook races settle once');
 
   const [invoice] = await db.insert(propertyInvoices).values({
     propertyId: ids.property, organizationId: ids.organization, invoiceNumber: 'SYN-FLW-INV-001', recipientName: 'Synthetic Guest',
