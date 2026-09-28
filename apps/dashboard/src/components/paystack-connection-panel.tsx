@@ -128,7 +128,7 @@ export function PaystackConnectionPanel({ onBack }: { onBack?: () => void }) {
   const display = paystack.displayStatus || (paystack.status === 'disconnected' ? 'disconnected' : 'connected');
   const managed = display !== 'disconnected';
   const modeLabel = paystack.mode === 'test' ? 'Test Mode' : paystack.mode === 'live' ? 'Live Mode' : '';
-  const webhookLabel = paystack.webhookStatus === 'active' ? 'Active' : paystack.webhookStatus === 'needs_attention' ? 'Needs attention' : 'Waiting for event';
+  const webhookLabel = paystack.webhookStatus === 'active' ? 'Verified / Active' : paystack.webhookStatus === 'needs_attention' ? 'Needs attention' : paystack.webhookStatus === 'configured' ? 'Waiting for event' : 'Waiting for event';
 
   return (
     <div className="flex-1 flex flex-col h-screen overflow-hidden">

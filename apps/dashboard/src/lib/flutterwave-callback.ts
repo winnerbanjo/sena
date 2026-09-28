@@ -26,6 +26,25 @@ function txRefOf(record: any) {
   return '';
 }
 
+function allParamValues(params: { get(name: string): string | null; getAll?(name: string): string[] }, name: string) {
+  if (typeof params.getAll === 'function') {
+    return params.getAll(name).filter((value): value is string => typeof value === 'string' && value.length > 0);
+  }
+  const single = params.get(name);
+  return single ? [single] : [];
+}
+
+function firstSenaRef(candidates: string[]) {
+  return candidates.find((value) => SENA_REF.test(value)) || '';
+}
+
+function bookingLookupReference(references: string[], fallback = '') {
+  const booking = references.find((value) => value && !SENA_REF.test(value));
+  if (booking) return booking;
+  if (fallback && !SENA_REF.test(fallback)) return fallback;
+  return fallback;
+}
+
 /** Hosted checkout puts the charge on `data.tx` and a status wrapper on `data.data`. Either shape may arrive alone. */
 function transactionRecord(parsed: any) {
   const candidates = [parsed?.data?.tx, parsed?.tx, parsed?.data?.data, parsed?.data, parsed];
@@ -35,17 +54,42 @@ function transactionRecord(parsed: any) {
   return {};
 }
 
-/** Recover the Sena reference from a Flutterwave return. Amount, currency, and status in `resp` are ignored. */
-export function flutterwaveReturnContext(params: { get(name: string): string | null }): FlutterwaveReturnContext {
-  const directRef = params.get('tx_ref') || '';
+/**
+ * Recover payment + booking context from a Paystack or Flutterwave return.
+ * Amount/status in provider query params are ignored; only SENA_ payment refs
+ * drive server confirmation. Booking lookup prefers a non-SENA `reference`
+ * (our callback already sets the reservation reference before Paystack appends
+ * `trxref` / a second `reference`).
+ */
+export function flutterwaveReturnContext(params: {
+  get(name: string): string | null;
+  getAll?(name: string): string[];
+}): FlutterwaveReturnContext {
+  const directTxRef = params.get('tx_ref') || '';
+  const trxref = params.get('trxref') || '';
   const directTransactionId = params.get('transaction_id') || '';
-  const directReference = params.get('reference') || '';
+  const references = allParamValues(params, 'reference');
+  const directReference = references[0] || params.get('reference') || '';
   const directConfirming = params.get('payment') === 'confirming';
-  if (SENA_REF.test(directRef)) {
-    return { txRef: directRef, transactionId: directTransactionId, confirming: directConfirming, reference: directReference };
+  const paystackOrDirect = firstSenaRef([directTxRef, trxref, ...references]);
+  if (paystackOrDirect) {
+    return {
+      txRef: paystackOrDirect,
+      transactionId: directTransactionId,
+      confirming: directConfirming || Boolean(trxref) || Boolean(directTxRef),
+      reference: bookingLookupReference(references, directReference),
+    };
   }
+
   const raw = params.get('resp');
-  if (!raw) return { txRef: '', transactionId: directTransactionId, confirming: directConfirming, reference: directReference };
+  if (!raw) {
+    return {
+      txRef: '',
+      transactionId: directTransactionId,
+      confirming: directConfirming,
+      reference: bookingLookupReference(references, directReference),
+    };
+  }
   try {
     const parsed = JSON.parse(raw) as any;
     const tx = transactionRecord(parsed);
@@ -53,15 +97,25 @@ export function flutterwaveReturnContext(params: { get(name: string): string | n
     const transactionId = tx.id != null ? String(tx.id) : directTransactionId;
     const redirect = fromRedirect(typeof tx.redirectUrl === 'string' ? tx.redirectUrl : '');
     if (!SENA_REF.test(txRef)) {
-      return { txRef: '', transactionId, confirming: directConfirming || redirect.confirming, reference: directReference || redirect.reference };
+      return {
+        txRef: '',
+        transactionId,
+        confirming: directConfirming || redirect.confirming,
+        reference: bookingLookupReference(references, directReference || redirect.reference),
+      };
     }
     return {
       txRef,
       transactionId,
       confirming: true,
-      reference: directReference || redirect.reference,
+      reference: bookingLookupReference(references, directReference || redirect.reference),
     };
   } catch {
-    return { txRef: '', transactionId: directTransactionId, confirming: directConfirming, reference: directReference };
+    return {
+      txRef: '',
+      transactionId: directTransactionId,
+      confirming: directConfirming,
+      reference: bookingLookupReference(references, directReference),
+    };
   }
 }

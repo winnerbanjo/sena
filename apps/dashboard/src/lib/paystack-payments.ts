@@ -75,10 +75,11 @@ export async function settlePropertyPaystack(attemptId: string, verified: any) {
     if (attempt.status === 'completed') return { status: 'already_processed', attemptId };
     const metadata = verified.metadata || {};
     if (attempt.providerReference !== verified.reference || attempt.internalReference !== verified.reference ||
-        attempt.amountMinorUnits !== verified.amount || attempt.currency !== verified.currency ||
         metadata.paymentAttemptId !== attempt.id || metadata.propertyId !== attempt.propertyId || metadata.source !== attempt.source) {
       throw new Error('PAYMENT_MISMATCH');
     }
+    if (attempt.amountMinorUnits !== verified.amount) throw new Error('AMOUNT_MISMATCH');
+    if (attempt.currency !== verified.currency) throw new Error('CURRENCY_MISMATCH');
     const paidAt = new Date(verified.paid_at || verified.paidAt || Date.now());
     if (!Number.isFinite(paidAt.getTime())) throw new Error('INVALID_PAYMENT_DATE');
     if (attempt.invoiceId) {

@@ -1,6 +1,6 @@
 import crypto from 'node:crypto';
 import { and, eq } from 'drizzle-orm';
-import { db, integrationAuditLogs, integrationCredentials, integrations } from '@sena/database';
+import { db, integrationAuditLogs, integrationCredentials, integrations, properties } from '@sena/database';
 import { decryptIntegrationSecret, encryptIntegrationSecret, maskSecret, readIntegrationSecret } from './crypto';
 
 export type PaystackMode = 'test' | 'live';
@@ -117,9 +117,13 @@ export async function connectPaystack(propertyId: string, actorUserId: string, s
     const metadata = { ...(current?.metadata && typeof current.metadata === 'object' ? current.metadata : {}), currencies: verified.currencies, ...previous };
     const existingToken = current ? readIntegrationSecret(current.webhookTokenEncrypted) : null;
     const replaceUnreadToken = Boolean(current && !existingToken);
+    const webhookConfigured = {
+      webhookStatus: current?.webhookStatus === 'active' && !replaceUnreadToken ? 'active' : 'configured',
+      ...(current?.webhookStatus === 'active' && !replaceUnreadToken ? {} : { webhookVerifiedAt: null as Date | null }),
+    };
     const [integration] = current
-      ? await tx.update(integrations).set({ status: 'connected', mode: verified.mode, externalAccountId: verified.accountLabel, connectedAt: current.connectedAt || now, verifiedAt: now, disconnectedAt: null, lastErrorAt: null, lastErrorMessage: null, metadata, updatedAt: now, ...(replaceUnreadToken ? { webhookTokenHash, webhookTokenEncrypted } : {}) }).where(eq(integrations.id, current.id)).returning()
-      : await tx.insert(integrations).values({ propertyId, provider: 'paystack', category: 'payments', status: 'connected', mode: verified.mode, externalAccountId: verified.accountLabel, webhookTokenHash, webhookTokenEncrypted, connectedAt: now, verifiedAt: now, metadata: { currencies: verified.currencies, enabled: true, acceptOnlinePayments: true, directBooking: true, invoices: true } }).returning();
+      ? await tx.update(integrations).set({ status: 'connected', mode: verified.mode, externalAccountId: verified.accountLabel, connectedAt: current.connectedAt || now, verifiedAt: now, disconnectedAt: null, lastErrorAt: null, lastErrorMessage: null, metadata, updatedAt: now, ...webhookConfigured, ...(replaceUnreadToken ? { webhookTokenHash, webhookTokenEncrypted } : {}) }).where(eq(integrations.id, current.id)).returning()
+      : await tx.insert(integrations).values({ propertyId, provider: 'paystack', category: 'payments', status: 'connected', mode: verified.mode, externalAccountId: verified.accountLabel, webhookTokenHash, webhookTokenEncrypted, webhookStatus: 'configured', connectedAt: now, verifiedAt: now, metadata: { currencies: verified.currencies, enabled: true, acceptOnlinePayments: true, directBooking: true, invoices: true } }).returning();
     const existingCredential = await tx.query.integrationCredentials.findFirst({ where: and(eq(integrationCredentials.integrationId, integration.id), eq(integrationCredentials.credentialType, 'secret_key')) });
     if (existingCredential) await tx.update(integrationCredentials).set({ encryptedValue, maskedSuffix: suffix, rotatedAt: now }).where(eq(integrationCredentials.id, existingCredential.id));
     else await tx.insert(integrationCredentials).values({ integrationId: integration.id, credentialType: 'secret_key', encryptedValue, maskedSuffix: suffix });
@@ -187,8 +191,20 @@ export async function disconnectPaystack(propertyId: string, actorUserId: string
   await db.transaction(async (tx) => {
     await tx.delete(integrationCredentials).where(eq(integrationCredentials.integrationId, record.integration.id));
     await tx.update(integrations).set({ status: 'disconnected', disconnectedAt: new Date(), updatedAt: new Date() }).where(eq(integrations.id, record.integration.id));
+    const property = await tx.query.properties.findFirst({ where: eq(properties.id, propertyId) });
+    if (property?.preferredOnlineProvider === 'paystack') {
+      await tx.update(properties).set({ preferredOnlineProvider: null, updatedAt: new Date() }).where(eq(properties.id, propertyId));
+    }
     await tx.insert(integrationAuditLogs).values({ integrationId: record.integration.id, propertyId, actorUserId, action: 'paystack.disconnected', mode: record.integration.mode });
   });
+}
+
+/** Sena-owned webhook readiness. Paystack dashboard paste is external; VERIFIED only after an authentic provider webhook settles. */
+export function paystackWebhookReadiness(webhookStatus: string | null | undefined, hasWebhookUrl: boolean) {
+  if (webhookStatus === 'active') return 'verified' as const;
+  if (webhookStatus === 'needs_attention') return 'needs_attention' as const;
+  if (hasWebhookUrl || webhookStatus === 'configured' || webhookStatus === 'not_configured') return 'configured_unverified' as const;
+  return 'not_configured' as const;
 }
 
 export function safePaystackState(record: Awaited<ReturnType<typeof getPropertyPaystack>>, origin: string, lastWebhookAt?: Date | null) {
@@ -196,6 +212,7 @@ export function safePaystackState(record: Awaited<ReturnType<typeof getPropertyP
   const token = decryptIntegrationSecret(record.integration.webhookTokenEncrypted);
   const controls = paystackPaymentControls(record.integration.metadata);
   const displayStatus = paystackDisplayStatus(record);
+  const webhookUrl = `${origin.replace(/\/$/, '')}/api/webhooks/paystack/${token}`;
   return {
     status: record.integration.status,
     displayStatus,
@@ -204,9 +221,10 @@ export function safePaystackState(record: Awaited<ReturnType<typeof getPropertyP
     connectedAt: record.integration.connectedAt,
     verifiedAt: record.integration.verifiedAt,
     webhookStatus: record.integration.webhookStatus,
+    webhookReadiness: paystackWebhookReadiness(record.integration.webhookStatus, Boolean(webhookUrl)),
     webhookVerifiedAt: record.integration.webhookVerifiedAt,
     lastWebhookAt: lastWebhookAt || null,
-    webhookUrl: `${origin.replace(/\/$/, '')}/api/webhooks/paystack/${token}`,
+    webhookUrl,
     secret: maskSecret(record.credential.maskedSuffix),
     ...controls,
   };

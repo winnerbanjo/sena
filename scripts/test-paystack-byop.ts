@@ -6,7 +6,7 @@ process.env.SENA_INTEGRATION_ENCRYPTION_KEY ||= '11'.repeat(32);
 
 async function run() {
   const database = await import('../packages/database/src/index');
-  const { db, guests, integrationAuditLogs, integrationCredentials, integrations, organizations, payments, paymentAttempts, properties, propertyInvoices, reservations, roomTypes, users, eq, sql } = database;
+  const { db, guests, integrationAuditLogs, integrationCredentials, integrations, organizations, payments, paymentAttempts, properties, propertyInvoices, reservations, roomTypes, users, and, eq, sql } = database;
   const paystack = await import('../apps/dashboard/src/lib/integrations/paystack');
   const paymentFlow = await import('../apps/dashboard/src/lib/paystack-payments');
   const cryptoModule = await import('../apps/dashboard/src/lib/integrations/crypto');
@@ -49,10 +49,11 @@ async function run() {
   console.log('PASS credential verification, masking, and tenant isolation');
 
   let initializedReference = '';
+  let expectedInitAmount = 50000;
   const initializeFetch = async (_url: string | URL | Request, init?: RequestInit) => {
     const payload = JSON.parse(String(init?.body));
     initializedReference = payload.reference;
-    assert.equal(payload.amount, 50000);
+    assert.equal(payload.amount, expectedInitAmount);
     assert.equal(payload.currency, 'NGN');
     assert.equal(payload.email, 'guest@qa.invalid');
     return new Response(JSON.stringify({ status: true, data: { authorization_url: 'https://checkout.paystack.test/synthetic', reference: payload.reference } }), { status: 200, headers: { 'content-type': 'application/json' } });
@@ -67,6 +68,15 @@ async function run() {
   const attempt = await db.query.paymentAttempts.findFirst({ where: eq(paymentAttempts.providerReference, initialized.reference) });
   const verified = { id: 9001, status: 'success', reference: initialized.reference, amount: 50000, currency: 'NGN', channel: 'card', paid_at: '2030-01-01T12:00:00Z', metadata: { type: 'reservation_settlement', propertyId: ids.property, reservationId: ids.reservation, paymentAttemptId: attempt!.id, source: 'direct_booking' } };
   await assert.rejects(paymentFlow.settlePropertyPaystack(attempt!.id, { ...verified, reference: 'SENA_tampered' }), /PAYMENT_MISMATCH/);
+  await assert.rejects(paymentFlow.settlePropertyPaystack(attempt!.id, { ...verified, amount: 1 }), /AMOUNT_MISMATCH/);
+  await assert.rejects(paymentFlow.settlePropertyPaystack(attempt!.id, { ...verified, currency: 'USD' }), /CURRENCY_MISMATCH/);
+  assert.equal((await paystack.getPropertyPaystack(ids.property))?.integration.webhookStatus, 'configured');
+  const { flutterwaveReturnContext } = await import('../apps/dashboard/src/lib/flutterwave-callback');
+  const paystackReturn = flutterwaveReturnContext(new URLSearchParams(`reference=SYN-BYOP-001&payment=confirming&trxref=${initialized.reference}&reference=${initialized.reference}`));
+  assert.equal(paystackReturn.txRef, initialized.reference);
+  assert.equal(paystackReturn.reference, 'SYN-BYOP-001');
+  assert.equal(paystackReturn.confirming, true);
+  console.log('PASS reference/amount/currency mismatches rejected; Paystack return extracts SENA_ via trxref');
   const record = await paystack.getPropertyPaystack(ids.property);
   const state = paystack.safePaystackState(record, 'https://preview.invalid');
   const token = new URL(state.webhookUrl!).pathname.split('/').pop()!;
@@ -90,7 +100,7 @@ async function run() {
   } finally { globalThis.fetch = originalFetch; }
   assert.equal((await db.query.payments.findMany({ where: eq(payments.providerReference, initialized.reference) })).length, 1);
   assert.equal((await db.query.reservations.findFirst({ where: eq(reservations.id, ids.reservation) }))?.paidAmountMinorUnits, 50000);
-  assert.equal((await db.query.integrations.findFirst({ where: eq(integrations.propertyId, ids.property) }))?.webhookStatus, 'active');
+  assert.equal((await db.query.integrations.findFirst({ where: and(eq(integrations.propertyId, ids.property), eq(integrations.provider, 'paystack')) }))?.webhookStatus, 'active');
   console.log('PASS signed property webhook verifies directly, settles once, and reports health');
 
   const [invoice] = await db.insert(propertyInvoices).values({ propertyId: ids.property, organizationId: ids.organization, invoiceNumber: 'SYN-BYOP-INV-001', recipientName: 'Synthetic Guest', recipientEmail: 'guest@qa.invalid', issueDate: '2030-01-01', dueDate: '2030-01-02', totalAmountMinorUnits: 12000, currency: 'NGN', status: 'issued' }).returning();
@@ -135,12 +145,105 @@ async function run() {
 
   await paystack.connectPaystack(ids.property, ids.user, 'sk_test_rotated_secret_5678', true, verifyFetch as typeof fetch);
   assert.equal((await paystack.requireConnectedPaystack(ids.property)).secret, 'sk_test_rotated_secret_5678');
+
+  const online = await import('../apps/dashboard/src/lib/online-provider');
+  const flutterwave = await import('../apps/dashboard/src/lib/integrations/flutterwave');
+  const fwSecret = 'FLWSECK_TEST-syntheticpaystackcoexist000000000000';
+  const fwVerify = async () => new Response(JSON.stringify({ status: 'success', data: [{ currency: 'NGN', available_balance: 0 }] }), { status: 200, headers: { 'content-type': 'application/json' } });
+  await flutterwave.connectFlutterwave(ids.property, ids.user, fwSecret, false, fwVerify as typeof fetch);
+  assert.equal(await online.resolveOnlinePaymentProvider(ids.property, 'direct_booking'), 'paystack');
+  await online.setPreferredOnlineProvider(ids.property, ids.user, 'flutterwave');
+  assert.equal(await online.resolveOnlinePaymentProvider(ids.property, 'direct_booking'), 'flutterwave');
+  await flutterwave.updateFlutterwavePaymentControls(ids.property, ids.user, { enabled: false });
+  assert.equal(await online.resolveOnlinePaymentProvider(ids.property, 'direct_booking'), 'paystack');
+  await paystack.updatePaystackPaymentControls(ids.property, ids.user, { enabled: false });
+  assert.equal(await online.resolveOnlinePaymentProvider(ids.property, 'direct_booking'), null);
+  await paystack.updatePaystackPaymentControls(ids.property, ids.user, { enabled: true });
+  await flutterwave.updateFlutterwavePaymentControls(ids.property, ids.user, { enabled: true });
+  await online.setPreferredOnlineProvider(ids.property, ids.user, 'paystack');
+  assert.equal(await online.resolveOnlinePaymentProvider(ids.property, 'direct_booking'), 'paystack');
+  console.log('PASS preferred provider, pause fallback, and both-provider coexistence');
+
+  // Leave room on the folio for callback/webhook convergence cases after the earlier 50_000 settlement.
+  await db.update(reservations).set({ totalAmountMinorUnits: 51000, paymentStatus: 'part_payment' }).where(eq(reservations.id, ids.reservation));
+
+  const confirmRoute = await import('../apps/dashboard/src/app/api/payments/public/confirm/route');
+  expectedInitAmount = 100;
+  const callbackFirst = await paymentFlow.initializePropertyPaystack({
+    propertyId: ids.property, reservationId: ids.reservation, email: 'guest@qa.invalid', amountMinorUnits: 100,
+    currency: 'NGN', source: 'direct_booking', callbackUrl: 'https://preview.invalid/confirming', idempotencyKey: 'order-callback-first',
+  }, initializeFetch as typeof fetch);
+  const callbackAttempt = await db.query.paymentAttempts.findFirst({ where: eq(paymentAttempts.providerReference, callbackFirst.reference) });
+  const callbackVerified = {
+    id: 91001, status: 'success', reference: callbackFirst.reference, amount: 100, currency: 'NGN', channel: 'card', paid_at: '2030-04-01T12:00:00Z',
+    metadata: { type: 'reservation_settlement', propertyId: ids.property, reservationId: ids.reservation, paymentAttemptId: callbackAttempt!.id, source: 'direct_booking' },
+  };
+  globalThis.fetch = (async () => new Response(JSON.stringify({ status: true, data: callbackVerified }), { status: 200, headers: { 'content-type': 'application/json' } })) as typeof fetch;
+  try {
+    const confirmFirst = await confirmRoute.POST(new Request('https://preview.invalid/api/payments/public/confirm', { method: 'POST', body: JSON.stringify({ reference: callbackFirst.reference }) }) as any);
+    assert.equal(confirmFirst.status, 200);
+    assert.equal((await confirmFirst.json()).status, 'success');
+    const callbackToken = new URL(paystack.safePaystackState(await paystack.getPropertyPaystack(ids.property), 'https://preview.invalid').webhookUrl!).pathname.split('/').pop()!;
+    const callbackEvent = JSON.stringify({ event: 'charge.success', data: callbackVerified });
+    const callbackSig = (await import('node:crypto')).createHmac('sha512', 'sk_test_rotated_secret_5678').update(callbackEvent).digest('hex');
+    const afterCallback = await webhook.POST(new Request(`https://preview.invalid/api/webhooks/paystack/${callbackToken}`, { method: 'POST', headers: { 'x-paystack-signature': callbackSig }, body: callbackEvent }) as any, { params: Promise.resolve({ token: callbackToken }) });
+    assert.equal(afterCallback.status, 200);
+    assert.equal((await afterCallback.json()).status, 'already_processed');
+    assert.equal((await db.query.payments.findMany({ where: eq(payments.providerReference, callbackFirst.reference) })).length, 1);
+    assert.equal((await db.query.integrations.findFirst({ where: and(eq(integrations.propertyId, ids.property), eq(integrations.provider, 'paystack')) }))?.webhookStatus, 'active');
+  } finally { globalThis.fetch = originalFetch; }
+
+  const webhookFirst = await paymentFlow.initializePropertyPaystack({
+    propertyId: ids.property, reservationId: ids.reservation, email: 'guest@qa.invalid', amountMinorUnits: 100,
+    currency: 'NGN', source: 'direct_booking', callbackUrl: 'https://preview.invalid/confirming', idempotencyKey: 'order-webhook-first',
+  }, initializeFetch as typeof fetch);
+  const webhookAttempt = await db.query.paymentAttempts.findFirst({ where: eq(paymentAttempts.providerReference, webhookFirst.reference) });
+  const webhookVerified = {
+    id: 91002, status: 'success', reference: webhookFirst.reference, amount: 100, currency: 'NGN', channel: 'card', paid_at: '2030-04-01T12:05:00Z',
+    metadata: { type: 'reservation_settlement', propertyId: ids.property, reservationId: ids.reservation, paymentAttemptId: webhookAttempt!.id, source: 'direct_booking' },
+  };
+  globalThis.fetch = (async () => new Response(JSON.stringify({ status: true, data: webhookVerified }), { status: 200, headers: { 'content-type': 'application/json' } })) as typeof fetch;
+  try {
+    const webhookToken = new URL(paystack.safePaystackState(await paystack.getPropertyPaystack(ids.property), 'https://preview.invalid').webhookUrl!).pathname.split('/').pop()!;
+    const webhookEvent = JSON.stringify({ event: 'charge.success', data: webhookVerified });
+    const webhookSig = (await import('node:crypto')).createHmac('sha512', 'sk_test_rotated_secret_5678').update(webhookEvent).digest('hex');
+    const webhookRes = await webhook.POST(new Request(`https://preview.invalid/api/webhooks/paystack/${webhookToken}`, { method: 'POST', headers: { 'x-paystack-signature': webhookSig }, body: webhookEvent }) as any, { params: Promise.resolve({ token: webhookToken }) });
+    assert.equal(webhookRes.status, 200);
+    const confirmSecond = await confirmRoute.POST(new Request('https://preview.invalid/api/payments/public/confirm', { method: 'POST', body: JSON.stringify({ reference: webhookFirst.reference }) }) as any);
+    assert.equal(confirmSecond.status, 200);
+    assert.equal((await confirmSecond.json()).status, 'already_processed');
+    assert.equal((await db.query.payments.findMany({ where: eq(payments.providerReference, webhookFirst.reference) })).length, 1);
+  } finally { globalThis.fetch = originalFetch; }
+  console.log('PASS callback-first and webhook-first converge once; duplicate webhook is idempotent');
+
+  expectedInitAmount = 250;
+  const mismatchInit = await paymentFlow.initializePropertyPaystack({
+    propertyId: ids.property, reservationId: ids.reservation, email: 'guest@qa.invalid', amountMinorUnits: 250,
+    currency: 'NGN', source: 'direct_booking', callbackUrl: 'https://preview.invalid/confirming', idempotencyKey: 'order-mismatch',
+  }, initializeFetch as typeof fetch);
+  const mismatchAttempt = await db.query.paymentAttempts.findFirst({ where: eq(paymentAttempts.providerReference, mismatchInit.reference) });
+  const mismatchPayload = {
+    id: 91099, status: 'success', reference: mismatchInit.reference, amount: 1, currency: 'NGN', channel: 'card', paid_at: '2030-04-01T13:00:00Z',
+    metadata: { type: 'reservation_settlement', propertyId: ids.property, reservationId: ids.reservation, paymentAttemptId: mismatchAttempt!.id, source: 'direct_booking' },
+  };
+  const mismatchBody = JSON.stringify({ event: 'charge.success', data: mismatchPayload });
+  const mismatchSig = (await import('node:crypto')).createHmac('sha512', 'sk_test_rotated_secret_5678').update(mismatchBody).digest('hex');
+  globalThis.fetch = (async () => new Response(JSON.stringify({ status: true, data: mismatchPayload }), { status: 200, headers: { 'content-type': 'application/json' } })) as typeof fetch;
+  try {
+    const mismatchToken = new URL(paystack.safePaystackState(await paystack.getPropertyPaystack(ids.property), 'https://preview.invalid').webhookUrl!).pathname.split('/').pop()!;
+    const mismatchRes = await webhook.POST(new Request(`https://preview.invalid/api/webhooks/paystack/${mismatchToken}`, { method: 'POST', headers: { 'x-paystack-signature': mismatchSig }, body: mismatchBody }) as any, { params: Promise.resolve({ token: mismatchToken }) });
+    assert.equal(mismatchRes.status, 409);
+  } finally { globalThis.fetch = originalFetch; }
+  console.log('PASS amount mismatch webhook returns 409 without settling');
+
   await paystack.disconnectPaystack(ids.property, ids.user);
   await assert.rejects(paystack.requireConnectedPaystack(ids.property), /PAYSTACK_NOT_CONNECTED/);
+  assert.equal((await db.query.properties.findFirst({ where: eq(properties.id, ids.property) }))?.preferredOnlineProvider || null, null);
   assert.equal((await db.query.payments.findMany({ where: eq(payments.providerReference, initialized.reference) })).length, 1);
-  console.log('PASS key rotation and disconnect preserve financial history');
+  console.log('PASS key rotation and disconnect preserve financial history and clear preferred provider');
   console.log('Paystack BYOP groups passed with synthetic data and mocked provider calls.');
   process.exit(0);
 }
+
 
 run().catch((error) => { console.error(error); process.exit(1); });
