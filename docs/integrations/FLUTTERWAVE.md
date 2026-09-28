@@ -63,6 +63,10 @@ Before settlement Sena re-queries Flutterwave (`GET /v3/transactions/{id}/verify
 
 Sena does not create a Flutterwave ledger. A verified transaction inserts one row in the existing `payments` table with `provider = flutterwave` and issues the existing receipt email exactly once (`payment_receipt_${reference}`).
 
+An invoice does not need a reservation to settle or to receive a receipt. When the invoice has a recipient email, that address receives the existing payment receipt. When a linked reservation has a guest email, that guest address is used instead, still as one email. When neither address exists, settlement still records the payment, the balance, and the in-app notification, and Sena does not write a sent receipt email.
+
+Reconnecting replaces only ciphertext this runtime cannot read: the webhook URL token and the dashboard secret hash. A readable Paystack or Flutterwave credential is not rotated. Flutterwave rejecting the secret remains `INVALID_CREDENTIAL`. An unreadable stored credential remains `CREDENTIAL_UNREADABLE`. Missing encryption configuration remains `ENCRYPTION_UNAVAILABLE`.
+
 Underpayment, overpayment, and currency mismatch throw `AMOUNT_MISMATCH` / `CURRENCY_MISMATCH` / `PAYMENT_MISMATCH` and do **not** mark the invoice or reservation paid.
 
 Webhook + callback + retry of the same `tx_ref` still produce one payment, one balance reduction, and one receipt (advisory lock + completed attempt short-circuit + unique provider reference).

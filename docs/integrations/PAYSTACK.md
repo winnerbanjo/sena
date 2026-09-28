@@ -8,6 +8,8 @@ Property payment initialization derives the amount, currency, guest email, and p
 
 Webhook settlement checks the integration, tenant, payment attempt, purpose, amount, currency, reference, and metadata. Settlement uses a database transaction and advisory lock so duplicate or concurrent delivery records one receipt and one balance update. A Paystack redirect only shows a confirming state; it never proves payment.
 
+Invoice receipt email uses the reservation guest email when that reservation exists. Otherwise it uses the invoice recipient email. An invoice with neither address still settles, and Sena does not record a sent receipt email. The idempotency key remains `payment_receipt_${reference}`.
+
 Disconnecting removes the active credential and stops new online payments. It preserves payment attempts, receipts, invoices, reservation balances, and audit history. Reconnecting or replacing a key verifies the new key before replacing the existing credential.
 
 The global `PAYSTACK_SECRET_KEY` remains reserved for Sena subscription billing. It must not initialize or verify guest, invoice, direct-booking, or API-booking payments.

@@ -57,8 +57,7 @@ export async function POST(req: NextRequest) {
     await connectPaystack(result.resolved.propertyId, result.resolved.userId, body.secretKey);
     return NextResponse.json({ paystack: await stateFor(result.resolved.propertyId, origin(req)) }, { status: 201 });
   } catch (error: any) {
-    const unavailable = error?.message === 'PROVIDER_UNAVAILABLE';
-    return NextResponse.json({ error: unavailable ? 'Paystack is temporarily unavailable. Try again shortly.' : "We couldn't connect this Paystack account. Check your secret key and try again." }, { status: unavailable ? 503 : 422 });
+    return connectionError(error, "We couldn't connect this Paystack account. Check your secret key and try again.");
   }
 }
 
@@ -81,10 +80,18 @@ export async function PATCH(req: NextRequest) {
     } else return NextResponse.json({ error: 'Invalid action.' }, { status: 422 });
     return NextResponse.json({ paystack: await stateFor(result.resolved.propertyId, origin(req)) });
   } catch (error: any) {
-    const unavailable = error?.message === 'PROVIDER_UNAVAILABLE';
-    const disconnected = error?.message === 'PAYSTACK_NOT_CONNECTED';
-    return NextResponse.json({ error: disconnected ? 'Connect Paystack before changing these settings.' : unavailable ? 'Paystack is temporarily unavailable. Try again shortly.' : "We couldn't verify this Paystack account." }, { status: disconnected ? 409 : unavailable ? 503 : 422 });
+    if (error?.message === 'PAYSTACK_NOT_CONNECTED') return NextResponse.json({ error: 'Connect Paystack before changing these settings.', code: 'PAYSTACK_NOT_CONNECTED' }, { status: 409 });
+    return connectionError(error, "We couldn't verify this Paystack account.");
   }
+}
+
+function connectionError(error: { message?: string }, fallback: string) {
+  const code = error?.message;
+  if (code === 'PROVIDER_UNAVAILABLE') return NextResponse.json({ error: 'Paystack is temporarily unavailable. Try again shortly.', code }, { status: 503 });
+  if (code === 'ENCRYPTION_UNAVAILABLE') return NextResponse.json({ error: 'Payment credential storage is unavailable.', code }, { status: 503 });
+  if (code === 'CREDENTIAL_UNREADABLE') return NextResponse.json({ error: 'The stored Paystack connection could not be read. Reconnect Paystack to replace it.', code }, { status: 409 });
+  if (code === 'INVALID_CREDENTIAL') return NextResponse.json({ error: "We couldn't connect this Paystack account. Check your secret key and try again.", code }, { status: 422 });
+  return NextResponse.json({ error: fallback, code: 'CONNECTION_FAILED' }, { status: 422 });
 }
 
 export async function DELETE(req: NextRequest) {

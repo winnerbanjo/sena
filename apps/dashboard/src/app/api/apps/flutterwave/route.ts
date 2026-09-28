@@ -65,8 +65,7 @@ export async function POST(req: NextRequest) {
     const connected = await connectFlutterwave(result.resolved.propertyId, result.resolved.userId, body.secretKey);
     return NextResponse.json({ flutterwave: await stateFor(result.resolved.propertyId, origin(req), connected.webhookSecret) }, { status: 201 });
   } catch (error: any) {
-    const unavailable = error?.message === 'PROVIDER_UNAVAILABLE';
-    return NextResponse.json({ error: unavailable ? 'Flutterwave is temporarily unavailable. Try again shortly.' : "Connection failed. Check your Flutterwave secret key and try again." }, { status: unavailable ? 503 : 422 });
+    return connectionError(error, "Connection failed. Check your Flutterwave secret key and try again.");
   }
 }
 
@@ -92,10 +91,18 @@ export async function PATCH(req: NextRequest) {
     } else return NextResponse.json({ error: 'Invalid action.' }, { status: 422 });
     return NextResponse.json({ flutterwave: await stateFor(result.resolved.propertyId, origin(req), webhookSecretOnce) });
   } catch (error: any) {
-    const unavailable = error?.message === 'PROVIDER_UNAVAILABLE';
-    const disconnected = error?.message === 'FLUTTERWAVE_NOT_CONNECTED';
-    return NextResponse.json({ error: disconnected ? 'Connect Flutterwave before changing these settings.' : unavailable ? 'Flutterwave is temporarily unavailable. Try again shortly.' : "We couldn't verify this Flutterwave account." }, { status: disconnected ? 409 : unavailable ? 503 : 422 });
+    if (error?.message === 'FLUTTERWAVE_NOT_CONNECTED') return NextResponse.json({ error: 'Connect Flutterwave before changing these settings.', code: 'FLUTTERWAVE_NOT_CONNECTED' }, { status: 409 });
+    return connectionError(error, "We couldn't verify this Flutterwave account.");
   }
+}
+
+function connectionError(error: { message?: string }, fallback: string) {
+  const code = error?.message;
+  if (code === 'PROVIDER_UNAVAILABLE') return NextResponse.json({ error: 'Flutterwave is temporarily unavailable. Try again shortly.', code }, { status: 503 });
+  if (code === 'ENCRYPTION_UNAVAILABLE') return NextResponse.json({ error: 'Payment credential storage is unavailable.', code }, { status: 503 });
+  if (code === 'CREDENTIAL_UNREADABLE') return NextResponse.json({ error: 'The stored Flutterwave connection could not be read. Reconnect Flutterwave to replace it.', code }, { status: 409 });
+  if (code === 'INVALID_CREDENTIAL') return NextResponse.json({ error: "Connection failed. Check your Flutterwave secret key and try again.", code }, { status: 422 });
+  return NextResponse.json({ error: fallback, code: 'CONNECTION_FAILED' }, { status: 422 });
 }
 
 export async function DELETE(req: NextRequest) {

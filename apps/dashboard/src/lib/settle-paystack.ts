@@ -68,10 +68,13 @@ export async function sendVerifiedPaymentNotice(data: any) {
   }
   const invoice=metadata.type==='invoice_settlement' ? await db.query.propertyInvoices.findFirst({where:eq(propertyInvoices.id,metadata.invoiceId)}) : undefined;
   const reservationId=invoice?.reservationId || metadata.reservationId;
-  if(!reservationId) return;
-  const reservation=await db.query.reservations.findFirst({where:eq(reservations.id,reservationId)});
-  if(!reservation) return;
-  const guest=await db.query.guests.findFirst({where:eq(guests.id,reservation.guestId)});
-  const property=await db.query.properties.findFirst({where:eq(properties.id,reservation.propertyId)});
-  if(guest?.email && property) await sendPaymentReceiptEmail({guestEmail:guest.email,guestName:guest.fullName,reference:reservation.reference,paymentReference:data.reference,propertyName:property.name,amountFormatted:`${data.currency} ${(data.amount/100).toFixed(2)}`,paymentMethod: metadata.providerLabel === 'Flutterwave' ? 'Flutterwave' : 'Paystack',paidAt:new Date(data.paid_at || Date.now()).toLocaleString('en-NG')});
+  const reservation=reservationId ? await db.query.reservations.findFirst({where:eq(reservations.id,reservationId)}) : undefined;
+  const guest=reservation ? await db.query.guests.findFirst({where:eq(guests.id,reservation.guestId)}) : undefined;
+  const propertyId=reservation?.propertyId || invoice?.propertyId;
+  const property=propertyId ? await db.query.properties.findFirst({where:eq(properties.id,propertyId)}) : undefined;
+  if(!property || !data.reference) return;
+  const recipient=guest?.email || invoice?.recipientEmail;
+  const reference=reservation?.reference || invoice?.invoiceNumber;
+  if(!recipient || !reference) return;
+  await sendPaymentReceiptEmail({guestEmail:recipient,guestName:guest?.fullName || invoice?.recipientName || 'Guest',reference,paymentReference:data.reference,propertyName:property.name,amountFormatted:`${data.currency} ${(data.amount/100).toFixed(2)}`,paymentMethod: metadata.providerLabel === 'Flutterwave' ? 'Flutterwave' : 'Paystack',paidAt:new Date(data.paid_at || Date.now()).toLocaleString('en-NG')});
 }
