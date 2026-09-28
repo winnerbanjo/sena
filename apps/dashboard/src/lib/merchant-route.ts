@@ -34,8 +34,10 @@ export function withMerchant(handler: Handler, scope: string): Handler {
       const role = aliases[rawRole] || rawRole as Role;
       const permissions = ROLE_PERMISSIONS[role] || [];
       const read = req.method === 'GET';
-      const required: Record<string, Permission> = { settings: 'room.edit', calendar: 'reservation.read', reservations: read ? 'reservation.read' : 'reservation.create', guests: read ? 'guest.read' : 'guest.edit', rooms: read ? 'room.read' : 'room.edit', housekeeping: 'housekeeping.update', payments: read ? 'payment.read' : 'payment.record', invoices: read ? 'payment.read' : 'payment.record', staff: 'staff.invite', subscription: 'billing.manage', website: 'website.edit', reviews: 'website.edit', upload: 'website.edit', connect: 'billing.manage' };
-      if (!required[scope] || !permissions.includes(required[scope])) return NextResponse.json({ error: 'Your role does not allow this action. Contact your property manager.' }, { status: 403 });
+      const required: Record<string, Permission | Permission[]> = { settings: 'room.edit', calendar: 'reservation.read', reservations: read ? 'reservation.read' : 'reservation.create', guests: read ? 'guest.read' : 'guest.edit', rooms: read ? 'room.read' : 'room.edit', housekeeping: 'housekeeping.update', payments: read ? 'payment.read' : 'payment.record', invoices: read ? 'payment.read' : 'payment.record', staff: 'staff.invite', subscription: 'billing.manage', website: 'website.edit', reviews: 'website.edit', upload: 'website.edit', connect: 'billing.manage', reports: ['analytics.read', 'payment.read'] };
+      const needed = required[scope];
+      const allowed = Array.isArray(needed) ? needed.some((permission) => permissions.includes(permission)) : Boolean(needed && permissions.includes(needed));
+      if (!needed || !allowed) return NextResponse.json({ error: 'Your role does not allow this action. Contact your property manager.' }, { status: 403 });
 
       let body: Record<string, unknown> = {};
       if (req.headers.get('content-type')?.includes('application/json') && !['GET', 'HEAD'].includes(req.method)) {

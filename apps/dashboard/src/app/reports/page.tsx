@@ -1,6 +1,8 @@
 'use client';
 
 import { PageLoadState, readJsonResponse } from '../../components/page-load-state';
+import { classifyLoadFailure, type LoadFailureKind } from '../../lib/page-load';
+import { parseReportRange, type ReportRangeKey } from '../../lib/reports';
 import * as React from 'react';
 import { Topbar } from '../../components/topbar';
 import { NewReservationDialog } from '../../components/new-reservation-dialog';
@@ -28,33 +30,40 @@ import { useToast } from '../../components/toast-notification';
 export default function ReportsPage() {
   const toast = useToast();
   const [newResOpen, setNewResOpen] = React.useState(false);
-  const [dateRange, setDateRange] = React.useState<'today' | 'week' | 'month' | 'quarter' | 'year'>('month');
+  const [dateRange, setDateRange] = React.useState<ReportRangeKey>('month');
   const [activeReportTab, setActiveReportTab] = React.useState<'financial' | 'occupancy' | 'housekeeping' | 'tax'>('financial');
   const [exporting, setExporting] = React.useState<string | null>(null);
 
-  // Dynamic DB data
   const [reservations, setReservations] = React.useState<any[]>([]);
   const [payments, setPayments] = React.useState<any[]>([]);
   const [rooms, setRooms] = React.useState<any[]>([]);
   const [roomTypes, setRoomTypes] = React.useState<any[]>([]);
+  const [rangeDays, setRangeDays] = React.useState(30);
   const [loadError, setLoadError] = React.useState(false);
+  const [failureKind, setFailureKind] = React.useState<LoadFailureKind>('error');
   const [loading, setLoading] = React.useState(true);
 
+  const loadReports = React.useCallback(async () => {
+    setLoadError(false);
+    setLoading(true);
+    try {
+      const data = await fetch(`/api/reports?range=${dateRange}`, { cache: 'no-store' }).then(readJsonResponse);
+      setReservations(Array.isArray(data.reservations) ? data.reservations : []);
+      setPayments(Array.isArray(data.payments) ? data.payments : []);
+      setRooms(Array.isArray(data.rooms) ? data.rooms : []);
+      setRoomTypes(Array.isArray(data.roomTypes) ? data.roomTypes : []);
+      setRangeDays(Number(data.days) > 0 ? Number(data.days) : 1);
+    } catch (error) {
+      setFailureKind(classifyLoadFailure(error, typeof navigator === 'undefined' ? true : navigator.onLine));
+      setLoadError(true);
+    } finally {
+      setLoading(false);
+    }
+  }, [dateRange]);
+
   React.useEffect(() => {
-    Promise.all([
-      fetch('/api/reservations').then(readJsonResponse),
-      fetch('/api/payments').then(readJsonResponse),
-      fetch('/api/rooms').then(readJsonResponse),
-    ])
-      .then(([resData, payData, roomData]) => {
-        if (resData.reservations) setReservations(resData.reservations);
-        if (payData.payments) setPayments(payData.payments);
-        if (roomData.rooms) setRooms(roomData.rooms);
-        if (roomData.roomTypes) setRoomTypes(roomData.roomTypes);
-      })
-      .catch(() => setLoadError(true))
-      .finally(() => setLoading(false));
-  }, []);
+    loadReports();
+  }, [loadReports]);
 
   const handleExport = (format: 'csv' | 'pdf') => {
     setExporting(format);
@@ -81,14 +90,15 @@ export default function ReportsPage() {
   const commissionSavedMinorUnits = Math.round(directBookingsValue * 0.15);
 
   // Taxes
-  const vatMinorUnits = Math.round(grossBookingValueMinorUnits * 0.075);
-  const consumptionTaxMinorUnits = Math.round(grossBookingValueMinorUnits * 0.05);
+  const settledMinorUnits = reservations.reduce((sum, r) => sum + Number(r.paidAmountMinorUnits || 0), 0);
+  const vatMinorUnits = Math.round(settledMinorUnits * 0.075);
+  const consumptionTaxMinorUnits = Math.round(settledMinorUnits * 0.05);
   const totalTaxMinorUnits = vatMinorUnits + consumptionTaxMinorUnits;
 
   // Occupancy metrics
   const validStays = reservations.filter((r) => r.status !== 'cancelled');
   const totalNightsSold = validStays.reduce((sum, r) => sum + Number(r.nights || 1), 0);
-  const totalAvailableRoomNights = rooms.length * 30 || 1;
+  const totalAvailableRoomNights = rooms.length * rangeDays || 1;
   const avgOccupancy = rooms.length > 0
     ? Math.min(100, Math.round((totalNightsSold / totalAvailableRoomNights) * 100))
     : 0;
@@ -97,7 +107,7 @@ export default function ReportsPage() {
     ? Math.round(grossBookingValueMinorUnits / totalNightsSold)
     : 0;
   const revParMinorUnits = rooms.length > 0
-    ? Math.round(grossBookingValueMinorUnits / (rooms.length * 30))
+    ? Math.round(grossBookingValueMinorUnits / (rooms.length * rangeDays))
     : 0;
 
   const avgStayLength = validStays.length > 0
@@ -109,7 +119,7 @@ export default function ReportsPage() {
   const dirtyRoomsCount = rooms.filter((r) => (r.housekeepingStatus || r.housekeeping) === 'dirty').length;
   const cleaningRoomsCount = rooms.filter((r) => (r.housekeepingStatus || r.housekeeping) === 'cleaning').length;
 
-  if (loading || loadError) return <PageLoadState title="Reports" failed={loadError} />;
+  if (loading || loadError) return <PageLoadState title="Reports" failed={loadError} failureKind={failureKind} retry={loadReports} />;
 
   return (
     <div className="flex-1 flex flex-col h-screen overflow-hidden bg-white">
@@ -133,7 +143,7 @@ export default function ReportsPage() {
           <div className="flex items-center gap-2 sm:gap-2.5 flex-wrap">
             <select
               value={dateRange}
-              onChange={(e) => setDateRange(e.target.value as any)}
+              onChange={(e) => setDateRange(parseReportRange(e.target.value))}
               className="px-3 py-1.5 rounded border border-[#E8E2DA] bg-white text-xs text-[#191816] focus:outline-none focus:ring-1 focus:ring-[#B85C3E]"
             >
               <option value="today">Today (24h)</option>
@@ -413,7 +423,7 @@ export default function ReportsPage() {
                 <div className="text-2xl font-serif text-[#191816] mt-1">
                   {formatNaira(totalTaxMinorUnits)}
                 </div>
-                <p className="text-[11px] text-emerald-700 mt-1 font-medium">Accrued from settled folios</p>
+                <p className="text-[11px] text-[#7A7267] mt-1">Provision from collected folio payments</p>
               </div>
             </div>
           </div>

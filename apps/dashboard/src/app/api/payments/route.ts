@@ -1,6 +1,6 @@
 import { apiError } from '@/lib/api-error';
 import { folioBalance, settlementLabel } from '@/lib/financial-status';
-import { withMerchant } from '@/lib/merchant-route';
+import { getMerchantRequest, withMerchant } from '@/lib/merchant-route';
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { db, operationalNotifications, payments, reservations, guests, transferProofs } from '@sena/database';
@@ -14,9 +14,7 @@ export const dynamic = 'force-dynamic';
 
 async function handleGET(req: NextRequest) {
   try {
-    const session = await auth();
-    const tenant = await resolveTenantForRequest(session, req);
-    const propertyId = tenant?.propertyId;
+    const propertyId = getMerchantRequest(req)?.tenant.propertyId;
 
     if (!propertyId) {
       return NextResponse.json({ payments: [], receivables: [], transferProofs: [] });
@@ -24,45 +22,66 @@ async function handleGET(req: NextRequest) {
 
     const reservationId = req.nextUrl.searchParams.get('reservationId');
 
-    const paymentList = await db
-      .select({
-        id: payments.id,
-        amountMinorUnits: payments.amountMinorUnits,
-        currency: payments.currency,
-        provider: payments.provider,
-        providerReference: payments.providerReference,
-        method: payments.method,
-        status: payments.status,
-        notes: payments.notes,
-        createdAt: payments.createdAt,
-        reservationId: payments.reservationId,
-        reservationReference: reservations.reference,
-        guestName: guests.fullName,
-        guestEmail: guests.email,
-      })
-      .from(payments)
-      .leftJoin(reservations, eq(payments.reservationId, reservations.id))
-      .leftJoin(guests, eq(reservations.guestId, guests.id))
-      .where(
-        reservationId
-          ? and(eq(payments.propertyId, propertyId), eq(payments.reservationId, reservationId))
-          : eq(payments.propertyId, propertyId)
-      )
-      .orderBy(desc(payments.createdAt));
-
-    const reservationRows = await db
-      .select({
-        id: reservations.id,
-        reference: reservations.reference,
-        status: reservations.status,
-        checkOutDate: reservations.checkOutDate,
-        totalAmountMinorUnits: reservations.totalAmountMinorUnits,
-        paidAmountMinorUnits: reservations.paidAmountMinorUnits,
-        guestName: guests.fullName,
-      })
-      .from(reservations)
-      .leftJoin(guests, eq(reservations.guestId, guests.id))
-      .where(and(eq(reservations.propertyId, propertyId), ne(reservations.status, 'cancelled')));
+    const [paymentList, reservationRows, proofs] = await Promise.all([
+      db
+        .select({
+          id: payments.id,
+          amountMinorUnits: payments.amountMinorUnits,
+          currency: payments.currency,
+          provider: payments.provider,
+          providerReference: payments.providerReference,
+          method: payments.method,
+          status: payments.status,
+          notes: payments.notes,
+          createdAt: payments.createdAt,
+          reservationId: payments.reservationId,
+          reservationReference: reservations.reference,
+          guestName: guests.fullName,
+          guestEmail: guests.email,
+        })
+        .from(payments)
+        .leftJoin(reservations, eq(payments.reservationId, reservations.id))
+        .leftJoin(guests, eq(reservations.guestId, guests.id))
+        .where(
+          reservationId
+            ? and(eq(payments.propertyId, propertyId), eq(payments.reservationId, reservationId))
+            : eq(payments.propertyId, propertyId)
+        )
+        .orderBy(desc(payments.createdAt)),
+      db
+        .select({
+          id: reservations.id,
+          reference: reservations.reference,
+          status: reservations.status,
+          checkOutDate: reservations.checkOutDate,
+          totalAmountMinorUnits: reservations.totalAmountMinorUnits,
+          paidAmountMinorUnits: reservations.paidAmountMinorUnits,
+          guestName: guests.fullName,
+        })
+        .from(reservations)
+        .leftJoin(guests, eq(reservations.guestId, guests.id))
+        .where(and(eq(reservations.propertyId, propertyId), ne(reservations.status, 'cancelled'))),
+      db
+        .select({
+          id: transferProofs.id,
+          amountMinorUnits: transferProofs.amountMinorUnits,
+          currency: transferProofs.currency,
+          payerName: transferProofs.payerName,
+          transferReference: transferProofs.transferReference,
+          proofUrl: transferProofs.proofUrl,
+          status: transferProofs.status,
+          submittedAt: transferProofs.submittedAt,
+          reservationId: transferProofs.reservationId,
+          invoiceId: transferProofs.invoiceId,
+          reservationReference: reservations.reference,
+          guestName: guests.fullName,
+        })
+        .from(transferProofs)
+        .leftJoin(reservations, eq(transferProofs.reservationId, reservations.id))
+        .leftJoin(guests, eq(reservations.guestId, guests.id))
+        .where(eq(transferProofs.propertyId, propertyId))
+        .orderBy(desc(transferProofs.submittedAt)),
+    ]);
 
     const receivables = reservationRows
       .map((row) => {
@@ -75,27 +94,6 @@ async function handleGET(req: NextRequest) {
       })
       .filter((row) => row.outstandingMinorUnits > 0)
       .sort((a, b) => b.outstandingMinorUnits - a.outstandingMinorUnits);
-
-    const proofs = await db
-      .select({
-        id: transferProofs.id,
-        amountMinorUnits: transferProofs.amountMinorUnits,
-        currency: transferProofs.currency,
-        payerName: transferProofs.payerName,
-        transferReference: transferProofs.transferReference,
-        proofUrl: transferProofs.proofUrl,
-        status: transferProofs.status,
-        submittedAt: transferProofs.submittedAt,
-        reservationId: transferProofs.reservationId,
-        invoiceId: transferProofs.invoiceId,
-        reservationReference: reservations.reference,
-        guestName: guests.fullName,
-      })
-      .from(transferProofs)
-      .leftJoin(reservations, eq(transferProofs.reservationId, reservations.id))
-      .leftJoin(guests, eq(reservations.guestId, guests.id))
-      .where(eq(transferProofs.propertyId, propertyId))
-      .orderBy(desc(transferProofs.submittedAt));
 
     return NextResponse.json({ payments: paymentList, receivables, transferProofs: proofs });
   } catch (error: any) {
