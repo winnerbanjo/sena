@@ -43,15 +43,35 @@ export function flutterwaveMeta(verified: any): Record<string, unknown> {
 export function normalizeFlutterwaveTransaction(verified: any) {
   const amountMinorUnits = flutterwaveMinorAmount(verified?.amount);
   const status = typeof verified?.status === 'string' ? verified.status.toLowerCase() : '';
+  const txRef =
+    typeof verified?.tx_ref === 'string'
+      ? verified.tx_ref
+      : typeof verified?.txRef === 'string'
+        ? verified.txRef
+        : '';
+  const flwRef =
+    typeof verified?.flw_ref === 'string'
+      ? verified.flw_ref
+      : typeof verified?.flwRef === 'string'
+        ? verified.flwRef
+        : null;
+  const channel =
+    typeof verified?.payment_type === 'string'
+      ? verified.payment_type
+      : typeof verified?.paymentType === 'string'
+        ? verified.paymentType
+        : typeof verified?.charge_type === 'string'
+          ? verified.charge_type
+          : 'card';
   return {
     id: verified?.id != null ? String(verified.id) : null,
-    txRef: typeof verified?.tx_ref === 'string' ? verified.tx_ref : '',
-    flwRef: typeof verified?.flw_ref === 'string' ? verified.flw_ref : null,
+    txRef,
+    flwRef,
     status,
     amountMinorUnits,
     currency: typeof verified?.currency === 'string' ? verified.currency : '',
-    channel: typeof verified?.payment_type === 'string' ? verified.payment_type : 'card',
-    paidAt: verified?.created_at || verified?.charged_at || null,
+    channel,
+    paidAt: verified?.created_at || verified?.createdAt || verified?.charged_at || null,
     customerEmail: verified?.customer?.email || null,
     meta: flutterwaveMeta(verified),
   };
