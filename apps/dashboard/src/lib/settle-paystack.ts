@@ -73,5 +73,5 @@ export async function sendVerifiedPaymentNotice(data: any) {
   if(!reservation) return;
   const guest=await db.query.guests.findFirst({where:eq(guests.id,reservation.guestId)});
   const property=await db.query.properties.findFirst({where:eq(properties.id,reservation.propertyId)});
-  if(guest?.email && property) await sendPaymentReceiptEmail({guestEmail:guest.email,guestName:guest.fullName,reference:reservation.reference,paymentReference:data.reference,propertyName:property.name,amountFormatted:`${data.currency} ${(data.amount/100).toFixed(2)}`,paymentMethod:'Paystack',paidAt:new Date(data.paid_at || Date.now()).toLocaleString('en-NG')});
+  if(guest?.email && property) await sendPaymentReceiptEmail({guestEmail:guest.email,guestName:guest.fullName,reference:reservation.reference,paymentReference:data.reference,propertyName:property.name,amountFormatted:`${data.currency} ${(data.amount/100).toFixed(2)}`,paymentMethod: metadata.providerLabel === 'Flutterwave' ? 'Flutterwave' : 'Paystack',paidAt:new Date(data.paid_at || Date.now()).toLocaleString('en-NG')});
 }

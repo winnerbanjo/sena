@@ -4,8 +4,8 @@ import { db, properties, eq } from '@sena/database';
 import { ReservationService } from '@sena/reservations';
 import { PaymentService } from '@sena/payments';
 import { sendBookingConfirmationEmail } from '@sena/email';
-import { directBookingPaymentAvailable } from '@/lib/integrations/paystack';
-import { initializePropertyPaystack } from '@/lib/paystack-payments';
+import { resolveOnlinePaymentProvider } from '@/lib/online-provider';
+import { initializePayment } from '@/lib/payment-provider';
 
 export async function POST(req: NextRequest) {
   try {
@@ -43,9 +43,11 @@ export async function POST(req: NextRequest) {
     const payAtPropertyEnabled = property.directBookingPayAtProperty !== false;
     const bankTransferEnabled = property.directBookingBankTransfer !== false && bankAccounts.length > 0;
 
-    if (paymentMethod === 'paystack') {
-      const isAvailable = await directBookingPaymentAvailable(property.id);
-      if (!isAvailable) {
+    const onlineProvider = paymentMethod === 'paystack' || paymentMethod === 'online'
+      ? await resolveOnlinePaymentProvider(property.id, 'direct_booking')
+      : null;
+    if (paymentMethod === 'paystack' || paymentMethod === 'online') {
+      if (!onlineProvider) {
         return NextResponse.json(
           { error: 'Online payments are unavailable. Contact the property.' },
           { status: 400 }
@@ -106,17 +108,17 @@ export async function POST(req: NextRequest) {
     }
 
     let onlinePayment;
-    if (paymentMethod === 'paystack') {
+    if (onlineProvider) {
       const host = req.headers.get('host') || 'app.sena.ng';
       const proto = host.includes('localhost') ? 'http' : 'https';
-      onlinePayment = await initializePropertyPaystack({ propertyId: property.id, reservationId: reservation.id, email: guestEmail.trim().toLowerCase(), amountMinorUnits: reservation.totalAmountMinorUnits - reservation.paidAmountMinorUnits, currency: property.currency, source: 'direct_booking', callbackUrl: `${proto}://${host}/${property.slug}/confirmation?reference=${encodeURIComponent(reservation.reference)}&payment=confirming`, idempotencyKey: req.headers.get('idempotency-key') || holdId || undefined });
+      onlinePayment = await initializePayment(onlineProvider, { propertyId: property.id, reservationId: reservation.id, email: guestEmail.trim().toLowerCase(), amountMinorUnits: reservation.totalAmountMinorUnits - reservation.paidAmountMinorUnits, currency: property.currency, source: 'direct_booking', callbackUrl: `${proto}://${host}/${property.slug}/confirmation?reference=${encodeURIComponent(reservation.reference)}&payment=confirming`, idempotencyKey: req.headers.get('idempotency-key') || holdId || undefined });
     }
 
     return NextResponse.json({
       success: true,
       payment: onlinePayment ? { authorizationUrl: onlinePayment.authorizationUrl, reference: onlinePayment.reference } : null,
       paymentState:
-        paymentMethod === 'paystack'
+        paymentMethod === 'paystack' || paymentMethod === 'online'
           ? 'pending'
           : paymentMethod === 'bank_transfer'
             ? 'bank_transfer'

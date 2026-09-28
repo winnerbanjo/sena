@@ -5,7 +5,8 @@ import {
   propertyInvoices,
   eq,
 } from '@sena/database';
-import { initializePropertyPaystack } from '@/lib/paystack-payments';
+import { resolveOnlinePaymentProvider } from '@/lib/online-provider';
+import { initializePayment } from '@/lib/payment-provider';
 
 export async function POST(
   req: NextRequest,
@@ -36,7 +37,9 @@ export async function POST(
     const proto = host.includes('localhost') ? 'http' : 'https';
     const callbackUrl = `${proto}://${host}/invoice/${number}?payment=confirming`;
 
-    const initialized = await initializePropertyPaystack({ propertyId: invoice.propertyId, invoiceId: invoice.id, reservationId: invoice.reservationId, email: invoice.recipientEmail, amountMinorUnits: balanceMinorUnits, currency: invoice.currency, source: 'invoice', callbackUrl, idempotencyKey: req.headers.get('idempotency-key') || undefined });
+    const provider = await resolveOnlinePaymentProvider(invoice.propertyId, 'invoice');
+    if (!provider) return NextResponse.json({ error: 'Online payments are unavailable. Contact the property.' }, { status: 503 });
+    const initialized = await initializePayment(provider, { propertyId: invoice.propertyId, invoiceId: invoice.id, reservationId: invoice.reservationId, email: invoice.recipientEmail, amountMinorUnits: balanceMinorUnits, currency: invoice.currency, source: 'invoice', callbackUrl, idempotencyKey: req.headers.get('idempotency-key') || undefined });
 
     return NextResponse.json({
       success: true,
@@ -44,8 +47,8 @@ export async function POST(
       reference: initialized.reference,
     });
   } catch (error: any) {
-    const paused = error?.message === 'PAYSTACK_NOT_CONNECTED' || error?.message === 'PAYSTACK_PAYMENTS_DISABLED';
-    const unavailable = paused ? 'Online payments are unavailable. Contact the property.' : error?.message === 'PROVIDER_UNAVAILABLE' ? 'Paystack is temporarily unavailable. Try again shortly.' : "We couldn't start the payment. No charge has been made. Try again.";
+    const paused = error?.message === 'PAYSTACK_NOT_CONNECTED' || error?.message === 'PAYSTACK_PAYMENTS_DISABLED' || error?.message === 'FLUTTERWAVE_NOT_CONNECTED' || error?.message === 'FLUTTERWAVE_PAYMENTS_DISABLED';
+    const unavailable = paused ? 'Online payments are unavailable. Contact the property.' : error?.message === 'PROVIDER_UNAVAILABLE' ? 'Online payments are temporarily unavailable. Try again shortly.' : "We couldn't start the payment. No charge has been made. Try again.";
     return NextResponse.json({ error: unavailable }, { status: paused ? 503 : 502 });
   }
 }

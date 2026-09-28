@@ -224,7 +224,7 @@ export interface ReservationEvent {
 }
 
 // Payments & Paystack
-export type PaymentProvider = 'paystack' | 'manual';
+export type PaymentProvider = 'paystack' | 'flutterwave' | 'manual';
 export type PaymentMethod = 'card' | 'bank_transfer' | 'cash' | 'pos';
 export type PaymentRecordStatus = 'pending' | 'successful' | 'failed' | 'refunded';
 

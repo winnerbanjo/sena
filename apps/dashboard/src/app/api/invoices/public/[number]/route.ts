@@ -10,7 +10,7 @@ import {
   desc,
   eq,
 } from '@sena/database';
-import { invoicePaymentAvailable } from '@/lib/integrations/paystack';
+import { onlinePaymentAvailable } from '@/lib/online-provider';
 import { PaymentService } from '@sena/payments';
 
 export async function GET(
@@ -31,7 +31,7 @@ export async function GET(
       return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
     }
 
-    const onlinePaymentAvailable = await invoicePaymentAvailable(invoice.propertyId);
+    const canPayOnline = await onlinePaymentAvailable(invoice.propertyId, 'invoice');
     const bankAccounts = await PaymentService.listPublicBankAccounts(invoice.propertyId);
     const bankDetails = invoice.bankDetails || bankAccounts[0] || null;
 
@@ -54,7 +54,7 @@ export async function GET(
       .limit(1);
 
     return NextResponse.json({
-      onlinePaymentAvailable,
+      onlinePaymentAvailable: canPayOnline,
       bankTransferAvailable: bankAccounts.length > 0,
       bankAccounts,
       transferProofStatus: latestProof?.status || null,
