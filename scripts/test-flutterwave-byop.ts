@@ -110,7 +110,11 @@ async function run() {
   assert.equal(safe.mode, 'test');
   assert.equal(safe.webhookStatus, 'configured');
   assert.equal(safe.webhookReadiness, 'configured_unverified');
+  assert.equal(await online.onlinePaymentAvailable(ids.property, 'direct_booking'), true);
+  assert.equal(await online.resolveOnlinePaymentProvider(ids.property, 'direct_booking'), 'flutterwave');
+  assert.equal(await paystack.directBookingPaymentAvailable(ids.property), false);
   console.log('PASS credential validation, masking, mode, and tenant isolation');
+  console.log('PASS Flutterwave-only properties expose Pay Online via online-provider (not Paystack-only gate)');
 
   let initializedReference = '';
   const initializeFetch = async (_url: string | URL | Request, init?: RequestInit) => {
@@ -358,6 +362,15 @@ async function run() {
   const untouched = await db.query.properties.findFirst({ where: eq(properties.id, ids.otherProperty) });
   assert.equal(untouched?.preferredOnlineProvider || null, null);
   console.log('PASS preferred provider is deterministic and unset properties keep Paystack default');
+
+  const fs = await import('node:fs');
+  const roomPage = fs.readFileSync('apps/dashboard/src/app/site/[slug]/rooms/[id]/page.tsx', 'utf8');
+  const roomClient = fs.readFileSync('apps/dashboard/src/app/site/[slug]/rooms/[id]/RoomBookingClient.tsx', 'utf8');
+  assert.match(roomPage, /from '\.\.\/\.\.\/\.\.\/\.\.\/\.\.\/lib\/online-provider'/);
+  assert.doesNotMatch(roomPage, /directBookingPaymentAvailable/);
+  assert.match(roomClient, /paymentChoice === 'online'/);
+  assert.doesNotMatch(roomClient, /paymentChoice === 'paystack'/);
+  console.log('PASS direct-booking storefront gates Pay Online through online-provider');
 
   const previousKey = process.env.SENA_INTEGRATION_ENCRYPTION_KEY;
   process.env.SENA_INTEGRATION_ENCRYPTION_KEY = '44'.repeat(32);
