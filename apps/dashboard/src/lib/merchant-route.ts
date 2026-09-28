@@ -9,6 +9,18 @@ type Handler = (req: NextRequest, context: any) => Promise<Response>;
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const tables = { reservationId: reservations, roomId: rooms, roomTypeId: roomTypes, guestId: guests, invoiceId: propertyInvoices, reviewId: reviews, keyId: apiKeys, webhookId: webhookEndpoints, taskId: housekeepingTasks, memberId: propertyMembers, bankAccountId: propertyBankAccounts, proofId: transferProofs };
 
+type MerchantRequestContext = {
+  session: { user?: { id?: string } | null } | null;
+  tenant: NonNullable<Awaited<ReturnType<typeof resolveTenantForRequest>>>;
+  body: Record<string, unknown>;
+};
+
+const merchantRequests = new WeakMap<NextRequest, MerchantRequestContext>();
+
+export function getMerchantRequest(req: NextRequest): MerchantRequestContext | undefined {
+  return merchantRequests.get(req);
+}
+
 /** A common boundary for merchant APIs. Public booking and signed webhooks are separate. */
 export function withMerchant(handler: Handler, scope: string): Handler {
   return async (req, context) => {
@@ -30,6 +42,7 @@ export function withMerchant(handler: Handler, scope: string): Handler {
         try { body = await req.clone().json(); } catch { return NextResponse.json({ error: 'Please check the information and try again.' }, { status: 400 }); }
         if (!body || typeof body !== 'object' || Array.isArray(body)) return NextResponse.json({ error: 'Please check the information and try again.' }, { status: 400 });
       }
+      merchantRequests.set(req, { session, tenant, body });
       if (body.propertyId && body.propertyId !== tenant.propertyId) return NextResponse.json({ error: 'This item is not available in your property.' }, { status: 404 });
       const references: Record<string, unknown> = { ...body };
       const params = context?.params ? await context.params : {};
@@ -52,10 +65,13 @@ export function withMerchant(handler: Handler, scope: string): Handler {
         if (!record) return NextResponse.json({ error: 'This item is not available in your property.' }, { status: 404 });
       }
       const response = await handler(req, context);
-      if (response.status >= 500) return NextResponse.json({ error: 'We could not complete this request. Please try again.' }, { status: response.status });
+      if (response.status >= 500) {
+        console.error('[merchant]', { scope, method: req.method, status: response.status, stage: 'handler' });
+      }
       response.headers.set('Cache-Control', 'private, no-store');
       return response;
-    } catch {
+    } catch (error) {
+      console.error('[merchant]', { scope, method: req.method, stage: 'boundary', name: error instanceof Error ? error.name : 'Error' });
       return NextResponse.json({ error: 'We could not complete this request. Please try again.' }, { status: 500 });
     }
   };

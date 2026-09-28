@@ -77,6 +77,7 @@ function WebsiteContent() {
   const [copied, setCopied] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
   const [saveSuccess, setSaveSuccess] = React.useState(false);
+  const [actionError, setActionError] = React.useState<string | null>(null);
   const [publishing, setPublishing] = React.useState(false);
   const [publishSuccess, setPublishSuccess] = React.useState(false);
   const [lastPublished, setLastPublished] = React.useState<string | null>(null);
@@ -368,6 +369,7 @@ function WebsiteContent() {
   // Save Draft (Only persists to draft_config, leaving public website untouched)
   const handleSaveDraft = async () => {
     setSaving(true);
+    setActionError(null);
     try {
       const payload = {
         draftOnly: true,
@@ -406,10 +408,10 @@ function WebsiteContent() {
         setTimeout(() => setSaveSuccess(false), 3000);
       } else {
         const data = await res.json().catch(() => ({}));
-        alert(data.error || 'Failed to save draft changes');
+        setActionError(data.error || 'Your website draft could not be saved. Your live website has not been changed.');
       }
     } catch {
-      alert('Error saving website draft');
+      setActionError('Your website draft could not be saved. Your live website has not been changed.');
     } finally {
       setSaving(false);
     }
@@ -539,10 +541,11 @@ function WebsiteContent() {
         setSaveSuccess(true);
         setTimeout(() => setSaveSuccess(false), 3000);
       } else {
-        alert('Failed to save gallery changes');
+        const data = await res.json().catch(() => ({}));
+        setActionError(data.error || 'Your website draft could not be saved. Your live website has not been changed.');
       }
     } catch {
-      alert('Error saving gallery');
+      setActionError('Your website draft could not be saved. Your live website has not been changed.');
     } finally {
       setSaving(false);
     }
@@ -566,6 +569,7 @@ function WebsiteContent() {
   // Publish to Live (Atomically promotes draft configuration to live public website)
   const handlePublish = async () => {
     setPublishing(true);
+    setActionError(null);
     try {
       // First save current inputs as draft
       const payload = {
@@ -600,7 +604,7 @@ function WebsiteContent() {
 
       if (!saveRes.ok) {
         const err = await saveRes.json().catch(() => ({}));
-        alert(err.error || 'Failed to prepare draft before publishing');
+        setActionError(err.error || 'Your website draft could not be saved. Your live website has not been changed.');
         setPublishing(false);
         return;
       }
@@ -616,10 +620,10 @@ function WebsiteContent() {
         setTimeout(() => setPublishSuccess(false), 4000);
       } else {
         const err = await res.json().catch(() => ({}));
-        alert(err.error || 'Failed to publish website');
+        setActionError(err.error || 'Your website could not be published. Your live website has not been changed.');
       }
     } catch {
-      alert('Error publishing website');
+      setActionError('Your website could not be published. Your live website has not been changed.');
     } finally {
       setPublishing(false);
     }
@@ -820,6 +824,9 @@ function WebsiteContent() {
               </Button>
             </div>
           </div>
+          {actionError && (
+            <p className="text-xs text-[#9E382A] mt-3 max-w-2xl">{actionError}</p>
+          )}
 
           {/* Live Address & Quick Access Bar */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-[#E8E2DA]/80 bg-white/70 -mx-5 -mb-5 sm:-mx-6 sm:-mb-6 p-4 sm:px-6 rounded-b-xl">
