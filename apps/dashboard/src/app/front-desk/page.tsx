@@ -22,9 +22,13 @@ import { NewReservationDialog } from '../../components/new-reservation-dialog';
 import { ReservationSuccessModal } from '../../components/reservation-success-modal';
 import { Topbar } from '../../components/topbar';
 import { useToast } from '../../components/toast-notification';
+import { useTranslations } from 'next-intl';
+import { isolateLtr, Ltr } from '../../components/ltr';
 
 export default function FrontDeskPage() {
   const toast = useToast();
+  const t = useTranslations('frontDesk');
+  const tCommon = useTranslations('common');
   const workspace = useWorkspace();
   const [loadError, setLoadError] = React.useState(false);
   const [failureKind, setFailureKind] = React.useState<LoadFailureKind>('error');
@@ -90,21 +94,21 @@ export default function FrontDeskPage() {
         body: JSON.stringify({ force }),
       });
       if (res.ok) {
-        toast.success('Guest Checked Out', 'Reservation marked completed and room queued for housekeeping.');
+        toast.success(t('checkedOutTitle'), t('checkedOutBody'));
         setCheckoutWarning(null);
         fetchReservations();
       } else {
-        let errMsg = 'Failed to check out';
+        let errMsg = t('failedToCheckOut');
         try {
           const err = await res.json();
           if (err.error) errMsg = err.error;
         } catch {
           errMsg = `Server error (${res.status})`;
         }
-        toast.error('Check-out Failed', errMsg);
+        toast.error(t('checkOutFailed'), errMsg);
       }
     } catch (err: any) {
-      toast.error('Check-out Error', err.message || 'Check out failed');
+      toast.error(t('checkOutError'), err.message || t('failedToCheckOut'));
     }
   }
 
@@ -119,12 +123,12 @@ export default function FrontDeskPage() {
       ? inHouseList
       : departingList;
 
-  if (loading || loadError) return <PageLoadState title="Front desk" failed={loadError} failureKind={failureKind} retry={fetchReservations} />;
+  if (loading || loadError) return <PageLoadState title={t('title')} failed={loadError} failureKind={failureKind} retry={fetchReservations} />;
 
   return (
     <div className="flex-1 flex flex-col h-screen overflow-hidden bg-white text-[#191816]">
       <Topbar
-        title="Front Desk"
+        title={t('title')}
         onOpenNewReservation={() => setNewResOpen(true)}
       />
 
@@ -133,13 +137,13 @@ export default function FrontDeskPage() {
         <div className="border-b border-[#E8E1D5] pb-6 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
           <div>
             <span className="text-[11px] font-mono tracking-widest uppercase text-[#8C8275] block mb-1">
-              Reception Roster
+              {t('eyebrow')}
             </span>
             <h1 className="text-2xl sm:text-3xl font-serif font-normal text-[#71382D]">
-              Front Desk Operations
+              {t('heading')}
             </h1>
             <p className="text-xs text-[#7A7267] mt-1">
-              Arrival clearance, key assignment, and in-house guest management.
+              {t('subtitle')}
             </p>
           </div>
           <button
@@ -147,7 +151,7 @@ export default function FrontDeskPage() {
             onClick={() => setNewResOpen(true)}
             className="px-4 py-2.5 rounded-lg bg-[#71382D] hover:bg-[#5A2C23] text-white text-xs font-semibold shadow-xs transition-colors self-start sm:self-auto cursor-pointer"
           >
-            + Record Walk-in Stay
+            {t('recordWalkIn')}
           </button>
         </div>
 
@@ -159,12 +163,12 @@ export default function FrontDeskPage() {
               activeTab === 'arriving' ? 'text-[#71382D]' : 'text-[#8C8275] hover:text-[#191816]'
             }`}
           >
-            <span>Expected Arrivals</span>
+            <span>{t('expectedArrivals')}</span>
             <span className="font-mono text-[11px] px-1.5 py-0.2 rounded bg-[#FAF4EF] text-[#71382D] border border-[#E5D4BC]">
               {arrivingList.length}
             </span>
             {activeTab === 'arriving' && (
-              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#71382D]" />
+              <span className="absolute bottom-0 inset-x-0 h-0.5 bg-[#71382D]" />
             )}
           </button>
 
@@ -174,12 +178,12 @@ export default function FrontDeskPage() {
               activeTab === 'in_house' ? 'text-[#71382D]' : 'text-[#8C8275] hover:text-[#191816]'
             }`}
           >
-            <span>Currently In House</span>
+            <span>{t('currentlyInHouse')}</span>
             <span className="font-mono text-[11px] px-1.5 py-0.2 rounded bg-[#FAF4EF] text-[#71382D] border border-[#E5D4BC]">
               {inHouseList.length}
             </span>
             {activeTab === 'in_house' && (
-              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#71382D]" />
+              <span className="absolute bottom-0 inset-x-0 h-0.5 bg-[#71382D]" />
             )}
           </button>
 
@@ -189,12 +193,12 @@ export default function FrontDeskPage() {
               activeTab === 'departing' ? 'text-[#71382D]' : 'text-[#8C8275] hover:text-[#191816]'
             }`}
           >
-            <span>Departures</span>
+            <span>{t('departures')}</span>
             <span className="font-mono text-[11px] px-1.5 py-0.2 rounded bg-[#FAF4EF] text-[#71382D] border border-[#E5D4BC]">
               {departingList.length}
             </span>
             {activeTab === 'departing' && (
-              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#71382D]" />
+              <span className="absolute bottom-0 inset-x-0 h-0.5 bg-[#71382D]" />
             )}
           </button>
         </div>
@@ -202,15 +206,15 @@ export default function FrontDeskPage() {
         {/* Operational Front Desk Roster: Clean Table Layout Instead of Random Cards */}
         <div className="border border-[#E8E1D5] rounded-xl overflow-hidden bg-white shadow-xs">
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse min-w-[760px]">
+            <table className="w-full text-start border-collapse min-w-[760px]">
               <thead>
                 <tr className="border-b border-[#E8E1D5] bg-[#FAF7F2]/60 text-[11px] font-mono uppercase tracking-wider text-[#8C8275]">
-                  <th className="py-3 px-5 font-medium">Guest &amp; Folio</th>
-                  <th className="py-3 px-5 font-medium">Room Assigned</th>
-                  <th className="py-3 px-5 font-medium">Stay Window</th>
-                  <th className="py-3 px-5 font-medium">Settlement</th>
-                  <th className="py-3 px-5 font-medium">Contact</th>
-                  <th className="py-3 px-5 font-medium text-right">Desk Action</th>
+                  <th className="py-3 px-5 font-medium">{t('guestFolio')}</th>
+                  <th className="py-3 px-5 font-medium">{t('roomAssigned')}</th>
+                  <th className="py-3 px-5 font-medium">{t('stayWindow')}</th>
+                  <th className="py-3 px-5 font-medium">{t('settlement')}</th>
+                  <th className="py-3 px-5 font-medium">{t('contact')}</th>
+                  <th className="py-3 px-5 font-medium text-end">{t('deskAction')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#E8E1D5] text-xs">
@@ -219,21 +223,21 @@ export default function FrontDeskPage() {
                     <td colSpan={6} className="py-20 text-center">
                       <div className="max-w-md mx-auto space-y-3">
                         <span className="text-[11px] font-mono uppercase tracking-widest text-[#8C8275] block">
-                          Front Desk Roster
+                          {t('roster')}
                         </span>
                         <h3 className="font-serif text-lg text-[#71382D]">
                           {activeTab === 'arriving'
-                            ? 'No guests scheduled for arrival today'
+                            ? t('emptyArrivingTitle')
                             : activeTab === 'in_house'
-                            ? 'No occupied rooms currently in house'
-                            : 'No guest departures scheduled right now'}
+                            ? t('emptyInHouseTitle')
+                            : t('emptyDepartingTitle')}
                         </h3>
                         <p className="text-xs text-[#7A7267] leading-relaxed">
                           {activeTab === 'arriving'
-                            ? 'New online bookings and direct reservations will appear here for fast arrival clearance and key assignment.'
+                            ? t('emptyArrivingBody')
                             : activeTab === 'in_house'
-                            ? 'When guests check in, their live stay folios and room allocations are tracked here until checkout.'
-                            : 'Guests completing their stay will be listed here for folio balance settlement and room inspection handover.'}
+                            ? t('emptyInHouseBody')
+                            : t('emptyDepartingBody')}
                         </p>
                         <div className="pt-2 flex items-center justify-center gap-3">
                           <button
@@ -241,7 +245,7 @@ export default function FrontDeskPage() {
                             onClick={() => setNewResOpen(true)}
                             className="px-4 py-2 rounded-md bg-[#71382D] hover:bg-[#5A2C23] text-white text-xs font-medium transition-colors cursor-pointer"
                           >
-                            + Record Walk-in Stay
+                            {t('recordWalkIn')}
                           </button>
                         </div>
                       </div>
@@ -262,11 +266,11 @@ export default function FrontDeskPage() {
                           <strong className="block font-serif text-sm text-[#191816] group-hover:text-[#B85C3E] transition-colors">
                             {res.guestName}
                           </strong>
-                          <span className="text-[11px] font-mono text-[#8C8275]">{res.reference}</span>
+                          <span className="text-[11px] font-mono text-[#8C8275]"><Ltr>{res.reference}</Ltr></span>
                         </td>
                         <td className="py-4 px-5">
                           <span className="font-medium text-[#71382D] block">
-                            {formatAssignedRoom(res.roomNumber)}
+                            <Ltr>{formatAssignedRoom(res.roomNumber)}</Ltr>
                           </span>
                           <span className="text-[11px] text-[#8C8275]">{res.roomType}</span>
                         </td>
@@ -275,7 +279,7 @@ export default function FrontDeskPage() {
                             {formatStayDates(res.checkInDate, res.checkOutDate)}
                           </span>
                           <span className="text-[11px] text-[#8C8275]">
-                            {res.nights} {res.nights === 1 ? 'night' : 'nights'}
+                            {tCommon(res.nights === 1 ? 'nights_one' : 'nights_other', { count: res.nights })}
                           </span>
                         </td>
                         <td className="py-4 px-5">
@@ -289,14 +293,14 @@ export default function FrontDeskPage() {
                         <td className="py-4 px-5 text-[#8C8275]">
                           {res.guestPhone || res.guestEmail}
                         </td>
-                        <td className="py-4 px-5 text-right" onClick={(e) => e.stopPropagation()}>
+                        <td className="py-4 px-5 text-end" onClick={(e) => e.stopPropagation()}>
                           {activeTab === 'arriving' ? (
                             <button
                               type="button"
                               onClick={() => openAssignment(res.id, 'check-in')}
                               className="px-3.5 py-1.5 rounded-md bg-[#71382D] hover:bg-[#5A2C23] text-white text-xs font-medium transition-colors"
                             >
-                              Check In &rarr;
+                              {t('checkIn')}
                             </button>
                           ) : (
                             <button
@@ -304,7 +308,7 @@ export default function FrontDeskPage() {
                               onClick={() => initiateCheckOut(res)}
                               className="px-3.5 py-1.5 rounded-md border border-[#E8E1D5] hover:bg-[#FAF7F2] text-[#191816] text-xs font-medium transition-colors"
                             >
-                              Check Out
+                              {t('checkOut')}
                             </button>
                           )}
                         </td>
@@ -324,11 +328,13 @@ export default function FrontDeskPage() {
           <DialogContent className="max-w-md bg-white border border-[#E8E1D5]">
             <DialogHeader>
               <DialogTitle className="font-serif text-lg text-[#71382D]">
-                Outstanding Balance Pending
+                {t('outstandingTitle')}
               </DialogTitle>
               <DialogDescription className="text-xs text-[#7A7267] pt-1 leading-relaxed">
-                Guest <strong>{checkoutWarning.res.guestName}</strong> still has an unsettled folio balance of{' '}
-                <strong className="text-[#B85C3E] font-mono">{formatNaira(checkoutWarning.balanceMinorUnits)}</strong>.
+                {t('outstandingBody', {
+                  name: checkoutWarning.res.guestName,
+                  amount: isolateLtr(formatNaira(checkoutWarning.balanceMinorUnits)),
+                })}
               </DialogDescription>
             </DialogHeader>
 
@@ -338,7 +344,7 @@ export default function FrontDeskPage() {
                 onClick={() => setCheckoutWarning(null)}
                 className="px-3.5 py-1.5 rounded-md border border-[#E8E1D5] text-xs font-medium text-[#191816] hover:bg-[#FAF7F2]"
               >
-                Record payment first
+                {t('recordPaymentFirst')}
               </button>
               {!requireCheckoutSettlement && (
               <button
@@ -346,7 +352,7 @@ export default function FrontDeskPage() {
                 onClick={() => executeCheckOut(checkoutWarning.res.id, true)}
                 className="px-3.5 py-1.5 rounded-md bg-[#71382D] text-white text-xs font-medium hover:bg-[#5A2C23]"
               >
-                Check out with outstanding balance
+                {t('checkOutWithBalance')}
               </button>
               )}
             </DialogFooter>

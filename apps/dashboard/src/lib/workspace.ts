@@ -3,7 +3,7 @@ import { db, users, properties, propertyMembers, and, eq } from '@sena/database'
 import { resolveTenantForRequest } from '@/lib/tenant';
 
 export type Workspace = {
-  user: { id: string; name: string; email: string; role: string };
+  user: { id: string; name: string; email: string; role: string; locale: string };
   property: {
     id: string;
     slug?: string;
@@ -78,6 +78,7 @@ export async function resolveServerWorkspace(): Promise<ServerWorkspaceResult> {
           name: tenant.user.fullName,
           email: tenant.user.email,
           role: tenant.role,
+          locale: tenant.user.locale || 'en',
         },
         property: {
           id: tenant.property.id,

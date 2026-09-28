@@ -1,4 +1,5 @@
 'use client';
+import { useTranslations } from 'next-intl';
 
 import { PageLoadState } from '../../components/page-load-state';
 import * as React from 'react';
@@ -28,6 +29,7 @@ function readinessLabel(room: HousekeepingRoom) {
 }
 
 export default function HousekeepingPage() {
+  const t = useTranslations('housekeeping');
   const [rooms, setRooms] = React.useState<HousekeepingRoom[]>([]);
   const [staff, setStaff] = React.useState<StaffOption[]>([]);
   const [currentUserId, setCurrentUserId] = React.useState<string | null>(null);
@@ -104,11 +106,11 @@ export default function HousekeepingPage() {
     return true;
   });
 
-  if (loading || loadError) return <PageLoadState title="Housekeeping" failed={loadError} />;
+  if (loading || loadError) return <PageLoadState title={t('title')} failed={loadError} />;
 
   return (
     <div className="flex-1 flex flex-col h-screen overflow-hidden bg-white">
-      <Topbar title="Housekeeping" />
+      <Topbar title={t('title')} />
 
       <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6 max-w-4xl mx-auto w-full">
         <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-4 border-b border-[#E8E2DA] pb-4">

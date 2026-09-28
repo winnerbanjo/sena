@@ -24,9 +24,27 @@
 body {
   background-color: #FFFFFF;
   color: var(--ink);
-  font-family: Inter, InterVariable, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-family: Inter, InterVariable, var(--font-noto-sans), var(--font-noto-arabic), "Noto Sans", "Noto Sans Arabic", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
+}
+
+html[lang="ar"] body,
+html[lang="ar"] .font-serif {
+  font-family: var(--font-noto-arabic), "Noto Sans Arabic", Inter, sans-serif;
+}
+
+.ltr-isolate {
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+
+html[dir="rtl"] [data-chart],
+html[dir="rtl"] .occupancy-chart,
+html[dir="rtl"] code,
+html[dir="rtl"] .font-mono {
+  direction: ltr;
+  unicode-bidi: isolate;
 }
 
 .font-heading {

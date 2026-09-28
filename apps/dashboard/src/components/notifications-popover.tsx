@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { useDialogA11y } from './use-dialog-a11y';
 import {
   Bell,
@@ -33,6 +34,7 @@ interface NotificationsPopoverProps {
 }
 
 export function NotificationsPopover({ open, onClose }: NotificationsPopoverProps) {
+  const t = useTranslations('common');
   const router = useRouter();
   const dialogRef = useDialogA11y(open, onClose);
   const [notifications, setNotifications] = React.useState<NotificationItem[]>(INITIAL_NOTIFICATIONS);
@@ -91,11 +93,11 @@ export function NotificationsPopover({ open, onClose }: NotificationsPopoverProp
           <div className="flex items-center gap-2">
             <Bell className="w-4 h-4 text-[#B85C3E]" />
             <h2 id="notifications-title" className="text-sm font-semibold text-[#191816]">
-              Notifications
+              {t('notifications')}
             </h2>
             {unreadCount > 0 && (
               <span className="px-1.5 py-0.2 rounded-full text-[10px] font-semibold bg-[#B85C3E] text-white">
-                {unreadCount} new
+                {t('newCount', { count: unreadCount })}
               </span>
             )}
           </div>
@@ -107,13 +109,13 @@ export function NotificationsPopover({ open, onClose }: NotificationsPopoverProp
                 className="text-[11px] text-[#B85C3E] hover:underline font-medium flex items-center gap-1"
               >
                 <CheckCheck className="w-3.5 h-3.5" />
-                <span>Mark read</span>
+                <span>{t('markRead')}</span>
               </button>
             )}
             <button
               type="button"
               onClick={onClose}
-              aria-label="Close notifications"
+              aria-label={t('closeNotifications')}
               className="min-h-11 min-w-11 rounded text-[#7A7267] hover:text-[#191816]"
             >
               <X className="w-4 h-4" />
@@ -125,7 +127,7 @@ export function NotificationsPopover({ open, onClose }: NotificationsPopoverProp
         <div className="divide-y divide-[#E8E2DA] max-h-[380px] overflow-y-auto">
           {notifications.length === 0 ? (
             <div className="p-8 text-center text-[#7A7267] text-xs">
-              No new notifications.
+              {t('noNotifications')}
             </div>
           ) : (
             notifications.map((item) => (
@@ -133,7 +135,7 @@ export function NotificationsPopover({ open, onClose }: NotificationsPopoverProp
                 type="button"
                 key={item.id}
                 onClick={() => handleClickItem(item)}
-                className={`w-full text-left p-3.5 flex items-start gap-3 hover:bg-[#FAFAFA] min-h-11 ${
+                className={`w-full text-start p-3.5 flex items-start gap-3 hover:bg-[#FAFAFA] min-h-11 ${
                   item.unread ? 'bg-[#FDFBF9]' : 'bg-white'
                 }`}
               >
@@ -156,7 +158,7 @@ export function NotificationsPopover({ open, onClose }: NotificationsPopoverProp
                 </div>
 
                 {item.unread && (
-                  <span className="w-2 h-2 rounded-full bg-[#B85C3E] flex-shrink-0 mt-1.5"><span className="sr-only">Unread</span></span>
+                  <span className="w-2 h-2 rounded-full bg-[#B85C3E] flex-shrink-0 mt-1.5"><span className="sr-only">{t('unread')}</span></span>
                 )}
               </button>
             ))
@@ -171,7 +173,7 @@ export function NotificationsPopover({ open, onClose }: NotificationsPopoverProp
             }}
             className="text-[11px] text-[#B85C3E] hover:underline font-medium flex items-center justify-center gap-1 w-full"
           >
-            <span>View all property activity</span>
+            <span>{t('viewAllActivity')}</span>
             <ExternalLink className="w-3 h-3" />
           </button>
         </div>

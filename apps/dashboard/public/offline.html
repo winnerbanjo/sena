@@ -122,6 +122,26 @@
     </div>
   </div>
   <script>
+    const COPY = {
+      en: { title: "You're offline", p1: "Sena needs an internet connection to load current hotel operations.", p2: "Your reservations, rooms, payments and housekeeping data have not been replaced with stale information.", waiting: "Waiting for internet connection", retry: "Try again", checking: "Checking…", online: "Connection detected", footer: "Hospitality, simplified" },
+      fr: { title: "Vous êtes hors ligne", p1: "Sena a besoin d'une connexion pour charger les opérations de l'hôtel.", p2: "Vos réservations, chambres, paiements et gouvernance n'ont pas été remplacés par des données périmées.", waiting: "En attente de connexion", retry: "Réessayer", checking: "Vérification…", online: "Connexion détectée", footer: "L'hospitalité, simplifiée." },
+      ar: { title: "أنت غير متصل", p1: "يحتاج Sena إلى اتصال بالإنترنت لتحميل عمليات الفندق الحالية.", p2: "لم تُستبدل حجوزاتك وغرفك ومدفوعاتك وبيانات التدبير الفندقي بمعلومات قديمة.", waiting: "بانتظار الاتصال", retry: "إعادة المحاولة", checking: "جارٍ التحقق…", online: "تم اكتشاف الاتصال", footer: "الضيافة، ببساطة." },
+      sw: { title: "Hujaunganishwa", p1: "Sena inahitaji muunganisho kupakia shughuli za sasa za hoteli.", p2: "Uhifadhi, vyumba, malipo na usafi havijabadilishwa na taarifa za zamani.", waiting: "Inasubiri muunganisho", retry: "Jaribu tena", checking: "Inakagua…", online: "Muunganisho umepatikana", footer: "ukarimu, kwa urahisi." },
+      yo: { title: "O kò sí lórí ayélujára", p1: "Sena nílò àsopọ̀ láti kó iṣẹ́ ilé-ìtura wá.", p2: "A kò rọ́pò ìfipamọ́, yàrá, ìsanwó àti ìtọ́jú pẹ̀lú àlàyé àtijọ́.", waiting: "Ń dúró fún àsopọ̀", retry: "Gbìyànjú lẹ́ẹ̀kan si", checking: "Ń yẹ̀wò…", online: "A rí àsopọ̀", footer: "ìtẹ́wọ́gbà, ní ìrọ̀rùn." },
+      ha: { title: "Ba ka kan layi ba", p1: "Sena na buƙatar haɗin yanar gizo don loda ayyukan otal na yanzu.", p2: "Ba a maye gurbin ajiya, dakuna, biya da tsafta da bayanai marasa sabuntawa ba.", waiting: "Ana jiran haɗin", retry: "Sake gwadawa", checking: "Ana duba…", online: "An gano haɗin", footer: "karimci, cikin sauƙi." },
+      ig: { title: "Ị nọghị n'ịntanetị", p1: "Sena chọrọ njikọ ịntanetị iji bulite ọrụ ụlọ oriri ugbu a.", p2: "Agbanweghị nchekwa, ime ụlọ, ịkwụ ụgwọ na nlekọta gị jiri ozi ochie.", waiting: "Na-eche njikọ", retry: "Nwaa ọzọ", checking: "Na-enyocha…", online: "Ahụrụ njikọ", footer: "nnabata, n'ụzọ dị mfe." }
+    };
+    const locale = (document.cookie.match(/(?:^|; )sena_locale=([^;]*)/) || [])[1] || 'en';
+    const copy = COPY[locale] || COPY.en;
+    document.documentElement.lang = locale === 'ar' ? 'ar' : locale;
+    document.documentElement.dir = locale === 'ar' ? 'rtl' : 'ltr';
+    document.title = 'Sena — ' + copy.title;
+    document.querySelector('h1').textContent = copy.title;
+    document.querySelectorAll('.card > p')[0].textContent = copy.p1;
+    document.querySelectorAll('.card > p')[1].textContent = copy.p2;
+    document.getElementById('retry-btn').textContent = copy.retry;
+    document.querySelector('.footer-note').textContent = copy.footer;
+
     const RELOAD_KEY = 'sena-offline-retry-at';
 
     function canReload() {
@@ -139,28 +159,28 @@
       const statusText = document.getElementById('status-text');
       const statusDot = document.getElementById('status-dot');
       if (online) {
-        statusText.textContent = 'Connection detected';
+        statusText.textContent = copy.online;
         statusDot.style.background = '#2E7D32';
       } else {
-        statusText.textContent = 'Waiting for internet connection';
+        statusText.textContent = copy.waiting;
         statusDot.style.background = '#B85C3E';
       }
     }
 
     function retryConnection() {
       const btn = document.getElementById('retry-btn');
-      btn.textContent = 'Checking…';
+      btn.textContent = copy.checking;
       btn.disabled = true;
       if (!navigator.onLine) {
         setStatus(false);
         window.setTimeout(function () {
-          btn.textContent = 'Try again';
+          btn.textContent = copy.retry;
           btn.disabled = false;
         }, 800);
         return;
       }
       if (!canReload()) {
-        btn.textContent = 'Try again';
+        btn.textContent = copy.retry;
         btn.disabled = false;
         return;
       }

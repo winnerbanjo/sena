@@ -22,6 +22,7 @@ export const users = pgTable('users', {
   avatarUrl: text('avatar_url'),
   emailVerified: timestamp('email_verified', { withTimezone: true }),
   isActive: boolean('is_active').default(true).notNull(),
+  locale: varchar('locale', { length: 16 }).notNull().default('en'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 });

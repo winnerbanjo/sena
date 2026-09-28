@@ -73,8 +73,11 @@ async function run() {
   assert.doesNotMatch(reportsApi, /getCache|setCache|redis/);
   pass('Reports API is a single tenant-scoped read without timelines or cache');
 
-  assert.match(pageLoad, /You appear to be offline/);
-  assert.match(pageLoad, /This is not a problem with your internet connection/);
+  const english = JSON.parse(source('apps/dashboard/messages/en.json'));
+  assert.equal(english.setup.pageLoadOfflineTitle, 'You appear to be offline');
+  assert.match(english.setup.pageLoadServerHint, /This is not a problem with your internet connection/);
+  assert.match(pageLoad, /pageLoadOfflineTitle/);
+  assert.match(pageLoad, /pageLoadServerHint/);
   assert.doesNotMatch(pageLoad, /Check your connection and try again/);
   pass('Shared load UI blames the connection only when the browser is offline');
 

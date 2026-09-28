@@ -1,5 +1,6 @@
 'use client';
 import { Topbar } from './topbar';
+import { useTranslations } from 'next-intl';
 import { HttpLoadError, type LoadFailureKind } from '../lib/page-load';
 
 export async function readJsonResponse(response: Response) {
@@ -18,6 +19,7 @@ export function PageLoadState({
   failureKind?: LoadFailureKind;
   retry?: () => void;
 }) {
+  const t = useTranslations('setup');
   const offline = failed && failureKind === 'offline';
   return (
     <div className="flex-1 flex flex-col min-w-0">
@@ -26,23 +28,21 @@ export function PageLoadState({
         {failed ? (
           <>
             <h2 className="text-xl font-serif">
-              {offline ? 'You appear to be offline' : `We could not load ${title.toLowerCase()}`}
+              {offline ? t('pageLoadOfflineTitle') : t('pageLoadFailed', { title: title.toLowerCase() })}
             </h2>
             <p className="text-sm text-[#7A7267]">
-              {offline
-                ? 'Connect to the internet and try again. Your saved information has not changed.'
-                : 'Sena could not complete this request. This is not a problem with your internet connection. Try again in a moment. Your saved information has not changed.'}
+              {offline ? t('pageLoadOfflineHint') : t('pageLoadServerHint')}
             </p>
             <button
               onClick={retry || (() => window.location.reload())}
               className="min-h-11 rounded bg-[#71382D] px-4 text-sm text-white"
             >
-              Try again
+              {t('retryConnection')}
             </button>
           </>
         ) : (
           <>
-            <span className="sr-only">Loading {title.toLowerCase()}</span>
+            <span className="sr-only">{t('loadingPage', { title: title.toLowerCase() })}</span>
             <div className="h-24 rounded-lg bg-[#F7F1E8] animate-pulse" />
             <div className="h-80 rounded-lg bg-[#F7F1E8] animate-pulse" />
           </>

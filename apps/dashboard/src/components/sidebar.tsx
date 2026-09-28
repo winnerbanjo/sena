@@ -31,11 +31,35 @@ import {
 } from 'lucide-react';
 import { useMobileNav } from './dashboard-shell';
 import { usePwa } from './pwa-provider';
+import { useTranslations } from 'next-intl';
+import { LanguageMenu } from './language-menu';
 
 interface NavSection {
-  title?: string;
+  titleKey?: 'operations' | 'sales' | 'insights' | 'manage';
   items: {
-    label: string;
+    id: string;
+    labelKey:
+      | 'overview'
+      | 'reservations'
+      | 'calendar'
+      | 'frontDesk'
+      | 'rooms'
+      | 'housekeeping'
+      | 'guests'
+      | 'website'
+      | 'reviews'
+      | 'directBooking'
+      | 'payments'
+      | 'invoices'
+      | 'offers'
+      | 'channels'
+      | 'analytics'
+      | 'reports'
+      | 'staff'
+      | 'apps'
+      | 'billing'
+      | 'settings'
+      | 'setupWizard';
     href: string;
     icon: React.ComponentType<{ className?: string }>;
     badge?: string | number;
@@ -44,46 +68,46 @@ interface NavSection {
 
 const NAV_SECTIONS: NavSection[] = [
   {
-    items: [{ label: 'Overview', href: '/', icon: Home }],
+    items: [{ id: 'overview', labelKey: 'overview', href: '/', icon: Home }],
   },
   {
-    title: 'OPERATIONS',
+    titleKey: 'operations',
     items: [
-      { label: 'Reservations', href: '/reservations', icon: ClipboardList },
-      { label: 'Calendar', href: '/calendar', icon: Calendar },
-      { label: 'Front Desk', href: '/front-desk', icon: DoorOpen },
-      { label: 'Rooms', href: '/rooms', icon: Layers },
-      { label: 'Housekeeping', href: '/housekeeping', icon: Brush },
-      { label: 'Guests', href: '/guests', icon: Users },
+      { id: 'reservations', labelKey: 'reservations', href: '/reservations', icon: ClipboardList },
+      { id: 'calendar', labelKey: 'calendar', href: '/calendar', icon: Calendar },
+      { id: 'frontDesk', labelKey: 'frontDesk', href: '/front-desk', icon: DoorOpen },
+      { id: 'rooms', labelKey: 'rooms', href: '/rooms', icon: Layers },
+      { id: 'housekeeping', labelKey: 'housekeeping', href: '/housekeeping', icon: Brush },
+      { id: 'guests', labelKey: 'guests', href: '/guests', icon: Users },
     ],
   },
   {
-    title: 'SALES',
+    titleKey: 'sales',
     items: [
-      { label: 'Website', href: '/website', icon: Globe },
-      { label: 'Reviews', href: '/website?tab=reviews', icon: Star },
-      { label: 'Direct Booking', href: '/booking-preview', icon: Compass },
-      { label: 'Payments', href: '/payments', icon: CreditCard },
-      { label: 'Invoices', href: '/invoices', icon: Receipt },
-      { label: 'Offers', href: '/offers', icon: Tag },
-      { label: 'Channels', href: '/channels', icon: Layers },
+      { id: 'website', labelKey: 'website', href: '/website', icon: Globe },
+      { id: 'reviews', labelKey: 'reviews', href: '/website?tab=reviews', icon: Star },
+      { id: 'directBooking', labelKey: 'directBooking', href: '/booking-preview', icon: Compass },
+      { id: 'payments', labelKey: 'payments', href: '/payments', icon: CreditCard },
+      { id: 'invoices', labelKey: 'invoices', href: '/invoices', icon: Receipt },
+      { id: 'offers', labelKey: 'offers', href: '/offers', icon: Tag },
+      { id: 'channels', labelKey: 'channels', href: '/channels', icon: Layers },
     ],
   },
   {
-    title: 'INSIGHTS',
+    titleKey: 'insights',
     items: [
-      { label: 'Analytics', href: '/analytics', icon: TrendingUp },
-      { label: 'Reports', href: '/reports', icon: ClipboardList },
+      { id: 'analytics', labelKey: 'analytics', href: '/analytics', icon: TrendingUp },
+      { id: 'reports', labelKey: 'reports', href: '/reports', icon: ClipboardList },
     ],
   },
   {
-    title: 'MANAGE',
+    titleKey: 'manage',
     items: [
-      { label: 'Staff', href: '/staff', icon: Users },
-      { label: 'Apps', href: '/apps', icon: Plug },
-      { label: 'Billing & Plan', href: '/billing', icon: CreditCard },
-      { label: 'Settings', href: '/settings', icon: Settings },
-      { label: 'Setup Wizard', href: '/onboarding', icon: HelpCircle },
+      { id: 'staff', labelKey: 'staff', href: '/staff', icon: Users },
+      { id: 'apps', labelKey: 'apps', href: '/apps', icon: Plug },
+      { id: 'billing', labelKey: 'billing', href: '/billing', icon: CreditCard },
+      { id: 'settings', labelKey: 'settings', href: '/settings', icon: Settings },
+      { id: 'setupWizard', labelKey: 'setupWizard', href: '/onboarding', icon: HelpCircle },
     ],
   },
 ];
@@ -91,6 +115,8 @@ const NAV_SECTIONS: NavSection[] = [
 function SidebarNavItems({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   const workspace = useWorkspace();
+  const tNav = useTranslations('navigation');
+  const tCommon = useTranslations('common');
   const profile = { name: workspace?.user.name || '', email: workspace?.user.email || '', role: workspace?.user.role || '', property: workspace?.property.name || '', city: workspace?.property.address || '' };
 
   const roleLower = (profile.role || '').toLowerCase();
@@ -101,15 +127,15 @@ function SidebarNavItems({ onNavigate }: { onNavigate?: () => void }) {
     return NAV_SECTIONS.map((section) => {
       let items = section.items;
       if (isFrontDesk) {
-        if (section.title === 'MANAGE') {
+        if (section.titleKey === 'manage') {
           items = [];
-        } else if (section.title === 'SALES') {
-          items = items.filter((i) => ['Payments', 'Invoices'].includes(i.label));
+        } else if (section.titleKey === 'sales') {
+          items = items.filter((i) => ['payments', 'invoices'].includes(i.id));
         }
       } else if (isHousekeeping) {
-        if (section.title === 'OPERATIONS') {
-          items = items.filter((i) => ['Housekeeping', 'Rooms'].includes(i.label));
-        } else if (['SALES', 'INSIGHTS', 'MANAGE'].includes(section.title || '')) {
+        if (section.titleKey === 'operations') {
+          items = items.filter((i) => ['housekeeping', 'rooms'].includes(i.id));
+        } else if (section.titleKey && ['sales', 'insights', 'manage'].includes(section.titleKey)) {
           items = [];
         }
       }
@@ -143,7 +169,7 @@ function SidebarNavItems({ onNavigate }: { onNavigate?: () => void }) {
             />
           </div>
           <p className="text-[10px] text-[#7A7267] tracking-wider mt-1">
-            hospitality, simplified.
+            {tCommon('tagline')}
           </p>
         </Link>
 
@@ -165,16 +191,16 @@ function SidebarNavItems({ onNavigate }: { onNavigate?: () => void }) {
               </span>
             </div>
           </div>
-          <ChevronDown className="w-3.5 h-3.5 text-[#7A7267] flex-shrink-0 ml-1" />
+          <ChevronDown className="w-3.5 h-3.5 text-[#7A7267] flex-shrink-0 ms-1" />
         </button>
 
         {/* Navigation Sections */}
         <nav className="space-y-5">
           {visibleNavSections.map((section, idx) => (
             <div key={idx}>
-              {section.title && (
+              {section.titleKey && (
                 <div className="text-[10px] font-medium tracking-widest uppercase text-[#7A7267]/70 px-2 mb-1.5">
-                  {section.title}
+                  {tNav(section.titleKey)}
                 </div>
               )}
               <div className="space-y-0.5">
@@ -187,7 +213,7 @@ function SidebarNavItems({ onNavigate }: { onNavigate?: () => void }) {
 
                   return (
                     <Link
-                      key={item.href}
+                      key={item.id}
                       href={item.href}
                       prefetch={false}
                       onClick={onNavigate}
@@ -203,7 +229,7 @@ function SidebarNavItems({ onNavigate }: { onNavigate?: () => void }) {
                             isActive ? 'text-[#B85C3E]' : 'text-[#7A7267]'
                           }`}
                         />
-                        <span>{item.label}</span>
+                        <span>{tNav(item.labelKey)}</span>
                       </div>
                       {item.badge && (
                         <span className="px-1.5 py-0.2 rounded-full text-[10px] font-semibold bg-[#B85C3E] text-white">
@@ -230,11 +256,11 @@ function SidebarNavItems({ onNavigate }: { onNavigate?: () => void }) {
                 }
               }}
               className="w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-xs font-semibold text-[#71382D] bg-[#FAF8F5] hover:bg-[#F5EFE9] border border-[#E8E2DA] transition-all hover:border-[#B85C3E]/50 group shadow-2xs cursor-pointer"
-              title="Install Sena on your device"
+              title={tCommon('installAppTitle')}
             >
               <div className="flex items-center gap-2.5">
                 <Download className="w-3.5 h-3.5 text-[#B85C3E] group-hover:scale-110 transition-transform flex-shrink-0" />
-                <span className="font-semibold text-xs tracking-tight">Install Sena App</span>
+                <span className="font-semibold text-xs tracking-tight">{tCommon('installApp')}</span>
               </div>
               <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#FAF2EB] text-[#B85C3E] border border-[#F0D5C3]">
                 PWA
@@ -260,17 +286,21 @@ function SidebarNavItems({ onNavigate }: { onNavigate?: () => void }) {
           </div>
         </div>
 
-        <button
+        <div className="flex items-center gap-0.5 flex-shrink-0">
+          <LanguageMenu onNavigate={onNavigate} />
+          <button
           type="button"
           onClick={() => {
             onNavigate?.();
             purgeAndLogout();
           }}
-          title="Sign out"
+          title={tCommon('signOut')}
+          aria-label={tCommon('signOut')}
           className="p-1.5 text-[#7A7267] hover:text-[#B85C3E] hover:bg-[#FAF9F7] rounded transition-colors flex-shrink-0 cursor-pointer"
         >
           <LogOut className="w-3.5 h-3.5" />
         </button>
+        </div>
       </div>
     </>
   );
@@ -278,11 +308,12 @@ function SidebarNavItems({ onNavigate }: { onNavigate?: () => void }) {
 
 export function Sidebar() {
   const { isOpen, closeMobileNav } = useMobileNav();
+  const tCommon = useTranslations('common');
 
   return (
     <>
       {/* Desktop Persistent Sidebar */}
-      <aside className="hidden lg:flex w-60 min-w-60 flex-shrink-0 border-r border-[#E8E2DA] bg-white flex-col justify-between h-screen sticky top-0 overflow-y-auto">
+      <aside className="hidden lg:flex w-60 min-w-60 flex-shrink-0 border-e border-[#E8E2DA] bg-white flex-col justify-between h-screen sticky top-0 overflow-y-auto">
         <SidebarNavItems />
       </aside>
 
@@ -297,12 +328,12 @@ export function Sidebar() {
           />
 
           {/* Drawer Panel */}
-          <aside className="fixed inset-y-0 left-0 w-72 max-w-[85vw] bg-white border-r border-[#E8E2DA] flex flex-col justify-between h-full overflow-y-auto z-50 shadow-2xl animate-in slide-in-from-left duration-200">
-            <div className="absolute top-4 right-4 z-10">
+          <aside className="fixed inset-y-0 start-0 w-72 max-w-[85vw] bg-white border-e border-[#E8E2DA] flex flex-col justify-between h-full overflow-y-auto z-50 shadow-2xl">
+            <div className="absolute top-4 end-4 z-10">
               <button
                 onClick={closeMobileNav}
                 className="p-1.5 rounded-md text-[#7A7267] hover:text-[#191816] hover:bg-[#FAFAFA] transition-colors"
-                aria-label="Close menu"
+                aria-label={tCommon('closeMenu')}
               >
                 <X className="w-5 h-5" />
               </button>

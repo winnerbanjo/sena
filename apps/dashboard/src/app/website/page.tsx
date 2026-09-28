@@ -1,4 +1,5 @@
 'use client';
+import { useTranslations } from 'next-intl';
 
 import * as React from 'react';
 import { useSearchParams } from 'next/navigation';
@@ -66,6 +67,7 @@ const PRESET_GALLERY_PHOTOS: GalleryItem[] = [
 const STANDARD_GALLERY_CATEGORIES = ['Rooms', 'Property', 'Dining', 'Experiences', 'Wellness', 'Exterior'];
 
 function WebsiteContent() {
+  const t = useTranslations('website');
   const searchParams = useSearchParams();
   const initialTab = searchParams.get('tab') as any;
 
@@ -766,7 +768,7 @@ function WebsiteContent() {
 
   return (
     <div className="flex-1 flex flex-col h-screen overflow-hidden bg-white">
-      <Topbar title="Hotel Website CMS" onOpenNewReservation={() => setNewResOpen(true)} />
+      <Topbar title={t('title')} onOpenNewReservation={() => setNewResOpen(true)} />
 
       <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6 bg-white">
         {/* Top Status & Action Bar */}

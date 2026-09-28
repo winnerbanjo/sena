@@ -1,4 +1,5 @@
 'use client';
+import { useTranslations } from 'next-intl';
 
 import * as React from 'react';
 import { PageLoadState, readJsonResponse } from '../../components/page-load-state';
@@ -8,6 +9,7 @@ import { NewReservationDialog } from '../../components/new-reservation-dialog';
 import { CreditCard, CheckCircle2, AlertCircle, Loader2, ArrowRight, ShieldCheck, Zap } from 'lucide-react';
 
 export default function BillingPage() {
+  const t = useTranslations('billing');
   const [newResOpen, setNewResOpen] = React.useState(false);
   const [billingCycle, setBillingCycle] = React.useState<'monthly' | 'yearly'>('monthly');
   const [subData, setSubData] = React.useState<any>(null);
@@ -110,12 +112,12 @@ export default function BillingPage() {
   const roomCount = subData?.roomCount ?? 0;
   const roomLimit = subData?.subscription?.roomLimit ?? 30;
 
-  if (loading || loadError) return <PageLoadState title="Billing" failed={loadError} retry={fetchSubscription} />;
+  if (loading || loadError) return <PageLoadState title={t('title')} failed={loadError} retry={fetchSubscription} />;
 
   return (
     <div className="flex-1 flex flex-col h-screen overflow-hidden bg-white text-[#191816]">
       <Topbar
-        title="Billing & Subscription"
+        title={t('title')}
         onOpenNewReservation={() => setNewResOpen(true)}
       />
 

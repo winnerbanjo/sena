@@ -19,6 +19,9 @@ import { RecordPaymentDialog } from './record-payment-dialog';
 import { formatAssignedRoom, isPhysicalRoomAssigned, type EligiblePhysicalRoom } from './reservation-room';
 import { PhysicalRoomSelect } from './physical-room-select';
 import { useToast } from './toast-notification';
+import { useTranslations } from 'next-intl';
+import { isolateLtr, Ltr } from './ltr';
+import { localizeApiError } from '@/i18n/errors';
 import { useWorkspace } from './workspace-access';
 
 export type RoomAssignmentMode = 'check-in' | 'assign' | 'change';
@@ -52,6 +55,9 @@ export function CheckInRoomDialog({
   onFolioUpdated,
 }: CheckInRoomDialogProps) {
   const toast = useToast();
+  const t = useTranslations('frontDesk');
+  const tCommon = useTranslations('common');
+  const tErrors = useTranslations('errors');
   const workspace = useWorkspace();
   const [rooms, setRooms] = React.useState<EligiblePhysicalRoom[]>([]);
   const [loading, setLoading] = React.useState(false);
@@ -263,18 +269,18 @@ export function CheckInRoomDialog({
   }
 
   const title =
-    mode === 'check-in' ? 'Check In Guest' : assigned && mode === 'change' ? 'Change Room' : 'Assign Room';
+    mode === 'check-in' ? t('checkInGuest') : assigned && mode === 'change' ? t('changeRoom') : t('assignRoom');
   const actionLabel =
     mode === 'check-in'
       ? assigned && !changingRoom
-        ? 'Confirm Check In'
-        : 'Assign & Check In'
+        ? t('confirmCheckIn')
+        : t('assignAndCheckIn')
       : assigned
-        ? 'Save Room'
-        : 'Assign Room';
+        ? t('saveRoom')
+        : t('assignRoom');
 
   const continueLabel =
-    payment.kind === 'partially_paid' ? `Continue with ${formatNaira(due)} due` : 'Continue without payment';
+    payment.kind === 'partially_paid' ? t('continueWithDue', { amount: isolateLtr(formatNaira(due)) }) : t('continueWithoutPayment');
 
   return (
     <Dialog
@@ -310,12 +316,12 @@ export function CheckInRoomDialog({
           />
         ) : confirmOutstanding ? (
           <div className="space-y-3 py-2 text-xs">
-            <p className="font-serif text-base text-[#71382D]">Continue without payment?</p>
-            <p className="text-sm text-[#191816]">{formatNaira(due)} will remain due.</p>
-            <p className="text-[#7A7267]">The guest will still owe {formatNaira(due)} after check-in.</p>
+            <p className="font-serif text-base text-[#71382D]">{t('continueWithoutPaymentQuestion')}</p>
+            <p className="text-sm text-[#191816]">{t('willRemainDue', { amount: isolateLtr(formatNaira(due)) })}</p>
+            <p className="text-[#7A7267]">{t('guestWillStillOwe', { amount: isolateLtr(formatNaira(due)) })}</p>
             <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-2">
               <Button type="button" variant="outline" className="min-h-11" onClick={() => setConfirmOutstanding(false)}>
-                Cancel
+                {tCommon('cancel')}
               </Button>
               <Button
                 type="button"
@@ -325,7 +331,7 @@ export function CheckInRoomDialog({
                   setConfirmOutstanding(false);
                 }}
               >
-                Continue
+                {tCommon('continue')}
               </Button>
             </div>
           </div>
@@ -334,19 +340,19 @@ export function CheckInRoomDialog({
             <div className="space-y-3 py-2 text-xs">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <span className="block text-[11px] uppercase tracking-wider text-[#8C8275]">Guest</span>
+                  <span className="block text-[11px] uppercase tracking-wider text-[#8C8275]">{tCommon('guest')}</span>
                   <strong className="text-[#191816]">{reservation.guestName}</strong>
                 </div>
                 <div>
-                  <span className="block text-[11px] uppercase tracking-wider text-[#8C8275]">Room Type</span>
+                  <span className="block text-[11px] uppercase tracking-wider text-[#8C8275]">{tCommon('roomType')}</span>
                   <strong className="text-[#191816]">{reservation.roomType}</strong>
                 </div>
                 <div>
-                  <span className="block text-[11px] uppercase tracking-wider text-[#8C8275]">Assigned Room</span>
+                  <span className="block text-[11px] uppercase tracking-wider text-[#8C8275]">{t('assignedRoom')}</span>
                   <strong className="text-[#191816]">{formatAssignedRoom(reservation.roomNumber)}</strong>
                 </div>
                 <div>
-                  <span className="block text-[11px] uppercase tracking-wider text-[#8C8275]">Stay</span>
+                  <span className="block text-[11px] uppercase tracking-wider text-[#8C8275]">{tCommon('stay')}</span>
                   <strong className="text-[#191816]">{formatStayDates(reservation.checkInDate, reservation.checkOutDate)}</strong>
                 </div>
               </div>
@@ -362,22 +368,22 @@ export function CheckInRoomDialog({
               {forCheckIn && moneyDue && (
                 <div className="space-y-2">
                   {requireFull ? (
-                    <p className="font-medium text-[#71382D]">Payment required before check-in</p>
+                    <p className="font-medium text-[#71382D]">{t('paymentRequiredBeforeCheckIn')}</p>
                   ) : (
-                    <p className="text-[#7A7267]">The guest will still owe {formatNaira(due)} after check-in.</p>
+                    <p className="text-[#7A7267]">{t('guestWillStillOwe', { amount: isolateLtr(formatNaira(due)) })}</p>
                   )}
                   <div className="flex flex-col gap-2">
                     <Button type="button" className="min-h-11 bg-[#71382D] hover:bg-[#5A2C23] text-white" onClick={() => setPayOpen(true)}>
-                      Record Payment
+                      {t('recordPayment')}
                     </Button>
                     <div className="flex flex-col sm:flex-row gap-2">
                       {folio?.invoices[0] ? (
                         <Button type="button" variant="outline" className="min-h-11 flex-1" disabled={invoiceBusy} onClick={() => handleSendOrViewInvoice('view')}>
-                          View Invoice
+                          {t('viewInvoice')}
                         </Button>
                       ) : null}
                       <Button type="button" variant="outline" className="min-h-11 flex-1" disabled={invoiceBusy} onClick={() => handleSendOrViewInvoice('send')}>
-                        {invoiceBusy ? 'Sending…' : 'Send Invoice'}
+                        {invoiceBusy ? tCommon('sending') : t('sendInvoice')}
                       </Button>
                     </div>
                   </div>
@@ -385,7 +391,7 @@ export function CheckInRoomDialog({
                     <button
                       type="button"
                       onClick={() => setConfirmOutstanding(true)}
-                      className="text-[#71382D] hover:underline font-medium min-h-11 text-left"
+                      className="text-[#71382D] hover:underline font-medium min-h-11 text-start"
                     >
                       {continueLabel}
                     </button>
@@ -399,20 +405,20 @@ export function CheckInRoomDialog({
                   onClick={() => setChangingRoom(true)}
                   className="text-[#71382D] hover:underline font-medium"
                 >
-                  Change Room
+                  {t('changeRoom')}
                 </button>
               )}
 
               {mustChooseRoom && (
                 <div>
-                  <Label id="check-in-room-label">{assigned ? 'Select another room' : 'Select Room'}</Label>
+                  <Label id="check-in-room-label">{assigned ? t('selectAnotherRoom') : t('selectRoom')}</Label>
                   <PhysicalRoomSelect
                     rooms={rooms}
                     value={selectedRoomId}
                     onChange={setSelectedRoomId}
                     loading={loading}
                     labelledBy="check-in-room-label"
-                    emptyLabel="No eligible rooms for this stay."
+                    emptyLabel={t('noEligibleRooms')}
                   />
                 </div>
               )}
@@ -426,7 +432,7 @@ export function CheckInRoomDialog({
 
             <DialogFooter className="flex-col-reverse sm:flex-row gap-2">
               <Button type="button" variant="outline" className="min-h-11" onClick={() => onOpenChange(false)} disabled={submitting}>
-                Cancel
+                {tCommon('cancel')}
               </Button>
               <Button
                 type="button"
@@ -439,7 +445,7 @@ export function CheckInRoomDialog({
                 }
                 onClick={handleSubmit}
               >
-                {submitting ? 'Saving…' : actionLabel}
+                {submitting ? tCommon('saving') : actionLabel}
               </Button>
             </DialogFooter>
           </>

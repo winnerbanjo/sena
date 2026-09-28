@@ -1,4 +1,5 @@
 'use client';
+import { useTranslations } from 'next-intl';
 
 import * as React from 'react';
 import { PageLoadState } from '../../components/page-load-state';
@@ -49,6 +50,7 @@ interface LineItemForm {
 }
 
 export default function InvoicesPage() {
+  const t = useTranslations('invoices');
   const [invoices, setInvoices] = React.useState<PropertyInvoice[]>([]);
   const [metrics, setMetrics] = React.useState<InvoiceMetrics>({
     totalInvoicedMinorUnits: 0,
@@ -290,11 +292,11 @@ export default function InvoicesPage() {
     setModalOpen(true);
   }
 
-  if (loadError) return <PageLoadState title="Invoices" failed retry={fetchInvoices} />;
+  if (loadError) return <PageLoadState title={t('title')} failed retry={fetchInvoices} />;
 
   return (
     <div className="flex-1 flex flex-col h-screen overflow-hidden bg-white text-[#191816]">
-      <Topbar title="Invoices & Folios" />
+      <Topbar title={t('title')} />
 
       <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6">
         {/* Header Title & Actions */}

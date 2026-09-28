@@ -1,4 +1,5 @@
 'use client';
+import { useTranslations } from 'next-intl';
 
 import { PageLoadState, readJsonResponse } from '../../components/page-load-state';
 import { classifyLoadFailure, type LoadFailureKind } from '../../lib/page-load';
@@ -28,6 +29,7 @@ import {
 import { useToast } from '../../components/toast-notification';
 
 export default function ReportsPage() {
+  const t = useTranslations('reports');
   const toast = useToast();
   const [newResOpen, setNewResOpen] = React.useState(false);
   const [dateRange, setDateRange] = React.useState<ReportRangeKey>('month');
@@ -70,8 +72,8 @@ export default function ReportsPage() {
     setTimeout(() => {
       setExporting(null);
       toast.success(
-        'Report Export Ready',
-        `Financial and operational ledger prepared in ${format.toUpperCase()} format.`
+        t('exportReady'),
+        t('exportBody', { format: format.toUpperCase() })
       );
     }, 600);
   };
@@ -119,12 +121,12 @@ export default function ReportsPage() {
   const dirtyRoomsCount = rooms.filter((r) => (r.housekeepingStatus || r.housekeeping) === 'dirty').length;
   const cleaningRoomsCount = rooms.filter((r) => (r.housekeepingStatus || r.housekeeping) === 'cleaning').length;
 
-  if (loading || loadError) return <PageLoadState title="Reports" failed={loadError} failureKind={failureKind} retry={loadReports} />;
+  if (loading || loadError) return <PageLoadState title={t('title')} failed={loadError} failureKind={failureKind} retry={loadReports} />;
 
   return (
     <div className="flex-1 flex flex-col h-screen overflow-hidden bg-white">
       <Topbar
-        title="Reports & Exports"
+        title={t('title')}
         onOpenNewReservation={() => setNewResOpen(true)}
       />
 
@@ -133,10 +135,10 @@ export default function ReportsPage() {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#E8E2DA] pb-4">
           <div>
             <h2 className="text-xl sm:text-2xl font-serif font-normal text-[#191816]">
-              Reports & Auditing
+              {t('heading')}
             </h2>
             <p className="text-xs text-[#7A7267] mt-1">
-              Download audited hospitality metrics, accounting exports, tax ledgers, and operational reports.
+              {t('subtitle')}
             </p>
           </div>
 

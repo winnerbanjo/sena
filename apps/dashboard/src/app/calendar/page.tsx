@@ -1,4 +1,5 @@
 'use client';
+import { useTranslations } from 'next-intl';
 
 import { PageLoadState, readJsonResponse } from '../../components/page-load-state';
 import * as React from 'react';
@@ -29,6 +30,7 @@ function generateDates(baseDate = new Date(), numDays = 7) {
 }
 
 export default function CalendarPage() {
+  const t = useTranslations('calendar');
   const [baseDate, setBaseDate] = React.useState(new Date());
   const [calendarDates, setCalendarDates] = React.useState(() => generateDates(new Date(), 7));
   const [rooms, setRooms] = React.useState<any[]>([]);
@@ -110,12 +112,12 @@ export default function CalendarPage() {
     fetchCalendar();
   }, [fetchCalendar]);
 
-  if (loading || loadError) return <PageLoadState title="Calendar" failed={loadError} />;
+  if (loading || loadError) return <PageLoadState title={t('title')} failed={loadError} />;
 
   return (
     <div className="flex-1 flex flex-col h-screen overflow-hidden bg-white">
       <Topbar
-        title="Master Calendar"
+        title={t('title')}
         onOpenNewReservation={() => setNewResOpen(true)}
       />
 

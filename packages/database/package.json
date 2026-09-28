@@ -11,6 +11,7 @@
     "db:push": "drizzle-kit push",
     "db:migrate": "drizzle-kit migrate",
     "db:apply-payment-lifecycle": "tsx src/apply-payment-lifecycle-schema.ts",
+    "db:apply-user-locale": "tsx src/apply-user-locale-schema.ts",
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {

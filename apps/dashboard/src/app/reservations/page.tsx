@@ -14,8 +14,12 @@ import { ReservationDrawer } from '../../components/reservation-drawer';
 import { Topbar } from '../../components/topbar';
 import { useToast } from '../../components/toast-notification';
 import { ReservationSuccessModal } from '../../components/reservation-success-modal';
+import { useTranslations } from 'next-intl';
 
 function ReservationsContent() {
+  const t = useTranslations('reservations');
+  const tCommon = useTranslations('common');
+  const tStatus = useTranslations('statuses.reservation');
   const toast = useToast();
   const searchParams = useSearchParams();
   const urlSearch = searchParams.get('search');
@@ -79,12 +83,12 @@ function ReservationsContent() {
     return true;
   });
 
-  if (loading || loadError) return <PageLoadState title="Reservations" failed={loadError} />;
+  if (loading || loadError) return <PageLoadState title={t('title')} failed={loadError} />;
 
   return (
     <div className="flex-1 flex flex-col h-screen overflow-hidden bg-white text-[#191816]">
       <Topbar
-        title="Reservations"
+        title={t('title')}
         onOpenNewReservation={() => setNewResOpen(true)}
       />
 
@@ -93,13 +97,13 @@ function ReservationsContent() {
         <div className="border-b border-[#E8E1D5] pb-6 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
           <div>
             <span className="text-[11px] font-mono tracking-widest uppercase text-[#8C8275] block mb-1">
-              Guest Ledger
+              {t('eyebrow')}
             </span>
             <h1 className="text-2xl sm:text-3xl font-serif font-normal text-[#71382D]">
-              Master Reservations
+              {t('heading')}
             </h1>
             <p className="text-xs text-[#7A7267] mt-1">
-              Complete chronological register of all past, in-house, and upcoming guest stays.
+              {t('subtitle')}
             </p>
           </div>
 
@@ -108,7 +112,7 @@ function ReservationsContent() {
               <Search className="w-3.5 h-3.5 absolute left-3.5 top-3 text-[#8C8275]" />
               <input
                 type="text"
-                placeholder="Search guest, code, or room..."
+                placeholder={t('searchPlaceholder')}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-9 pr-3.5 py-2 rounded-md border border-[#E8E1D5] bg-[#FAF7F2]/40 text-xs text-[#191816] placeholder:text-[#A69E92] focus:bg-white focus:outline-none focus:border-[#71382D] transition-colors"
@@ -120,11 +124,11 @@ function ReservationsContent() {
         {/* Quiet, Editorial Tabs */}
         <div className="flex items-center gap-6 border-b border-[#E8E1D5] text-xs">
           {[
-            { id: 'all', label: 'All Stays' },
-            { id: 'upcoming', label: 'Upcoming Arrivals' },
-            { id: 'in_house', label: 'Currently In-House' },
-            { id: 'completed', label: 'Departed' },
-            { id: 'cancelled', label: 'Cancelled' },
+            { id: 'all', label: t('allStays') },
+            { id: 'upcoming', label: t('upcomingArrivals') },
+            { id: 'in_house', label: t('currentlyInHouse') },
+            { id: 'completed', label: t('departed') },
+            { id: 'cancelled', label: t('cancelled') },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -149,13 +153,13 @@ function ReservationsContent() {
             <table className="w-full text-left border-collapse min-w-[760px]">
               <thead>
                 <tr className="border-b border-[#E8E1D5] bg-[#FAF7F2]/60 text-[11px] font-mono uppercase tracking-wider text-[#8C8275]">
-                  <th className="py-3 px-5 font-medium">Folio Ref</th>
-                  <th className="py-3 px-5 font-medium">Guest</th>
-                  <th className="py-3 px-5 font-medium">Room Assigned</th>
-                  <th className="py-3 px-5 font-medium">Stay Window</th>
-                  <th className="py-3 px-5 font-medium">Channel</th>
-                  <th className="py-3 px-5 font-medium">Settlement</th>
-                  <th className="py-3 px-5 font-medium">Status</th>
+                  <th className="py-3 px-5 font-medium">{t('folioRef')}</th>
+                  <th className="py-3 px-5 font-medium">{t('guest')}</th>
+                  <th className="py-3 px-5 font-medium">{t('roomAssigned')}</th>
+                  <th className="py-3 px-5 font-medium">{t('stayWindow')}</th>
+                  <th className="py-3 px-5 font-medium">{t('channel')}</th>
+                  <th className="py-3 px-5 font-medium">{t('settlement')}</th>
+                  <th className="py-3 px-5 font-medium">{t('status')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#E8E1D5] text-xs">
@@ -167,12 +171,10 @@ function ReservationsContent() {
                           Reservation Folio Ledger
                         </span>
                         <h3 className="font-serif text-lg text-[#71382D]">
-                          {reservations.length === 0 ? 'No guest reservations recorded yet' : 'No stays found in this view'}
+                          {reservations.length === 0 ? t('emptyTitle') : t('emptyFilteredTitle')}
                         </h3>
                         <p className="text-xs text-[#7A7267] leading-relaxed">
-                          {reservations.length === 0
-                            ? 'Direct bookings captured through your guest website and manual walk-ins logged at the front desk will appear here with automated folio tracking.'
-                            : 'Try selecting a different filter tab or clearing your search term.'}
+                          {reservations.length === 0 ? t('emptyBody') : t('emptyFilteredBody')}
                         </p>
                         {reservations.length === 0 && (
                           <div className="pt-2 flex items-center justify-center gap-3">
@@ -181,13 +183,13 @@ function ReservationsContent() {
                               onClick={() => setNewResOpen(true)}
                               className="px-4 py-2 rounded-md bg-[#71382D] hover:bg-[#5A2C23] text-white text-xs font-medium transition-colors"
                             >
-                              + Record Walk-in Stay
+                              {t('walkIn')}
                             </button>
                             <a
                               href="/booking-preview"
                               className="px-4 py-2 rounded-md border border-[#E5D4BC] bg-[#FAF7F2] hover:bg-[#F2EAE0] text-[#71382D] text-xs font-medium transition-colors"
                             >
-                              View Direct Booking Engine &rarr;
+                              {t('viewDirectBooking')}
                             </a>
                           </div>
                         )}
@@ -206,7 +208,7 @@ function ReservationsContent() {
                         className="hover:bg-[#FAF7F2]/60 transition-colors cursor-pointer group"
                       >
                         <td className="py-4 px-5 font-mono text-xs text-[#71382D] font-medium">
-                          {res.reference}
+                          <span className="ltr-isolate" dir="ltr">{res.reference}</span>
                         </td>
                         <td className="py-4 px-5">
                           <strong className="block font-serif text-sm text-[#191816] group-hover:text-[#B85C3E] transition-colors">
@@ -225,12 +227,14 @@ function ReservationsContent() {
                             {formatStayDates(res.checkInDate, res.checkOutDate)}
                           </span>
                           <span className="text-[11px] text-[#8C8275]">
-                            {res.nights} {res.nights === 1 ? 'night' : 'nights'}
+                            {t('nights', { count: res.nights })}
                           </span>
                         </td>
                         <td className="py-4 px-5 capitalize text-[#7A7267]">
                           {res.source === 'direct' ? (
-                            <span className="text-[#71382D] font-medium">Direct (0% fee)</span>
+                            <span className="text-[#71382D] font-medium">{t('direct')}</span>
+                          ) : res.source === 'walk_in' ? (
+                            t('walkIn')
                           ) : (
                             res.source.replace('_', ' ')
                           )}
@@ -245,7 +249,7 @@ function ReservationsContent() {
                         </td>
                         <td className="py-4 px-5">
                           <span className="px-2 py-0.5 rounded text-[11px] font-mono tracking-wide uppercase bg-[#FAF4EF] text-[#71382D] border border-[#E5D4BC]">
-                            {res.status.replace('_', ' ')}
+                            {tStatus.has(res.status as never) ? tStatus(res.status as never) : res.status}
                           </span>
                         </td>
                       </tr>
@@ -283,7 +287,7 @@ function ReservationsContent() {
             });
             const data = await res.json().catch(() => ({}));
             if (res.ok) {
-              toast.success('Guest Checked Out', balance > 0 ? 'Stay closed with outstanding receivable.' : 'Reservation marked complete.');
+              toast.success(t('successTitle'), tCommon('saved'));
               fetchReservations();
               if (selectedRes && selectedRes.id === id) {
                 setSelectedRes((prev) => (prev ? { ...prev, status: 'checked_out' } : null));

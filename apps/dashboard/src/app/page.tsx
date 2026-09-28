@@ -1,4 +1,5 @@
 'use client';
+import { useTranslations } from 'next-intl';
 import { formatAssignedRoom, mapReservationItem } from '../components/reservation-room';
 import { CheckInRoomDialog, type RoomAssignmentMode } from '../components/check-in-room-dialog';
 import { DeskPaymentBadge } from '../components/check-in-payment-status';
@@ -42,6 +43,7 @@ import { Topbar } from '../components/topbar';
 import { useDialogA11y } from '../components/use-dialog-a11y';
 
 export default function OverviewPage() {
+  const t = useTranslations('overview');
   const toast = useToast();
   const workspace = useWorkspace();
   const [reservations, setReservations] = React.useState<ReservationItem[]>([]);
@@ -165,12 +167,12 @@ export default function OverviewPage() {
   const departuresText = departures.length === 1 ? '1 departure' : `${departures.length} departures`;
   const roomsAttentionText = dirtyRooms.length === 0 ? 'No rooms need attention' : `${dirtyRooms.length} ${dirtyRooms.length === 1 ? 'room needs' : 'rooms need'} attention`;
 
-  if (loading || loadError) return <PageLoadState title="Overview" failed={loadError} failureKind={failureKind} retry={fetchData} />;
+  if (loading || loadError) return <PageLoadState title={t('title')} failed={loadError} failureKind={failureKind} retry={fetchData} />;
 
   return (
     <div className="flex-1 flex flex-col h-screen overflow-hidden bg-white text-[#191816]">
       <Topbar
-        title="Overview"
+        title={t('title')}
         onOpenNewReservation={() => setNewResOpen(true)}
       />
 
