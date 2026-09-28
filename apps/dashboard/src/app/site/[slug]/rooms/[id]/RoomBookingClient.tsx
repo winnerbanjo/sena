@@ -54,8 +54,8 @@ export function RoomBookingClient({
   const [guestEmail, setGuestEmail] = React.useState('');
   const [guestPhone, setGuestPhone] = React.useState('');
   const [confirmedRef, setConfirmedRef] = React.useState('');
-  const defaultPayment = onlinePaymentAvailable ? 'paystack' : payAtPropertyAvailable ? 'pay_at_property' : bankTransferAvailable ? 'bank_transfer' : 'pay_at_property';
-  const [paymentChoice, setPaymentChoice] = React.useState<'paystack' | 'pay_at_property' | 'bank_transfer'>(defaultPayment);
+  const defaultPayment = onlinePaymentAvailable ? 'online' : payAtPropertyAvailable ? 'pay_at_property' : bankTransferAvailable ? 'bank_transfer' : 'pay_at_property';
+  const [paymentChoice, setPaymentChoice] = React.useState<'online' | 'pay_at_property' | 'bank_transfer'>(defaultPayment);
   const [paymentState, setPaymentState] = React.useState<'pay_at_property' | 'pending' | 'bank_transfer' | 'failed'>('pay_at_property');
   const [confirmedBanks, setConfirmedBanks] = React.useState(bankAccounts);
   const [proofStatus, setProofStatus] = React.useState<'idle' | 'pending' | 'submitted'>('idle');
@@ -157,7 +157,7 @@ export function RoomBookingClient({
 
       const data = await res.json();
       if (res.ok && data.success) {
-        if (paymentChoice === 'paystack' && data.payment?.authorizationUrl) {
+        if (paymentChoice === 'online' && data.payment?.authorizationUrl) {
           window.location.href = data.payment.authorizationUrl;
           return;
         }
@@ -371,7 +371,7 @@ export function RoomBookingClient({
             <legend className="text-sm font-medium text-[#191816]">Payment</legend>
             {onlinePaymentAvailable && (
               <label className="flex items-start gap-3 rounded border border-[#E8E2DA] p-3 min-h-11">
-                <input type="radio" name="payment" className="mt-1 h-5 w-5" checked={paymentChoice === 'paystack'} onChange={() => setPaymentChoice('paystack')} />
+                <input type="radio" name="payment" className="mt-1 h-5 w-5" checked={paymentChoice === 'online'} onChange={() => setPaymentChoice('online')} />
                 <span>
                   <span className="block font-medium text-[#191816]">Pay online</span>
                   <span className="block text-[#7A7267]">Secure payment through Paystack. The stay is paid after Paystack confirms it.</span>
@@ -405,7 +405,7 @@ export function RoomBookingClient({
               style={primaryButtonStyle}
               className="w-full min-h-11 py-3 text-sm font-semibold flex items-center justify-center gap-2 hover:opacity-90 disabled:opacity-50 transition-opacity"
             >
-              <span>{submitting ? 'Confirming stay...' : paymentChoice === 'paystack' ? `Pay online (${formattedTotal})` : paymentChoice === 'bank_transfer' ? `Confirm and view transfer details (${formattedTotal})` : `Confirm reservation (${formattedTotal})`}</span>
+              <span>{submitting ? 'Confirming stay...' : paymentChoice === 'online' ? `Pay online (${formattedTotal})` : paymentChoice === 'bank_transfer' ? `Confirm and view transfer details (${formattedTotal})` : `Confirm reservation (${formattedTotal})`}</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>

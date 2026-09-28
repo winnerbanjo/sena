@@ -2,7 +2,7 @@ import * as React from 'react';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { getWebsiteData, getTenantBasePath } from '../../../../../lib/website-data';
-import { directBookingPaymentAvailable } from '../../../../../lib/integrations/paystack';
+import { onlinePaymentAvailable as resolveOnlinePaymentAvailable } from '../../../../../lib/online-provider';
 import { PaymentService } from '@sena/payments';
 import { RoomBookingClient } from './RoomBookingClient';
 import { ArrowLeft, Users, BedDouble, Check, ShieldCheck, Clock, MapPin } from 'lucide-react';
@@ -28,7 +28,8 @@ export default async function RoomDetailPage({
   if (!room) return notFound();
 
   const { property, config } = data;
-  const onlinePaymentAvailable = await directBookingPaymentAvailable(property.id);
+  // Single "Pay Online" surface; provider is resolved server-side (preferred / sole enabled).
+  const onlinePaymentAvailable = await resolveOnlinePaymentAvailable(property.id, 'direct_booking');
   const bankAccounts = await PaymentService.listPublicBankAccounts(property.id);
   const payAtPropertyAvailable = property.directBookingPayAtProperty !== false;
   const bankTransferAvailable = property.directBookingBankTransfer !== false && bankAccounts.length > 0;
