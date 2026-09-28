@@ -3,11 +3,14 @@
 import * as React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { LanguageSelect } from '../../components/language-select';
 
-export default function LoginPage() {
+function LoginForm() {
   const t = useTranslations('setup');
+  const searchParams = useSearchParams();
+  const propertySlug = (searchParams.get('property') || '').trim().toLowerCase();
   const [email, setEmail] = React.useState('');
   const [password, setPassword] = React.useState('');
   const [showPassword, setShowPassword] = React.useState(false);
@@ -32,6 +35,7 @@ export default function LoginPage() {
       const res = await signIn('credentials', {
         email: email.trim().toLowerCase(),
         password,
+        ...(propertySlug ? { property: propertySlug } : {}),
         redirect: false,
       });
 
@@ -57,7 +61,7 @@ export default function LoginPage() {
 
       setIsLoading(false);
       // Reload the server layout after authentication; the login layout has no workspace.
-      window.location.assign('/');
+      window.location.assign(propertySlug ? '/apps?manage=flutterwave' : '/');
     } catch (err: any) {
       console.error('Login error:', err);
       setError(t('loginUnavailable'));
@@ -247,5 +251,13 @@ export default function LoginPage() {
         </div>
       </footer>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <React.Suspense fallback={<div className="min-h-screen bg-[#FAF7F2]" />}>
+      <LoginForm />
+    </React.Suspense>
   );
 }

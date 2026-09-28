@@ -14,6 +14,7 @@ const nextAuth = NextAuth({
       credentials: {
         email: { label: 'Email', type: 'email' },
         password: { label: 'Password', type: 'password' },
+        property: { label: 'Property', type: 'text' },
       },
       authorize: async (credentials) => {
         if (!credentials?.email || !credentials?.password) {
@@ -22,23 +23,10 @@ const nextAuth = NextAuth({
 
         const email = String(credentials.email).toLowerCase().trim();
         const password = String(credentials.password);
+        const propertySlug = typeof credentials.property === 'string' ? credentials.property.trim().toLowerCase() : '';
 
-        // Resolve the account and its property in one database round trip.
-        const userResults = await db
-          .select({ user: users, propertyId: propertyMembers.propertyId, role: propertyMembers.role, propertyName: properties.name })
-          .from(users)
-          .leftJoin(propertyMembers, eq(propertyMembers.userId, users.id))
-          .leftJoin(properties, eq(propertyMembers.propertyId, properties.id))
-          .where(eq(users.email, email))
-          .limit(1);
-
-        if (userResults.length === 0) {
-          return null;
-        }
-
-        const account = userResults[0];
-        const user = account.user;
-        if (!user.isActive || !user.passwordHash) {
+        const user = await db.query.users.findFirst({ where: eq(users.email, email) });
+        if (!user?.isActive || !user.passwordHash) {
           return null;
         }
 
@@ -47,14 +35,39 @@ const nextAuth = NextAuth({
           return null;
         }
 
+        // Optional property slug selects an authorized membership only. Never invent access.
+        const memberships = await db
+          .select({
+            propertyId: propertyMembers.propertyId,
+            role: propertyMembers.role,
+            permissions: propertyMembers.permissions,
+            propertyName: properties.name,
+            propertySlug: properties.slug,
+          })
+          .from(propertyMembers)
+          .innerJoin(properties, eq(propertyMembers.propertyId, properties.id))
+          .where(eq(propertyMembers.userId, user.id));
+
+        const usable = memberships.filter((row) => {
+          const permissions = row.permissions || [];
+          return !permissions.includes('status:invited') && !permissions.includes('status:revoked');
+        });
+
+        const selected = propertySlug
+          ? usable.find((row) => row.propertySlug === propertySlug)
+          : usable[0];
+        if (propertySlug && !selected) {
+          return null;
+        }
+
         return {
           id: user.id,
           email: user.email,
           name: user.fullName,
           image: user.avatarUrl,
-          propertyId: account.propertyId || undefined,
-          propertyName: account.propertyName || undefined,
-          role: account.role || 'owner',
+          propertyId: selected?.propertyId || undefined,
+          propertyName: selected?.propertyName || undefined,
+          role: selected?.role || 'owner',
         };
       },
     }),
