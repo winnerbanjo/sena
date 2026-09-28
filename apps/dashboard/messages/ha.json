@@ -136,7 +136,17 @@
     "viewStay": "Duba zama",
     "noArrivals": "Babu masu zuwa yau.",
     "occupancyTrend": "Yanayin cikawa",
-    "inHouseLabel": "A ciki"
+    "inHouseLabel": "A ciki",
+    "viewAllRooms": "Duba duk dakuna",
+    "boardCount": "{count, plural, one {daki #} other {dakuna #}}",
+    "boardOccupied": "{count, plural, one {# an zauna} other {# an zauna}}",
+    "boardAttention": "{count, plural, =0 {babu da ke buƙatar kulawa} one {# yana buƙatar kulawa} other {# suna buƙatar kulawa}}",
+    "boardStatusAvailable": "Akwai",
+    "boardStatusOccupied": "An zauna",
+    "boardStatusNeedsCleaning": "Yana buƙatar tsafta",
+    "boardStatusCleaning": "Ana goge",
+    "boardStatusOutOfService": "Ba ya aiki",
+    "roomCardAria": "Daki {number}, {category}, {status}"
   },
   "reservations": {
     "title": "Ajiye dakuna",

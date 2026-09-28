@@ -136,7 +136,17 @@
     "viewStay": "Lee obibi",
     "noArrivals": "Enweghị ndị na-abịa taa.",
     "occupancyTrend": "Usoro njupụta",
-    "inHouseLabel": "N'ime ụlọ"
+    "inHouseLabel": "N'ime ụlọ",
+    "viewAllRooms": "Lee ime ụlọ niile",
+    "boardCount": "{count, plural, one {ime ụlọ #} other {ime ụlọ #}}",
+    "boardOccupied": "{count, plural, one {# e juputara} other {# e juputara}}",
+    "boardAttention": "{count, plural, =0 {ọ dịghị nke chọrọ nlebara anya} one {# chọrọ nlebara anya} other {# chọrọ nlebara anya}}",
+    "boardStatusAvailable": "Dị",
+    "boardStatusOccupied": "E juputara",
+    "boardStatusNeedsCleaning": "Chọrọ nhicha",
+    "boardStatusCleaning": "Na-ehicha",
+    "boardStatusOutOfService": "Adịghị arụ ọrụ",
+    "roomCardAria": "Ime ụlọ {number}, {category}, {status}"
   },
   "reservations": {
     "title": "Nchekwa",
