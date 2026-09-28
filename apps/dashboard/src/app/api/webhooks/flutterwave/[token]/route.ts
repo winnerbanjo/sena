@@ -36,7 +36,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
     const attempt = await db.query.paymentAttempts.findFirst({ where: eq(paymentAttempts.internalReference, txRef) });
     if (!attempt || attempt.integrationId !== integration.id || attempt.propertyId !== integration.propertyId) {
       console.info('[flutterwave]', 'webhook_unknown_reference', { propertyId: integration.propertyId });
-      throw new Error('ATTEMPT_NOT_FOUND');
+      await db.update(integrationWebhookEvents).set({ status: 'ignored', processedAt: new Date(), errorMessage: 'Unknown payment reference.' }).where(eq(integrationWebhookEvents.id, delivery.id));
+      return NextResponse.json({ status: 'ignored' }, { status: 404 });
     }
     const verified = await verifyPropertyFlutterwaveTransaction(integration.propertyId, { transactionId, txRef });
     const result = await settlePropertyFlutterwave(attempt.id, verified);

@@ -41,7 +41,7 @@ Direct booking and public invoice checkout derive amount, currency, and property
 
 ## Callback
 
-Flutterwave redirect query parameters such as `status=successful` are not proof of payment. The confirmation page may call `/api/payments/public/confirm` with `tx_ref` (and optional `transaction_id`). That route looks up Sena’s payment attempt, then verifies with Flutterwave before settlement.
+Flutterwave redirect query parameters such as `status=successful`, and the `resp` payload Flutterwave substitutes for the original query, are not proof of payment. The confirmation and invoice pages recover only `tx_ref` and the original booking reference from that return, then call `/api/payments/public/confirm`. That route ignores browser amount, currency, and status. It looks up Sena’s payment attempt and verifies the transaction with Flutterwave before settlement.
 
 ## Webhook
 

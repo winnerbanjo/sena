@@ -3,14 +3,16 @@
 import * as React from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import { formatNaira } from '@sena/config';
+import { flutterwaveReturnContext } from '@/lib/flutterwave-callback';
 
 export default function BookingConfirmationPage() {
   const params = useParams<{ slug: string }>();
   const search = useSearchParams();
-  const reference = search.get('reference') || '';
-  const confirming = search.get('payment') === 'confirming';
-  const txRef = search.get('tx_ref') || '';
-  const transactionId = search.get('transaction_id') || '';
+  const returned = flutterwaveReturnContext(search);
+  const reference = returned.reference;
+  const confirming = returned.confirming;
+  const txRef = returned.txRef;
+  const transactionId = returned.transactionId;
   const [booking, setBooking] = React.useState<any>(null);
   const [missing, setMissing] = React.useState(false);
 
