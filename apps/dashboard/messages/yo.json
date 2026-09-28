@@ -382,7 +382,11 @@
     "title": "Àwọn ìròyìn",
     "exportCsv": "Gbé CSV jáde",
     "financialSummary": "Àkópọ̀ owó",
-    "dateRange": "Àsìkò"
+    "dateRange": "Àsìkò",
+    "heading": "Àwọn ìròyìn àti àyẹ̀wò",
+    "subtitle": "Gba àwọn wíwọn, ìgbejáde ìṣirò, ìwé-owó owó-orí àti ìròyìn iṣẹ́.",
+    "exportReady": "Ìgbejáde ìròyìn ti ṣetán",
+    "exportBody": "A ti pèse ìwé ìṣúná àti iṣẹ́ ní ọ̀nà {format}."
   },
   "staff": {
     "title": "Òṣìṣẹ́",
@@ -507,7 +511,10 @@
     "retryConnection": "Gbìyànjú lẹ́ẹ̀kan si",
     "createAccountTitle": "Ṣẹ̀dá àkántì ilé-ìtura rẹ",
     "fullName": "Orúkọ kíkún",
-    "propertyName": "Orúkọ ilé-ìtura"
+    "propertyName": "Orúkọ ilé-ìtura",
+    "pageLoadOfflineTitle": "Ó dà bí pé o kò sí lórí ayélujára",
+    "pageLoadOfflineHint": "Sopọ̀ mọ́ ayélujára kí o gbìyànjú lẹ́ẹ̀kan si. Àlàyé tí a fi pamọ́ kò yí padà.",
+    "pageLoadServerHint": "Sena kò le parí ìbéèrè yìí. Kì í ṣe ìṣòro àsopọ̀. Gbìyànjú lẹ́ẹ̀kan si. Àlàyé tí a fi pamọ́ kò yí padà."
   },
   "errors": {
     "generic": "A kò le parí ìbéèrè yìí. Ṣàyẹ̀wò àlàyé kí o sì gbìyànjú lẹ́ẹ̀kan si.",

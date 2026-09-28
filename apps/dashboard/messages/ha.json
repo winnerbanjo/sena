@@ -382,7 +382,11 @@
     "title": "Rahotanni",
     "exportCsv": "Fitar da CSV",
     "financialSummary": "Taƙaitaccen kuɗi",
-    "dateRange": "Lokaci"
+    "dateRange": "Lokaci",
+    "heading": "Rahotanni da bincike",
+    "subtitle": "Sauke ma'auni da aka duba, fitar da lissafi, littattafan haraji da rahotannin aiki.",
+    "exportReady": "Fitar da rahoto ya shirya",
+    "exportBody": "An shirya littafin kudi da aiki a tsarin {format}."
   },
   "staff": {
     "title": "Ma'aikata",
@@ -507,7 +511,10 @@
     "retryConnection": "Sake gwadawa",
     "createAccountTitle": "Ƙirƙiri asusun otal ɗin ka",
     "fullName": "Cikakken suna",
-    "propertyName": "Sunan otal"
+    "propertyName": "Sunan otal",
+    "pageLoadOfflineTitle": "Da alama ba ka kan layi ba",
+    "pageLoadOfflineHint": "Haɗa da intanet ka sake gwadawa. Bayanan da aka adana ba su canza ba.",
+    "pageLoadServerHint": "Sena ta kasa kammala wannan bukata. Ba matsala ta haɗin ba. Sake gwadawa nan ba da jimawa ba. Bayanan da aka adana ba su canza ba."
   },
   "errors": {
     "generic": "Ba za mu iya kammala wannan buƙata ba. Duba bayanai kuma sake gwadawa.",

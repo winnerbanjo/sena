@@ -382,7 +382,11 @@
     "title": "Rapports",
     "exportCsv": "Exporter CSV",
     "financialSummary": "Synthèse financière",
-    "dateRange": "Période"
+    "dateRange": "Période",
+    "heading": "Rapports et audits",
+    "subtitle": "Téléchargez les indicateurs d’hébergement, exports comptables, journaux fiscaux et rapports opérationnels.",
+    "exportReady": "Export de rapport prêt",
+    "exportBody": "Grand livre financier et opérationnel préparé au format {format}."
   },
   "staff": {
     "title": "Équipe",
@@ -507,7 +511,10 @@
     "retryConnection": "Réessayer",
     "createAccountTitle": "Créer le compte de votre établissement",
     "fullName": "Nom complet",
-    "propertyName": "Nom de l'établissement"
+    "propertyName": "Nom de l'établissement",
+    "pageLoadOfflineTitle": "Vous semblez hors ligne",
+    "pageLoadOfflineHint": "Reconnectez-vous à Internet et réessayez. Vos informations enregistrées n'ont pas changé.",
+    "pageLoadServerHint": "Sena n'a pas pu terminer cette demande. Ce n'est pas un problème de connexion. Réessayez dans un instant. Vos informations enregistrées n'ont pas changé."
   },
   "errors": {
     "generic": "Impossible de terminer cette demande. Vérifiez les informations et réessayez.",

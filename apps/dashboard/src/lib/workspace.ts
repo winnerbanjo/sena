@@ -13,6 +13,8 @@ export type Workspace = {
     currency: string;
     checkInTime: string;
     checkOutTime: string;
+    checkInPaymentPolicy: string;
+    checkOutPaymentPolicy: string;
   };
 };
 
@@ -87,6 +89,8 @@ export async function resolveServerWorkspace(): Promise<ServerWorkspaceResult> {
           currency: tenant.property.currency,
           checkInTime: tenant.property.checkInTime,
           checkOutTime: tenant.property.checkOutTime,
+          checkInPaymentPolicy: tenant.property.checkInPaymentPolicy || 'allow_outstanding',
+          checkOutPaymentPolicy: tenant.property.checkOutPaymentPolicy || 'allow_outstanding',
         },
       },
     };

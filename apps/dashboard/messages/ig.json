@@ -382,7 +382,11 @@
     "title": "Akụkọ",
     "exportCsv": "Bupụ CSV",
     "financialSummary": "Nchịkọta ego",
-    "dateRange": "Oge"
+    "dateRange": "Oge",
+    "heading": "Akụkọ na nyocha",
+    "subtitle": "Budata ihe ndị a nyochara, mbupu ndekọ ego, akwụkwọ ụtụ isi na akụkọ ọrụ.",
+    "exportReady": "Mbupu akụkọ dị njikere",
+    "exportBody": "Ekwadoro akwụkwọ ego na ọrụ n'ụdị {format}."
   },
   "staff": {
     "title": "Ndị ọrụ",
@@ -507,7 +511,10 @@
     "retryConnection": "Nwaa ọzọ",
     "createAccountTitle": "Mepụta akaụntụ ụlọ oriri gị",
     "fullName": "Aha zuru ezu",
-    "propertyName": "Aha ụlọ oriri"
+    "propertyName": "Aha ụlọ oriri",
+    "pageLoadOfflineTitle": "Ọ dị ka ị nọghị n'ịntanetị",
+    "pageLoadOfflineHint": "Jikọọ ịntanetị wee nwaa ọzọ. Ozi e chekwara agbanweghị.",
+    "pageLoadServerHint": "Sena enweghị ike imecha arịrịọ a. Ọ bụghị nsogbu njikọ. Nwaa ọzọ n'obere oge. Ozi e chekwara agbanweghị."
   },
   "errors": {
     "generic": "Anyị enweghị ike imecha arịrịọ a. Lelee ozi ma nwaa ọzọ.",

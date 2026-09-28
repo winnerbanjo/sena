@@ -4,6 +4,7 @@ import { CheckInRoomDialog, type RoomAssignmentMode } from '../../components/che
 import { DeskPaymentBadge } from '../../components/check-in-payment-status';
 
 import { PageLoadState } from '../../components/page-load-state';
+import { classifyLoadFailure, type LoadFailureKind } from '../../lib/page-load';
 import { useWorkspace } from '../../components/workspace-access';
 import * as React from 'react';
 import { formatNaira, formatStayDates } from '@sena/config';
@@ -30,6 +31,7 @@ export default function FrontDeskPage() {
   const tCommon = useTranslations('common');
   const workspace = useWorkspace();
   const [loadError, setLoadError] = React.useState(false);
+  const [failureKind, setFailureKind] = React.useState<LoadFailureKind>('error');
   const [reservations, setReservations] = React.useState<ReservationItem[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [activeTab, setActiveTab] = React.useState<'arriving' | 'in_house' | 'departing'>('arriving');
@@ -45,20 +47,20 @@ export default function FrontDeskPage() {
     reservation: ReservationItem;
     mode: RoomAssignmentMode;
   } | null>(null);
-  const [requireCheckoutSettlement, setRequireCheckoutSettlement] = React.useState(false);
+  const requireCheckoutSettlement = workspace?.property.checkOutPaymentPolicy === 'require_settlement';
 
   const fetchReservations = React.useCallback(async () => {
+    setLoadError(false);
     try {
       const res = await fetch('/api/reservations');
-      if (!res.ok) throw new Error('Could not load reservations');
-      if (res.ok) {
-        const data = await res.json();
-        if (data.reservations) {
-          const mapped: ReservationItem[] = data.reservations.map(mapReservationItem);
-          setReservations(mapped);
-        }
+      if (!res.ok) throw new Error(`Could not load reservations (${res.status})`);
+      const data = await res.json();
+      if (data.reservations) {
+        const mapped: ReservationItem[] = data.reservations.map(mapReservationItem);
+        setReservations(mapped);
       }
-    } catch (e) {
+    } catch (error) {
+      setFailureKind(classifyLoadFailure(error, typeof navigator === 'undefined' ? true : navigator.onLine));
       setLoadError(true);
     } finally {
       setLoading(false);
@@ -67,10 +69,6 @@ export default function FrontDeskPage() {
 
   React.useEffect(() => {
     fetchReservations();
-    fetch('/api/me')
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => setRequireCheckoutSettlement(data?.property?.checkOutPaymentPolicy === 'require_settlement'))
-      .catch(() => undefined);
   }, [fetchReservations]);
 
   function openAssignment(id: string, mode: RoomAssignmentMode) {
@@ -125,7 +123,7 @@ export default function FrontDeskPage() {
       ? inHouseList
       : departingList;
 
-  if (loading || loadError) return <PageLoadState title={t('title')} failed={loadError} />;
+  if (loading || loadError) return <PageLoadState title={t('title')} failed={loadError} failureKind={failureKind} retry={fetchReservations} />;
 
   return (
     <div className="flex-1 flex flex-col h-screen overflow-hidden bg-white text-[#191816]">

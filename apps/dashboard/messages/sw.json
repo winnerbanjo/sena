@@ -382,7 +382,11 @@
     "title": "Ripoti",
     "exportCsv": "Hamisha CSV",
     "financialSummary": "Muhtasari wa fedha",
-    "dateRange": "Kipindi"
+    "dateRange": "Kipindi",
+    "heading": "Ripoti na ukaguzi",
+    "subtitle": "Pakua vipimo vilivyokaguliwa, mauzo ya uhasibu, daftari za kodi na ripoti za uendeshaji.",
+    "exportReady": "Usafirishaji wa ripoti uko tayari",
+    "exportBody": "Daftari la fedha na uendeshaji limeandaliwa katika muundo wa {format}."
   },
   "staff": {
     "title": "Wafanyakazi",
@@ -507,7 +511,10 @@
     "retryConnection": "Jaribu tena",
     "createAccountTitle": "Tengeneza akaunti ya mali yako",
     "fullName": "Jina kamili",
-    "propertyName": "Jina la mali"
+    "propertyName": "Jina la mali",
+    "pageLoadOfflineTitle": "Unaonekana hujaunganishwa",
+    "pageLoadOfflineHint": "Unganisha intaneti kisha ujaribu tena. Taarifa zako zilizohifadhiwa hazijabadilika.",
+    "pageLoadServerHint": "Sena haikuweza kukamilisha ombi hili. Si tatizo la muunganisho. Jaribu tena baada ya muda. Taarifa zako hazijabadilika."
   },
   "errors": {
     "generic": "Hatukuweza kukamilisha ombi hili. Angalia taarifa na ujaribu tena.",

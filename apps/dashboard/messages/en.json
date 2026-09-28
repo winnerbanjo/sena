@@ -382,7 +382,11 @@
     "title": "Reports",
     "exportCsv": "Export CSV",
     "financialSummary": "Financial summary",
-    "dateRange": "Date range"
+    "dateRange": "Date range",
+    "heading": "Reports & Auditing",
+    "subtitle": "Download audited hospitality metrics, accounting exports, tax ledgers, and operational reports.",
+    "exportReady": "Report Export Ready",
+    "exportBody": "Financial and operational ledger prepared in {format} format."
   },
   "staff": {
     "title": "Staff",
@@ -507,7 +511,10 @@
     "retryConnection": "Try again",
     "createAccountTitle": "Create your property account",
     "fullName": "Full name",
-    "propertyName": "Property name"
+    "propertyName": "Property name",
+    "pageLoadOfflineTitle": "You appear to be offline",
+    "pageLoadOfflineHint": "Connect to the internet and try again. Your saved information has not changed.",
+    "pageLoadServerHint": "Sena could not complete this request. This is not a problem with your internet connection. Try again in a moment. Your saved information has not changed."
   },
   "errors": {
     "generic": "We could not complete this request. Check your information and try again.",

@@ -157,7 +157,7 @@ function SidebarNavItems({ onNavigate }: { onNavigate?: () => void }) {
     <>
       <div className="p-5 pb-4">
         {/* Brand header with official logo image */}
-        <Link href="/" onClick={onNavigate} className="block mb-6 group">
+        <Link href="/" prefetch={false} onClick={onNavigate} className="block mb-6 group">
           <div className="h-8 flex items-center">
             <Image
               src="/assets/sena-logo.png"
@@ -215,7 +215,7 @@ function SidebarNavItems({ onNavigate }: { onNavigate?: () => void }) {
                     <Link
                       key={item.id}
                       href={item.href}
-                      prefetch={true}
+                      prefetch={false}
                       onClick={onNavigate}
                       className={`flex items-center justify-between px-2.5 py-1.5 rounded text-[13px] font-medium transition-colors ${
                         isActive
