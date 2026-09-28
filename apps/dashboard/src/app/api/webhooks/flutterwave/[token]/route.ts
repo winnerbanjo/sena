@@ -11,17 +11,33 @@ type SafeWebhookBody = {
   txRef: string | null;
   transactionId: string | null;
   parseable: boolean;
+  topKeys: string;
 };
 
 function parseSafeWebhookBody(rawBody: string): SafeWebhookBody {
   try {
     const event = JSON.parse(rawBody);
-    const eventType = typeof event?.event === 'string' ? event.event.slice(0, 100) : 'unparseable';
-    const txRef = typeof event?.data?.tx_ref === 'string' ? event.data.tx_ref.slice(0, 255) : null;
-    const transactionId = event?.data?.id != null ? String(event.data.id).slice(0, 64) : null;
-    return { event, eventType, txRef, transactionId, parseable: true };
+    const eventName = typeof event?.event === 'string'
+      ? event.event
+      : typeof event?.type === 'string'
+        ? event.type
+        : null;
+    const eventType = eventName ? eventName.slice(0, 100) : 'unparseable';
+    const data = event?.data && typeof event.data === 'object' ? event.data : {};
+    const txRef = typeof data.tx_ref === 'string'
+      ? data.tx_ref.slice(0, 255)
+      : typeof data.txRef === 'string'
+        ? data.txRef.slice(0, 255)
+        : null;
+    const transactionId = data.id != null ? String(data.id).slice(0, 64) : null;
+    const topKeys = event && typeof event === 'object' && !Array.isArray(event)
+      ? Object.keys(event).sort().slice(0, 12).join(',')
+      : Array.isArray(event)
+        ? 'array'
+        : typeof event;
+    return { event, eventType, txRef, transactionId, parseable: true, topKeys };
   } catch {
-    return { event: null, eventType: 'unparseable', txRef: null, transactionId: null, parseable: false };
+    return { event: null, eventType: 'unparseable', txRef: null, transactionId: null, parseable: false, topKeys: 'invalid_json' };
   }
 }
 
@@ -102,8 +118,19 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
     return NextResponse.json({ error: 'Invalid webhook signature.' }, { status: 401 });
   }
 
-  if (!parsed.parseable) return NextResponse.json({ error: 'Invalid event.' }, { status: 400 });
-  if (parsed.event.event !== 'charge.completed') {
+  if (!parsed.parseable) {
+    await recordWebhookDelivery({
+      integrationId: integration.id,
+      propertyId: integration.propertyId,
+      providerEventId: `invalid:${crypto.randomUUID()}`,
+      eventType: 'unparseable',
+      paymentReference: null,
+      status: 'rejected',
+      errorMessage: `invalid_json;header=${headerPresence}`,
+    });
+    return NextResponse.json({ error: 'Invalid event.' }, { status: 400 });
+  }
+  if (parsed.eventType !== 'charge.completed') {
     await recordWebhookDelivery({
       integrationId: integration.id,
       propertyId: integration.propertyId,
@@ -111,7 +138,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
       eventType: parsed.eventType,
       paymentReference: parsed.txRef,
       status: 'ignored',
-      errorMessage: 'unsupported_event',
+      errorMessage: `unsupported_event;keys=${parsed.topKeys}`,
     });
     return NextResponse.json({ status: 'ignored' });
   }
@@ -119,12 +146,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
   const transactionId = parsed.transactionId;
   if (!txRef || txRef.length > 255) return NextResponse.json({ error: 'Invalid payment reference.' }, { status: 400 });
 
-  const eventId = crypto.createHash('sha256').update(`${parsed.event.event}:${txRef}:${transactionId || ''}`).digest('hex');
+  const eventId = crypto.createHash('sha256').update(`${parsed.eventType}:${txRef}:${transactionId || ''}`).digest('hex');
   const delivery = await recordWebhookDelivery({
     integrationId: integration.id,
     propertyId: integration.propertyId,
     providerEventId: eventId,
-    eventType: parsed.event.event,
+    eventType: parsed.eventType,
     paymentReference: txRef,
     status: 'received',
   });
