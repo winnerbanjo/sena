@@ -17,8 +17,9 @@ import {
 } from '@sena/ui';
 import type { ReservationItem } from './mock-data';
 import { formatAssignedRoom, isPhysicalRoomAssigned } from './reservation-room';
-import { folioBalance, settlementLabel } from '../lib/financial-status';
+import { deskPaymentStatus, folioBalance } from '../lib/financial-status';
 import { RecordPaymentDialog } from './record-payment-dialog';
+import { CheckInPaymentStatus } from './check-in-payment-status';
 import { Calendar, CheckCircle2, Mail, Phone } from 'lucide-react';
 
 interface ReservationDrawerProps {
@@ -58,8 +59,12 @@ export function ReservationDrawer({
   const isCheckedOut = reservation.status === 'checked_out';
   const hasRoom = isPhysicalRoomAssigned(reservation);
   const outstanding = folioBalance(reservation.totalAmountMinorUnits, reservation.paidAmountMinorUnits);
-  const settlement = settlementLabel(reservation.status, reservation.totalAmountMinorUnits, reservation.paidAmountMinorUnits);
-  const paymentActionLabel = isCheckedOut && outstanding > 0 ? 'Settle outstanding' : 'Record payment';
+  const payment = deskPaymentStatus({
+    totalAmountMinorUnits: reservation.totalAmountMinorUnits,
+    paidAmountMinorUnits: reservation.paidAmountMinorUnits,
+    pendingTransferProof: reservation.pendingTransferProof,
+  });
+  const paymentActionLabel = 'Record payment';
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
@@ -127,7 +132,7 @@ export function ReservationDrawer({
               </Button>
             )}
             {outstanding <= 0 && isCheckedOut && (
-              <span className="text-xs font-medium text-[#2E6B4F]">Settled</span>
+              <span className="text-xs font-medium text-[#2E6B4F]">Paid</span>
             )}
           </div>
           <span className="text-xs text-[#7A7267]">
@@ -221,13 +226,18 @@ export function ReservationDrawer({
 
             {/* PAYMENT TAB */}
             <TabsContent value="payment" className="space-y-4 pt-2">
+              <CheckInPaymentStatus
+                totalAmountMinorUnits={reservation.totalAmountMinorUnits}
+                paidAmountMinorUnits={reservation.paidAmountMinorUnits}
+                pendingTransferProof={reservation.pendingTransferProof}
+              />
               <div className="p-5 rounded border border-[#E8E2DA] bg-white space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-[#7A7267] font-medium uppercase tracking-wider">
                     Total Amount
                   </span>
                   <Badge variant={outstanding <= 0 ? 'paid' : 'pending'}>
-                    {settlement}
+                    {payment.label}
                   </Badge>
                 </div>
                 <strong className="text-2xl font-serif text-[#191816] block">
@@ -241,7 +251,7 @@ export function ReservationDrawer({
                 </div>
                 {outstanding > 0 && (
                   <div className="flex items-center justify-between text-xs text-[#7A7267]">
-                    <span>{isCheckedOut ? 'Outstanding receivable:' : 'Outstanding balance:'}</span>
+                    <span>Amount due:</span>
                     <strong className="text-[#B85C3E]">
                       {formatNaira(outstanding)}
                     </strong>

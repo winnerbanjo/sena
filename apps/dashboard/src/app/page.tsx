@@ -1,6 +1,7 @@
 'use client';
 import { formatAssignedRoom, mapReservationItem } from '../components/reservation-room';
 import { CheckInRoomDialog, type RoomAssignmentMode } from '../components/check-in-room-dialog';
+import { DeskPaymentBadge } from '../components/check-in-payment-status';
 
 import { useWorkspace } from '../components/workspace-access';
 import * as React from 'react';
@@ -346,7 +347,6 @@ export default function OverviewPage() {
             ) : (
               <div className="border border-[#E8DACB] rounded-2xl overflow-hidden divide-y divide-[#E8DACB] bg-[#FAF8F5] shadow-xs">
                 {arrivals.map((res) => {
-                  const isPaid = res.paymentStatus === 'paid';
                   return (
                     <div
                       key={res.id}
@@ -386,14 +386,12 @@ export default function OverviewPage() {
                         </div>
 
                         <div className="flex items-center gap-3">
-                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-mono font-medium ${
-                            isPaid
-                              ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                              : 'bg-amber-50 text-amber-800 border border-amber-200'
-                          }`}>
-                            <span className={`w-1.5 h-1.5 rounded-full ${isPaid ? 'bg-emerald-500' : 'bg-amber-500'}`} />
-                            {isPaid ? 'Settled' : 'Pay at Desk'}
-                          </span>
+                          <DeskPaymentBadge
+                            compact
+                            totalAmountMinorUnits={res.totalAmountMinorUnits}
+                            paidAmountMinorUnits={res.paidAmountMinorUnits}
+                            pendingTransferProof={res.pendingTransferProof}
+                          />
 
                           <button
                             type="button"
@@ -515,6 +513,7 @@ export default function OverviewPage() {
         onCheckIn={(id) => openAssignment(id, 'check-in')}
         onAssignRoom={(id) => openAssignment(id, selectedRes && selectedRes.roomId ? 'change' : 'assign')}
         onCheckOut={handleCheckOut}
+        onPaymentRecorded={() => fetchData()}
       />
 
       <CheckInRoomDialog
@@ -529,6 +528,30 @@ export default function OverviewPage() {
           setSelectedRes((prev) =>
             prev && assignment && prev.id === assignment.reservation.id
               ? { ...prev, roomId: update.roomId, roomNumber: update.roomNumber, status: update.status || prev.status }
+              : prev
+          );
+        }}
+        onFolioUpdated={(update) => {
+          setReservations((prev) =>
+            prev.map((item) =>
+              assignment && item.id === assignment.reservation.id
+                ? {
+                    ...item,
+                    paidAmountMinorUnits: update.paidAmountMinorUnits,
+                    totalAmountMinorUnits: update.totalAmountMinorUnits,
+                    pendingTransferProof: update.pendingTransferProof,
+                  }
+                : item
+            )
+          );
+          setSelectedRes((prev) =>
+            prev && assignment && prev.id === assignment.reservation.id
+              ? {
+                  ...prev,
+                  paidAmountMinorUnits: update.paidAmountMinorUnits,
+                  totalAmountMinorUnits: update.totalAmountMinorUnits,
+                  pendingTransferProof: update.pendingTransferProof,
+                }
               : prev
           );
         }}

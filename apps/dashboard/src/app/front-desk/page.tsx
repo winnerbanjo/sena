@@ -1,6 +1,7 @@
 'use client';
 import { formatAssignedRoom, mapReservationItem } from '../../components/reservation-room';
 import { CheckInRoomDialog, type RoomAssignmentMode } from '../../components/check-in-room-dialog';
+import { DeskPaymentBadge } from '../../components/check-in-payment-status';
 
 import { PageLoadState } from '../../components/page-load-state';
 import { useWorkspace } from '../../components/workspace-access';
@@ -250,9 +251,6 @@ export default function FrontDeskPage() {
                   </tr>
                 ) : (
                   currentList.map((res) => {
-                    const isPaid = res.paymentStatus === 'paid';
-                    const balance = res.totalAmountMinorUnits - res.paidAmountMinorUnits;
-
                     return (
                       <tr
                         key={res.id}
@@ -282,13 +280,13 @@ export default function FrontDeskPage() {
                             {res.nights} {res.nights === 1 ? 'night' : 'nights'}
                           </span>
                         </td>
-                        <td className="py-4 px-5 font-mono">
-                          <span className="inline-flex items-center gap-1.5 text-[11px]">
-                            <span className={`w-1.5 h-1.5 rounded-full ${isPaid ? 'bg-[#2E6B4F]' : 'bg-[#A3681F]'}`} />
-                            <span className={isPaid ? 'text-[#2E6B4F]' : 'text-[#A3681F]'}>
-                              {isPaid ? 'Settled' : Number(res.paidAmountMinorUnits || 0) > 0 ? `Partially Paid: ${formatNaira(balance)}` : `Due: ${formatNaira(balance)}`}
-                            </span>
-                          </span>
+                        <td className="py-4 px-5">
+                          <DeskPaymentBadge
+                            compact
+                            totalAmountMinorUnits={res.totalAmountMinorUnits}
+                            paidAmountMinorUnits={res.paidAmountMinorUnits}
+                            pendingTransferProof={res.pendingTransferProof}
+                          />
                         </td>
                         <td className="py-4 px-5 text-[#8C8275]">
                           {res.guestPhone || res.guestEmail}
@@ -383,6 +381,30 @@ export default function FrontDeskPage() {
           setSelectedRes((prev) =>
             prev && assignment && prev.id === assignment.reservation.id
               ? { ...prev, roomId: update.roomId, roomNumber: update.roomNumber, status: update.status || prev.status }
+              : prev
+          );
+        }}
+        onFolioUpdated={(update) => {
+          setReservations((prev) =>
+            prev.map((item) =>
+              assignment && item.id === assignment.reservation.id
+                ? {
+                    ...item,
+                    paidAmountMinorUnits: update.paidAmountMinorUnits,
+                    totalAmountMinorUnits: update.totalAmountMinorUnits,
+                    pendingTransferProof: update.pendingTransferProof,
+                  }
+                : item
+            )
+          );
+          setSelectedRes((prev) =>
+            prev && assignment && prev.id === assignment.reservation.id
+              ? {
+                  ...prev,
+                  paidAmountMinorUnits: update.paidAmountMinorUnits,
+                  totalAmountMinorUnits: update.totalAmountMinorUnits,
+                  pendingTransferProof: update.pendingTransferProof,
+                }
               : prev
           );
         }}

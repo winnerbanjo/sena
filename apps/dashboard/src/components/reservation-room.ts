@@ -31,6 +31,7 @@ export function mapReservationItem(r: {
   paymentStatus: ReservationItem['paymentStatus'];
   totalAmountMinorUnits: number;
   paidAmountMinorUnits: number;
+  pendingTransferProof?: boolean;
   timeline?: ReservationItem['timeline'];
 }): ReservationItem {
   return {
@@ -52,6 +53,7 @@ export function mapReservationItem(r: {
     paymentStatus: r.paymentStatus,
     totalAmountMinorUnits: r.totalAmountMinorUnits,
     paidAmountMinorUnits: r.paidAmountMinorUnits,
+    pendingTransferProof: Boolean(r.pendingTransferProof),
     timeline: r.timeline || [],
   };
 }
