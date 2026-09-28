@@ -14,6 +14,7 @@ type FlutterwaveState = {
   connectedAt?: string | null;
   verifiedAt?: string | null;
   webhookStatus?: string;
+  webhookReadiness?: 'not_configured' | 'configured_unverified' | 'verified' | 'needs_attention';
   webhookVerifiedAt?: string | null;
   lastWebhookAt?: string | null;
   webhookUrl?: string;
@@ -158,7 +159,21 @@ export function FlutterwaveConnectionPanel({ onBack }: { onBack?: () => void }) 
   const display = flutterwave.displayStatus || (flutterwave.status === 'disconnected' ? 'disconnected' : 'connected');
   const managed = display !== 'disconnected';
   const modeLabel = flutterwave.mode === 'test' ? t('testMode') : flutterwave.mode === 'live' ? t('liveMode') : '';
-  const webhookLabel = flutterwave.webhookStatus === 'active' ? t('webhookActive') : flutterwave.webhookStatus === 'needs_attention' ? t('webhookNeedsAttention') : t('webhookWaiting');
+  const readiness = flutterwave.webhookReadiness
+    || (flutterwave.webhookStatus === 'active'
+      ? 'verified'
+      : flutterwave.webhookStatus === 'needs_attention'
+        ? 'needs_attention'
+        : flutterwave.webhookUrl
+          ? 'configured_unverified'
+          : 'not_configured');
+  const webhookLabel = readiness === 'verified'
+    ? t('webhookVerified')
+    : readiness === 'needs_attention'
+      ? t('webhookNeedsAttention')
+      : readiness === 'configured_unverified'
+        ? t('webhookConfiguredUnverified')
+        : t('webhookNotConfigured');
   const showPreferred = canManage && enabledProviders.includes('paystack') && enabledProviders.includes('flutterwave');
   const effectivePreferred = preferred || 'paystack';
 

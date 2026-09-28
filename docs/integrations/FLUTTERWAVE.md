@@ -49,6 +49,16 @@ Flutterwave redirect query parameters such as `status=successful`, and the `resp
 
 Tenant identity comes from the hashed webhook token in Sena’s `integrations` row, not from query strings or guest metadata. Authenticity uses the official Flutterwave v3 `verif-hash` header (timing-safe equality with the stored secret hash). If `flutterwave-signature` is present, Sena also accepts the official HMAC-SHA256 base64 form using the same secret hash.
 
+Sena generates the webhook URL token and secret hash. Copy both from Connected Apps → Flutterwave into Flutterwave Dashboard → Settings → Webhooks (Test webhooks while the property is in test mode). Do not invent a different hash in Flutterwave.
+
+Sena stores webhook readiness on the integration row:
+
+- `configured` / legacy `not_configured` with a webhook URL = configured but unverified
+- `active` = verified after an authentic provider webhook settles
+- `needs_attention` = a delivery reached Sena but failed authenticity or settlement
+
+Rejected signatures are recorded in `integration_webhook_events` with status `rejected` and a category such as `signature_absent` or `signature_invalid`. They never settle a payment.
+
 Unverifiable events are rejected. Unknown references and cross-property attempts fail closed.
 
 ## Verification and ledger
