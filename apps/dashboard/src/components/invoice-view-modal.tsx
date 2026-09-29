@@ -107,7 +107,7 @@ export function InvoiceViewModal({
     let cancelled = false;
     void (async () => {
       try {
-        const response = await fetch(`/api/apps/zoho_invoice?invoiceId=${encodeURIComponent(invoice.id)}`, {
+        const response = await fetch(`/api/apps/zoho_invoice/manage?invoiceId=${encodeURIComponent(invoice.id)}`, {
           cache: 'no-store',
         });
         if (!response.ok) return;
@@ -131,7 +131,7 @@ export function InvoiceViewModal({
     if (!invoice?.id) return;
     setZohoBusy(true);
     try {
-      const response = await fetch('/api/apps/zoho_invoice', {
+      const response = await fetch('/api/apps/zoho_invoice/manage', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ action: 'retry_invoice', invoiceId: invoice.id }),

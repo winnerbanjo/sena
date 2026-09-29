@@ -209,6 +209,44 @@ export async function listZohoOrganizations(propertyId: string) {
   }));
 }
 
+/** Manage-panel snapshot. Never throws ZOHO_NOT_CONNECTED — disconnected is a valid UI state. */
+export async function getZohoManageState(propertyId: string) {
+  await ensureConnectedAppsPlatformSchema();
+  const integration = await getPropertyIntegration(propertyId, 'zoho_invoice');
+  if (!integration || integration.status !== 'connected') {
+    return {
+      organizations: [] as Array<{ organizationId: string; name: string; currency: string | null }>,
+      selectedOrganizationId: null as string | null,
+      selectedOrganizationName: null as string | null,
+      syncEnabled: false,
+      connectionStatus: integration?.status || 'disconnected',
+      healthStatus: integration?.healthStatus || null,
+      lastSyncAt: integration?.lastSyncAt?.toISOString() || null,
+      lastErrorMessage: integration?.lastErrorMessage || null,
+    };
+  }
+
+  const org = getZohoOrganization(integration);
+  let organizations: Array<{ organizationId: string; name: string; currency: string | null }> = [];
+  try {
+    organizations = await listZohoOrganizations(propertyId);
+  } catch (error: any) {
+    if (error?.message === 'ZOHO_REAUTH_REQUIRED') throw error;
+    // Connected but org list failed — still return selection so UI can render.
+  }
+
+  return {
+    organizations,
+    selectedOrganizationId: org.organizationId,
+    selectedOrganizationName: org.organizationName,
+    syncEnabled: isZohoSyncEnabled(integration),
+    connectionStatus: integration.status,
+    healthStatus: integration.healthStatus || null,
+    lastSyncAt: integration.lastSyncAt?.toISOString() || null,
+    lastErrorMessage: integration.lastErrorMessage || null,
+  };
+}
+
 export async function selectZohoOrganization(
   propertyId: string,
   actorUserId: string,

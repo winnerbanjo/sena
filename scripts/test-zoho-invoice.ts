@@ -292,6 +292,27 @@ async function run() {
   assert.equal(typeof handlers['zoho_invoice:contact_sync'], 'function');
   console.log('PASS Zoho sync handlers registered');
 
+  // Disconnected manage snapshot must not throw — UI needs Connect CTA.
+  await db.execute(sql`delete from integration_oauth_tokens where integration_id in (select id from integrations where property_id = ${ids.property})`);
+  await db.execute(sql`delete from integrations where property_id = ${ids.property}`);
+  const disconnected = await zoho.getZohoManageState(ids.property);
+  assert.equal(disconnected.connectionStatus, 'disconnected');
+  assert.deepEqual(disconnected.organizations, []);
+  assert.equal(disconnected.syncEnabled, false);
+  assert.equal(disconnected.selectedOrganizationId, null);
+  console.log('PASS disconnected Zoho manage state');
+
+  const fs = await import('node:fs');
+  const path = await import('node:path');
+  const root = path.resolve(process.cwd());
+  assert.equal(fs.existsSync(path.join(root, 'apps/dashboard/src/app/api/apps/zoho_invoice/route.ts')), false);
+  assert.equal(fs.existsSync(path.join(root, 'apps/dashboard/src/app/api/apps/zoho_invoice/manage/route.ts')), true);
+  const panel = fs.readFileSync(path.join(root, 'apps/dashboard/src/components/connected-app-detail-panel.tsx'), 'utf8');
+  assert.match(panel, /fetch\(`\/api\/apps\/\$\{provider\}`/);
+  assert.match(panel, /\/api\/apps\/zoho_invoice\/manage/);
+  assert.doesNotMatch(panel, /fetch\('\/api\/apps\/zoho_invoice'/);
+  console.log('PASS Zoho detail route no longer shadowed');
+
   globalThis.fetch = originalFetch;
   console.log('ZOHO INVOICE TESTS: PASS');
 }
