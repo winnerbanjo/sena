@@ -222,6 +222,21 @@ export async function ensureConnectedAppsPlatformSchema() {
           docs_url = COALESCE(EXCLUDED.docs_url, integration_catalog.docs_url),
           updated_at = now()
       `);
+      await db.execute(sql`
+        INSERT INTO guest_message_templates (property_id, template_key, channel, name, subject, body, variables, automation_enabled, is_system)
+        SELECT NULL, v.template_key, v.channel, v.name, v.subject, v.body, v.variables::jsonb, false, true
+        FROM (VALUES
+          ('booking_confirmation', 'email', 'Booking confirmation', 'Your stay at {{propertyName}} is confirmed', 'Hi {{guestName}}, your reservation {{reservationRef}} from {{checkIn}} to {{checkOut}} is confirmed.', '["guestName","propertyName","reservationRef","checkIn","checkOut"]'),
+          ('pre_arrival', 'email', 'Pre-arrival', 'Looking forward to welcoming you', 'Hi {{guestName}}, we look forward to your arrival on {{checkIn}}.', '["guestName","checkIn","propertyName"]'),
+          ('check_in', 'whatsapp', 'Check-in day', NULL, 'Hi {{guestName}}, welcome to {{propertyName}}. Your room is ready for check-in.', '["guestName","propertyName"]'),
+          ('check_out', 'email', 'Check-out thank you', 'Thank you for staying with us', 'Hi {{guestName}}, thank you for staying at {{propertyName}}.', '["guestName","propertyName"]'),
+          ('payment_receipt', 'email', 'Payment receipt', 'Payment received for {{reservationRef}}', 'Hi {{guestName}}, we received your payment for {{reservationRef}}.', '["guestName","reservationRef","amount"]')
+        ) AS v(template_key, channel, name, subject, body, variables)
+        WHERE NOT EXISTS (
+          SELECT 1 FROM guest_message_templates t
+          WHERE t.property_id IS NULL AND t.template_key = v.template_key AND t.channel = v.channel
+        )
+      `);
     })().catch((error) => {
       schemaReady = null;
       throw error;

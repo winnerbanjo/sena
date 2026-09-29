@@ -38,6 +38,15 @@ export async function POST(req: NextRequest) {
     }, { status: 503 });
   }
 
+  if (provider === 'whatsapp' && process.env.SENA_WHATSAPP_META_APPROVED !== 'true') {
+    return jsonNoStore({
+      error: 'ACTION_REQUIRED: Complete Meta WhatsApp Business Platform approval before connecting.',
+      actionRequired: true,
+      code: 'WHATSAPP_META_APPROVAL_REQUIRED',
+      provider,
+    }, { status: 503 });
+  }
+
   const origin = publicAppOrigin(req);
   const redirectUri = `${origin}/api/apps/oauth/callback`;
   const scopes = Array.isArray(body.scopes)
