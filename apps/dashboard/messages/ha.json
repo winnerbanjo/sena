@@ -213,7 +213,10 @@
     "occupied": "An cika",
     "available": "Akwai",
     "blocked": "An toshe",
-    "today": "Yau"
+    "today": "Yau",
+    "pickMonthYear": "Zaɓi wata da shekara",
+    "previousYear": "Shekarar da ta wuce",
+    "nextYear": "Shekara mai zuwa"
   },
   "frontDesk": {
     "title": "Teburin tarba",
