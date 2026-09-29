@@ -533,7 +533,21 @@
     "viewDocs": "View provider docs",
     "statusConnecting": "Connecting",
     "statusPaused": "Paused",
-    "statusError": "Error"
+    "statusError": "Error",
+    "zohoOrganization": "Shirika la Zoho",
+    "zohoOrganizationHelp": "Chagua shirika la Zoho Invoice litakalopokea wateja na ankara zinazosawazishwa.",
+    "zohoUseOrg": "Tumia shirika hili",
+    "zohoOrgSelectedLabel": "Limechaguliwa",
+    "zohoOrgSelected": "Shirika la Zoho Invoice limechaguliwa. Usawazishaji wa ankara mpya umewashwa.",
+    "zohoOrgSelectFailed": "Haikuweza kuchagua shirika la Zoho.",
+    "zohoOrgRequired": "Chagua shirika la Zoho ili kuwasha usawazishaji.",
+    "zohoSyncInvoices": "Sawazisha ankara",
+    "zohoSyncInvoicesHelp": "Ikiwa imewezeshwa, ankara mpya za Sena zinasawazishwa na Zoho Invoice chinichini. Ankara za zamani hazihama kiotomatiki.",
+    "zohoSyncEnabled": "Usawazishaji wa ankara umewashwa. Ankara mpya zitaenda Zoho.",
+    "zohoSyncDisabled": "Usawazishaji wa ankara umezimwa. Ramani zilizopo zinahifadhiwa.",
+    "zohoSyncToggleFailed": "Haikuweza kusasisha usawazishaji.",
+    "zohoLastSynced": "Ilisawazishwa mwisho {time}",
+    "zohoConnected": "Zoho Invoice imeunganishwa"
   },
   "billing": {
     "title": "Bili na mpango",

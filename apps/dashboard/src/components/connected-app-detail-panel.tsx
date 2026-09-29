@@ -43,6 +43,9 @@ export function ConnectedAppDetailPanel({
   const [message, setMessage] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [zohoOrgs, setZohoOrgs] = React.useState<Array<{ organizationId: string; name: string }>>([]);
+  const [zohoSelectedOrgId, setZohoSelectedOrgId] = React.useState<string | null>(null);
+  const [zohoSelectedOrgName, setZohoSelectedOrgName] = React.useState<string | null>(null);
+  const [zohoSyncEnabled, setZohoSyncEnabled] = React.useState(false);
   const [googleCalendars, setGoogleCalendars] = React.useState<Array<{ id: string; summary: string }>>([]);
   const [selectedGoogleCalendarId, setSelectedGoogleCalendarId] = React.useState<string | null>(null);
 
@@ -66,6 +69,9 @@ export function ConnectedAppDetailPanel({
       if (!response.ok) return;
       const payload = await response.json().catch(() => ({}));
       if (Array.isArray(payload.organizations)) setZohoOrgs(payload.organizations);
+      if (typeof payload.selectedOrganizationId === 'string') setZohoSelectedOrgId(payload.selectedOrganizationId);
+      if (typeof payload.selectedOrganizationName === 'string') setZohoSelectedOrgName(payload.selectedOrganizationName);
+      if (typeof payload.syncEnabled === 'boolean') setZohoSyncEnabled(payload.syncEnabled);
     })();
   }, [provider, data?.app?.connectionStatus]);
 
@@ -92,10 +98,37 @@ export function ConnectedAppDetailPanel({
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) {
-        setError(payload.error || 'Could not select Zoho organization.');
+        setError(payload.error || t('zohoOrgSelectFailed'));
         return;
       }
-      setMessage('Zoho organization selected.');
+      setZohoSelectedOrgId(organizationId);
+      setZohoSelectedOrgName(organizationName || null);
+      setZohoSyncEnabled(true);
+      setMessage(t('zohoOrgSelected'));
+      await load();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function toggleZohoSync() {
+    setBusy(true);
+    setError(null);
+    try {
+      const next = !zohoSyncEnabled;
+      const response = await fetch('/api/apps/zoho_invoice', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ action: 'set_sync_enabled', enabled: next }),
+        cache: 'no-store',
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setError(payload.error || t('zohoSyncToggleFailed'));
+        return;
+      }
+      setZohoSyncEnabled(Boolean(payload.syncEnabled));
+      setMessage(next ? t('zohoSyncEnabled') : t('zohoSyncDisabled'));
       await load();
     } finally {
       setBusy(false);
@@ -280,25 +313,67 @@ export function ConnectedAppDetailPanel({
               <p className="text-sm text-[#7A7267]">{t('ownerManagesApps')}</p>
             )}
 
-            {provider === 'zoho_invoice' && data?.canManage && app.connectionStatus === 'connected' && zohoOrgs.length > 0 ? (
-              <section className="max-w-3xl space-y-3">
-                <h2 className="text-sm font-medium text-[#191816]">Zoho organization</h2>
-                <p className="text-sm text-[#7A7267]">Choose which Zoho Invoice organization receives synced contacts and invoices.</p>
-                <ul className="divide-y divide-[#E8E2DA] rounded-xl border border-[#E8E2DA] bg-white">
-                  {zohoOrgs.map((org) => (
-                    <li key={org.organizationId} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 text-sm">
-                      <span className="text-[#191816]">{org.name}</span>
-                      <button
-                        type="button"
-                        disabled={busy}
-                        onClick={() => void selectZohoOrg(org.organizationId, org.name)}
-                        className="min-h-11 rounded-lg border border-[#E8E2DA] px-3 text-sm font-medium text-[#71382D] disabled:opacity-60"
-                      >
-                        Use this org
-                      </button>
-                    </li>
-                  ))}
-                </ul>
+            {provider === 'zoho_invoice' && data?.canManage && app.connectionStatus === 'connected' ? (
+              <section className="max-w-3xl space-y-4">
+                <div className="rounded-xl border border-[#E8E2DA] bg-white p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <h2 className="text-sm font-medium text-[#191816]">{t('zohoSyncInvoices')}</h2>
+                      <p className="mt-1 text-sm text-[#7A7267]">{t('zohoSyncInvoicesHelp')}</p>
+                      {zohoSelectedOrgName ? (
+                        <p className="mt-2 text-xs text-[#7A7267]">
+                          {t('zohoOrganization')}: <span className="text-[#191816]">{zohoSelectedOrgName}</span>
+                        </p>
+                      ) : (
+                        <p className="mt-2 text-xs text-[#71382D]">{t('zohoOrgRequired')}</p>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={zohoSyncEnabled}
+                      aria-label={t('zohoSyncInvoices')}
+                      disabled={busy || !zohoSelectedOrgId}
+                      onClick={() => void toggleZohoSync()}
+                      className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors disabled:opacity-50 ${
+                        zohoSyncEnabled ? 'bg-[#2E6B4F]' : 'bg-[#D5CDC3]'
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-5 w-5 transform rounded-full bg-white transition ${
+                          zohoSyncEnabled ? 'translate-x-6' : 'translate-x-1'
+                        }`}
+                      />
+                    </button>
+                  </div>
+                  {app.lastSyncAt ? (
+                    <p className="mt-3 text-xs text-[#7A7267]">
+                      {t('zohoLastSynced', { time: new Date(app.lastSyncAt).toLocaleString() })}
+                    </p>
+                  ) : null}
+                </div>
+
+                {zohoOrgs.length > 0 ? (
+                  <div className="space-y-3">
+                    <h2 className="text-sm font-medium text-[#191816]">{t('zohoOrganization')}</h2>
+                    <p className="text-sm text-[#7A7267]">{t('zohoOrganizationHelp')}</p>
+                    <ul className="divide-y divide-[#E8E2DA] rounded-xl border border-[#E8E2DA] bg-white">
+                      {zohoOrgs.map((org) => (
+                        <li key={org.organizationId} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 text-sm">
+                          <span className="text-[#191816]">{org.name}</span>
+                          <button
+                            type="button"
+                            disabled={busy || zohoSelectedOrgId === org.organizationId}
+                            onClick={() => void selectZohoOrg(org.organizationId, org.name)}
+                            className="min-h-11 rounded-lg border border-[#E8E2DA] px-3 text-sm font-medium text-[#71382D] disabled:opacity-60"
+                          >
+                            {zohoSelectedOrgId === org.organizationId ? t('zohoOrgSelectedLabel') : t('zohoUseOrg')}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
               </section>
             ) : null}
 
@@ -395,7 +470,7 @@ function StatusPill({ label }: { label: string }) {
 function statusLabel(t: ReturnType<typeof useTranslations<'apps'>>, status: string) {
   switch (status) {
     case 'connected':
-      return t('statusConnectedEnabled');
+      return t('connected');
     case 'needs_attention':
       return t('statusActionRequired');
     case 'coming_soon':

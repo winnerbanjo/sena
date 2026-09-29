@@ -132,6 +132,7 @@ async function exchangeAuthorizationCode(
     const json = await response.json().catch(() => null) as any;
     if (!response.ok || !json?.access_token) throw new Error('TOKEN_EXCHANGE_FAILED');
     const apiDomain = typeof json.api_domain === 'string' ? json.api_domain : null;
+    const location = typeof json.location === 'string' ? json.location.toLowerCase() : null;
     return {
       accessToken: String(json.access_token),
       refreshToken: json.refresh_token ? String(json.refresh_token) : undefined,
@@ -139,7 +140,12 @@ async function exchangeAuthorizationCode(
       scopes: typeof json.scope === 'string' ? json.scope.split(' ') : undefined,
       accountLabel: apiDomain || 'Zoho Invoice',
       environment: apiDomain,
-      accountMetadata: { apiDomain, location: json.location || null },
+      accountMetadata: {
+        apiDomain,
+        location,
+        // Persist the accounts DC used for authorize/token so refresh stays on the same region.
+        accountsDomain: accountsBase,
+      },
     };
   }
 

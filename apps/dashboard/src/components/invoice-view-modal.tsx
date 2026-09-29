@@ -15,7 +15,7 @@ import {
   Calendar,
   AlertCircle,
   Loader2,
-  FileCheck2,
+  ExternalLink,
 } from 'lucide-react';
 
 export interface PropertyInvoice {
@@ -93,6 +93,55 @@ export function InvoiceViewModal({
   const [copiedLink, setCopiedLink] = React.useState(false);
   const [shareMessage, setShareMessage] = React.useState('');
   const dialogRef = useDialogA11y(isOpen && Boolean(invoice), onClose);
+  const [zohoSync, setZohoSync] = React.useState<{
+    status: string;
+    invoiceUrl: string | null;
+  } | null>(null);
+  const [zohoBusy, setZohoBusy] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!isOpen || !invoice?.id) {
+      setZohoSync(null);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const response = await fetch(`/api/apps/zoho_invoice?invoiceId=${encodeURIComponent(invoice.id)}`, {
+          cache: 'no-store',
+        });
+        if (!response.ok) return;
+        const payload = await response.json().catch(() => ({}));
+        if (cancelled || !payload.sync) return;
+        if (payload.sync.status === 'not_connected') {
+          setZohoSync(null);
+          return;
+        }
+        setZohoSync({ status: payload.sync.status, invoiceUrl: payload.sync.invoiceUrl || null });
+      } catch {
+        /* Zoho status is optional UI chrome */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, invoice?.id]);
+
+  async function retryZohoSync() {
+    if (!invoice?.id) return;
+    setZohoBusy(true);
+    try {
+      const response = await fetch('/api/apps/zoho_invoice', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ action: 'retry_invoice', invoiceId: invoice.id }),
+        cache: 'no-store',
+      });
+      if (response.ok) setZohoSync({ status: 'syncing', invoiceUrl: null });
+    } finally {
+      setZohoBusy(false);
+    }
+  }
 
   if (!isOpen || !invoice) return null;
 
@@ -288,6 +337,43 @@ export function InvoiceViewModal({
               <X className="w-5 h-5" />
             </button>
           </div>
+
+          {zohoSync ? (
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#E8E2DA] bg-[#FAF7F2] px-4 py-2 text-xs text-[#7A7267] sm:px-6">
+              <span>
+                {zohoSync.status === 'synced'
+                  ? 'Synced to Zoho Invoice'
+                  : zohoSync.status === 'syncing'
+                    ? 'Syncing to Zoho Invoice…'
+                    : zohoSync.status === 'failed'
+                      ? 'Zoho sync failed'
+                      : 'Not synced to Zoho'}
+              </span>
+              <span className="flex items-center gap-2">
+                {zohoSync.status === 'synced' && zohoSync.invoiceUrl ? (
+                  <a
+                    href={zohoSync.invoiceUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex min-h-9 items-center gap-1 font-medium text-[#71382D]"
+                  >
+                    Open in Zoho
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                ) : null}
+                {zohoSync.status === 'failed' ? (
+                  <button
+                    type="button"
+                    disabled={zohoBusy}
+                    onClick={() => void retryZohoSync()}
+                    className="min-h-9 rounded-md border border-[#E8E2DA] bg-white px-2.5 font-medium text-[#71382D] disabled:opacity-60"
+                  >
+                    Retry
+                  </button>
+                ) : null}
+              </span>
+            </div>
+          ) : null}
         </div>
 
         {/* Email Toast Banner */}

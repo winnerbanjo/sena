@@ -533,7 +533,21 @@
     "viewDocs": "View provider docs",
     "statusConnecting": "Connecting",
     "statusPaused": "Paused",
-    "statusError": "Error"
+    "statusError": "Error",
+    "zohoOrganization": "Organisation Zoho",
+    "zohoOrganizationHelp": "Choisissez l’organisation Zoho Invoice qui reçoit les contacts et factures synchronisés.",
+    "zohoUseOrg": "Utiliser cette organisation",
+    "zohoOrgSelectedLabel": "Sélectionnée",
+    "zohoOrgSelected": "Organisation Zoho Invoice sélectionnée. La synchronisation des nouvelles factures est activée.",
+    "zohoOrgSelectFailed": "Impossible de sélectionner l’organisation Zoho.",
+    "zohoOrgRequired": "Sélectionnez une organisation Zoho pour activer la synchronisation.",
+    "zohoSyncInvoices": "Synchroniser les factures",
+    "zohoSyncInvoicesHelp": "Lorsque c’est activé, les nouvelles factures Sena se synchronisent vers Zoho Invoice en arrière-plan. Les factures historiques ne sont pas exportées automatiquement.",
+    "zohoSyncEnabled": "Synchronisation des factures activée. Les nouvelles factures iront vers Zoho.",
+    "zohoSyncDisabled": "Synchronisation des factures désactivée. Les correspondances existantes sont conservées.",
+    "zohoSyncToggleFailed": "Impossible de mettre à jour la synchronisation.",
+    "zohoLastSynced": "Dernière synchronisation {time}",
+    "zohoConnected": "Zoho Invoice connecté"
   },
   "billing": {
     "title": "Facturation et forfait",

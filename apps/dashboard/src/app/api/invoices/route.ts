@@ -267,6 +267,11 @@ async function handlePOST(req: NextRequest) {
       })
       .returning();
 
+    // Outbound Zoho sync is async — never blocks invoice issuance.
+    void import('@/lib/integrations/zoho/invoice')
+      .then(({ maybeQueueZohoInvoiceExport }) => maybeQueueZohoInvoiceExport(propertyId, newInvoice.id))
+      .catch(() => null);
+
     return NextResponse.json({
       success: true,
       message: `Invoice ${invoiceNumber} issued successfully`,

@@ -29,10 +29,18 @@ async function handlePOST(req: NextRequest, { params }: { params: Promise<{ id: 
     }
     const [payment] = await tx.insert(payments).values({ propertyId: invoice.propertyId, invoiceId: invoice.id, reservationId: invoice.reservationId, amountMinorUnits: amount, currency: invoice.currency, provider: 'manual', providerReference: body.providerReference || requestKey, method: body.method, status: 'successful', source: 'invoice', notes: typeof body.notes === 'string' ? body.notes.trim() : '' }).returning();
     await tx.insert(operationalNotifications).values({ propertyId: invoice.propertyId, dedupeKey: `manual:${payment.id}`, kind: 'invoice', title: 'Invoice payment received', body: 'An invoice payment was recorded at the property.', href: '/invoices' }).onConflictDoNothing();
-    const payload = { success: true, message: 'Payment recorded', invoice: updated };
+    const payload = { success: true, message: 'Payment recorded', invoice: updated, paymentId: payment.id, propertyId: invoice.propertyId };
     await tx.insert(idempotencyKeys).values({ key, action: 'invoice_payment', responsePayload: payload, expiresAt: new Date(Date.now() + 86400000) });
     return payload;
   });
+  if (result && typeof result === 'object' && 'paymentId' in result && 'propertyId' in result) {
+    // Zoho payment sync is outbound bookkeeping only — never mutates Sena ledger.
+    void import('@/lib/integrations/zoho/invoice')
+      .then(({ maybeQueueZohoPaymentSync }) =>
+        maybeQueueZohoPaymentSync(String((result as any).propertyId), String((result as any).paymentId))
+      )
+      .catch(() => null);
+  }
   return NextResponse.json(result, { status: result && typeof result === 'object' && 'error' in result ? 422 : 200 });
 }
 export const POST = withMerchant(handlePOST, 'invoices');

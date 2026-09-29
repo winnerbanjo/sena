@@ -533,7 +533,21 @@
     "viewDocs": "View provider docs",
     "statusConnecting": "Connecting",
     "statusPaused": "Paused",
-    "statusError": "Error"
+    "statusError": "Error",
+    "zohoOrganization": "Ƙungiyar Zoho",
+    "zohoOrganizationHelp": "Zaɓi ƙungiyar Zoho Invoice da za ta karɓi abokan hulɗa da takardun kuɗi da aka daidaita.",
+    "zohoUseOrg": "Yi amfani da wannan ƙungiya",
+    "zohoOrgSelectedLabel": "An zaɓa",
+    "zohoOrgSelected": "An zaɓi ƙungiyar Zoho Invoice. An kunna daidaita sabbin takardun kuɗi.",
+    "zohoOrgSelectFailed": "An kasa zaɓar ƙungiyar Zoho.",
+    "zohoOrgRequired": "Zaɓi ƙungiyar Zoho don kunna daidaitawa.",
+    "zohoSyncInvoices": "Daidaita takardun kuɗi",
+    "zohoSyncInvoicesHelp": "Idan an kunna, sabbin takardun kuɗin Sena za su daidaita zuwa Zoho Invoice a bango. Ba a fitar da tsofaffin takardu ta atomatik ba.",
+    "zohoSyncEnabled": "An kunna daidaita takardun kuɗi. Sabbin za su je Zoho.",
+    "zohoSyncDisabled": "An kashe daidaita takardun kuɗi. An kiyaye map ɗin da ake da su.",
+    "zohoSyncToggleFailed": "An kasa sabunta daidaitawa.",
+    "zohoLastSynced": "An daidaita ƙarshe {time}",
+    "zohoConnected": "An haɗa Zoho Invoice"
   },
   "billing": {
     "title": "Bili da tsari",

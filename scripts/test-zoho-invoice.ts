@@ -7,6 +7,8 @@ process.env.SENA_PRODUCTION_DATABASE_URL =
   process.env.SENA_PRODUCTION_DATABASE_URL || 'postgresql://production.invalid/sena_prod';
 requireIsolatedTestDatabase();
 process.env.SENA_INTEGRATION_ENCRYPTION_KEY ||= '33'.repeat(32);
+process.env.SENA_ZOHO_INVOICE_CLIENT_ID ||= 'zoho-test-client';
+process.env.SENA_ZOHO_INVOICE_CLIENT_SECRET ||= 'zoho-test-secret';
 
 async function run() {
   const database = await import('../packages/database/src/index');
@@ -118,25 +120,47 @@ async function run() {
   await db
     .update(integrations)
     .set({
-      metadata: { apiDomain: 'https://www.zohoapis.com', organizationId: 'org-1' },
+      metadata: {
+        apiDomain: 'https://www.zohoapis.com',
+        organizationId: 'org-1',
+        organizationName: 'QA Org',
+        syncEnabled: true,
+        location: 'us',
+        accountsDomain: 'https://accounts.zoho.com',
+      },
       updatedAt: new Date(),
     })
     .where(eq(integrations.id, zohoIntegration.id));
 
+  assert.equal(zoho.accountsBaseFromMetadata({ location: 'eu' }), 'https://accounts.zoho.eu');
+  assert.equal(zoho.accountsBaseFromMetadata({ location: 'in' }), 'https://accounts.zoho.in');
+  assert.equal(zoho.zohoApiBaseFromMetadata({ apiDomain: 'https://www.zohoapis.in' }), 'https://www.zohoapis.in/invoice/v3');
+  console.log('PASS regional accounts/api domain mapping');
+
   const originalFetch = globalThis.fetch;
+  let contactCreates = 0;
+  let invoiceCreates = 0;
   globalThis.fetch = (async (input: any, init?: any) => {
     const url = String(input);
     const method = (init?.method || 'GET').toUpperCase();
+    if (url.includes('/oauth/v2/token') && method === 'POST') {
+      return new Response(JSON.stringify({ access_token: 'zoho-access-refreshed', expires_in: 3600, api_domain: 'https://www.zohoapis.com' }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
     if (url.includes('/contacts') && method === 'GET') {
       return new Response(JSON.stringify({ contacts: [] }), { status: 200, headers: { 'content-type': 'application/json' } });
     }
     if (url.includes('/contacts') && (method === 'POST' || method === 'PUT')) {
+      if (method === 'POST') contactCreates += 1;
       return new Response(JSON.stringify({ contact: { contact_id: 'z-contact-1' } }), {
         status: 200,
         headers: { 'content-type': 'application/json' },
       });
     }
     if (url.includes('/invoices') && (method === 'POST' || method === 'PUT')) {
+      if (method === 'POST') invoiceCreates += 1;
       return new Response(JSON.stringify({ invoice: { invoice_id: 'z-inv-1' } }), {
         status: 200,
         headers: { 'content-type': 'application/json' },
@@ -150,7 +174,12 @@ async function run() {
     }
     if (url.includes('/organizations')) {
       return new Response(
-        JSON.stringify({ organizations: [{ organization_id: 'org-1', name: 'QA Org', currency_code: 'NGN' }] }),
+        JSON.stringify({
+          organizations: [
+            { organization_id: 'org-1', name: 'QA Org', currency_code: 'NGN' },
+            { organization_id: 'org-2', name: 'Other Org', currency_code: 'USD' },
+          ],
+        }),
         { status: 200, headers: { 'content-type': 'application/json' } }
       );
     }
@@ -158,12 +187,23 @@ async function run() {
   }) as typeof fetch;
 
   const orgs = await zoho.listZohoOrganizations(ids.property);
+  assert.equal(orgs.length, 2);
   assert.equal(orgs[0]?.organizationId, 'org-1');
 
   const contact = await zoho.syncZohoContact(ids.property, ids.guest);
   assert.equal(contact.contactId, 'z-contact-1');
+  const contactAgain = await zoho.syncZohoContact(ids.property, ids.guest);
+  assert.equal(contactAgain.contactId, 'z-contact-1');
+  assert.equal(contactCreates, 1, 'must not create duplicate Zoho contacts');
+  console.log('PASS contact mapping + duplicate contact protection');
+
   const invoice = await zoho.syncZohoInvoice(ids.property, ids.invoice);
   assert.equal(invoice.invoiceId, 'z-inv-1');
+  const invoiceAgain = await zoho.syncZohoInvoice(ids.property, ids.invoice);
+  assert.equal(invoiceAgain.invoiceId, 'z-inv-1');
+  assert.equal(invoiceCreates, 1, 'must not create duplicate Zoho invoices');
+  console.log('PASS invoice sync + duplicate invoice protection');
+
   const payment = await zoho.syncZohoPayment(ids.property, ids.payment);
   assert.equal(payment.paymentId, 'z-pay-1');
   const paymentAgain = await zoho.syncZohoPayment(ids.property, ids.payment);
@@ -174,6 +214,78 @@ async function run() {
   assert.equal(paymentRow?.status, 'successful');
   assert.equal(paymentRow?.amountMinorUnits, 100000);
   console.log('PASS Zoho payment sync does not mutate Sena settlement');
+
+  await zoho.setZohoSyncEnabled(ids.property, ids.user, false);
+  const disabledQueue = await zoho.maybeQueueZohoInvoiceExport(ids.property, ids.invoice);
+  assert.equal(disabledQueue, null);
+  console.log('PASS disable sync stops new outbound enqueue');
+
+  await zoho.setZohoSyncEnabled(ids.property, ids.user, true);
+  const queued = await zoho.maybeQueueZohoInvoiceExport(ids.property, ids.invoice);
+  assert.ok(queued?.id);
+  const queuedAgain = await zoho.maybeQueueZohoInvoiceExport(ids.property, ids.invoice);
+  assert.equal(queuedAgain?.id, queued?.id, 'invoice export enqueue is idempotent');
+  console.log('PASS background enqueue + idempotent job');
+
+  const status = await zoho.getZohoInvoiceSyncStatus(ids.property, ids.invoice);
+  assert.equal(status.status, 'synced');
+  assert.ok(status.invoiceUrl?.includes('z-inv-1'));
+  console.log('PASS invoice UI sync status');
+
+  // Token refresh path
+  await platform.upsertOAuthTokens({
+    integrationId: zohoIntegration.id,
+    accessToken: 'zoho-access-expired',
+    refreshToken: 'zoho-refresh',
+    expiresAt: new Date(Date.now() - 60_000),
+  });
+  const ctx = await zoho.getZohoAccessContext(ids.property);
+  assert.equal(ctx.tokens.accessToken, 'zoho-access-refreshed');
+  console.log('PASS token refresh');
+
+  await platform.disconnectOAuthIntegration({
+    propertyId: ids.property,
+    provider: 'zoho_invoice',
+    actorUserId: ids.user,
+  });
+  const mappingStill = await platform.findMappingBySenaObject({
+    integrationId: zohoIntegration.id,
+    senaObjectType: 'invoice',
+    senaObjectId: ids.invoice,
+  });
+  assert.ok(mappingStill?.externalObjectId);
+  const invoiceStill = await db.query.propertyInvoices.findFirst({ where: eq(propertyInvoices.id, ids.invoice) });
+  assert.equal(invoiceStill?.invoiceNumber, 'INV-ZOHO-QA-1');
+  console.log('PASS disconnect preserves mappings and Sena invoices');
+
+  // Reconnect without duplicating mapped invoice
+  const reconnected = await platform.markIntegrationAuthorized({
+    propertyId: ids.property,
+    provider: 'zoho_invoice',
+    category: 'accounting',
+    actorUserId: ids.user,
+    accountLabel: 'Zoho QA',
+    environment: 'https://www.zohoapis.com',
+    accountMetadata: { apiDomain: 'https://www.zohoapis.com', organizationId: 'org-1', syncEnabled: true },
+  });
+  await platform.upsertOAuthTokens({
+    integrationId: reconnected.id,
+    accessToken: 'zoho-access-2',
+    refreshToken: 'zoho-refresh-2',
+    expiresAt: new Date(Date.now() + 3600_000),
+  });
+  await db
+    .update(integrations)
+    .set({
+      metadata: { apiDomain: 'https://www.zohoapis.com', organizationId: 'org-1', syncEnabled: true },
+      updatedAt: new Date(),
+    })
+    .where(eq(integrations.id, reconnected.id));
+  invoiceCreates = 0;
+  const afterReconnect = await zoho.syncZohoInvoice(ids.property, ids.invoice);
+  assert.equal(afterReconnect.invoiceId, 'z-inv-1');
+  assert.equal(invoiceCreates, 0, 'reconnect must update mapped invoice, not create another');
+  console.log('PASS reconnect without duplicates');
 
   zoho.registerZohoSyncHandlers();
   const handlers = (globalThis as any).__senaSyncHandlers;
