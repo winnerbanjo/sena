@@ -27,8 +27,12 @@ export async function POST(req: NextRequest) {
     return jsonNoStore({ error: 'This provider does not use OAuth.' }, { status: 422 });
   }
 
-  const clientId = process.env[`SENA_${provider.toUpperCase()}_CLIENT_ID` as keyof NodeJS.ProcessEnv] as string | undefined
-    || process.env[`${provider.toUpperCase()}_CLIENT_ID`];
+  const clientId =
+    (process.env[`SENA_${provider.toUpperCase()}_CLIENT_ID` as keyof NodeJS.ProcessEnv] as string | undefined) ||
+    process.env[`${provider.toUpperCase()}_CLIENT_ID`] ||
+    (provider === 'zoho_books'
+      ? process.env.SENA_ZOHO_INVOICE_CLIENT_ID || process.env.ZOHO_INVOICE_CLIENT_ID
+      : undefined);
   if (!clientId) {
     return jsonNoStore({
       error: 'OAuth client is not configured yet.',
@@ -88,6 +92,18 @@ function defaultScopes(provider: string): string[] {
   switch (provider) {
     case 'zoho_invoice':
       return ['ZohoInvoice.contacts.READ', 'ZohoInvoice.contacts.CREATE', 'ZohoInvoice.contacts.UPDATE', 'ZohoInvoice.invoices.READ', 'ZohoInvoice.invoices.CREATE', 'ZohoInvoice.invoices.UPDATE', 'ZohoInvoice.customerpayments.CREATE', 'ZohoInvoice.customerpayments.READ', 'ZohoInvoice.settings.READ'];
+    case 'zoho_books':
+      return [
+        'ZohoBooks.contacts.READ',
+        'ZohoBooks.contacts.CREATE',
+        'ZohoBooks.contacts.UPDATE',
+        'ZohoBooks.invoices.READ',
+        'ZohoBooks.invoices.CREATE',
+        'ZohoBooks.invoices.UPDATE',
+        'ZohoBooks.customerpayments.CREATE',
+        'ZohoBooks.customerpayments.READ',
+        'ZohoBooks.settings.READ',
+      ];
     case 'google_calendar':
       return [
         'openid',
@@ -122,7 +138,8 @@ function buildAuthorizeUrl(
   }
 
   switch (provider) {
-    case 'zoho_invoice': {
+    case 'zoho_invoice':
+    case 'zoho_books': {
       const accountsBase = process.env.SENA_ZOHO_ACCOUNTS_BASE || process.env.ZOHO_ACCOUNTS_BASE || 'https://accounts.zoho.com';
       return `${accountsBase.replace(/\/$/, '')}/oauth/v2/auth?${params.toString()}`;
     }

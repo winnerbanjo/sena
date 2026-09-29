@@ -59,8 +59,18 @@ export async function GET(req: NextRequest) {
     const definition = await getProviderDefinition(provider);
     if (!definition) throw new Error('PROVIDER_NOT_FOUND');
 
-    const clientId = process.env[`SENA_${provider.toUpperCase()}_CLIENT_ID`] || process.env[`${provider.toUpperCase()}_CLIENT_ID`];
-    const clientSecret = process.env[`SENA_${provider.toUpperCase()}_CLIENT_SECRET`] || process.env[`${provider.toUpperCase()}_CLIENT_SECRET`];
+    const clientId =
+      process.env[`SENA_${provider.toUpperCase()}_CLIENT_ID`] ||
+      process.env[`${provider.toUpperCase()}_CLIENT_ID`] ||
+      (provider === 'zoho_books'
+        ? process.env.SENA_ZOHO_INVOICE_CLIENT_ID || process.env.ZOHO_INVOICE_CLIENT_ID
+        : undefined);
+    const clientSecret =
+      process.env[`SENA_${provider.toUpperCase()}_CLIENT_SECRET`] ||
+      process.env[`${provider.toUpperCase()}_CLIENT_SECRET`] ||
+      (provider === 'zoho_books'
+        ? process.env.SENA_ZOHO_INVOICE_CLIENT_SECRET || process.env.ZOHO_INVOICE_CLIENT_SECRET
+        : undefined);
     if (!clientId || !clientSecret) throw new Error('OAUTH_CLIENT_MISSING');
 
     const tokens = await exchangeAuthorizationCode(provider, {
@@ -134,7 +144,7 @@ async function exchangeAuthorizationCode(
     accountsServer?: string | null;
   }
 ) {
-  if (provider === 'zoho_invoice') {
+  if (provider === 'zoho_invoice' || provider === 'zoho_books') {
     const { accountsBaseForLocation, buildZohoAuthorizationCodeTokenBody } = await import(
       '@/lib/integrations/zoho/invoice'
     );
@@ -172,6 +182,7 @@ async function exchangeAuthorizationCode(
         accountsBase,
         location: input.location || null,
         hasCodeVerifier: Boolean(input.codeVerifier),
+        provider,
         redirectUriHost: (() => {
           try {
             return new URL(input.redirectUri).host;
@@ -189,7 +200,7 @@ async function exchangeAuthorizationCode(
       refreshToken: json.refresh_token ? String(json.refresh_token) : undefined,
       expiresAt: typeof json.expires_in === 'number' ? new Date(Date.now() + json.expires_in * 1000) : null,
       scopes: typeof json.scope === 'string' ? json.scope.split(' ') : undefined,
-      accountLabel: apiDomain || 'Zoho Invoice',
+      accountLabel: apiDomain || (provider === 'zoho_books' ? 'Zoho Books' : 'Zoho Invoice'),
       environment: apiDomain,
       accountMetadata: {
         apiDomain,

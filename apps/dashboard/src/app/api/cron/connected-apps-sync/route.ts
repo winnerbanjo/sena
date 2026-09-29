@@ -2,12 +2,14 @@ import { NextRequest } from 'next/server';
 import { processSyncQueue } from '@/lib/integrations/platform/sync';
 import { jsonNoStore } from '@/lib/integrations/platform/access';
 import { registerZohoSyncHandlers } from '@/lib/integrations/zoho/invoice';
+import { registerZohoBooksSyncHandlers } from '@/lib/integrations/zoho/books';
 import { registerGoogleCalendarSyncHandlers } from '@/lib/integrations/google/calendar';
 import type { integrationSyncJobs } from '@sena/database';
 
 type SyncJob = typeof integrationSyncJobs.$inferSelect;
 
 registerZohoSyncHandlers();
+registerZohoBooksSyncHandlers();
 registerGoogleCalendarSyncHandlers();
 
 function authorizeCron(req: NextRequest) {

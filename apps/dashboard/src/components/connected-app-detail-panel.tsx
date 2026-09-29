@@ -16,6 +16,14 @@ import {
   type ZohoOrgsFetchStatus,
 } from '@/lib/integrations/zoho/orgs-ui-state';
 
+function isZohoAccountingProvider(provider: string) {
+  return provider === 'zoho_invoice' || provider === 'zoho_books';
+}
+
+function zohoManagePath(provider: string) {
+  return provider === 'zoho_books' ? '/api/apps/zoho_books/manage' : '/api/apps/zoho_invoice/manage';
+}
+
 type DetailResponse = {
   canManage: boolean;
   property?: { id: string; name: string; slug: string };
@@ -65,6 +73,8 @@ export function ConnectedAppDetailPanel({
   const [zohoSyncEnabled, setZohoSyncEnabled] = React.useState(false);
   const [zohoOrgsError, setZohoOrgsError] = React.useState<string | null>(null);
   const [zohoOrgsFetchStatus, setZohoOrgsFetchStatus] = React.useState<ZohoOrgsFetchStatus>('idle');
+  const [zohoBankAccounts, setZohoBankAccounts] = React.useState<Array<{ accountId: string; name: string }>>([]);
+  const [zohoPaymentAccountId, setZohoPaymentAccountId] = React.useState<string | null>(null);
   const [googleCalendars, setGoogleCalendars] = React.useState<Array<{ id: string; summary: string; primary?: boolean }>>([]);
   const [selectedGoogleCalendarId, setSelectedGoogleCalendarId] = React.useState<string | null>(null);
   const [selectedGoogleCalendarName, setSelectedGoogleCalendarName] = React.useState<string | null>(null);
@@ -104,12 +114,12 @@ export function ConnectedAppDetailPanel({
   }, [provider, t, workspacePropertyId]);
 
   const loadZohoManage = React.useCallback(async () => {
-    if (provider !== 'zoho_invoice') return;
+    if (!isZohoAccountingProvider(provider)) return;
     const requestId = ++zohoManageRequestId.current;
     setZohoOrgsFetchStatus('loading');
     setZohoOrgsError(null);
     try {
-      const response = await fetch(`/api/apps/zoho_invoice/manage?_=${Date.now()}`, { cache: 'no-store' });
+      const response = await fetch(`${zohoManagePath(provider)}?_=${Date.now()}`, { cache: 'no-store' });
       const payload = await response.json().catch(() => ({}));
       if (requestId !== zohoManageRequestId.current) return;
       if (
@@ -118,7 +128,7 @@ export function ConnectedAppDetailPanel({
         typeof payload.property.id === 'string' &&
         payload.property.id !== workspacePropertyId
       ) {
-        window.location.assign('/apps?manage=zoho_invoice');
+        window.location.assign(`/apps?manage=${encodeURIComponent(provider)}`);
         return;
       }
       if (!response.ok) {
@@ -134,6 +144,17 @@ export function ConnectedAppDetailPanel({
       if (typeof payload.selectedOrganizationName === 'string') setZohoSelectedOrgName(payload.selectedOrganizationName);
       else setZohoSelectedOrgName(null);
       if (typeof payload.syncEnabled === 'boolean') setZohoSyncEnabled(payload.syncEnabled);
+      if (Array.isArray(payload.bankAccounts)) {
+        setZohoBankAccounts(
+          payload.bankAccounts
+            .filter((row: any) => row && typeof row.accountId === 'string')
+            .map((row: any) => ({ accountId: String(row.accountId), name: String(row.name || row.accountId) }))
+        );
+      } else {
+        setZohoBankAccounts([]);
+      }
+      if (typeof payload.paymentAccountId === 'string') setZohoPaymentAccountId(payload.paymentAccountId);
+      else setZohoPaymentAccountId(null);
       if (typeof payload.organizationsError === 'string' && payload.organizationsError) {
         setZohoOrgsError(t('zohoOrgsLoadFailed'));
         setZohoOrgsFetchStatus('error');
@@ -187,6 +208,8 @@ export function ConnectedAppDetailPanel({
     setZohoSyncEnabled(false);
     setZohoOrgsError(null);
     setZohoOrgsFetchStatus('idle');
+    setZohoBankAccounts([]);
+    setZohoPaymentAccountId(null);
     googleManageRequestId.current += 1;
     setGoogleCalendars([]);
     setSelectedGoogleCalendarId(null);
@@ -198,7 +221,7 @@ export function ConnectedAppDetailPanel({
   }, [workspacePropertyId]);
 
   React.useEffect(() => {
-    if (provider !== 'zoho_invoice') return;
+    if (!isZohoAccountingProvider(provider)) return;
     if (data?.app?.connectionStatus !== 'connected') return;
     void loadZohoManage();
   }, [provider, data?.app?.connectionStatus, loadZohoManage]);
@@ -255,7 +278,7 @@ export function ConnectedAppDetailPanel({
     setBusy(true);
     setError(null);
     try {
-      const response = await fetch('/api/apps/zoho_invoice/manage', {
+      const response = await fetch(zohoManagePath(provider), {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ action: 'select_organization', organizationId, organizationName }),
@@ -268,9 +291,34 @@ export function ConnectedAppDetailPanel({
       }
       setZohoSelectedOrgId(organizationId);
       setZohoSelectedOrgName(organizationName || null);
-      setZohoSyncEnabled(true);
+      // Invoice auto-enables on org select; Books requires an explicit enable step.
+      setZohoSyncEnabled(provider === 'zoho_invoice');
       setMessage(t('zohoOrgSelected'));
       await load();
+      if (provider === 'zoho_books') await loadZohoManage();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function selectZohoPaymentAccount(paymentAccountId: string | null, paymentAccountName?: string | null) {
+    if (provider !== 'zoho_books') return;
+    setBusy(true);
+    setError(null);
+    try {
+      const response = await fetch(zohoManagePath(provider), {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ action: 'select_payment_account', paymentAccountId, paymentAccountName }),
+        cache: 'no-store',
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setError(typeof payload.error === 'string' ? payload.error : t('updateFailed'));
+        return;
+      }
+      setZohoPaymentAccountId(typeof payload.paymentAccountId === 'string' ? payload.paymentAccountId : null);
+      setMessage(t('zohoBooksPaymentAccountSaved'));
     } finally {
       setBusy(false);
     }
@@ -281,7 +329,7 @@ export function ConnectedAppDetailPanel({
     setError(null);
     try {
       const next = !zohoSyncEnabled;
-      const response = await fetch('/api/apps/zoho_invoice/manage', {
+      const response = await fetch(zohoManagePath(provider), {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ action: 'set_sync_enabled', enabled: next }),
@@ -439,13 +487,13 @@ export function ConnectedAppDetailPanel({
   const needsConfig =
     connected &&
     ((provider === 'google_calendar' && !selectedGoogleCalendarId) ||
-      (provider === 'zoho_invoice' && !zohoSelectedOrgId));
+      (isZohoAccountingProvider(provider) && !zohoSelectedOrgId));
   const syncEnabledLabel =
     provider === 'google_calendar'
       ? googleSyncEnabled
         ? t('syncOn')
         : t('syncOff')
-      : provider === 'zoho_invoice'
+      : isZohoAccountingProvider(provider)
         ? zohoSyncEnabled
           ? t('syncOn')
           : t('syncOff')
@@ -508,7 +556,7 @@ export function ConnectedAppDetailPanel({
                 <p className="mt-1 text-sm text-[#2E6B4F]">
                   {provider === 'google_calendar'
                     ? t('oauthConnectedNextGoogle')
-                    : provider === 'zoho_invoice'
+                    : isZohoAccountingProvider(provider)
                       ? t('oauthConnectedNextZoho')
                       : t('oauthConnectedNextGeneric')}
                 </p>
@@ -546,12 +594,12 @@ export function ConnectedAppDetailPanel({
                       value={selectedGoogleCalendarName || selectedGoogleCalendarId || '—'}
                     />
                   ) : null}
-                  {provider === 'zoho_invoice' ? (
+                  {isZohoAccountingProvider(provider) ? (
                     <ConnectionRow label={t('zohoOrganization')} value={zohoSelectedOrgName || zohoSelectedOrgId || '—'} />
                   ) : null}
                   {syncEnabledLabel ? (
                     <ConnectionRow
-                      label={provider === 'zoho_invoice' ? t('zohoSyncInvoices') : t('reservationSyncLabel')}
+                      label={isZohoAccountingProvider(provider) ? t('zohoSyncInvoices') : t('reservationSyncLabel')}
                       value={syncEnabledLabel}
                     />
                   ) : null}
@@ -577,7 +625,7 @@ export function ConnectedAppDetailPanel({
                 ) : null}
                 {connected ? (
                   <>
-                    {provider !== 'google_calendar' && provider !== 'zoho_invoice' ? (
+                    {provider !== 'google_calendar' && !isZohoAccountingProvider(provider) ? (
                       <button
                         type="button"
                         disabled={busy}
@@ -604,7 +652,7 @@ export function ConnectedAppDetailPanel({
               <p className="text-sm text-[#7A7267]">{t('ownerManagesApps')}</p>
             )}
 
-            {provider === 'zoho_invoice' && data?.canManage && connected ? (
+            {isZohoAccountingProvider(provider) && data?.canManage && connected ? (
               <section className="max-w-3xl space-y-4">
                 <SectionTitle>{t('configurationHeading')}</SectionTitle>
                 <div className="rounded-2xl border border-[#E8E2DA] bg-white p-4 sm:p-5">
@@ -644,6 +692,37 @@ export function ConnectedAppDetailPanel({
                     </p>
                   ) : null}
                 </div>
+
+                {provider === 'zoho_books' && zohoSelectedOrgId ? (
+                  <div className="rounded-2xl border border-[#E8E2DA] bg-white p-4 sm:p-5">
+                    <h2 className="text-sm font-medium text-[#191816]">{t('zohoBooksPaymentAccount')}</h2>
+                    <p className="mt-1 text-sm text-[#7A7267]">{t('zohoBooksPaymentAccountHelp')}</p>
+                    <label className="mt-3 block">
+                      <span className="sr-only">{t('zohoBooksPaymentAccount')}</span>
+                      <select
+                        className="min-h-11 w-full rounded-xl border border-[#E8E2DA] bg-white px-3 text-sm text-[#191816]"
+                        disabled={busy}
+                        value={zohoPaymentAccountId || ''}
+                        onChange={(event) => {
+                          const value = event.target.value;
+                          if (!value) {
+                            void selectZohoPaymentAccount(null, null);
+                            return;
+                          }
+                          const match = zohoBankAccounts.find((row) => row.accountId === value);
+                          void selectZohoPaymentAccount(value, match?.name || null);
+                        }}
+                      >
+                        <option value="">{t('zohoBooksPaymentAccountDefault')}</option>
+                        {zohoBankAccounts.map((account) => (
+                          <option key={account.accountId} value={account.accountId}>
+                            {account.name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+                ) : null}
 
                 {(() => {
                   const zohoView = resolveZohoOrgsView({

@@ -1,7 +1,8 @@
 /**
- * Accounting adapter contracts for Zoho Books, QuickBooks Online, and Xero.
- * Real connectors must use official APIs. Until credentials + certification land,
- * adapters remain Coming Soon and must never report Connected.
+ * Accounting adapter contracts for QuickBooks Online and Xero (still Coming Soon).
+ * Zoho Books V1 is implemented as a Connected App in `zoho/books.ts` — not through this facade.
+ * Real connectors must use official APIs. Until credentials + certification land for QBO/Xero,
+ * those adapters remain Coming Soon and must never report Connected.
  */
 
 export type AccountingObjectType = 'contact' | 'invoice' | 'payment';

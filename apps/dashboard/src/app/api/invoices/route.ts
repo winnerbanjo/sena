@@ -271,6 +271,9 @@ async function handlePOST(req: NextRequest) {
     void import('@/lib/integrations/zoho/invoice')
       .then(({ maybeQueueZohoInvoiceExport }) => maybeQueueZohoInvoiceExport(propertyId, newInvoice.id))
       .catch(() => null);
+    void import('@/lib/integrations/zoho/books')
+      .then(({ maybeQueueZohoBooksInvoiceExport }) => maybeQueueZohoBooksInvoiceExport(propertyId, newInvoice.id))
+      .catch(() => null);
 
     return NextResponse.json({
       success: true,

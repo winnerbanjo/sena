@@ -40,6 +40,11 @@ async function handlePOST(req: NextRequest, { params }: { params: Promise<{ id: 
         maybeQueueZohoPaymentSync(String((result as any).propertyId), String((result as any).paymentId))
       )
       .catch(() => null);
+    void import('@/lib/integrations/zoho/books')
+      .then(({ maybeQueueZohoBooksPaymentSync }) =>
+        maybeQueueZohoBooksPaymentSync(String((result as any).propertyId), String((result as any).paymentId))
+      )
+      .catch(() => null);
   }
   return NextResponse.json(result, { status: result && typeof result === 'object' && 'error' in result ? 422 : 200 });
 }
