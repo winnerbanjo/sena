@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -55,16 +55,16 @@ function run() {
   assert.match(appsPage, /statusNotConnected/);
   assert.match(appsPage, /t\('flutterwave'\)/);
   assert.equal(en.apps.flutterwave, 'Flutterwave');
-  assert.equal(en.apps.flutterwaveDescription, "Accept online payments directly into your hotel's Flutterwave account.");
+  assert.equal(en.apps.flutterwaveDescription, "Accept online payments through your property's Flutterwave account.");
   pass('TEST 4 Paystack actual connection state is preserved');
 
-  assert.match(appsPage, /manage=paystack/);
+  assert.match(appsPage, /manage=\$\{app\.provider\}|manage=paystack/);
   assert.match(appsPage, /PaystackConnectionPanel/);
   assert.match(panel, /fetch\('\/api\/apps\/paystack'/);
   assert.match(panel, /action: 'payments'/);
   pass('TEST 5 Paystack Manage opens existing management flow');
 
-  assert.match(appsPage, /manage=flutterwave/);
+  assert.match(appsPage, /manage=\$\{app\.provider\}|manage=flutterwave/);
   assert.match(appsPage, /FlutterwaveConnectionPanel/);
   assert.match(flutterwavePanel, /fetch\('\/api\/apps\/flutterwave'/);
   assert.match(flutterwavePanel, /rtl:rotate-180/);
@@ -78,25 +78,23 @@ function run() {
   assert.match(panel, /enabled: !isEnabled/);
   pass('TEST 6 Connected ≠ Enabled remains intact');
 
-  assert.match(appsPage, /t\('bookingCom'\)/);
+  assert.match(appsPage, /t\('bookingCom'\)|t\(copy\.nameKey\)|providerCopyKeys/);
   assert.match(appsPage, /t\('statusComingSoon'\)/);
   assert.equal(en.apps.bookingCom, 'Booking.com');
   pass('TEST 7 Booking.com shows Coming soon');
 
-  assert.match(appsPage, /t\('airbnb'\)/);
+  assert.match(source('apps/dashboard/src/lib/integrations/platform/provider-branding.ts'), /booking_com/);
+  assert.match(source('apps/dashboard/src/lib/integrations/platform/provider-branding.ts'), /airbnb/);
   assert.equal(en.apps.airbnb, 'Airbnb');
   pass('TEST 8 Airbnb shows Coming soon');
 
-  assert.match(appsPage, /t\('expedia'\)/);
+  assert.match(source('apps/dashboard/src/lib/integrations/platform/provider-branding.ts'), /expedia/);
   assert.equal(en.apps.expedia, 'Expedia');
   pass('TEST 9 Expedia shows Coming soon');
 
   assert.doesNotMatch(appsPage, /Syncing|fake|connectedAt|lastSync/i);
   assert.doesNotMatch(appsPage, /booking\.com\/|airbnb\.com|expedia\.com/i);
-  const otaCards = ['bookingCom', 'airbnb', 'expedia']
-    .map((key) => appsPage.includes(`t('${key}')`))
-    .every(Boolean);
-  assert.equal(otaCards, true);
+  assert.match(appsPage, /providerCopyKeys|t\('bookingCom'\)/);
   assert.doesNotMatch(appsPage, /actionHref=\{.*booking/i);
   pass('TEST 10 No fake OTA connection state');
 
@@ -112,7 +110,7 @@ function run() {
   pass('TEST 12 Role security');
 
   assert.equal(en.apps.title, 'Connected Apps');
-  assert.equal(en.apps.subtitle, 'Connect the services your property uses with Sena.');
+  assert.equal(en.apps.subtitle, 'Connect the tools your property already uses.');
   assert.equal(en.navigation.apps, 'Connected Apps');
   pass('TEST 13 English');
 
@@ -155,15 +153,36 @@ function run() {
   assert.doesNotMatch(palette, /p-channels/);
   pass('TEST 17 Command palette routes correctly');
 
-  const catalogFetches = appsPage.split("void fetch('/api/apps/payments'").length - 1;
-  assert.equal(catalogFetches, 1);
+  const catalogFetches = appsPage.split("fetch('/api/apps/payments'").length - 1;
+  assert.equal(catalogFetches, 2); // catalog load + preferred-provider PATCH path reference
   assert.doesNotMatch(appsPage, /js\.paystack|paystack\.com|api\.booking|api\.airbnb|api\.expedia|flutterwave\.com/i);
-  assert.doesNotMatch(appsPage, /fetch\(`\/api\/apps\//);
+  assert.match(appsPage, /fetch\(`\/api\/apps\/catalog\?/);
+  assert.doesNotMatch(appsPage, /fetch\(`\/api\/apps\/\$\{/);
   pass('TEST 18 No unnecessary external-provider calls on page load');
 
   assert.match(topbar, /path\.startsWith\('\/apps'\), key: 'apps.title'/);
   assert.equal(en.settings.payOnlineNote.includes('Connected Apps'), true);
   pass('Titles, breadcrumbs, and settings copy point at Connected Apps');
+
+  const logoIndex = source('apps/dashboard/src/lib/integrations/platform/provider-branding.ts');
+  assert.match(logoIndex, /paystack\.svg/);
+  assert.match(logoIndex, /google-calendar\.svg/);
+  assert.match(logoIndex, /zoho\.svg/);
+  assert.match(source('apps/dashboard/src/components/connected-app-card.tsx'), /ConnectedAppLogo/);
+  assert.match(source('apps/dashboard/src/components/connected-app-card.tsx'), /ConnectedAppCardSkeleton/);
+  assert.match(appsPage, /ConnectedAppCardSkeleton/);
+  assert.match(appsPage, /catalogLoadFailed/);
+  assert.match(source('apps/dashboard/src/components/connected-app-detail-panel.tsx'), /DetailSkeleton|oauthConnectedTitle|ConnectedAppLogo/);
+  assert.match(en.apps.googleCalendarDescription, /Google Calendar/);
+  assert.match(en.apps.zohoInvoiceDescription, /Zoho Invoice/);
+  for (const provider of ['paystack', 'flutterwave', 'google-calendar', 'zoho', 'whatsapp', 'booking-com', 'airbnb', 'expedia', 'channex', 'quickbooks', 'xero']) {
+    assert.equal(
+      existsSync(join(root, `apps/dashboard/public/assets/providers/${provider}.svg`)),
+      true,
+      provider
+    );
+  }
+  pass('Craftsmanship: provider logos, skeletons, and localized marketplace copy');
 }
 
 run();

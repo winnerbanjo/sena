@@ -1,11 +1,13 @@
 'use client';
 
 import * as React from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { ArrowLeft, RefreshCw, Unplug } from 'lucide-react';
 import { Topbar } from '@/components/topbar';
+import { ConnectedAppLogo } from '@/components/connected-apps/connected-app-logo';
 import { useWorkspace } from '@/components/workspace-access';
+import { categoryLabelKey, providerCopyKeys } from '@/lib/integrations/platform/provider-branding';
 import {
   organizationsFromManagePayload,
   resolveZohoOrgsView,
@@ -47,7 +49,11 @@ export function ConnectedAppDetailPanel({
   const router = useRouter();
   const workspace = useWorkspace();
   const workspacePropertyId = workspace?.property.id || null;
+  const searchParams = useSearchParams();
+  const oauthResult = searchParams.get('oauth');
   const [data, setData] = React.useState<DetailResponse | null>(null);
+  const [showOauthSuccess, setShowOauthSuccess] = React.useState(oauthResult === 'connected');
+
   const [busy, setBusy] = React.useState(false);
   const [message, setMessage] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
@@ -157,6 +163,18 @@ export function ConnectedAppDetailPanel({
   React.useEffect(() => {
     void load();
   }, [load]);
+
+  React.useEffect(() => {
+    if (oauthResult !== 'connected' && oauthResult !== 'error') return;
+    setShowOauthSuccess(oauthResult === 'connected');
+    if (oauthResult === 'error') {
+      setError(t('oauthReturnFailed'));
+    }
+    const url = new URL(window.location.href);
+    url.searchParams.delete('oauth');
+    url.searchParams.delete('reason');
+    window.history.replaceState({}, '', `${url.pathname}${url.search}`);
+  }, [oauthResult, t]);
 
   React.useEffect(() => {
     // Property switch remounts via WorkspaceAccess key; still reset local Zoho state defensively.
@@ -403,50 +421,107 @@ export function ConnectedAppDetailPanel({
     }
   }
 
+
   const app = data?.app;
+  const copy = providerCopyKeys(provider);
+  const displayName = copy ? t(copy.nameKey) : app?.name || t('title');
+  const displayDescription = copy ? t(copy.descriptionKey) : app?.description || '';
+  const displayCategory = app ? t(categoryLabelKey(app.category) as 'calendarCategory') : '';
+  const oauthConnectedTitle = t('oauthConnectedTitle', { name: displayName });
+  const detailFailedNamed = t('detailLoadFailedNamed', { name: displayName });
+
+  const connected = app?.connectionStatus === 'connected';
+  const needsConfig =
+    connected &&
+    ((provider === 'google_calendar' && !selectedGoogleCalendarId) ||
+      (provider === 'zoho_invoice' && !zohoSelectedOrgId));
 
   return (
     <div className="flex h-screen flex-1 flex-col overflow-hidden">
-      <Topbar title={app?.name || t('title')} />
-      <main className="flex-1 space-y-6 overflow-y-auto p-4 sm:p-6 lg:p-8">
-        <button type="button" onClick={onBack} className="inline-flex min-h-11 items-center gap-2 text-sm text-[#71382D]">
-          <ArrowLeft className="h-4 w-4" />
+      <Topbar title={displayName} />
+      <main className="flex-1 space-y-6 overflow-y-auto overflow-x-hidden p-4 sm:p-6 lg:p-8">
+        <button
+          type="button"
+          onClick={onBack}
+          className="inline-flex min-h-11 items-center gap-2 text-sm font-medium text-[#71382D] hover:text-[#B85C3E]"
+        >
+          <ArrowLeft className="h-4 w-4 rtl:rotate-180" />
           {t('backToMarketplace')}
         </button>
 
-        {!app ? (
-          <p className="text-sm text-[#7A7267]">{error || t('loadingDetail')}</p>
-        ) : (
+        {!app && !error ? <DetailSkeleton /> : null}
+
+        {!app && error ? (
+          <div className="max-w-lg rounded-2xl border border-[#E5D4BC] bg-[#FBF7F1] p-5">
+            <p className="text-sm text-[#71382D]">{detailFailedNamed}</p>
+            <button
+              type="button"
+              onClick={() => void load()}
+              className="mt-3 min-h-11 rounded-lg border border-[#E8E2DA] bg-white px-4 text-sm font-medium text-[#71382D]"
+            >
+              {t('catalogRetry')}
+            </button>
+          </div>
+        ) : null}
+
+        {app ? (
           <>
-            <header className="max-w-3xl">
-              <p className="text-[11px] font-medium uppercase tracking-widest text-[#7A7267]">{app.category.replaceAll('_', ' ')}</p>
-              <h1 className="mt-1 font-serif text-2xl text-[#191816]">{app.name}</h1>
-              <p className="mt-2 text-sm text-[#7A7267]">{app.description}</p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <StatusPill label={statusLabel(t, app.connectionStatus)} />
-                {app.healthStatus ? <StatusPill label={`${t('health')}: ${app.healthStatus.replaceAll('_', ' ')}`} /> : null}
+            <header className="flex max-w-3xl flex-col gap-4 sm:flex-row sm:items-start">
+              <ConnectedAppLogo provider={provider} name={displayName} size="lg" />
+              <div className="min-w-0 flex-1">
+                <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-[#7A7267]">{displayCategory}</p>
+                <h1 className="mt-1 font-serif text-3xl tracking-tight text-[#191816]">{displayName}</h1>
+                <p className="mt-2 text-sm leading-relaxed text-[#7A7267]">{displayDescription}</p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <StatusPill
+                    label={statusLabel(t, needsConfig ? 'needs_attention' : app.connectionStatus)}
+                    tone={statusToneFor(needsConfig, app.connectionStatus)}
+                  />
+                  {app.healthStatus === 'healthy' || app.healthStatus === 'ok' ? (
+                    <StatusPill label={t('healthOk')} tone="connected" />
+                  ) : app.healthStatus === 'error' || app.healthStatus === 'degraded' ? (
+                    <StatusPill label={t('statusActionRequired')} tone="attention" />
+                  ) : null}
+                </div>
               </div>
             </header>
 
-            {message ? <p className="text-sm text-[#2E6B4F]">{message}</p> : null}
-            {error ? <p className="text-sm text-[#71382D]">{error}</p> : null}
+            {showOauthSuccess && connected ? (
+              <div className="max-w-3xl rounded-2xl border border-[#C5E3D0] bg-[#EBF5EF] px-4 py-3.5">
+                <p className="text-sm font-medium text-[#2E6B4F]">{oauthConnectedTitle}</p>
+                <p className="mt-1 text-sm text-[#2E6B4F]">
+                  {provider === 'google_calendar'
+                    ? t('oauthConnectedNextGoogle')
+                    : provider === 'zoho_invoice'
+                      ? t('oauthConnectedNextZoho')
+                      : t('oauthConnectedNextGeneric')}
+                </p>
+              </div>
+            ) : null}
 
-            <section className="grid max-w-3xl gap-4 sm:grid-cols-2">
-              <Info label={t('account')} value={app.accountLabel || t('statusNotConnected')} />
-              <Info label={t('authType')} value={app.authenticationType} />
-              <Info label={t('connectedAt')} value={app.connectedAt ? new Date(app.connectedAt).toLocaleString() : '—'} />
-              <Info label={t('lastSync')} value={app.lastSyncAt ? new Date(app.lastSyncAt).toLocaleString() : '—'} />
-            </section>
+            {message ? (
+              <p className="max-w-3xl text-sm text-[#2E6B4F]">
+                {message}
+              </p>
+            ) : null}
+            {error ? (
+              <div className="max-w-3xl rounded-2xl border border-[#E5D4BC] bg-[#FBF7F1] px-4 py-3">
+                <p className="text-sm text-[#71382D]">{operatorError(t, error)}</p>
+              </div>
+            ) : null}
 
-            <section className="max-w-3xl">
-              <h2 className="text-sm font-medium text-[#191816]">{t('capabilities')}</h2>
-              <ul className="mt-2 flex flex-wrap gap-2">
-                {app.capabilities.map((capability) => (
-                  <li key={capability} className="rounded-full border border-[#E8E2DA] px-2.5 py-1 text-xs text-[#7A7267]">
-                    {capability.replaceAll('_', ' ')}
-                  </li>
-                ))}
-              </ul>
+            <section className="grid max-w-3xl gap-3 sm:grid-cols-2">
+              <Info
+                label={provider === 'google_calendar' ? t('googleAccount') : t('account')}
+                value={app.accountLabel || googleAccountEmail || t('statusNotConnected')}
+              />
+              <Info
+                label={t('connectedAt')}
+                value={app.connectedAt ? new Date(app.connectedAt).toLocaleString() : '—'}
+              />
+              {app.lastSyncAt ? (
+                <Info label={t('lastSync')} value={new Date(app.lastSyncAt).toLocaleString()} />
+              ) : null}
             </section>
 
             {data?.canManage ? (
@@ -457,7 +532,7 @@ export function ConnectedAppDetailPanel({
                       type="button"
                       disabled={busy}
                       onClick={() => void startOAuth()}
-                      className="min-h-11 rounded-lg bg-[#71382D] px-4 text-sm font-medium text-white disabled:opacity-60"
+                      className="min-h-11 rounded-xl bg-[#71382D] px-5 text-sm font-medium text-white hover:bg-[#B85C3E] disabled:opacity-60"
                     >
                       {t('connect')}
                     </button>
@@ -466,20 +541,22 @@ export function ConnectedAppDetailPanel({
                   )
                 ) : (
                   <>
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => void syncNow()}
-                      className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-[#E8E2DA] px-4 text-sm font-medium text-[#191816] disabled:opacity-60"
-                    >
-                      <RefreshCw className="h-4 w-4" />
-                      {t('syncNow')}
-                    </button>
+                    {provider !== 'google_calendar' && provider !== 'zoho_invoice' ? (
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => void syncNow()}
+                        className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-[#E8E2DA] bg-white px-4 text-sm font-medium text-[#191816] disabled:opacity-60"
+                      >
+                        <RefreshCw className="h-4 w-4" />
+                        {t('syncNow')}
+                      </button>
+                    ) : null}
                     <button
                       type="button"
                       disabled={busy}
                       onClick={() => void disconnect()}
-                      className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-[#E5D4BC] px-4 text-sm font-medium text-[#71382D] disabled:opacity-60"
+                      className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-[#E5D4BC] bg-white px-4 text-sm font-medium text-[#71382D] disabled:opacity-60"
                     >
                       <Unplug className="h-4 w-4" />
                       {t('disconnect')}
@@ -491,9 +568,10 @@ export function ConnectedAppDetailPanel({
               <p className="text-sm text-[#7A7267]">{t('ownerManagesApps')}</p>
             )}
 
-            {provider === 'zoho_invoice' && data?.canManage && app.connectionStatus === 'connected' ? (
+            {provider === 'zoho_invoice' && data?.canManage && connected ? (
               <section className="max-w-3xl space-y-4">
-                <div className="rounded-xl border border-[#E8E2DA] bg-white p-4">
+                <SectionTitle>{t('sectionSettings')}</SectionTitle>
+                <div className="rounded-2xl border border-[#E8E2DA] bg-white p-4 sm:p-5">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <h2 className="text-sm font-medium text-[#191816]">{t('zohoSyncInvoices')}</h2>
@@ -526,7 +604,7 @@ export function ConnectedAppDetailPanel({
                   </div>
                   {app.lastSyncAt ? (
                     <p className="mt-3 text-xs text-[#7A7267]">
-                      {t('zohoLastSynced', { time: new Date(app.lastSyncAt).toLocaleString() })}
+                      {(t('zohoLastSynced', { time: new Date(app.lastSyncAt).toLocaleString() }))}
                     </p>
                   ) : null}
                 </div>
@@ -539,12 +617,12 @@ export function ConnectedAppDetailPanel({
                     errorMessage: zohoOrgsError,
                   });
                   if (zohoView.kind === 'loading') {
-                    return <p className="text-sm text-[#7A7267]">{t('zohoOrgsLoading')}</p>;
+                    return <ListSkeleton label={t('zohoOrgsLoading')} />;
                   }
                   if (zohoView.kind === 'error') {
                     return (
-                      <div className="space-y-3 rounded-xl border border-[#E5D4BC] bg-[#FBF7F1] p-4">
-                        <p className="text-sm text-[#71382D]">{zohoView.message}</p>
+                      <div className="space-y-3 rounded-2xl border border-[#E5D4BC] bg-[#FBF7F1] p-4">
+                        <p className="text-sm text-[#71382D]">{t('zohoOrgsLoadFailed')}</p>
                         <button
                           type="button"
                           disabled={busy}
@@ -561,7 +639,7 @@ export function ConnectedAppDetailPanel({
                       <div className="space-y-3">
                         <h2 className="text-sm font-medium text-[#191816]">{t('zohoOrganization')}</h2>
                         <p className="text-sm text-[#7A7267]">{t('zohoOrganizationHelp')}</p>
-                        <ul className="divide-y divide-[#E8E2DA] rounded-xl border border-[#E8E2DA] bg-white">
+                        <ul className="divide-y divide-[#E8E2DA] rounded-2xl border border-[#E8E2DA] bg-white">
                           {zohoView.organizations.map((org) => (
                             <li key={org.organizationId} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 text-sm">
                               <span className="text-[#191816]">{org.name}</span>
@@ -580,7 +658,7 @@ export function ConnectedAppDetailPanel({
                     );
                   }
                   return (
-                    <div className="space-y-3 rounded-xl border border-[#E8E2DA] bg-white p-4">
+                    <div className="space-y-3 rounded-2xl border border-[#E8E2DA] bg-white p-4">
                       <p className="text-sm text-[#7A7267]">{t('zohoOrgsEmpty')}</p>
                       <button
                         type="button"
@@ -596,9 +674,10 @@ export function ConnectedAppDetailPanel({
               </section>
             ) : null}
 
-            {provider === 'google_calendar' && data?.canManage && app.connectionStatus === 'connected' ? (
+            {provider === 'google_calendar' && data?.canManage && connected ? (
               <section className="max-w-3xl space-y-4">
-                <div className="rounded-xl border border-[#E8E2DA] bg-white p-4">
+                <SectionTitle>{t('sectionSettings')}</SectionTitle>
+                <div className="rounded-2xl border border-[#E8E2DA] bg-white p-4 sm:p-5">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <h2 className="text-sm font-medium text-[#191816]">{t('googleSyncReservations')}</h2>
@@ -640,17 +719,17 @@ export function ConnectedAppDetailPanel({
                   </div>
                   {app.lastSyncAt ? (
                     <p className="mt-3 text-xs text-[#7A7267]">
-                      {t('zohoLastSynced', { time: new Date(app.lastSyncAt).toLocaleString() })}
+                      {new Date(app.lastSyncAt).toLocaleString()}
                     </p>
                   ) : null}
                 </div>
 
                 {googleCalendarsFetchStatus === 'loading' || googleCalendarsFetchStatus === 'idle' ? (
-                  <p className="text-sm text-[#7A7267]">{t('googleCalendarsLoading')}</p>
+                  <ListSkeleton label={t('googleCalendarsLoading')} />
                 ) : null}
                 {googleCalendarsFetchStatus === 'error' ? (
-                  <div className="space-y-3 rounded-xl border border-[#E5D4BC] bg-[#FBF7F1] p-4">
-                    <p className="text-sm text-[#71382D]">{googleCalendarsError || t('googleCalendarsLoadFailed')}</p>
+                  <div className="space-y-3 rounded-2xl border border-[#E5D4BC] bg-[#FBF7F1] p-4">
+                    <p className="text-sm text-[#71382D]">{t('googleCalendarsLoadFailed')}</p>
                     <button
                       type="button"
                       disabled={busy}
@@ -668,13 +747,13 @@ export function ConnectedAppDetailPanel({
                   <div className="space-y-3">
                     <h2 className="text-sm font-medium text-[#191816]">{t('googleTargetCalendar')}</h2>
                     <p className="text-sm text-[#7A7267]">{t('googleTargetCalendarHelp')}</p>
-                    <ul className="divide-y divide-[#E8E2DA] rounded-xl border border-[#E8E2DA] bg-white">
+                    <ul className="divide-y divide-[#E8E2DA] rounded-2xl border border-[#E8E2DA] bg-white">
                       {googleCalendars.map((calendar) => (
                         <li key={calendar.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 text-sm">
                           <span className="text-[#191816]">
                             {calendar.summary}
                             {calendar.primary ? (
-                              <span className="ml-2 text-xs text-[#7A7267]">({t('googlePrimaryBadge')})</span>
+                              <span className="ms-2 text-xs text-[#7A7267]">({t('googlePrimaryBadge')})</span>
                             ) : null}
                           </span>
                           <button
@@ -694,71 +773,118 @@ export function ConnectedAppDetailPanel({
             ) : null}
 
             {app.lastErrorMessage ? (
-              <section className="max-w-3xl rounded-xl border border-[#E5D4BC] bg-[#F7F1E8] p-4">
+              <section className="max-w-3xl rounded-2xl border border-[#E5D4BC] bg-[#F7F1E8] p-4">
                 <h2 className="text-sm font-medium text-[#71382D]">{t('lastError')}</h2>
-                <p className="mt-1 text-sm text-[#71382D]">{app.lastErrorMessage}</p>
+                <p className="mt-1 text-sm text-[#71382D]">{operatorError(t, app.lastErrorMessage)}</p>
               </section>
             ) : null}
 
-            <section className="max-w-3xl space-y-3">
-              <h2 className="text-sm font-medium text-[#191816]">{t('syncHistory')}</h2>
-              {(data?.syncJobs || []).length === 0 ? (
-                <p className="text-sm text-[#7A7267]">{t('noSyncJobs')}</p>
-              ) : (
-                <ul className="divide-y divide-[#E8E2DA] rounded-xl border border-[#E8E2DA] bg-white">
-                  {(data?.syncJobs || []).map((job) => (
+            {(data?.syncJobs || []).length > 0 ? (
+              <section className="max-w-3xl space-y-3">
+                <SectionTitle>{t('syncHistory')}</SectionTitle>
+                <ul className="divide-y divide-[#E8E2DA] rounded-2xl border border-[#E8E2DA] bg-white">
+                  {(data?.syncJobs || []).slice(0, 5).map((job) => (
                     <li key={job.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 text-sm">
-                      <span className="text-[#191816]">{job.jobType}</span>
-                      <span className="text-[#7A7267]">{job.status}</span>
+                      <span className="text-[#191816]">{friendlyJobType(t, job.jobType)}</span>
+                      <span className="text-[#7A7267]">{friendlyJobStatus(t, job.status)}</span>
                     </li>
                   ))}
                 </ul>
-              )}
-            </section>
+              </section>
+            ) : null}
 
-            <section className="max-w-3xl space-y-3">
-              <h2 className="text-sm font-medium text-[#191816]">{t('recentActivity')}</h2>
-              {(data?.activity || []).length === 0 ? (
-                <p className="text-sm text-[#7A7267]">{t('noActivity')}</p>
-              ) : (
-                <ul className="divide-y divide-[#E8E2DA] rounded-xl border border-[#E8E2DA] bg-white">
-                  {(data?.activity || []).map((row) => (
+            {(data?.activity || []).length > 0 ? (
+              <section className="max-w-3xl space-y-3">
+                <SectionTitle>{t('recentActivity')}</SectionTitle>
+                <ul className="divide-y divide-[#E8E2DA] rounded-2xl border border-[#E8E2DA] bg-white">
+                  {(data?.activity || []).slice(0, 5).map((row) => (
                     <li key={row.id} className="px-4 py-3 text-sm">
-                      <p className="text-[#191816]">{row.action}</p>
+                      <p className="text-[#191816]">{friendlyActivity(t, row.action)}</p>
                       <p className="text-xs text-[#7A7267]">{new Date(row.createdAt).toLocaleString()}</p>
                     </li>
                   ))}
                 </ul>
-              )}
-            </section>
-
-            {app.docsUrl ? (
-              <a href={app.docsUrl} target="_blank" rel="noreferrer" className="inline-flex text-sm font-medium text-[#71382D]">
-                {t('viewDocs')}
-              </a>
+              </section>
             ) : null}
           </>
-        )}
+        ) : null}
       </main>
     </div>
   );
 }
 
-function Info({ label, value }: { label: string; value: string }) {
+function DetailSkeleton() {
   return (
-    <div className="rounded-xl border border-[#E8E2DA] bg-white p-4">
-      <p className="text-[11px] uppercase tracking-widest text-[#7A7267]">{label}</p>
-      <p className="mt-1 text-sm text-[#191816]">{value}</p>
+    <div className="max-w-3xl space-y-6" aria-hidden>
+      <div className="flex gap-4">
+        <div className="h-14 w-14 animate-pulse rounded-xl bg-[#F5EEE9]" />
+        <div className="flex-1 space-y-2 pt-1">
+          <div className="h-3 w-20 animate-pulse rounded bg-[#F5EEE9]" />
+          <div className="h-7 w-48 animate-pulse rounded bg-[#F5EEE9]" />
+          <div className="h-4 w-full max-w-md animate-pulse rounded bg-[#F5EEE9]" />
+        </div>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="h-20 animate-pulse rounded-2xl bg-[#F5EEE9]" />
+        <div className="h-20 animate-pulse rounded-2xl bg-[#F5EEE9]" />
+      </div>
     </div>
   );
 }
 
-function StatusPill({ label }: { label: string }) {
+function ListSkeleton({ label }: { label: string }) {
   return (
-    <span className="inline-flex items-center rounded-full border border-[#E8E2DA] bg-[#F9F7F5] px-2.5 py-0.5 text-xs font-medium text-[#7A7267]">
+    <div className="space-y-2" aria-busy="true" aria-label={label}>
+      <div className="h-12 animate-pulse rounded-2xl bg-[#F5EEE9]" />
+      <div className="h-12 animate-pulse rounded-2xl bg-[#F5EEE9]" />
+      <div className="h-12 animate-pulse rounded-2xl bg-[#F5EEE9]" />
+    </div>
+  );
+}
+
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return <h2 className="text-[11px] font-medium uppercase tracking-[0.14em] text-[#7A7267]">{children}</h2>;
+}
+
+function Info({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-[#E8E2DA] bg-white p-4">
+      <p className="text-[11px] uppercase tracking-[0.12em] text-[#7A7267]">{label}</p>
+      <p className="mt-1 break-words text-sm text-[#191816]" dir="auto">
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function StatusPill({
+  label,
+  tone = 'disconnected',
+}: {
+  label: string;
+  tone?: 'connected' | 'disconnected' | 'coming_soon' | 'attention';
+}) {
+  const styles =
+    tone === 'connected'
+      ? 'border-[#C5E3D0] bg-[#EBF5EF] text-[#2E6B4F]'
+      : tone === 'attention'
+        ? 'border-[#E5D4BC] bg-[#F7F1E8] text-[#71382D]'
+        : 'border-[#E8E2DA] bg-[#F9F7F5] text-[#7A7267]';
+  return (
+    <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${styles}`}>
+      {tone === 'connected' ? <span className="me-1.5 inline-block h-1.5 w-1.5 rounded-full bg-[#2E6B4F]" aria-hidden /> : null}
       {label}
     </span>
   );
+}
+
+
+function statusToneFor(needsConfig: boolean, status: string): 'connected' | 'disconnected' | 'coming_soon' | 'attention' {
+  if (needsConfig) return 'attention';
+  if (status === 'connected') return 'connected';
+  if (status === 'coming_soon') return 'coming_soon';
+  if (status === 'needs_attention' || status === 'error') return 'attention';
+  return 'disconnected';
 }
 
 function statusLabel(t: ReturnType<typeof useTranslations<'apps'>>, status: string) {
@@ -778,4 +904,34 @@ function statusLabel(t: ReturnType<typeof useTranslations<'apps'>>, status: stri
     default:
       return t('statusNotConnected');
   }
+}
+
+function operatorError(t: ReturnType<typeof useTranslations<'apps'>>, raw: string) {
+  const value = raw.toLowerCase();
+  if (value.includes('oauth') || value.includes('authorization')) return t('oauthReturnFailed');
+  if (value.includes('network') || value.includes('fetch')) return t('detailLoadFailed');
+  if (raw.length > 140 || /[_A-Z]{6,}/.test(raw)) return t('detailLoadFailed');
+  return raw;
+}
+
+function friendlyJobType(t: ReturnType<typeof useTranslations<'apps'>>, jobType: string) {
+  if (jobType.includes('full')) return t('syncJobFull');
+  if (jobType.includes('reservation')) return t('syncJobReservation');
+  if (jobType.includes('invoice')) return t('syncJobInvoice');
+  return t('syncJobGeneric');
+}
+
+function friendlyJobStatus(t: ReturnType<typeof useTranslations<'apps'>>, status: string) {
+  if (status === 'succeeded' || status === 'success' || status === 'completed') return t('syncStatusSucceeded');
+  if (status === 'failed' || status === 'error') return t('syncStatusFailed');
+  if (status === 'queued' || status === 'pending') return t('syncStatusQueued');
+  if (status === 'running' || status === 'processing') return t('syncStatusRunning');
+  return status;
+}
+
+function friendlyActivity(t: ReturnType<typeof useTranslations<'apps'>>, action: string) {
+  if (action.includes('oauth_completed') || action.includes('connected')) return t('activityConnected');
+  if (action.includes('disconnected')) return t('activityDisconnected');
+  if (action.includes('sync')) return t('activitySynced');
+  return action.replaceAll('_', ' ').replaceAll('.', ' · ');
 }
