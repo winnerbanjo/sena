@@ -217,14 +217,35 @@ async function exchangeAuthorizationCode(
     });
     const json = (await response.json().catch(() => null)) as any;
     if (!response.ok || !json?.access_token) throw new Error('TOKEN_EXCHANGE_FAILED');
+
+    let accountEmail: string | null = null;
+    let accountLabel = 'Google Calendar';
+    try {
+      const profileRes = await fetch('https://openidconnect.googleapis.com/v1/userinfo', {
+        headers: { Authorization: `Bearer ${json.access_token}` },
+        cache: 'no-store',
+      });
+      const profile = (await profileRes.json().catch(() => null)) as any;
+      if (profileRes.ok && profile?.email) {
+        accountEmail = String(profile.email);
+        accountLabel = accountEmail;
+      } else if (profile?.name) {
+        accountLabel = String(profile.name);
+      }
+    } catch {
+      // Account identity is best-effort; OAuth still succeeds.
+    }
+
     return {
       accessToken: String(json.access_token),
       refreshToken: json.refresh_token ? String(json.refresh_token) : undefined,
       expiresAt: typeof json.expires_in === 'number' ? new Date(Date.now() + json.expires_in * 1000) : null,
       scopes: typeof json.scope === 'string' ? json.scope.split(' ') : undefined,
-      accountLabel: 'Google Calendar',
+      accountLabel,
       environment: 'google',
-      accountMetadata: {},
+      accountMetadata: {
+        accountEmail,
+      },
     };
   }
 

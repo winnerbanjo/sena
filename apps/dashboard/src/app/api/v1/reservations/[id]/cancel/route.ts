@@ -64,6 +64,12 @@ export async function POST(
       name: `API (${authResult.apiKey.name})`,
     });
 
+    void import('@/lib/integrations/google/calendar')
+      .then(({ maybeQueueGoogleReservationSync }) =>
+        maybeQueueGoogleReservationSync(resRecord.propertyId, resRecord.id)
+      )
+      .catch(() => null);
+
     const fullReservation = await ReservationService.getById(resRecord.id);
 
     const responsePayload = {

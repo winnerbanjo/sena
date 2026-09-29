@@ -3,6 +3,7 @@ import { withMerchant } from '@/lib/merchant-route';
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { ReservationService } from '@sena/reservations';
+import { db, reservations, eq } from '@sena/database';
 
 async function handlePOST(
   req: NextRequest,
@@ -24,6 +25,19 @@ async function handlePOST(
     };
 
     const assigned = await ReservationService.assignRoom(reservationId, roomId, actor);
+
+    const [resRow] = await db
+      .select({ propertyId: reservations.propertyId })
+      .from(reservations)
+      .where(eq(reservations.id, reservationId))
+      .limit(1);
+    if (resRow?.propertyId) {
+      void import('@/lib/integrations/google/calendar')
+        .then(({ maybeQueueGoogleReservationSync }) =>
+          maybeQueueGoogleReservationSync(resRow.propertyId, reservationId)
+        )
+        .catch(() => null);
+    }
 
     return NextResponse.json({
       success: true,

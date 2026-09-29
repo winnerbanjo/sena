@@ -35,6 +35,19 @@ async function handlePOST(
       );
     }
 
+    const [resRow] = await db
+      .select({ propertyId: reservations.propertyId })
+      .from(reservations)
+      .where(eq(reservations.id, reservationId))
+      .limit(1);
+    if (resRow?.propertyId) {
+      void import('@/lib/integrations/google/calendar')
+        .then(({ maybeQueueGoogleReservationSync }) =>
+          maybeQueueGoogleReservationSync(resRow.propertyId, reservationId)
+        )
+        .catch(() => null);
+    }
+
     // Non-blocking checkout thank you email
     try {
       const [stayData] = await db
