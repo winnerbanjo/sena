@@ -3,8 +3,9 @@ import { useTranslations } from 'next-intl';
 
 import * as React from 'react';
 import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input } from '@sena/ui';
-import { ChevronLeft, Loader2, Wallet } from 'lucide-react';
+import { ChevronLeft, Loader2 } from 'lucide-react';
 import { Topbar } from '@/components/topbar';
+import { ConnectedAppLogo } from '@/components/connected-apps/connected-app-logo';
 
 type FlutterwaveState = {
   status: string;
@@ -192,15 +193,20 @@ export function FlutterwaveConnectionPanel({ onBack }: { onBack?: () => void }) 
               {t('title')}
             </button>
           )}
-          <h1 className="text-2xl font-serif text-[#191816]">{t('flutterwave')}</h1>
-          <p className="mt-1 text-sm text-[#7A7267]">{t('flutterwaveManageSubtitle')}</p>
+          <div className="flex items-start gap-3.5">
+            <ConnectedAppLogo provider="flutterwave" name={t('flutterwave')} size="lg" />
+            <div className="min-w-0">
+              <h1 className="text-2xl font-serif text-[#191816]">{t('flutterwave')}</h1>
+              <p className="mt-1 text-sm text-[#7A7267]">{t('flutterwaveManageSubtitle')}</p>
+            </div>
+          </div>
         </div>
         {feedback && <div role="status" className="max-w-3xl rounded border border-[#E8E2DA] bg-white px-4 py-3 text-sm text-[#191816]">{feedback}</div>}
 
         {!managed ? (
           <section className="max-w-xl rounded-xl border border-[#E8E2DA] bg-white p-5 sm:p-6 shadow-2xs">
             <div className="flex items-start gap-3">
-              <div className="rounded bg-[#F5EEE9] p-2"><Wallet className="h-5 w-5 text-[#71382D]" /></div>
+              <ConnectedAppLogo provider="flutterwave" name={t('flutterwave')} size="md" />
               <div className="min-w-0">
                 <h2 className="font-semibold text-[#191816]">{t('flutterwave')}</h2>
                 <p className="mt-1 text-sm text-[#7A7267]">{t('statusNotConnected')}</p>

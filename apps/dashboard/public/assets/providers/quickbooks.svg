@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" role="img" aria-label="QuickBooks">
+  <rect width="48" height="48" rx="10" fill="#2CA01C"/>
+  <path fill="#fff" d="M16.5 14.5h6.2v19H16.5v-19zm8.8 0h6.2v19h-6.2v-19z"/>
+  <path fill="#2CA01C" stroke="#fff" stroke-width="1.5" d="M22.5 19.5h3v9h-3z"/>
+</svg>

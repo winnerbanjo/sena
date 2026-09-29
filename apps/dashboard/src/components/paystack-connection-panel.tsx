@@ -3,8 +3,9 @@ import { useTranslations } from 'next-intl';
 
 import * as React from 'react';
 import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input } from '@sena/ui';
-import { ChevronLeft, CreditCard, Loader2 } from 'lucide-react';
+import { ChevronLeft, Loader2 } from 'lucide-react';
 import { Topbar } from '@/components/topbar';
+import { ConnectedAppLogo } from '@/components/connected-apps/connected-app-logo';
 
 type PaystackState = {
   status: string;
@@ -145,18 +146,23 @@ export function PaystackConnectionPanel({ onBack }: { onBack?: () => void }) {
               {t('title')}
             </button>
           )}
-          <h1 className="text-2xl font-serif text-[#191816]">{t('paystack')}</h1>
-          <p className="mt-1 text-sm text-[#7A7267]">{t('paystackManageSubtitle')}</p>
+          <div className="flex items-start gap-3.5">
+            <ConnectedAppLogo provider="paystack" name={t('paystack')} size="lg" />
+            <div className="min-w-0">
+              <h1 className="text-2xl font-serif text-[#191816]">{t('paystack')}</h1>
+              <p className="mt-1 text-sm text-[#7A7267]">{t('paystackManageSubtitle')}</p>
+            </div>
+          </div>
         </div>
         {feedback && <div role="status" className="max-w-3xl rounded border border-[#E8E2DA] bg-white px-4 py-3 text-sm text-[#191816]">{feedback}</div>}
 
         {!managed ? (
-          <section className="max-w-xl rounded-xl border border-[#E8E2DA] bg-white p-5 sm:p-6 shadow-2xs">
+          <section className="max-w-xl rounded-2xl border border-[#E8E2DA] bg-white p-5 sm:p-6">
             <div className="flex items-start gap-3">
-              <div className="rounded bg-[#F5EEE9] p-2"><CreditCard className="h-5 w-5 text-[#71382D]" /></div>
+              <ConnectedAppLogo provider="paystack" name={t('paystack')} size="md" />
               <div>
-                <h2 className="font-semibold text-[#191816]">Paystack</h2>
-                <p className="mt-1 text-sm text-[#7A7267]">Available · Not connected</p>
+                <h2 className="font-semibold text-[#191816]">{t('paystack')}</h2>
+                <p className="mt-1 text-sm text-[#7A7267]">{t('statusNotConnected')}</p>
               </div>
             </div>
             {canManage ? (

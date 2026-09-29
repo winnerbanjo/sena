@@ -3,23 +3,13 @@
 import * as React from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import {
-  Building2,
-  Calculator,
-  CalendarDays,
-  CreditCard,
-  Globe,
-  Home,
-  MessageCircle,
-  Search,
-  Sparkles,
-  Wallet,
-} from 'lucide-react';
+import { Search } from 'lucide-react';
 import { Topbar } from '@/components/topbar';
-import { ConnectedAppCard, type ConnectedAppStatusTone } from '@/components/connected-app-card';
+import { ConnectedAppCard, ConnectedAppCardSkeleton, type ConnectedAppStatusTone } from '@/components/connected-app-card';
 import { PaystackConnectionPanel } from '@/components/paystack-connection-panel';
 import { FlutterwaveConnectionPanel } from '@/components/flutterwave-connection-panel';
 import { ConnectedAppDetailPanel } from '@/components/connected-app-detail-panel';
+import { categoryLabelKey, providerCopyKeys } from '@/lib/integrations/platform/provider-branding';
 
 type CatalogApp = {
   provider: string;
@@ -33,6 +23,7 @@ type CatalogApp = {
   recommended?: boolean;
   canConnect: boolean;
   canManage: boolean;
+  accountLabel?: string | null;
 };
 
 type ProviderCatalogState = {
@@ -41,19 +32,17 @@ type ProviderCatalogState = {
   mode?: 'test' | 'live';
   enabled?: boolean;
   acceptOnlinePayments?: boolean;
+  account?: string | null;
 };
 
-const CATEGORIES = [
+const FILTER_CHIPS = [
   { id: 'all', labelKey: 'filterAll' as const },
   { id: 'connected', labelKey: 'filterConnected' as const },
-  { id: 'recommended', labelKey: 'filterRecommended' as const },
   { id: 'payments', labelKey: 'paymentsCategory' as const },
   { id: 'accounting', labelKey: 'accountingCategory' as const },
   { id: 'calendar', labelKey: 'calendarCategory' as const },
   { id: 'communications', labelKey: 'communicationsCategory' as const },
   { id: 'channel_management', labelKey: 'bookingChannelsCategory' as const },
-  { id: 'productivity', labelKey: 'productivityCategory' as const },
-  { id: 'crm', labelKey: 'crmCategory' as const },
 ];
 
 function providerCatalogStatus(provider: ProviderCatalogState | null): {
@@ -77,21 +66,8 @@ function toneFor(status: string): ConnectedAppStatusTone {
   return 'disconnected';
 }
 
-function iconFor(provider: string, category: string) {
-  if (provider === 'paystack') return <CreditCard className="h-5 w-5 text-[#71382D]" />;
-  if (provider === 'flutterwave') return <Wallet className="h-5 w-5 text-[#71382D]" />;
-  if (provider === 'zoho_invoice' || category === 'accounting') return <Calculator className="h-5 w-5 text-[#71382D]" />;
-  if (provider === 'google_calendar' || category === 'calendar') return <CalendarDays className="h-5 w-5 text-[#71382D]" />;
-  if (provider === 'whatsapp' || category === 'communications') return <MessageCircle className="h-5 w-5 text-[#71382D]" />;
-  if (provider === 'booking_com') return <Building2 className="h-5 w-5 text-[#71382D]" />;
-  if (provider === 'airbnb') return <Home className="h-5 w-5 text-[#71382D]" />;
-  if (provider === 'expedia') return <Globe className="h-5 w-5 text-[#71382D]" />;
-  return <Sparkles className="h-5 w-5 text-[#71382D]" />;
-}
-
 function ConnectedAppsCatalog() {
   const t = useTranslations('apps');
-  const tCommon = useTranslations('common');
   const [apps, setApps] = React.useState<CatalogApp[]>([]);
   const [paystack, setPaystack] = React.useState<ProviderCatalogState | null>(null);
   const [flutterwave, setFlutterwave] = React.useState<ProviderCatalogState | null>(null);
@@ -99,19 +75,33 @@ function ConnectedAppsCatalog() {
   const [enabledProviders, setEnabledProviders] = React.useState<string[]>([]);
   const [canManage, setCanManage] = React.useState(false);
   const [loaded, setLoaded] = React.useState(false);
+  const [loadError, setLoadError] = React.useState(false);
   const [preferredBusy, setPreferredBusy] = React.useState(false);
   const [category, setCategory] = React.useState('all');
   const [query, setQuery] = React.useState('');
+  const [debouncedQuery, setDebouncedQuery] = React.useState('');
 
   React.useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedQuery(query.trim()), 200);
+    return () => window.clearTimeout(timer);
+  }, [query]);
+
+  const reload = React.useCallback(() => {
+    setLoadError(false);
+    setLoaded(false);
     let cancelled = false;
     void Promise.all([
-      fetch(`/api/apps/catalog?category=${encodeURIComponent(category)}&q=${encodeURIComponent(query)}`, { cache: 'no-store' }),
+      fetch(`/api/apps/catalog?category=${encodeURIComponent(category)}&q=${encodeURIComponent(debouncedQuery)}`, {
+        cache: 'no-store',
+      }),
       fetch('/api/apps/payments', { cache: 'no-store' }),
     ])
       .then(async ([catalogRes, paymentsRes]) => {
         if (cancelled) return;
-        if (catalogRes.ok) {
+        if (!catalogRes.ok) {
+          setLoadError(true);
+          setApps([]);
+        } else {
           const catalog = await catalogRes.json();
           setCanManage(Boolean(catalog.canManage));
           setApps(Array.isArray(catalog.apps) ? catalog.apps : []);
@@ -125,14 +115,24 @@ function ConnectedAppsCatalog() {
           setEnabledProviders(Array.isArray(data.enabledProviders) ? data.enabledProviders : []);
         }
       })
-      .catch(() => {})
+      .catch(() => {
+        if (!cancelled) {
+          setLoadError(true);
+          setApps([]);
+        }
+      })
       .finally(() => {
         if (!cancelled) setLoaded(true);
       });
     return () => {
       cancelled = true;
     };
-  }, [category, query]);
+  }, [category, debouncedQuery]);
+
+  React.useEffect(() => {
+    const cancel = reload();
+    return cancel;
+  }, [reload]);
 
   const paystackSummary = providerCatalogStatus(paystack);
   const flutterwaveSummary = providerCatalogStatus(flutterwave);
@@ -157,11 +157,14 @@ function ConnectedAppsCatalog() {
     }
   }
 
-  const grouped = React.useMemo(() => {
-    const order = ['payments', 'accounting', 'calendar', 'communications', 'channel_management', 'productivity', 'crm', 'storage', 'analytics'];
-    const map = new Map<string, CatalogApp[]>();
-    for (const raw of apps) {
+  const localizedApps = React.useMemo(() => {
+    return apps.map((raw) => {
       const app = { ...raw };
+      const copy = providerCopyKeys(app.provider);
+      if (copy) {
+        app.name = t(copy.nameKey);
+        app.description = t(copy.descriptionKey);
+      }
       if (app.provider === 'paystack' && paystack) {
         app.connectionStatus =
           paystackSummary.statusKey === 'statusConnectedEnabled'
@@ -171,6 +174,7 @@ function ConnectedAppsCatalog() {
               : paystackSummary.statusKey === 'statusConnectedDisabled'
                 ? 'paused'
                 : 'disconnected';
+        app.accountLabel = paystack.account || app.accountLabel || null;
       }
       if (app.provider === 'flutterwave' && flutterwave) {
         app.connectionStatus =
@@ -181,32 +185,50 @@ function ConnectedAppsCatalog() {
               : flutterwaveSummary.statusKey === 'statusConnectedDisabled'
                 ? 'paused'
                 : 'disconnected';
+        app.accountLabel = flutterwave.account || app.accountLabel || null;
       }
+      return app;
+    });
+  }, [apps, flutterwave, flutterwaveSummary.statusKey, paystack, paystackSummary.statusKey, t]);
+
+  const visibleFilters = React.useMemo(() => {
+    const present = new Set(localizedApps.map((app) => app.category));
+    return FILTER_CHIPS.filter((chip) => chip.id === 'all' || chip.id === 'connected' || present.has(chip.id));
+  }, [localizedApps]);
+
+  const grouped = React.useMemo(() => {
+    const order = ['payments', 'accounting', 'calendar', 'communications', 'channel_management'];
+    const map = new Map<string, CatalogApp[]>();
+    for (const app of localizedApps) {
       const list = map.get(app.category) || [];
       list.push(app);
       map.set(app.category, list);
     }
     return order.filter((key) => map.has(key)).map((key) => ({ category: key, apps: map.get(key)! }));
-  }, [apps, paystack, flutterwave, paystackSummary.statusKey, flutterwaveSummary.statusKey]);
+  }, [localizedApps]);
 
   return (
     <div className="flex h-screen flex-1 flex-col overflow-hidden">
       <Topbar title={t('title')} />
       <main className="flex-1 space-y-8 overflow-y-auto overflow-x-hidden p-4 sm:p-6 lg:p-8">
-        <div>
-          <h1 className="font-serif text-2xl text-[#191816]">{t('title')}</h1>
-          <p className="mt-1 text-sm text-[#7A7267]">{t('subtitle')}</p>
-        </div>
+        <header className="max-w-3xl">
+          <h1 className="font-serif text-3xl tracking-tight text-[#191816] sm:text-[2rem]">{t('title')}</h1>
+          <p className="mt-2 max-w-xl text-sm leading-relaxed text-[#7A7267] sm:text-[15px]">{t('subtitle')}</p>
+        </header>
 
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex gap-2 overflow-x-auto pb-1">
-            {CATEGORIES.map((entry) => (
+          <div className="flex gap-2 overflow-x-auto pb-1" role="tablist" aria-label={t('title')}>
+            {visibleFilters.map((entry) => (
               <button
                 key={entry.id}
                 type="button"
+                role="tab"
+                aria-selected={category === entry.id}
                 onClick={() => setCategory(entry.id)}
-                className={`min-h-10 shrink-0 rounded-full border px-3 text-xs font-medium ${
-                  category === entry.id ? 'border-[#71382D] bg-[#F5EEE9] text-[#71382D]' : 'border-[#E8E2DA] text-[#7A7267]'
+                className={`min-h-10 shrink-0 rounded-full border px-3.5 text-xs font-medium transition-colors ${
+                  category === entry.id
+                    ? 'border-[#71382D] bg-[#F5EEE9] text-[#71382D]'
+                    : 'border-[#E8E2DA] bg-white text-[#7A7267] hover:border-[#D9CFC2]'
                 }`}
               >
                 {t(entry.labelKey)}
@@ -214,124 +236,145 @@ function ConnectedAppsCatalog() {
             ))}
           </div>
           <label className="relative block w-full max-w-sm">
+            <span className="sr-only">{t('searchPlaceholder')}</span>
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#7A7267]" />
             <input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder={t('searchPlaceholder')}
-              className="min-h-11 w-full rounded-lg border border-[#E8E2DA] bg-white pl-9 pr-3 text-sm text-[#191816] outline-none focus:border-[#71382D]"
+              className="min-h-11 w-full rounded-xl border border-[#E8E2DA] bg-white pl-9 pr-3 text-sm text-[#191816] outline-none focus:border-[#71382D]"
             />
           </label>
         </div>
 
-        {grouped.map((group) => (
-          <section key={group.category} aria-labelledby={`connected-apps-${group.category}`}>
-            <h2 id={`connected-apps-${group.category}`} className="text-[11px] font-medium uppercase tracking-widest text-[#7A7267]">
-              {categoryLabel(t, group.category)}
-            </h2>
-            <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-              {group.apps.map((app) => {
-                const isPayment = app.provider === 'paystack' || app.provider === 'flutterwave';
-                const paymentSummary = app.provider === 'paystack' ? paystackSummary : app.provider === 'flutterwave' ? flutterwaveSummary : null;
-                const statusLabel = !loaded
-                  ? tCommon('loading')
-                  : paymentSummary
-                    ? t(paymentSummary.statusKey)
-                    : app.connectionStatus === 'coming_soon'
-                      ? t('statusComingSoon')
-                      : app.connectionStatus === 'connected'
-                        ? t('statusConnectedEnabled')
-                        : app.connectionStatus === 'needs_attention'
-                          ? t('statusActionRequired')
-                          : app.connectionStatus === 'paused'
-                            ? t('statusConnectedDisabled')
-                            : t('statusNotConnected');
-                const href =
-                  canManage && loaded && app.availability === 'available'
-                    ? `/apps?manage=${app.provider}`
-                    : undefined;
-                const actionLabel =
-                  canManage && loaded && app.availability === 'available'
-                    ? app.connectionStatus === 'disconnected'
-                      ? t('connect')
-                      : t('manage')
-                    : undefined;
-                const modeLabel =
-                  isPayment && loaded && paymentSummary && paymentSummary.statusKey !== 'statusNotConnected'
-                    ? (app.provider === 'paystack' ? paystack?.mode : flutterwave?.mode) === 'live'
-                      ? t('liveMode')
-                      : (app.provider === 'paystack' ? paystack?.mode : flutterwave?.mode) === 'test'
-                        ? t('testMode')
-                        : undefined
-                    : undefined;
+        {!loaded ? (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {Array.from({ length: 6 }).map((_, index) => (
+              <ConnectedAppCardSkeleton key={index} />
+            ))}
+          </div>
+        ) : null}
 
-                return (
-                  <ConnectedAppCard
-                    key={app.provider}
-                    name={app.name}
-                    description={app.description}
-                    icon={iconFor(app.provider, app.category)}
-                    statusLabel={statusLabel}
-                    statusTone={loaded ? (paymentSummary ? paymentSummary.tone : toneFor(app.connectionStatus)) : 'disconnected'}
-                    modeLabel={modeLabel}
-                    actionLabel={actionLabel}
-                    actionHref={href}
-                  />
-                );
-              })}
-            </div>
-            {group.category === 'payments' && showPreferred ? (
-              <div className="mt-4 max-w-xl rounded-xl border border-[#E8E2DA] bg-white p-4">
-                <h3 className="text-sm font-medium text-[#191816]">{t('preferredProvider')}</h3>
-                <p className="mt-1 text-xs text-[#7A7267]">{t('preferredProviderHelp')}</p>
-                <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  <button
-                    type="button"
-                    disabled={preferredBusy}
-                    onClick={() => void savePreferred('paystack')}
-                    className={`min-h-11 rounded-lg border px-3 py-2 text-sm font-medium ${effectivePreferred === 'paystack' ? 'border-[#71382D] bg-[#F5EEE9] text-[#71382D]' : 'border-[#E8E2DA] text-[#191816]'}`}
-                  >
-                    {t('paystack')}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={preferredBusy}
-                    onClick={() => void savePreferred('flutterwave')}
-                    className={`min-h-11 rounded-lg border px-3 py-2 text-sm font-medium ${effectivePreferred === 'flutterwave' ? 'border-[#71382D] bg-[#F5EEE9] text-[#71382D]' : 'border-[#E8E2DA] text-[#191816]'}`}
-                  >
-                    {t('flutterwave')}
-                  </button>
+        {loaded && loadError ? (
+          <div className="max-w-lg rounded-2xl border border-[#E5D4BC] bg-[#FBF7F1] p-5">
+            <p className="text-sm text-[#71382D]">{t('catalogLoadFailed')}</p>
+            <button
+              type="button"
+              onClick={() => reload()}
+              className="mt-3 min-h-11 rounded-lg border border-[#E8E2DA] bg-white px-4 text-sm font-medium text-[#71382D]"
+            >
+              {t('catalogRetry')}
+            </button>
+          </div>
+        ) : null}
+
+        {loaded && !loadError && grouped.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-[#E8E2DA] bg-white px-5 py-10 text-center">
+            <p className="text-sm text-[#7A7267]">{t('catalogEmpty')}</p>
+          </div>
+        ) : null}
+
+        {loaded && !loadError
+          ? grouped.map((group) => (
+              <section key={group.category} aria-labelledby={`connected-apps-${group.category}`}>
+                <h2
+                  id={`connected-apps-${group.category}`}
+                  className="text-[11px] font-medium uppercase tracking-[0.14em] text-[#7A7267]"
+                >
+                  {t(categoryLabelKey(group.category) as 'paymentsCategory')}
+                </h2>
+                <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                  {group.apps.map((app) => {
+                    const isPayment = app.provider === 'paystack' || app.provider === 'flutterwave';
+                    const paymentSummary =
+                      app.provider === 'paystack' ? paystackSummary : app.provider === 'flutterwave' ? flutterwaveSummary : null;
+                    const statusLabel = paymentSummary
+                      ? t(paymentSummary.statusKey)
+                      : app.connectionStatus === 'coming_soon'
+                        ? t('statusComingSoon')
+                        : app.connectionStatus === 'connected'
+                          ? t('statusConnectedEnabled')
+                          : app.connectionStatus === 'needs_attention'
+                            ? t('statusActionRequired')
+                            : app.connectionStatus === 'paused'
+                              ? t('statusConnectedDisabled')
+                              : t('statusNotConnected');
+                    const href =
+                      canManage && app.availability === 'available' ? `/apps?manage=${app.provider}` : undefined;
+                    const actionLabel =
+                      canManage && app.availability === 'available'
+                        ? app.connectionStatus === 'disconnected'
+                          ? t('connect')
+                          : t('manage')
+                        : undefined;
+                    const modeLabel =
+                      isPayment && paymentSummary && paymentSummary.statusKey !== 'statusNotConnected'
+                        ? (app.provider === 'paystack' ? paystack?.mode : flutterwave?.mode) === 'live'
+                          ? t('liveMode')
+                          : (app.provider === 'paystack' ? paystack?.mode : flutterwave?.mode) === 'test'
+                            ? t('testMode')
+                            : undefined
+                        : undefined;
+                    const metaLabel =
+                      app.connectionStatus === 'connected' && app.accountLabel
+                        ? app.accountLabel
+                        : undefined;
+
+                    return (
+                      <ConnectedAppCard
+                        key={app.provider}
+                        provider={app.provider}
+                        name={app.name}
+                        description={app.description}
+                        categoryLabel={t(categoryLabelKey(app.category) as 'paymentsCategory')}
+                        statusLabel={statusLabel}
+                        statusTone={paymentSummary ? paymentSummary.tone : toneFor(app.connectionStatus)}
+                        modeLabel={modeLabel}
+                        metaLabel={metaLabel}
+                        actionLabel={actionLabel}
+                        actionHref={href}
+                      />
+                    );
+                  })}
                 </div>
-              </div>
-            ) : null}
-          </section>
-        ))}
+                {group.category === 'payments' && showPreferred ? (
+                  <div className="mt-4 max-w-xl rounded-2xl border border-[#E8E2DA] bg-white p-4 sm:p-5">
+                    <h3 className="text-sm font-medium text-[#191816]">{t('preferredProvider')}</h3>
+                    <p className="mt-1 text-xs leading-relaxed text-[#7A7267]">{t('preferredProviderHelp')}</p>
+                    <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      <button
+                        type="button"
+                        disabled={preferredBusy}
+                        onClick={() => void savePreferred('paystack')}
+                        className={`min-h-11 rounded-xl border px-3 py-2 text-sm font-medium ${
+                          effectivePreferred === 'paystack'
+                            ? 'border-[#71382D] bg-[#F5EEE9] text-[#71382D]'
+                            : 'border-[#E8E2DA] text-[#191816]'
+                        }`}
+                      >
+                        {t('paystack')}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={preferredBusy}
+                        onClick={() => void savePreferred('flutterwave')}
+                        className={`min-h-11 rounded-xl border px-3 py-2 text-sm font-medium ${
+                          effectivePreferred === 'flutterwave'
+                            ? 'border-[#71382D] bg-[#F5EEE9] text-[#71382D]'
+                            : 'border-[#E8E2DA] text-[#191816]'
+                        }`}
+                      >
+                        {t('flutterwave')}
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+              </section>
+            ))
+          : null}
       </main>
     </div>
   );
-}
-
-function categoryLabel(t: ReturnType<typeof useTranslations<'apps'>>, category: string) {
-  switch (category) {
-    case 'payments':
-      return t('paymentsCategory');
-    case 'accounting':
-      return t('accountingCategory');
-    case 'calendar':
-      return t('calendarCategory');
-    case 'communications':
-      return t('communicationsCategory');
-    case 'channel_management':
-      return t('bookingChannelsCategory');
-    case 'productivity':
-      return t('productivityCategory');
-    case 'crm':
-      return t('crmCategory');
-    case 'storage':
-      return t('storageCategory');
-    default:
-      return category;
-  }
 }
 
 function ConnectedAppsSurface() {
@@ -355,7 +398,17 @@ function ConnectedAppsFallback() {
   return (
     <div className="flex h-screen flex-1 flex-col overflow-hidden">
       <Topbar title={t('title')} />
-      <main className="flex-1 p-4 sm:p-6 lg:p-8" />
+      <main className="flex-1 space-y-8 overflow-y-auto overflow-x-hidden p-4 sm:p-6 lg:p-8">
+        <div className="max-w-3xl space-y-3">
+          <div className="h-8 w-56 animate-pulse rounded bg-[#F5EEE9]" />
+          <div className="h-4 w-80 max-w-full animate-pulse rounded bg-[#F5EEE9]" />
+        </div>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, index) => (
+            <ConnectedAppCardSkeleton key={index} />
+          ))}
+        </div>
+      </main>
     </div>
   );
 }
