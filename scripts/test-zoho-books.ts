@@ -98,6 +98,16 @@ function run() {
   assert.doesNotMatch(en.apps.zohoBooksOrgsEmpty, /Zoho Invoice/);
   pass('Books empty-org copy is provider-aware');
 
+  assert.match(panel, /zohoBooksSyncInvoicesHelp/);
+  assert.match(panel, /zohoBooksOrganizationHelp/);
+  assert.match(en.apps.zohoBooksSyncInvoicesHelp, /Zoho Books/);
+  assert.doesNotMatch(en.apps.zohoBooksSyncInvoicesHelp, /Zoho Invoice/);
+  assert.match(en.apps.zohoBooksOrganizationHelp, /Zoho Books/);
+  assert.doesNotMatch(en.apps.zohoBooksOrganizationHelp, /Zoho Invoice/);
+  assert.match(en.apps.zohoSyncInvoicesHelp, /Zoho Invoice/);
+  assert.match(en.apps.zohoOrganizationHelp, /Zoho Invoice/);
+  pass('Books sync/org help copy is provider-aware');
+
   pass('Localization for Zoho Books education keys');
 
   console.log('\nZoho Books V1 source checks passed');

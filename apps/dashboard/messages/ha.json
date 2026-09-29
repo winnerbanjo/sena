@@ -779,7 +779,9 @@
     "zohoBooksPaymentAccountDefault": "Tsohon ƙungiya",
     "zohoBooksPaymentAccountSaved": "An adana asusun ajiya.",
     "zohoBooksOrgsEmpty": "Babu ƙungiyoyin Zoho Books da aka dawo da su don wannan asusun.",
-    "zohoBooksOrgsEmptyHelp": "Ƙungiyoyin Zoho Invoice sun bambanta da Zoho Books. Ƙirƙiri ko haɓaka ƙungiya a Zoho Books, sa'an nan sabunta wannan shafi. Haɗin Sena yana nan."
+    "zohoBooksOrgsEmptyHelp": "Ƙungiyoyin Zoho Invoice sun bambanta da Zoho Books. Ƙirƙiri ko haɓaka ƙungiya a Zoho Books, sa'an nan sabunta wannan shafi. Haɗin Sena yana nan.",
+    "zohoBooksOrganizationHelp": "Zaɓi ƙungiyar Zoho Books da za ta karɓi abokan hulɗa da takardun kuɗi da aka daidaita.",
+    "zohoBooksSyncInvoicesHelp": "Idan an kunna, sabbin takardun kuɗin Sena za su daidaita zuwa Zoho Books a bango. Ba a fitar da tsofaffin takardu ta atomatik ba."
   },
   "billing": {
     "title": "Bili da tsari",

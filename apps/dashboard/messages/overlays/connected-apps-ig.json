@@ -154,5 +154,7 @@
   "zohoBooksPaymentAccountDefault": "Ndabara ụlọ ọrụ",
   "zohoBooksPaymentAccountSaved": "Echekwara akaụntụ nkwụnye.",
   "zohoBooksOrgsEmpty": "Enweghị ụlọ ọrụ Zoho Books e weghachitere maka akaụntụ a.",
-  "zohoBooksOrgsEmptyHelp": "Ụlọ ọrụ Zoho Invoice dị iche na Zoho Books. Mepụta ma ọ bụ kwalite ụlọ ọrụ na Zoho Books, wee megharịa ibe a. Njikọ Sena ka dị."
+  "zohoBooksOrgsEmptyHelp": "Ụlọ ọrụ Zoho Invoice dị iche na Zoho Books. Mepụta ma ọ bụ kwalite ụlọ ọrụ na Zoho Books, wee megharịa ibe a. Njikọ Sena ka dị.",
+  "zohoBooksOrganizationHelp": "Họrọ òtù Zoho Books nke ga-anata ndị ahịa na akwụkwọ ụgwọ a na-emekọrịta.",
+  "zohoBooksSyncInvoicesHelp": "Mgbe ọ dị ọrụ, akwụkwọ ụgwọ Sena ọhụrụ na-emekọrịta na Zoho Books n’azụ. Akwụkwọ ụgwọ ochie anaghị apụ na-akpaghị aka."
 }

@@ -779,7 +779,9 @@
     "zohoBooksPaymentAccountDefault": "افتراضي المنظمة",
     "zohoBooksPaymentAccountSaved": "تم حفظ حساب الإيداع.",
     "zohoBooksOrgsEmpty": "لم تُرجع أي منظمات Zoho Books لهذا الحساب.",
-    "zohoBooksOrgsEmptyHelp": "منظمات Zoho Invoice منفصلة عن Zoho Books. أنشئ أو رقِّ منظمة في Zoho Books ثم حدّث هذه الصفحة. يبقى اتصال Sena كما هو."
+    "zohoBooksOrgsEmptyHelp": "منظمات Zoho Invoice منفصلة عن Zoho Books. أنشئ أو رقِّ منظمة في Zoho Books ثم حدّث هذه الصفحة. يبقى اتصال Sena كما هو.",
+    "zohoBooksOrganizationHelp": "اختر مؤسسة Zoho Books التي تستقبل جهات الاتصال والفواتير المتزامنة.",
+    "zohoBooksSyncInvoicesHelp": "عند التفعيل، تُزامَن فواتير Sena الجديدة مع Zoho Books في الخلفية. لا تُصدَّر الفواتير التاريخية تلقائيًا."
   },
   "billing": {
     "title": "الفوترة والخطة",

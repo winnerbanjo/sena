@@ -779,7 +779,9 @@
     "zohoBooksPaymentAccountDefault": "Chaguo-msingi la shirika",
     "zohoBooksPaymentAccountSaved": "Akaunti ya amana imehifadhiwa.",
     "zohoBooksOrgsEmpty": "Hakuna mashirika ya Zoho Books yaliyorudishwa kwa akaunti hii.",
-    "zohoBooksOrgsEmptyHelp": "Mashirika ya Zoho Invoice ni tofauti na Zoho Books. Unda au sasisha shirika katika Zoho Books, kisha onyesha upya ukurasa huu. Muunganisho wa Sena unabaki."
+    "zohoBooksOrgsEmptyHelp": "Mashirika ya Zoho Invoice ni tofauti na Zoho Books. Unda au sasisha shirika katika Zoho Books, kisha onyesha upya ukurasa huu. Muunganisho wa Sena unabaki.",
+    "zohoBooksOrganizationHelp": "Chagua shirika la Zoho Books litakalopokea wateja na ankara zinazosawazishwa.",
+    "zohoBooksSyncInvoicesHelp": "Ikiwa imewezeshwa, ankara mpya za Sena zinasawazishwa na Zoho Books chinichini. Ankara za zamani hazihama kiotomatiki."
   },
   "billing": {
     "title": "Bili na mpango",

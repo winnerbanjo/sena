@@ -779,7 +779,9 @@
     "zohoBooksPaymentAccountDefault": "Organization default",
     "zohoBooksPaymentAccountSaved": "Deposit account saved.",
     "zohoBooksOrgsEmpty": "No Zoho Books organizations were returned for this account.",
-    "zohoBooksOrgsEmptyHelp": "Zoho Invoice organizations are separate from Zoho Books. Create or upgrade an organization in Zoho Books, then refresh this page. Your Sena connection stays intact."
+    "zohoBooksOrgsEmptyHelp": "Zoho Invoice organizations are separate from Zoho Books. Create or upgrade an organization in Zoho Books, then refresh this page. Your Sena connection stays intact.",
+    "zohoBooksOrganizationHelp": "Choose which Zoho Books organization receives synced contacts and invoices.",
+    "zohoBooksSyncInvoicesHelp": "When on, new Sena invoices sync to Zoho Books in the background. Historical invoices are not exported automatically."
   },
   "billing": {
     "title": "Billing & Plan",
