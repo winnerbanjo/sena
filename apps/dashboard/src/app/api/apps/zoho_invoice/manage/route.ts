@@ -34,7 +34,15 @@ export async function GET(req: NextRequest) {
 
   try {
     const state = await getZohoManageState(result.resolved.propertyId);
-    return jsonNoStore(state);
+    // Echo resolved property so the client can detect session/UI property mismatch.
+    return jsonNoStore({
+      ...state,
+      property: {
+        id: result.resolved.propertyId,
+        name: result.resolved.property.name,
+        slug: result.resolved.property.slug,
+      },
+    });
   } catch (error: any) {
     const message =
       error?.message === 'OAUTH_CLIENT_MISSING'

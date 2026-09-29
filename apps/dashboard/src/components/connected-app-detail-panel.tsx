@@ -5,9 +5,16 @@ import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { ArrowLeft, RefreshCw, Unplug } from 'lucide-react';
 import { Topbar } from '@/components/topbar';
+import { useWorkspace } from '@/components/workspace-access';
+import {
+  organizationsFromManagePayload,
+  resolveZohoOrgsView,
+  type ZohoOrgsFetchStatus,
+} from '@/lib/integrations/zoho/orgs-ui-state';
 
 type DetailResponse = {
   canManage: boolean;
+  property?: { id: string; name: string; slug: string };
   app: {
     provider: string;
     name: string;
@@ -38,6 +45,8 @@ export function ConnectedAppDetailPanel({
 }) {
   const t = useTranslations('apps');
   const router = useRouter();
+  const workspace = useWorkspace();
+  const workspacePropertyId = workspace?.property.id || null;
   const [data, setData] = React.useState<DetailResponse | null>(null);
   const [busy, setBusy] = React.useState(false);
   const [message, setMessage] = React.useState<string | null>(null);
@@ -47,33 +56,52 @@ export function ConnectedAppDetailPanel({
   const [zohoSelectedOrgName, setZohoSelectedOrgName] = React.useState<string | null>(null);
   const [zohoSyncEnabled, setZohoSyncEnabled] = React.useState(false);
   const [zohoOrgsError, setZohoOrgsError] = React.useState<string | null>(null);
-  const [zohoOrgsLoading, setZohoOrgsLoading] = React.useState(false);
+  const [zohoOrgsFetchStatus, setZohoOrgsFetchStatus] = React.useState<ZohoOrgsFetchStatus>('idle');
   const [googleCalendars, setGoogleCalendars] = React.useState<Array<{ id: string; summary: string }>>([]);
   const [selectedGoogleCalendarId, setSelectedGoogleCalendarId] = React.useState<string | null>(null);
+  const zohoManageRequestId = React.useRef(0);
 
   const load = React.useCallback(async () => {
-    const response = await fetch(`/api/apps/${provider}`, { cache: 'no-store' });
+    const response = await fetch(`/api/apps/${provider}?_=${Date.now()}`, { cache: 'no-store' });
     if (!response.ok) {
       setError(t('detailLoadFailed'));
       return;
     }
-    setData(await response.json());
-  }, [provider, t]);
+    const payload = (await response.json()) as DetailResponse;
+    if (workspacePropertyId && payload.property?.id && payload.property.id !== workspacePropertyId) {
+      // Session/UI property diverged — force a full reload of the workspace shell.
+      window.location.assign(`/apps?manage=${encodeURIComponent(provider)}`);
+      return;
+    }
+    setData(payload);
+  }, [provider, t, workspacePropertyId]);
 
   const loadZohoManage = React.useCallback(async () => {
     if (provider !== 'zoho_invoice') return;
-    setZohoOrgsLoading(true);
+    const requestId = ++zohoManageRequestId.current;
+    setZohoOrgsFetchStatus('loading');
     setZohoOrgsError(null);
     try {
-      const response = await fetch('/api/apps/zoho_invoice/manage', { cache: 'no-store' });
+      const response = await fetch(`/api/apps/zoho_invoice/manage?_=${Date.now()}`, { cache: 'no-store' });
       const payload = await response.json().catch(() => ({}));
+      if (requestId !== zohoManageRequestId.current) return;
+      if (
+        workspacePropertyId &&
+        payload?.property?.id &&
+        typeof payload.property.id === 'string' &&
+        payload.property.id !== workspacePropertyId
+      ) {
+        window.location.assign('/apps?manage=zoho_invoice');
+        return;
+      }
       if (!response.ok) {
         setZohoOrgsError(typeof payload.error === 'string' ? payload.error : t('zohoOrgsLoadFailed'));
         setZohoOrgs([]);
+        setZohoOrgsFetchStatus('error');
         return;
       }
-      if (Array.isArray(payload.organizations)) setZohoOrgs(payload.organizations);
-      else setZohoOrgs([]);
+      const nextOrgs = organizationsFromManagePayload(payload);
+      setZohoOrgs(nextOrgs);
       if (typeof payload.selectedOrganizationId === 'string') setZohoSelectedOrgId(payload.selectedOrganizationId);
       else setZohoSelectedOrgId(null);
       if (typeof payload.selectedOrganizationName === 'string') setZohoSelectedOrgName(payload.selectedOrganizationName);
@@ -81,18 +109,46 @@ export function ConnectedAppDetailPanel({
       if (typeof payload.syncEnabled === 'boolean') setZohoSyncEnabled(payload.syncEnabled);
       if (typeof payload.organizationsError === 'string' && payload.organizationsError) {
         setZohoOrgsError(t('zohoOrgsLoadFailed'));
+        setZohoOrgsFetchStatus('error');
+        return;
       }
+      // Manage says disconnected while detail said connected — trust manage, hide org picker.
+      if (payload.connectionStatus && payload.connectionStatus !== 'connected') {
+        setZohoOrgs([]);
+        setZohoOrgsFetchStatus('ready');
+        setData((prev) =>
+          prev
+            ? {
+                ...prev,
+                app: { ...prev.app, connectionStatus: String(payload.connectionStatus) },
+              }
+            : prev
+        );
+        return;
+      }
+      setZohoOrgsFetchStatus('ready');
     } catch {
+      if (requestId !== zohoManageRequestId.current) return;
       setZohoOrgsError(t('zohoOrgsLoadFailed'));
       setZohoOrgs([]);
-    } finally {
-      setZohoOrgsLoading(false);
+      setZohoOrgsFetchStatus('error');
     }
-  }, [provider, t]);
+  }, [provider, t, workspacePropertyId]);
 
   React.useEffect(() => {
     void load();
   }, [load]);
+
+  React.useEffect(() => {
+    // Property switch remounts via WorkspaceAccess key; still reset local Zoho state defensively.
+    zohoManageRequestId.current += 1;
+    setZohoOrgs([]);
+    setZohoSelectedOrgId(null);
+    setZohoSelectedOrgName(null);
+    setZohoSyncEnabled(false);
+    setZohoOrgsError(null);
+    setZohoOrgsFetchStatus('idle');
+  }, [workspacePropertyId]);
 
   React.useEffect(() => {
     if (provider !== 'zoho_invoice') return;
@@ -110,6 +166,17 @@ export function ConnectedAppDetailPanel({
       if (typeof payload.selectedCalendarId === 'string') setSelectedGoogleCalendarId(payload.selectedCalendarId);
     })();
   }, [provider, data?.app?.connectionStatus]);
+
+  async function retryZohoOrgs() {
+    setBusy(true);
+    setError(null);
+    try {
+      await load();
+      await loadZohoManage();
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function selectZohoOrg(organizationId: string, organizationName?: string) {
     setBusy(true);
@@ -378,53 +445,68 @@ export function ConnectedAppDetailPanel({
                   ) : null}
                 </div>
 
-                {zohoOrgsLoading ? (
-                  <p className="text-sm text-[#7A7267]">{t('zohoOrgsLoading')}</p>
-                ) : zohoOrgsError ? (
-                  <div className="space-y-3 rounded-xl border border-[#E5D4BC] bg-[#FBF7F1] p-4">
-                    <p className="text-sm text-[#71382D]">{zohoOrgsError}</p>
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => void loadZohoManage()}
-                      className="min-h-11 rounded-lg border border-[#E8E2DA] bg-white px-3 text-sm font-medium text-[#71382D] disabled:opacity-60"
-                    >
-                      {t('zohoOrgsRetry')}
-                    </button>
-                  </div>
-                ) : zohoOrgs.length > 0 ? (
-                  <div className="space-y-3">
-                    <h2 className="text-sm font-medium text-[#191816]">{t('zohoOrganization')}</h2>
-                    <p className="text-sm text-[#7A7267]">{t('zohoOrganizationHelp')}</p>
-                    <ul className="divide-y divide-[#E8E2DA] rounded-xl border border-[#E8E2DA] bg-white">
-                      {zohoOrgs.map((org) => (
-                        <li key={org.organizationId} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 text-sm">
-                          <span className="text-[#191816]">{org.name}</span>
-                          <button
-                            type="button"
-                            disabled={busy || zohoSelectedOrgId === org.organizationId}
-                            onClick={() => void selectZohoOrg(org.organizationId, org.name)}
-                            className="min-h-11 rounded-lg border border-[#E8E2DA] px-3 text-sm font-medium text-[#71382D] disabled:opacity-60"
-                          >
-                            {zohoSelectedOrgId === org.organizationId ? t('zohoOrgSelectedLabel') : t('zohoUseOrg')}
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ) : (
-                  <div className="space-y-3 rounded-xl border border-[#E8E2DA] bg-white p-4">
-                    <p className="text-sm text-[#7A7267]">{t('zohoOrgsEmpty')}</p>
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => void loadZohoManage()}
-                      className="min-h-11 rounded-lg border border-[#E8E2DA] px-3 text-sm font-medium text-[#71382D] disabled:opacity-60"
-                    >
-                      {t('zohoOrgsRetry')}
-                    </button>
-                  </div>
-                )}
+                {(() => {
+                  const zohoView = resolveZohoOrgsView({
+                    connected: true,
+                    fetchStatus: zohoOrgsFetchStatus,
+                    organizations: zohoOrgs,
+                    errorMessage: zohoOrgsError,
+                  });
+                  if (zohoView.kind === 'loading') {
+                    return <p className="text-sm text-[#7A7267]">{t('zohoOrgsLoading')}</p>;
+                  }
+                  if (zohoView.kind === 'error') {
+                    return (
+                      <div className="space-y-3 rounded-xl border border-[#E5D4BC] bg-[#FBF7F1] p-4">
+                        <p className="text-sm text-[#71382D]">{zohoView.message}</p>
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => void retryZohoOrgs()}
+                          className="min-h-11 rounded-lg border border-[#E8E2DA] bg-white px-3 text-sm font-medium text-[#71382D] disabled:opacity-60"
+                        >
+                          {t('zohoOrgsRetry')}
+                        </button>
+                      </div>
+                    );
+                  }
+                  if (zohoView.kind === 'list') {
+                    return (
+                      <div className="space-y-3">
+                        <h2 className="text-sm font-medium text-[#191816]">{t('zohoOrganization')}</h2>
+                        <p className="text-sm text-[#7A7267]">{t('zohoOrganizationHelp')}</p>
+                        <ul className="divide-y divide-[#E8E2DA] rounded-xl border border-[#E8E2DA] bg-white">
+                          {zohoView.organizations.map((org) => (
+                            <li key={org.organizationId} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 text-sm">
+                              <span className="text-[#191816]">{org.name}</span>
+                              <button
+                                type="button"
+                                disabled={busy || zohoSelectedOrgId === org.organizationId}
+                                onClick={() => void selectZohoOrg(org.organizationId, org.name)}
+                                className="min-h-11 rounded-lg border border-[#E8E2DA] px-3 text-sm font-medium text-[#71382D] disabled:opacity-60"
+                              >
+                                {zohoSelectedOrgId === org.organizationId ? t('zohoOrgSelectedLabel') : t('zohoUseOrg')}
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    );
+                  }
+                  return (
+                    <div className="space-y-3 rounded-xl border border-[#E8E2DA] bg-white p-4">
+                      <p className="text-sm text-[#7A7267]">{t('zohoOrgsEmpty')}</p>
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => void retryZohoOrgs()}
+                        className="min-h-11 rounded-lg border border-[#E8E2DA] px-3 text-sm font-medium text-[#71382D] disabled:opacity-60"
+                      >
+                        {t('zohoOrgsRetry')}
+                      </button>
+                    </div>
+                  );
+                })()}
               </section>
             ) : null}
 

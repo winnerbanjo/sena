@@ -53,6 +53,11 @@ export async function GET(req: NextRequest, context: Params) {
     activity,
     syncJobs,
     mappings,
+    property: {
+      id: result.resolved.propertyId,
+      name: result.resolved.property.name,
+      slug: result.resolved.property.slug,
+    },
   });
 }
 
