@@ -213,7 +213,10 @@
     "occupied": "Ó kún",
     "available": "Ó wà",
     "blocked": "A ti dí",
-    "today": "Lónìí"
+    "today": "Lónìí",
+    "pickMonthYear": "Yan oṣù àti ọdún",
+    "previousYear": "Ọdún tó kọjá",
+    "nextYear": "Ọdún tó ń bọ̀"
   },
   "frontDesk": {
     "title": "Ẹnu-ọ̀nà gbígbà",

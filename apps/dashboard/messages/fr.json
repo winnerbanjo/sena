@@ -213,7 +213,10 @@
     "occupied": "Occupée",
     "available": "Disponible",
     "blocked": "Bloquée",
-    "today": "Aujourd'hui"
+    "today": "Aujourd'hui",
+    "pickMonthYear": "Choisir le mois et l’année",
+    "previousYear": "Année précédente",
+    "nextYear": "Année suivante"
   },
   "frontDesk": {
     "title": "Réception",

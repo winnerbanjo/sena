@@ -213,7 +213,10 @@
     "occupied": "Jupụtara",
     "available": "Dị",
     "blocked": "Egbochiri",
-    "today": "Taa"
+    "today": "Taa",
+    "pickMonthYear": "Họrọ ọnwa na afọ",
+    "previousYear": "Afọ gara aga",
+    "nextYear": "Afọ na-abịa"
   },
   "frontDesk": {
     "title": "Tebụl nnabata",

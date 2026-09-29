@@ -213,7 +213,10 @@
     "occupied": "Imejaa",
     "available": "Inapatikana",
     "blocked": "Imezuiwa",
-    "today": "Leo"
+    "today": "Leo",
+    "pickMonthYear": "Chagua mwezi na mwaka",
+    "previousYear": "Mwaka uliopita",
+    "nextYear": "Mwaka ujao"
   },
   "frontDesk": {
     "title": "Dawati la mapokezi",

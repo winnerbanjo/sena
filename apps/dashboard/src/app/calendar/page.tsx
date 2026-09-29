@@ -3,8 +3,8 @@ import { useTranslations } from 'next-intl';
 
 import { PageLoadState, readJsonResponse } from '../../components/page-load-state';
 import * as React from 'react';
-import { Badge, Button } from '@sena/ui';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { CalendarMonthYearPicker } from '../../components/calendar-month-year-picker';
 import { type ReservationItem } from '../../components/mock-data';
 import { NewReservationDialog } from '../../components/new-reservation-dialog';
 import { ReservationDrawer } from '../../components/reservation-drawer';
@@ -65,7 +65,12 @@ export default function CalendarPage() {
     setCalendarDates(generateDates(today, 7));
   };
 
-  const monthYearString = baseDate.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+  const handleJumpToMonth = (month: number, year: number) => {
+    const next = new Date(year, month, 1);
+    next.setHours(12, 0, 0, 0);
+    setBaseDate(next);
+    setCalendarDates(generateDates(next, 7));
+  };
 
   const fetchCalendar = React.useCallback(async () => {
     try {
@@ -124,12 +129,15 @@ export default function CalendarPage() {
       <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6 bg-white">
         {/* Controls */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#E8E2DA] pb-4">
-          <div className="flex items-center gap-3">
-            <h2 className="text-xl font-serif text-[#191816]">
-              {monthYearString}
-            </h2>
+          <div className="flex items-center gap-3 flex-wrap">
+            <CalendarMonthYearPicker
+              month={baseDate.getMonth()}
+              year={baseDate.getFullYear()}
+              onSelect={handleJumpToMonth}
+            />
             <div className="flex items-center gap-1 border border-[#E8E2DA] rounded bg-white p-0.5">
               <button
+                type="button"
                 onClick={handlePrevWeek}
                 className="p-1 hover:bg-[#FAF7F2] rounded text-[#7A7267] transition-colors"
                 title="Previous 7 days"
@@ -137,12 +145,14 @@ export default function CalendarPage() {
                 <ChevronLeft className="w-4 h-4" />
               </button>
               <button
+                type="button"
                 onClick={handleToday}
                 className="px-2 py-0.5 text-xs font-semibold text-[#191816] hover:bg-[#FAF7F2] rounded transition-colors"
               >
-                Today
+                {t('today')}
               </button>
               <button
+                type="button"
                 onClick={handleNextWeek}
                 className="p-1 hover:bg-[#FAF7F2] rounded text-[#7A7267] transition-colors"
                 title="Next 7 days"

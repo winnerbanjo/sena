@@ -213,7 +213,10 @@
     "occupied": "مشغولة",
     "available": "متاحة",
     "blocked": "محجوبة",
-    "today": "اليوم"
+    "today": "اليوم",
+    "pickMonthYear": "اختر الشهر والسنة",
+    "previousYear": "السنة السابقة",
+    "nextYear": "السنة التالية"
   },
   "frontDesk": {
     "title": "الاستقبال",

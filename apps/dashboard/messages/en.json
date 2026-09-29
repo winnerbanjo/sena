@@ -213,7 +213,10 @@
     "occupied": "Occupied",
     "available": "Available",
     "blocked": "Blocked",
-    "today": "Today"
+    "today": "Today",
+    "pickMonthYear": "Choose month and year",
+    "previousYear": "Previous year",
+    "nextYear": "Next year"
   },
   "frontDesk": {
     "title": "Front Desk",
