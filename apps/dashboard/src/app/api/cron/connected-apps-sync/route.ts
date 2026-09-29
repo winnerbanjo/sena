@@ -10,20 +10,24 @@ type SyncJob = typeof integrationSyncJobs.$inferSelect;
 registerZohoSyncHandlers();
 registerGoogleCalendarSyncHandlers();
 
-/**
- * Cron/worker endpoint for Connected Apps sync jobs.
- * Protected by cron secret — never invoked during page SSR.
- */
-export async function POST(req: NextRequest) {
+function authorizeCron(req: NextRequest) {
   const secret = process.env.SENA_SYNC_CRON_SECRET || process.env.CRON_SECRET;
   const authHeader = req.headers.get('authorization') || '';
   const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : req.headers.get('x-cron-secret') || '';
   if (!secret || token !== secret) {
     return jsonNoStore({ error: 'Unauthorized.' }, { status: 401 });
   }
+  return null;
+}
 
-  const body = await req.json().catch(() => ({}));
-  const limit = typeof body.limit === 'number' ? Math.min(body.limit, 50) : 10;
+async function runSyncQueue(req: NextRequest) {
+  const unauthorized = authorizeCron(req);
+  if (unauthorized) return unauthorized;
+
+  const body = req.method === 'POST' ? await req.json().catch(() => ({})) : {};
+  const limit = typeof (body as { limit?: unknown }).limit === 'number'
+    ? Math.min((body as { limit: number }).limit, 50)
+    : 10;
 
   const results = await processSyncQueue(async (job) => {
     if (job.provider === 'paystack' || job.provider === 'flutterwave') {
@@ -46,6 +50,15 @@ export async function POST(req: NextRequest) {
   });
 }
 
-export async function GET() {
-  return jsonNoStore({ ok: true, note: 'POST with cron secret to process the Connected Apps sync queue.' });
+/**
+ * Cron/worker endpoint for Connected Apps sync jobs.
+ * Protected by cron secret — never invoked during page SSR.
+ * Vercel Cron invokes GET with Authorization: Bearer $CRON_SECRET.
+ */
+export async function POST(req: NextRequest) {
+  return runSyncQueue(req);
+}
+
+export async function GET(req: NextRequest) {
+  return runSyncQueue(req);
 }
