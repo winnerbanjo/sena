@@ -2,11 +2,13 @@ import { NextRequest } from 'next/server';
 import { processSyncQueue } from '@/lib/integrations/platform/sync';
 import { jsonNoStore } from '@/lib/integrations/platform/access';
 import { registerZohoSyncHandlers } from '@/lib/integrations/zoho/invoice';
+import { registerGoogleCalendarSyncHandlers } from '@/lib/integrations/google/calendar';
 import type { integrationSyncJobs } from '@sena/database';
 
 type SyncJob = typeof integrationSyncJobs.$inferSelect;
 
 registerZohoSyncHandlers();
+registerGoogleCalendarSyncHandlers();
 
 /**
  * Cron/worker endpoint for Connected Apps sync jobs.
