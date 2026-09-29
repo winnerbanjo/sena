@@ -533,7 +533,21 @@
     "viewDocs": "View provider docs",
     "statusConnecting": "Connecting",
     "statusPaused": "Paused",
-    "statusError": "Error"
+    "statusError": "Error",
+    "zohoOrganization": "Àjọ Zoho",
+    "zohoOrganizationHelp": "Yan àjọ Zoho Invoice tí yóò gba àwọn olùbásọ̀rọ̀ àti ìwé-owó tí a múṣọkan.",
+    "zohoUseOrg": "Lo àjọ yìí",
+    "zohoOrgSelectedLabel": "Ti yan",
+    "zohoOrgSelected": "A ti yan àjọ Zoho Invoice. Ìmúṣọkan ìwé-owó tuntun ti ṣíṣi.",
+    "zohoOrgSelectFailed": "Kò le yan àjọ Zoho.",
+    "zohoOrgRequired": "Yan àjọ Zoho láti ṣí ìmúṣọkan.",
+    "zohoSyncInvoices": "Mú ìwé-owó ṣọkan",
+    "zohoSyncInvoicesHelp": "Tí ó bá ṣíṣi, àwọn ìwé-owó Sena tuntun yóò múṣọkan pẹ̀lú Zoho Invoice lẹ́yìn. Àwọn ìwé-owó àtijọ́ kì í jáde láìfọwọ́yí.",
+    "zohoSyncEnabled": "Ìmúṣọkan ìwé-owó ti ṣíṣi. Àwọn tuntun yóò lọ sí Zoho.",
+    "zohoSyncDisabled": "Ìmúṣọkan ìwé-owó ti pa. Àwọn ìsopọ̀ tó wà ṣì wà.",
+    "zohoSyncToggleFailed": "Kò le ṣe àtúnṣe ìmúṣọkan.",
+    "zohoLastSynced": "Ìgbà ìmúṣọkan tó kẹ́yìn {time}",
+    "zohoConnected": "Zoho Invoice ti sopọ̀"
   },
   "billing": {
     "title": "Ìsanwó àti ètò",

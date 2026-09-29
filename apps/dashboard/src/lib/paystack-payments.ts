@@ -68,11 +68,11 @@ export async function verifyPropertyPaystackTransaction(propertyId: string, refe
 
 export async function settlePropertyPaystack(attemptId: string, verified: any) {
   if (verified?.status !== 'success' || typeof verified.reference !== 'string' || !Number.isSafeInteger(verified.amount) || verified.amount <= 0) throw new Error('INVALID_VERIFICATION');
-  return db.transaction(async (tx) => {
+  const outcome = await db.transaction(async (tx) => {
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`property-paystack:${attemptId}`}))`);
     const [attempt] = await tx.select().from(paymentAttempts).where(eq(paymentAttempts.id, attemptId)).for('update');
     if (!attempt) throw new Error('ATTEMPT_NOT_FOUND');
-    if (attempt.status === 'completed') return { status: 'already_processed', attemptId };
+    if (attempt.status === 'completed') return { status: 'already_processed' as const, attemptId, propertyId: attempt.propertyId, paymentId: null as string | null };
     const metadata = verified.metadata || {};
     if (attempt.providerReference !== verified.reference || attempt.internalReference !== verified.reference ||
         metadata.paymentAttemptId !== attempt.id || metadata.propertyId !== attempt.propertyId || metadata.source !== attempt.source) {
@@ -82,6 +82,7 @@ export async function settlePropertyPaystack(attemptId: string, verified: any) {
     if (attempt.currency !== verified.currency) throw new Error('CURRENCY_MISMATCH');
     const paidAt = new Date(verified.paid_at || verified.paidAt || Date.now());
     if (!Number.isFinite(paidAt.getTime())) throw new Error('INVALID_PAYMENT_DATE');
+    let paymentId: string | null = null;
     if (attempt.invoiceId) {
       const [invoice] = await tx.select().from(propertyInvoices).where(eq(propertyInvoices.id, attempt.invoiceId)).for('update');
       if (!invoice || invoice.propertyId !== attempt.propertyId || invoice.currency !== attempt.currency || ['draft', 'void', 'cancelled'].includes(invoice.status)) throw new Error('INVOICE_UNAVAILABLE');
@@ -95,7 +96,11 @@ export async function settlePropertyPaystack(attemptId: string, verified: any) {
         const reservationPaid = reservation.paidAmountMinorUnits + attempt.amountMinorUnits;
         await tx.update(reservations).set({ paidAmountMinorUnits: reservationPaid, paymentStatus: reservationPaid >= reservation.totalAmountMinorUnits ? 'paid' : 'part_payment', updatedAt: new Date() }).where(eq(reservations.id, reservation.id));
       }
-      await tx.insert(payments).values({ propertyId: attempt.propertyId, reservationId: invoice.reservationId, invoiceId: invoice.id, integrationId: attempt.integrationId, internalReference: attempt.internalReference, amountMinorUnits: attempt.amountMinorUnits, currency: attempt.currency, provider: 'paystack', providerReference: verified.reference, providerTransactionId: verified.id ? String(verified.id) : null, method: verified.channel || 'card', status: 'successful', source: attempt.source, paidAt, notes: `Invoice ${invoice.invoiceNumber}` });
+      const [payment] = await tx
+        .insert(payments)
+        .values({ propertyId: attempt.propertyId, reservationId: invoice.reservationId, invoiceId: invoice.id, integrationId: attempt.integrationId, internalReference: attempt.internalReference, amountMinorUnits: attempt.amountMinorUnits, currency: attempt.currency, provider: 'paystack', providerReference: verified.reference, providerTransactionId: verified.id ? String(verified.id) : null, method: verified.channel || 'card', status: 'successful', source: attempt.source, paidAt, notes: `Invoice ${invoice.invoiceNumber}` })
+        .returning({ id: payments.id });
+      paymentId = payment.id;
     } else if (attempt.reservationId) {
       const [reservation] = await tx.select().from(reservations).where(eq(reservations.id, attempt.reservationId)).for('update');
       if (!reservation || reservation.propertyId !== attempt.propertyId) throw new Error('RESERVATION_UNAVAILABLE');
@@ -114,6 +119,14 @@ export async function settlePropertyPaystack(attemptId: string, verified: any) {
       href: attempt.source === 'invoice' ? '/invoices' : '/payments',
     }).onConflictDoNothing();
     await tx.update(paymentAttempts).set({ status: 'completed', completedAt: paidAt, updatedAt: new Date() }).where(eq(paymentAttempts.id, attempt.id));
-    return { status: 'success', attemptId: attempt.id };
+    return { status: 'success' as const, attemptId: attempt.id, propertyId: attempt.propertyId, paymentId };
   });
+
+  if (outcome.status === 'success' && outcome.paymentId) {
+    void import('@/lib/integrations/zoho/invoice')
+      .then(({ maybeQueueZohoPaymentSync }) => maybeQueueZohoPaymentSync(outcome.propertyId, outcome.paymentId!))
+      .catch(() => null);
+  }
+
+  return { status: outcome.status, attemptId: outcome.attemptId };
 }

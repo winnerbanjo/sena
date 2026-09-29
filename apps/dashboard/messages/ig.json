@@ -533,7 +533,21 @@
     "viewDocs": "View provider docs",
     "statusConnecting": "Connecting",
     "statusPaused": "Paused",
-    "statusError": "Error"
+    "statusError": "Error",
+    "zohoOrganization": "Òtù Zoho",
+    "zohoOrganizationHelp": "Họrọ òtù Zoho Invoice nke ga-anata ndị ahịa na akwụkwọ ụgwọ a na-emekọrịta.",
+    "zohoUseOrg": "Jiri òtù a",
+    "zohoOrgSelectedLabel": "Ahọpụtara",
+    "zohoOrgSelected": "Ahọpụtara òtù Zoho Invoice. Emeghere mmekọrịta akwụkwọ ụgwọ ọhụrụ.",
+    "zohoOrgSelectFailed": "Enweghị ike ịhọrọ òtù Zoho.",
+    "zohoOrgRequired": "Họrọ òtù Zoho iji mee ka mmekọrịta rụọ ọrụ.",
+    "zohoSyncInvoices": "Mekọrịta akwụkwọ ụgwọ",
+    "zohoSyncInvoicesHelp": "Mgbe ọ dị ọrụ, akwụkwọ ụgwọ Sena ọhụrụ na-emekọrịta na Zoho Invoice n’azụ. Akwụkwọ ụgwọ ochie anaghị apụ na-akpaghị aka.",
+    "zohoSyncEnabled": "Emeghere mmekọrịta akwụkwọ ụgwọ. Ndị ọhụrụ ga-aga Zoho.",
+    "zohoSyncDisabled": "Agbanyụrụ mmekọrịta akwụkwọ ụgwọ. Ejidere map ndị dị.",
+    "zohoSyncToggleFailed": "Enweghị ike imelite mmekọrịta.",
+    "zohoLastSynced": "Emere mmekọrịta ikpeazụ {time}",
+    "zohoConnected": "Ejikọtara Zoho Invoice"
   },
   "billing": {
     "title": "Ụgwọ na atụmatụ",

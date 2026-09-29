@@ -533,7 +533,21 @@
     "secretReplaced": "Secret key replaced.",
     "connectionFailed": "Connection failed. Check your Flutterwave secret key and try again.",
     "updateFailed": "The connection could not be updated.",
-    "saved": "Saved."
+    "saved": "Saved.",
+    "zohoOrganization": "Zoho organization",
+    "zohoOrganizationHelp": "Choose which Zoho Invoice organization receives synced contacts and invoices.",
+    "zohoUseOrg": "Use this organization",
+    "zohoOrgSelectedLabel": "Selected",
+    "zohoOrgSelected": "Zoho Invoice organization selected. Invoice sync is on for new invoices.",
+    "zohoOrgSelectFailed": "Could not select Zoho organization.",
+    "zohoOrgRequired": "Select a Zoho organization to enable sync.",
+    "zohoSyncInvoices": "Sync invoices",
+    "zohoSyncInvoicesHelp": "When on, new Sena invoices sync to Zoho Invoice in the background. Historical invoices are not exported automatically.",
+    "zohoSyncEnabled": "Invoice sync is on. New invoices will sync to Zoho.",
+    "zohoSyncDisabled": "Invoice sync is off. Existing mappings are kept.",
+    "zohoSyncToggleFailed": "Could not update invoice sync.",
+    "zohoLastSynced": "Last synced {time}",
+    "zohoConnected": "Zoho Invoice connected"
   },
   "billing": {
     "title": "Billing & Plan",

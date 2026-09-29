@@ -14,13 +14,52 @@ import { decryptIntegrationSecret, encryptIntegrationSecret } from '../crypto';
 
 type ZohoTokens = NonNullable<Awaited<ReturnType<typeof readOAuthTokens>>>;
 
-function accountsBase() {
-  return (process.env.SENA_ZOHO_ACCOUNTS_BASE || process.env.ZOHO_ACCOUNTS_BASE || 'https://accounts.zoho.com').replace(/\/$/, '');
+const LOCATION_ACCOUNTS: Record<string, string> = {
+  us: 'https://accounts.zoho.com',
+  eu: 'https://accounts.zoho.eu',
+  in: 'https://accounts.zoho.in',
+  au: 'https://accounts.zoho.com.au',
+  jp: 'https://accounts.zoho.jp',
+  ca: 'https://accounts.zohocloud.ca',
+  cn: 'https://accounts.zoho.com.cn',
+  sa: 'https://accounts.zoho.sa',
+};
+
+const LOCATION_INVOICE_APP: Record<string, string> = {
+  us: 'https://invoice.zoho.com',
+  eu: 'https://invoice.zoho.eu',
+  in: 'https://invoice.zoho.in',
+  au: 'https://invoice.zoho.com.au',
+  jp: 'https://invoice.zoho.jp',
+  ca: 'https://invoice.zohocloud.ca',
+  cn: 'https://invoice.zoho.com.cn',
+  sa: 'https://invoice.zoho.sa',
+};
+
+function defaultAccountsBase() {
+  return (process.env.SENA_ZOHO_ACCOUNTS_BASE || process.env.ZOHO_ACCOUNTS_BASE || 'https://accounts.zoho.com').replace(
+    /\/$/,
+    ''
+  );
+}
+
+export function accountsBaseFromMetadata(metadata: unknown) {
+  const record = metadata && typeof metadata === 'object' ? (metadata as Record<string, unknown>) : {};
+  if (typeof record.accountsDomain === 'string' && record.accountsDomain.startsWith('https://')) {
+    return record.accountsDomain.replace(/\/$/, '');
+  }
+  const location = typeof record.location === 'string' ? record.location.toLowerCase() : '';
+  if (location && LOCATION_ACCOUNTS[location]) return LOCATION_ACCOUNTS[location];
+  return defaultAccountsBase();
 }
 
 function clientCredentials() {
-  const clientId = process.env.SENA_ZOHO_INVOICE_CLIENT_ID || process.env.ZOHO_INVOICE_CLIENT_ID || process.env.SENA_ZOHO_CLIENT_ID;
-  const clientSecret = process.env.SENA_ZOHO_INVOICE_CLIENT_SECRET || process.env.ZOHO_INVOICE_CLIENT_SECRET || process.env.SENA_ZOHO_CLIENT_SECRET;
+  const clientId =
+    process.env.SENA_ZOHO_INVOICE_CLIENT_ID || process.env.ZOHO_INVOICE_CLIENT_ID || process.env.SENA_ZOHO_CLIENT_ID;
+  const clientSecret =
+    process.env.SENA_ZOHO_INVOICE_CLIENT_SECRET ||
+    process.env.ZOHO_INVOICE_CLIENT_SECRET ||
+    process.env.SENA_ZOHO_CLIENT_SECRET;
   if (!clientId || !clientSecret) throw new Error('OAUTH_CLIENT_MISSING');
   return { clientId, clientSecret };
 }
@@ -38,7 +77,38 @@ export function zohoApiBaseFromMetadata(metadata: unknown) {
   return `${base}/invoice/v3`;
 }
 
-async function refreshZohoAccessToken(refreshToken: string) {
+export function zohoInvoiceAppUrl(metadata: unknown, zohoInvoiceId: string) {
+  const record = metadata && typeof metadata === 'object' ? (metadata as Record<string, unknown>) : {};
+  const location = typeof record.location === 'string' ? record.location.toLowerCase() : 'us';
+  const appBase = LOCATION_INVOICE_APP[location] || LOCATION_INVOICE_APP.us;
+  return `${appBase}/app#/invoices/${encodeURIComponent(zohoInvoiceId)}`;
+}
+
+function readIntegrationMeta(integration: { metadata: unknown; environment?: string | null }) {
+  return {
+    ...(integration.metadata && typeof integration.metadata === 'object' ? (integration.metadata as object) : {}),
+    environment: integration.environment,
+  };
+}
+
+export function isZohoSyncEnabled(integration: { metadata: unknown; status: string } | null | undefined) {
+  if (!integration || integration.status !== 'connected') return false;
+  const meta = integration.metadata && typeof integration.metadata === 'object' ? (integration.metadata as Record<string, unknown>) : {};
+  if (!meta.organizationId) return false;
+  // Default ON after org selection unless explicitly disabled.
+  return meta.syncEnabled !== false;
+}
+
+export function getZohoOrganization(integration: { metadata: unknown } | null | undefined) {
+  const meta = integration?.metadata && typeof integration.metadata === 'object' ? (integration.metadata as Record<string, unknown>) : {};
+  return {
+    organizationId: typeof meta.organizationId === 'string' ? meta.organizationId : null,
+    organizationName: typeof meta.organizationName === 'string' ? meta.organizationName : null,
+    syncEnabled: meta.syncEnabled !== false && Boolean(meta.organizationId),
+  };
+}
+
+async function refreshZohoAccessToken(refreshToken: string, accountsBase: string) {
   const { clientId, clientSecret } = clientCredentials();
   const body = new URLSearchParams({
     grant_type: 'refresh_token',
@@ -46,7 +116,7 @@ async function refreshZohoAccessToken(refreshToken: string) {
     client_secret: clientSecret,
     refresh_token: refreshToken,
   });
-  const response = await fetch(`${accountsBase()}/oauth/v2/token`, {
+  const response = await fetch(`${accountsBase}/oauth/v2/token`, {
     method: 'POST',
     headers: { 'content-type': 'application/x-www-form-urlencoded' },
     body,
@@ -57,6 +127,7 @@ async function refreshZohoAccessToken(refreshToken: string) {
   return {
     accessToken: String(json.access_token),
     expiresAt: typeof json.expires_in === 'number' ? new Date(Date.now() + json.expires_in * 1000) : null,
+    apiDomain: typeof json.api_domain === 'string' ? json.api_domain : null,
   };
 }
 
@@ -66,17 +137,35 @@ export async function getZohoAccessContext(propertyId: string) {
   if (!integration || integration.status !== 'connected') throw new Error('ZOHO_NOT_CONNECTED');
   let tokens = await readOAuthTokens(integration.id);
   if (!tokens?.accessToken) throw new Error('ZOHO_NOT_CONNECTED');
+  const meta = readIntegrationMeta(integration);
+  const accountsBase = accountsBaseFromMetadata({
+    ...meta,
+    ...(tokens.accountMetadata && typeof tokens.accountMetadata === 'object' ? tokens.accountMetadata : {}),
+  });
   if (tokens.needsRefresh) {
     if (!tokens.refreshToken) throw new Error('ZOHO_REAUTH_REQUIRED');
-    const refreshed = await refreshZohoAccessToken(tokens.refreshToken);
+    const refreshed = await refreshZohoAccessToken(tokens.refreshToken, accountsBase);
     await upsertOAuthTokens({
       integrationId: integration.id,
       accessToken: refreshed.accessToken,
       refreshToken: tokens.refreshToken,
       expiresAt: refreshed.expiresAt,
       scopes: tokens.scopes,
-      accountMetadata: tokens.accountMetadata as Record<string, unknown> | null,
+      accountMetadata: {
+        ...(tokens.accountMetadata && typeof tokens.accountMetadata === 'object' ? (tokens.accountMetadata as object) : {}),
+        ...(refreshed.apiDomain ? { apiDomain: refreshed.apiDomain } : {}),
+      },
     });
+    if (refreshed.apiDomain) {
+      await db
+        .update(integrations)
+        .set({
+          environment: refreshed.apiDomain,
+          metadata: { ...meta, apiDomain: refreshed.apiDomain },
+          updatedAt: new Date(),
+        })
+        .where(eq(integrations.id, integration.id));
+    }
     tokens = await readOAuthTokens(integration.id);
     if (!tokens) throw new Error('ZOHO_NOT_CONNECTED');
   }
@@ -87,11 +176,9 @@ export async function getZohoAccessContext(propertyId: string) {
   return {
     integration,
     tokens: tokens as ZohoTokens,
-    apiBase: zohoApiBaseFromMetadata({
-      ...(integration.metadata && typeof integration.metadata === 'object' ? (integration.metadata as object) : {}),
-      environment: integration.environment,
-    }),
+    apiBase: zohoApiBaseFromMetadata(meta),
     organizationId: organizationId || null,
+    syncEnabled: isZohoSyncEnabled(integration),
   };
 }
 
@@ -106,6 +193,7 @@ async function zohoFetch(propertyId: string, path: string, init?: RequestInit) {
   if (!response.ok) {
     const code = json?.code || response.status;
     if (response.status === 401) throw new Error('ZOHO_REAUTH_REQUIRED');
+    if (response.status === 429) throw new Error('ZOHO_RATE_LIMIT');
     throw new Error(`ZOHO_API_${code}`);
   }
   return { ctx, json };
@@ -121,13 +209,20 @@ export async function listZohoOrganizations(propertyId: string) {
   }));
 }
 
-export async function selectZohoOrganization(propertyId: string, actorUserId: string, organizationId: string, organizationName?: string) {
+export async function selectZohoOrganization(
+  propertyId: string,
+  actorUserId: string,
+  organizationId: string,
+  organizationName?: string
+) {
   const integration = await getPropertyIntegration(propertyId, 'zoho_invoice');
   if (!integration || integration.status !== 'connected') throw new Error('ZOHO_NOT_CONNECTED');
   const metadata = {
     ...(integration.metadata && typeof integration.metadata === 'object' ? (integration.metadata as object) : {}),
     organizationId,
     organizationName: organizationName || null,
+    // Selecting an organization enables outbound sync for NEW documents only.
+    syncEnabled: true,
   };
   await db
     .update(integrations)
@@ -144,13 +239,37 @@ export async function selectZohoOrganization(propertyId: string, actorUserId: st
     integrationId: integration.id,
     actorUserId,
     action: 'zoho_invoice.organization_selected',
-    details: { organizationId },
+    details: { organizationId, syncEnabled: true },
+  });
+  return metadata;
+}
+
+export async function setZohoSyncEnabled(propertyId: string, actorUserId: string, enabled: boolean) {
+  const integration = await getPropertyIntegration(propertyId, 'zoho_invoice');
+  if (!integration || integration.status !== 'connected') throw new Error('ZOHO_NOT_CONNECTED');
+  const meta = integration.metadata && typeof integration.metadata === 'object' ? (integration.metadata as Record<string, unknown>) : {};
+  if (enabled && !meta.organizationId) throw new Error('ZOHO_ORG_REQUIRED');
+  const metadata = { ...meta, syncEnabled: enabled };
+  await db
+    .update(integrations)
+    .set({ metadata, updatedAt: new Date() })
+    .where(eq(integrations.id, integration.id));
+  await writeIntegrationAudit({
+    propertyId,
+    integrationId: integration.id,
+    actorUserId,
+    action: enabled ? 'zoho_invoice.sync_enabled' : 'zoho_invoice.sync_disabled',
+    details: { syncEnabled: enabled },
   });
   return metadata;
 }
 
 export async function syncZohoContact(propertyId: string, guestId: string) {
-  const [guest] = await db.select().from(guests).where(and(eq(guests.id, guestId), eq(guests.propertyId, propertyId))).limit(1);
+  const [guest] = await db
+    .select()
+    .from(guests)
+    .where(and(eq(guests.id, guestId), eq(guests.propertyId, propertyId)))
+    .limit(1);
   if (!guest) throw new Error('GUEST_NOT_FOUND');
   const ctx = await getZohoAccessContext(propertyId);
   if (!ctx.organizationId) throw new Error('ZOHO_ORG_REQUIRED');
@@ -161,18 +280,18 @@ export async function syncZohoContact(propertyId: string, guestId: string) {
     senaObjectId: guest.id,
   });
 
-  const contactPayload = {
+  const contactPayload: Record<string, unknown> = {
     contact_name: guest.fullName,
     contact_type: 'customer',
-    email: guest.email || undefined,
-    phone: guest.phone || undefined,
   };
+  if (guest.email) contactPayload.email = guest.email;
+  if (guest.phone) contactPayload.phone = guest.phone;
 
   let externalId = existing?.externalObjectId;
   if (externalId) {
     await zohoFetch(propertyId, `/contacts/${externalId}`, { method: 'PUT', body: JSON.stringify(contactPayload) });
   } else {
-    // Careful match assist by email before create — mapping becomes authoritative after first sync.
+    // Match by email before create — mapping becomes authoritative after first sync.
     if (guest.email) {
       const search = await zohoFetch(propertyId, `/contacts?email=${encodeURIComponent(guest.email)}`);
       const found = Array.isArray(search.json?.contacts) ? search.json.contacts[0] : null;
@@ -215,21 +334,40 @@ export async function syncZohoInvoice(propertyId: string, invoiceId: string) {
     contactId = contact.contactId;
   }
 
-  const lineItems = Array.isArray(invoice.items) && invoice.items.length
-    ? invoice.items.map((item) => ({
-        name: item.description || 'Stay charge',
-        rate: (item.unitPriceMinorUnits || item.totalMinorUnits || 0) / 100,
-        quantity: item.quantity || 1,
-      }))
-    : [{ name: `Invoice ${invoice.invoiceNumber}`, rate: (invoice.totalAmountMinorUnits || 0) / 100, quantity: 1 }];
+  const lineItems =
+    Array.isArray(invoice.items) && invoice.items.length
+      ? invoice.items.map((item) => ({
+          name: item.description || 'Stay charge',
+          rate: (item.unitPriceMinorUnits || item.totalMinorUnits || 0) / 100,
+          quantity: item.quantity || 1,
+        }))
+      : [{ name: `Invoice ${invoice.invoiceNumber}`, rate: (invoice.totalAmountMinorUnits || 0) / 100, quantity: 1 }];
+
+  // Surface Sena tax/surcharge totals as descriptive lines when present (Zoho tax IDs are org-specific).
+  if ((invoice.taxVatMinorUnits || 0) > 0) {
+    lineItems.push({ name: 'VAT', rate: invoice.taxVatMinorUnits / 100, quantity: 1 });
+  }
+  if ((invoice.taxConsumptionMinorUnits || 0) > 0) {
+    lineItems.push({ name: 'Consumption tax', rate: invoice.taxConsumptionMinorUnits / 100, quantity: 1 });
+  }
+  if ((invoice.serviceChargeMinorUnits || 0) > 0) {
+    lineItems.push({ name: 'Service charge', rate: invoice.serviceChargeMinorUnits / 100, quantity: 1 });
+  }
+  if ((invoice.discountMinorUnits || 0) > 0) {
+    lineItems.push({ name: 'Discount', rate: -(invoice.discountMinorUnits / 100), quantity: 1 });
+  }
 
   const payload: Record<string, unknown> = {
     customer_id: contactId,
     reference_number: invoice.invoiceNumber,
     date: invoice.issueDate || new Date().toISOString().slice(0, 10),
+    due_date: invoice.dueDate || invoice.issueDate || new Date().toISOString().slice(0, 10),
     line_items: lineItems,
-    notes: 'Synced from Sena. Sena remains the source of truth for payment settlement.',
+    notes:
+      invoice.notes ||
+      'Synced from Sena. Sena remains the source of truth for payment settlement.',
   };
+  if (invoice.currency) payload.currency_code = invoice.currency;
 
   const existing = await findMappingBySenaObject({
     integrationId: ctx.integration.id,
@@ -246,6 +384,7 @@ export async function syncZohoInvoice(propertyId: string, invoiceId: string) {
     if (!externalId) throw new Error('ZOHO_INVOICE_CREATE_FAILED');
   }
 
+  const invoiceUrl = zohoInvoiceAppUrl(readIntegrationMeta(ctx.integration), externalId);
   await upsertExternalObjectMapping({
     propertyId,
     integrationId: ctx.integration.id,
@@ -254,10 +393,10 @@ export async function syncZohoInvoice(propertyId: string, invoiceId: string) {
     senaObjectId: invoice.id,
     externalObjectType: 'invoice',
     externalObjectId: externalId,
-    metadata: { invoiceNumber: invoice.invoiceNumber },
+    metadata: { invoiceNumber: invoice.invoiceNumber, invoiceUrl },
   });
 
-  return { invoiceId: externalId, contactId };
+  return { invoiceId: externalId, contactId, invoiceUrl };
 }
 
 /**
@@ -265,7 +404,11 @@ export async function syncZohoInvoice(propertyId: string, invoiceId: string) {
  * Zoho never authorizes Sena settlement — this is outbound bookkeeping only.
  */
 export async function syncZohoPayment(propertyId: string, paymentId: string) {
-  const [payment] = await db.select().from(payments).where(and(eq(payments.id, paymentId), eq(payments.propertyId, propertyId))).limit(1);
+  const [payment] = await db
+    .select()
+    .from(payments)
+    .where(and(eq(payments.id, paymentId), eq(payments.propertyId, propertyId)))
+    .limit(1);
   if (!payment) throw new Error('PAYMENT_NOT_FOUND');
   if (payment.status && !['completed', 'succeeded', 'paid', 'successful'].includes(payment.status)) {
     throw new Error('PAYMENT_NOT_VERIFIED');
@@ -296,8 +439,19 @@ export async function syncZohoPayment(propertyId: string, paymentId: string) {
   });
   if (existing) return { paymentId: existing.externalObjectId, duplicate: true };
 
+  let customerId: string | undefined;
+  const [invoice] = await db
+    .select()
+    .from(propertyInvoices)
+    .where(eq(propertyInvoices.id, payment.invoiceId))
+    .limit(1);
+  if (invoice?.guestId) {
+    const contact = await syncZohoContact(propertyId, invoice.guestId);
+    customerId = contact.contactId;
+  }
+
   const payload = {
-    customer_id: undefined as string | undefined,
+    customer_id: customerId,
     payment_mode: 'others',
     amount: (payment.amountMinorUnits || 0) / 100,
     date: (payment.paidAt || payment.createdAt || new Date()).toISOString().slice(0, 10),
@@ -327,16 +481,124 @@ export async function syncZohoPayment(propertyId: string, paymentId: string) {
 export async function queueZohoFullSync(propertyId: string, actorUserId?: string) {
   const integration = await getPropertyIntegration(propertyId, 'zoho_invoice');
   if (!integration || integration.status !== 'connected') throw new Error('ZOHO_NOT_CONNECTED');
+  if (!isZohoSyncEnabled(integration)) throw new Error('ZOHO_SYNC_DISABLED');
   return enqueueSyncJob({
     propertyId,
     integrationId: integration.id,
     provider: 'zoho_invoice',
     direction: 'outbound',
     trigger: 'manual',
-    jobType: 'full_sync',
-    idempotencyKey: `zoho:full:${propertyId}:${Date.now()}`,
+    jobType: 'platform_ping',
+    idempotencyKey: `zoho:ping:${propertyId}:${Date.now()}`,
     payload: { actorUserId: actorUserId || null },
   });
+}
+
+/**
+ * Queue outbound invoice export for NEW invoices after enablement.
+ * Never dumps historical invoices — callers must target a specific invoice ID.
+ * Fire-and-forget safe: never throws into hotel workflows.
+ */
+export async function maybeQueueZohoInvoiceExport(propertyId: string, invoiceId: string) {
+  try {
+    await ensureConnectedAppsPlatformSchema();
+    const integration = await getPropertyIntegration(propertyId, 'zoho_invoice');
+    if (!isZohoSyncEnabled(integration)) return null;
+    return enqueueSyncJob({
+      propertyId,
+      integrationId: integration!.id,
+      provider: 'zoho_invoice',
+      direction: 'outbound',
+      trigger: 'event',
+      jobType: 'invoice_export',
+      idempotencyKey: `zoho:invoice:${invoiceId}`,
+      payload: { invoiceId },
+    });
+  } catch {
+    return null;
+  }
+}
+
+export async function maybeQueueZohoPaymentSync(propertyId: string, paymentId: string) {
+  try {
+    await ensureConnectedAppsPlatformSchema();
+    const integration = await getPropertyIntegration(propertyId, 'zoho_invoice');
+    if (!isZohoSyncEnabled(integration)) return null;
+    return enqueueSyncJob({
+      propertyId,
+      integrationId: integration!.id,
+      provider: 'zoho_invoice',
+      direction: 'outbound',
+      trigger: 'event',
+      jobType: 'payment_sync',
+      idempotencyKey: `zoho:payment:${paymentId}`,
+      payload: { paymentId },
+    });
+  } catch {
+    return null;
+  }
+}
+
+export async function retryZohoInvoiceSync(propertyId: string, invoiceId: string, actorUserId?: string) {
+  const integration = await getPropertyIntegration(propertyId, 'zoho_invoice');
+  if (!integration || integration.status !== 'connected') throw new Error('ZOHO_NOT_CONNECTED');
+  if (!getZohoOrganization(integration).organizationId) throw new Error('ZOHO_ORG_REQUIRED');
+  // Manual retry is allowed even when sync is disabled — operator explicit action.
+  return enqueueSyncJob({
+    propertyId,
+    integrationId: integration.id,
+    provider: 'zoho_invoice',
+    direction: 'outbound',
+    trigger: 'manual',
+    jobType: 'invoice_export',
+    idempotencyKey: `zoho:invoice:retry:${invoiceId}:${Math.floor(Date.now() / 60_000)}`,
+    payload: { invoiceId, actorUserId: actorUserId || null },
+  });
+}
+
+export async function getZohoInvoiceSyncStatus(propertyId: string, invoiceId: string) {
+  await ensureConnectedAppsPlatformSchema();
+  const integration = await getPropertyIntegration(propertyId, 'zoho_invoice');
+  if (!integration || integration.status === 'disconnected') {
+    return { status: 'not_connected' as const, invoiceUrl: null, externalInvoiceId: null };
+  }
+  const mapping = await findMappingBySenaObject({
+    integrationId: integration.id,
+    senaObjectType: 'invoice',
+    senaObjectId: invoiceId,
+  });
+  if (mapping?.externalObjectId) {
+    const meta = mapping.metadata && typeof mapping.metadata === 'object' ? (mapping.metadata as Record<string, unknown>) : {};
+    const invoiceUrl =
+      typeof meta.invoiceUrl === 'string'
+        ? meta.invoiceUrl
+        : zohoInvoiceAppUrl(readIntegrationMeta(integration), mapping.externalObjectId);
+    return {
+      status: 'synced' as const,
+      invoiceUrl,
+      externalInvoiceId: mapping.externalObjectId,
+    };
+  }
+
+  const { integrationSyncJobs } = await import('@sena/database');
+  const { desc } = await import('drizzle-orm');
+  const recent = await db
+    .select()
+    .from(integrationSyncJobs)
+    .where(and(eq(integrationSyncJobs.propertyId, propertyId), eq(integrationSyncJobs.provider, 'zoho_invoice')))
+    .orderBy(desc(integrationSyncJobs.createdAt))
+    .limit(40);
+  const invoiceJobs = recent.filter((job) => {
+    const payload = job.payload && typeof job.payload === 'object' ? (job.payload as Record<string, unknown>) : {};
+    return job.jobType === 'invoice_export' && payload.invoiceId === invoiceId;
+  });
+  const active = invoiceJobs.find((job) => ['queued', 'processing', 'retrying'].includes(job.status));
+  if (active) return { status: 'syncing' as const, invoiceUrl: null, externalInvoiceId: null };
+  const failed = invoiceJobs.find((job) => job.status === 'dead_letter');
+  if (failed) {
+    return { status: 'failed' as const, invoiceUrl: null, externalInvoiceId: null, lastError: failed.lastError };
+  }
+  return { status: 'not_synced' as const, invoiceUrl: null, externalInvoiceId: null };
 }
 
 export async function handleZohoSyncJob(job: {
@@ -355,7 +617,8 @@ export async function handleZohoSyncJob(job: {
     return syncZohoPayment(job.propertyId, payload.paymentId);
   }
   if (job.jobType === 'full_sync' || job.jobType === 'platform_ping') {
-    // Full sync is driven by explicit object IDs in later jobs; ping proves handler wiring.
+    // full_sync deliberately does NOT dump historical invoices.
+    // Historical export is an explicit future operator action.
     return {};
   }
   throw new Error(`NO_HANDLER:zoho_invoice:${job.jobType}`);
@@ -369,6 +632,7 @@ export function registerZohoSyncHandlers() {
   root.__senaSyncHandlers = root.__senaSyncHandlers || {};
   root.__senaSyncHandlers.zoho_invoice = async (job) => handleZohoSyncJob(job);
   root.__senaSyncHandlers['zoho_invoice:full_sync'] = async (job) => handleZohoSyncJob(job);
+  root.__senaSyncHandlers['zoho_invoice:platform_ping'] = async (job) => handleZohoSyncJob(job);
   root.__senaSyncHandlers['zoho_invoice:contact_sync'] = async (job) => handleZohoSyncJob(job);
   root.__senaSyncHandlers['zoho_invoice:invoice_export'] = async (job) => handleZohoSyncJob(job);
   root.__senaSyncHandlers['zoho_invoice:payment_sync'] = async (job) => handleZohoSyncJob(job);

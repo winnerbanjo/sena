@@ -533,7 +533,21 @@
     "viewDocs": "View provider docs",
     "statusConnecting": "Connecting",
     "statusPaused": "Paused",
-    "statusError": "Error"
+    "statusError": "Error",
+    "zohoOrganization": "مؤسسة Zoho",
+    "zohoOrganizationHelp": "اختر مؤسسة Zoho Invoice التي تستقبل جهات الاتصال والفواتير المتزامنة.",
+    "zohoUseOrg": "استخدم هذه المؤسسة",
+    "zohoOrgSelectedLabel": "محددة",
+    "zohoOrgSelected": "تم اختيار مؤسسة Zoho Invoice. مزامنة الفواتير الجديدة مفعّلة.",
+    "zohoOrgSelectFailed": "تعذّر اختيار مؤسسة Zoho.",
+    "zohoOrgRequired": "اختر مؤسسة Zoho لتفعيل المزامنة.",
+    "zohoSyncInvoices": "مزامنة الفواتير",
+    "zohoSyncInvoicesHelp": "عند التفعيل، تُزامَن فواتير Sena الجديدة مع Zoho Invoice في الخلفية. لا تُصدَّر الفواتير التاريخية تلقائيًا.",
+    "zohoSyncEnabled": "مزامنة الفواتير مفعّلة. ستُزامَن الفواتير الجديدة مع Zoho.",
+    "zohoSyncDisabled": "مزامنة الفواتير متوقفة. تبقى الربط السابق محفوظًا.",
+    "zohoSyncToggleFailed": "تعذّر تحديث مزامنة الفواتير.",
+    "zohoLastSynced": "آخر مزامنة {time}",
+    "zohoConnected": "تم ربط Zoho Invoice"
   },
   "billing": {
     "title": "الفوترة والخطة",
