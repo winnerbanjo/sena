@@ -152,5 +152,7 @@
   "zohoBooksPaymentAccount": "Àkántì ìpamọ́ (àyàn)",
   "zohoBooksPaymentAccountHelp": "Yan àkántì owó/báńkì Zoho Books tí yóò gba owó tí a ṣe àmúsisẹpọ̀. Fi òfo sílẹ̀ láti lo àìyàn ìṣòwò.",
   "zohoBooksPaymentAccountDefault": "Àìyàn ìṣòwò",
-  "zohoBooksPaymentAccountSaved": "A ti fi àkántì ìpamọ́ pamọ́."
+  "zohoBooksPaymentAccountSaved": "A ti fi àkántì ìpamọ́ pamọ́.",
+  "zohoBooksOrgsEmpty": "Kò sí ìṣòwò Zoho Books tí a dá padà fún àkántì yìí.",
+  "zohoBooksOrgsEmptyHelp": "Àwọn ìṣòwò Zoho Invoice yàtọ̀ sí Zoho Books. Ṣẹ̀dá tàbí gbé ìṣòwò sókè nínú Zoho Books, kí o sì tún ojú-ìwé yìí ṣe. Asopọ̀ Sena dúró."
 }

@@ -151,5 +151,7 @@
   "zohoBooksPaymentAccount": "Asusun ajiya (na zaɓi)",
   "zohoBooksPaymentAccountHelp": "Zaɓi asusun tsabar kuɗi/banki na Zoho Books da ke karɓar biyan da aka daidaita. Bar shi don amfani da tsohon ƙungiyar.",
   "zohoBooksPaymentAccountDefault": "Tsohon ƙungiya",
-  "zohoBooksPaymentAccountSaved": "An adana asusun ajiya."
+  "zohoBooksPaymentAccountSaved": "An adana asusun ajiya.",
+  "zohoBooksOrgsEmpty": "Babu ƙungiyoyin Zoho Books da aka dawo da su don wannan asusun.",
+  "zohoBooksOrgsEmptyHelp": "Ƙungiyoyin Zoho Invoice sun bambanta da Zoho Books. Ƙirƙiri ko haɓaka ƙungiya a Zoho Books, sa'an nan sabunta wannan shafi. Haɗin Sena yana nan."
 }

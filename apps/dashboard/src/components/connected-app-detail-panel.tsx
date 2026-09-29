@@ -774,7 +774,12 @@ export function ConnectedAppDetailPanel({
                   }
                   return (
                     <div className="space-y-3 rounded-2xl border border-[#E8E2DA] bg-white p-4">
-                      <p className="text-sm text-[#7A7267]">{t('zohoOrgsEmpty')}</p>
+                      <p className="text-sm text-[#7A7267]">
+                        {provider === 'zoho_books' ? t('zohoBooksOrgsEmpty') : t('zohoOrgsEmpty')}
+                      </p>
+                      {provider === 'zoho_books' ? (
+                        <p className="text-sm text-[#7A7267]">{t('zohoBooksOrgsEmptyHelp')}</p>
+                      ) : null}
                       <button
                         type="button"
                         disabled={busy}

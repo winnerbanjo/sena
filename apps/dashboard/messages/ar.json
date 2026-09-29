@@ -777,7 +777,9 @@
     "zohoBooksPaymentAccount": "حساب الإيداع (اختياري)",
     "zohoBooksPaymentAccountHelp": "اختر حساب النقد/البنك في Zoho Books الذي يستقبل المدفوعات المزامنة. اتركه فارغًا لاستخدام افتراضي المنظمة.",
     "zohoBooksPaymentAccountDefault": "افتراضي المنظمة",
-    "zohoBooksPaymentAccountSaved": "تم حفظ حساب الإيداع."
+    "zohoBooksPaymentAccountSaved": "تم حفظ حساب الإيداع.",
+    "zohoBooksOrgsEmpty": "لم تُرجع أي منظمات Zoho Books لهذا الحساب.",
+    "zohoBooksOrgsEmptyHelp": "منظمات Zoho Invoice منفصلة عن Zoho Books. أنشئ أو رقِّ منظمة في Zoho Books ثم حدّث هذه الصفحة. يبقى اتصال Sena كما هو."
   },
   "billing": {
     "title": "الفوترة والخطة",

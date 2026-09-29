@@ -91,6 +91,13 @@ function run() {
     assert.notEqual(messages.apps.zohoBooksOverview, en.apps.zohoBooksOverview, `${loc} overview translated`);
     assert.equal(messages.apps.zohoBooks, 'Zoho Books');
   }
+  
+  assert.match(panel, /zohoBooksOrgsEmpty/);
+  assert.notEqual(en.apps.zohoBooksOrgsEmpty, en.apps.zohoOrgsEmpty);
+  assert.match(en.apps.zohoBooksOrgsEmpty, /Zoho Books/);
+  assert.doesNotMatch(en.apps.zohoBooksOrgsEmpty, /Zoho Invoice/);
+  pass('Books empty-org copy is provider-aware');
+
   pass('Localization for Zoho Books education keys');
 
   console.log('\nZoho Books V1 source checks passed');
