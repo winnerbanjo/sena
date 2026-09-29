@@ -375,6 +375,10 @@ export const integrationCatalog = pgTable('integration_catalog', {
   description: text('description').notNull(),
   availability: varchar('availability', { length: 30 }).notNull().default('coming_soon'),
   authType: varchar('auth_type', { length: 30 }).notNull(),
+  logoUrl: text('logo_url'),
+  docsUrl: text('docs_url'),
+  capabilities: jsonb('capabilities').$type<string[]>().notNull().default([]),
+  sortOrder: integer('sort_order').notNull().default(100),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 });
@@ -385,7 +389,9 @@ export const integrations = pgTable('integrations', {
   provider: varchar('provider', { length: 50 }).references(() => integrationCatalog.provider).notNull(),
   category: varchar('category', { length: 50 }).notNull(),
   status: varchar('status', { length: 30 }).notNull().default('disconnected'),
+  healthStatus: varchar('health_status', { length: 40 }).notNull().default('configured'),
   mode: varchar('mode', { length: 10 }),
+  environment: varchar('environment', { length: 30 }),
   externalAccountId: varchar('external_account_id', { length: 255 }),
   webhookTokenHash: varchar('webhook_token_hash', { length: 64 }).notNull(),
   webhookTokenEncrypted: text('webhook_token_encrypted').notNull(),
@@ -394,12 +400,14 @@ export const integrations = pgTable('integrations', {
   verifiedAt: timestamp('verified_at', { withTimezone: true }),
   webhookVerifiedAt: timestamp('webhook_verified_at', { withTimezone: true }),
   disconnectedAt: timestamp('disconnected_at', { withTimezone: true }),
+  lastSyncAt: timestamp('last_sync_at', { withTimezone: true }),
+  lastSyncAttemptAt: timestamp('last_sync_attempt_at', { withTimezone: true }),
   lastErrorAt: timestamp('last_error_at', { withTimezone: true }),
   lastErrorMessage: text('last_error_message'),
   metadata: jsonb('metadata'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-}, (t) => [uniqueIndex('integrations_property_provider_idx').on(t.propertyId, t.provider), uniqueIndex('integrations_webhook_token_idx').on(t.webhookTokenHash)]);
+}, (t) => [uniqueIndex('integrations_property_provider_idx').on(t.propertyId, t.provider), uniqueIndex('integrations_webhook_token_idx').on(t.webhookTokenHash), index('integrations_health_idx').on(t.provider, t.status, t.healthStatus)]);
 
 export const integrationCredentials = pgTable('integration_credentials', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -410,6 +418,125 @@ export const integrationCredentials = pgTable('integration_credentials', {
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   rotatedAt: timestamp('rotated_at', { withTimezone: true }),
 }, (t) => [uniqueIndex('integration_credentials_type_idx').on(t.integrationId, t.credentialType)]);
+
+export const integrationOauthStates = pgTable('integration_oauth_states', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  stateHash: varchar('state_hash', { length: 64 }).notNull(),
+  propertyId: uuid('property_id').references(() => properties.id, { onDelete: 'cascade' }).notNull(),
+  provider: varchar('provider', { length: 50 }).references(() => integrationCatalog.provider).notNull(),
+  actorUserId: uuid('actor_user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  codeVerifierEncrypted: text('code_verifier_encrypted'),
+  redirectUri: text('redirect_uri').notNull(),
+  scopes: jsonb('scopes').$type<string[]>().notNull().default([]),
+  metadata: jsonb('metadata'),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  consumedAt: timestamp('consumed_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [uniqueIndex('integration_oauth_state_hash_idx').on(t.stateHash), index('integration_oauth_state_expiry_idx').on(t.expiresAt)]);
+
+export const integrationOauthTokens = pgTable('integration_oauth_tokens', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  integrationId: uuid('integration_id').references(() => integrations.id, { onDelete: 'cascade' }).notNull(),
+  accessTokenEncrypted: text('access_token_encrypted').notNull(),
+  refreshTokenEncrypted: text('refresh_token_encrypted'),
+  tokenType: varchar('token_type', { length: 50 }).notNull().default('Bearer'),
+  scopes: jsonb('scopes').$type<string[]>().notNull().default([]),
+  expiresAt: timestamp('expires_at', { withTimezone: true }),
+  accountMetadata: jsonb('account_metadata'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  rotatedAt: timestamp('rotated_at', { withTimezone: true }),
+}, (t) => [uniqueIndex('integration_oauth_token_integration_idx').on(t.integrationId)]);
+
+export const integrationExternalObjects = pgTable('integration_external_objects', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  propertyId: uuid('property_id').references(() => properties.id, { onDelete: 'cascade' }).notNull(),
+  integrationId: uuid('integration_id').references(() => integrations.id, { onDelete: 'cascade' }).notNull(),
+  provider: varchar('provider', { length: 50 }).notNull(),
+  senaObjectType: varchar('sena_object_type', { length: 50 }).notNull(),
+  senaObjectId: uuid('sena_object_id').notNull(),
+  externalObjectType: varchar('external_object_type', { length: 80 }).notNull(),
+  externalObjectId: varchar('external_object_id', { length: 255 }).notNull(),
+  syncState: varchar('sync_state', { length: 30 }).notNull().default('synced'),
+  lastSyncedAt: timestamp('last_synced_at', { withTimezone: true }),
+  metadata: jsonb('metadata'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex('integration_ext_local_idx').on(t.integrationId, t.senaObjectType, t.senaObjectId),
+  uniqueIndex('integration_ext_remote_idx').on(t.integrationId, t.externalObjectType, t.externalObjectId),
+  index('integration_ext_property_idx').on(t.propertyId, t.provider, t.senaObjectType),
+]);
+
+export const integrationSyncJobs = pgTable('integration_sync_jobs', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  propertyId: uuid('property_id').references(() => properties.id, { onDelete: 'cascade' }).notNull(),
+  integrationId: uuid('integration_id').references(() => integrations.id, { onDelete: 'cascade' }).notNull(),
+  provider: varchar('provider', { length: 50 }).notNull(),
+  direction: varchar('direction', { length: 20 }).notNull(),
+  trigger: varchar('trigger', { length: 20 }).notNull(),
+  jobType: varchar('job_type', { length: 80 }).notNull(),
+  status: varchar('status', { length: 30 }).notNull().default('queued'),
+  attemptCount: integer('attempt_count').notNull().default(0),
+  maxAttempts: integer('max_attempts').notNull().default(8),
+  cursor: text('cursor'),
+  idempotencyKey: varchar('idempotency_key', { length: 255 }),
+  payload: jsonb('payload'),
+  lastError: text('last_error'),
+  nextRunAt: timestamp('next_run_at', { withTimezone: true }).defaultNow().notNull(),
+  startedAt: timestamp('started_at', { withTimezone: true }),
+  completedAt: timestamp('completed_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [
+  index('integration_sync_jobs_queue_idx').on(t.status, t.nextRunAt),
+  index('integration_sync_jobs_property_idx').on(t.propertyId, t.provider, t.createdAt),
+  uniqueIndex('integration_sync_jobs_idempotency_idx').on(t.propertyId, t.idempotencyKey),
+]);
+
+export const guestMessages = pgTable('guest_messages', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  propertyId: uuid('property_id').references(() => properties.id, { onDelete: 'cascade' }).notNull(),
+  guestId: uuid('guest_id').references(() => guests.id, { onDelete: 'set null' }),
+  reservationId: uuid('reservation_id').references(() => reservations.id, { onDelete: 'set null' }),
+  channel: varchar('channel', { length: 30 }).notNull(),
+  provider: varchar('provider', { length: 50 }),
+  templateKey: varchar('template_key', { length: 80 }),
+  status: varchar('status', { length: 30 }).notNull().default('queued'),
+  toAddress: varchar('to_address', { length: 255 }),
+  subject: varchar('subject', { length: 255 }),
+  bodyPreview: text('body_preview'),
+  providerMessageId: varchar('provider_message_id', { length: 255 }),
+  idempotencyKey: varchar('idempotency_key', { length: 255 }),
+  attemptCount: integer('attempt_count').notNull().default(0),
+  lastError: text('last_error'),
+  metadata: jsonb('metadata'),
+  queuedAt: timestamp('queued_at', { withTimezone: true }).defaultNow().notNull(),
+  sentAt: timestamp('sent_at', { withTimezone: true }),
+  deliveredAt: timestamp('delivered_at', { withTimezone: true }),
+  failedAt: timestamp('failed_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [
+  index('guest_messages_property_idx').on(t.propertyId, t.createdAt),
+  uniqueIndex('guest_messages_idempotency_idx').on(t.propertyId, t.idempotencyKey),
+]);
+
+export const guestMessageTemplates = pgTable('guest_message_templates', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  propertyId: uuid('property_id').references(() => properties.id, { onDelete: 'cascade' }),
+  templateKey: varchar('template_key', { length: 80 }).notNull(),
+  channel: varchar('channel', { length: 30 }).notNull(),
+  name: varchar('name', { length: 120 }).notNull(),
+  subject: varchar('subject', { length: 255 }),
+  body: text('body').notNull(),
+  variables: jsonb('variables').$type<string[]>().notNull().default([]),
+  automationEnabled: boolean('automation_enabled').notNull().default(false),
+  isSystem: boolean('is_system').notNull().default(false),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex('guest_message_templates_key_idx').on(t.propertyId, t.templateKey, t.channel),
+]);
 
 export const paymentAttempts = pgTable('payment_attempts', {
   id: uuid('id').defaultRandom().primaryKey(),
