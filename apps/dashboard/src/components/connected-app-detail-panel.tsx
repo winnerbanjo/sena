@@ -68,18 +68,31 @@ export function ConnectedAppDetailPanel({
   const googleManageRequestId = React.useRef(0);
 
   const load = React.useCallback(async () => {
-    const response = await fetch(`/api/apps/${provider}?_=${Date.now()}`, { cache: 'no-store' });
-    if (!response.ok) {
+    setError(null);
+    try {
+      const response = await fetch(`/api/apps/${provider}?_=${Date.now()}`, { cache: 'no-store' });
+      const payload = (await response.json().catch(() => ({}))) as DetailResponse & { error?: string };
+      if (!response.ok) {
+        setError(typeof payload.error === 'string' ? payload.error : t('detailLoadFailed'));
+        setData(null);
+        return;
+      }
+      if (!payload?.app?.provider) {
+        // Defensive: manage-only payloads must never leave the detail screen spinning.
+        setError(t('detailLoadFailed'));
+        setData(null);
+        return;
+      }
+      if (workspacePropertyId && payload.property?.id && payload.property.id !== workspacePropertyId) {
+        // Session/UI property diverged — force a full reload of the workspace shell.
+        window.location.assign(`/apps?manage=${encodeURIComponent(provider)}`);
+        return;
+      }
+      setData(payload);
+    } catch {
       setError(t('detailLoadFailed'));
-      return;
+      setData(null);
     }
-    const payload = (await response.json()) as DetailResponse;
-    if (workspacePropertyId && payload.property?.id && payload.property.id !== workspacePropertyId) {
-      // Session/UI property diverged — force a full reload of the workspace shell.
-      window.location.assign(`/apps?manage=${encodeURIComponent(provider)}`);
-      return;
-    }
-    setData(payload);
   }, [provider, t, workspacePropertyId]);
 
   const loadZohoManage = React.useCallback(async () => {
@@ -176,7 +189,7 @@ export function ConnectedAppDetailPanel({
     setGoogleCalendarsFetchStatus('loading');
     setGoogleCalendarsError(null);
     try {
-      const response = await fetch(`/api/apps/google_calendar?_=${Date.now()}`, { cache: 'no-store' });
+      const response = await fetch(`/api/apps/google_calendar/manage?_=${Date.now()}`, { cache: 'no-store' });
       const payload = await response.json().catch(() => ({}));
       if (requestId !== googleManageRequestId.current) return;
       if (workspacePropertyId && payload.property?.id && payload.property.id !== workspacePropertyId) {
@@ -271,7 +284,7 @@ export function ConnectedAppDetailPanel({
     setBusy(true);
     setError(null);
     try {
-      const response = await fetch('/api/apps/google_calendar', {
+      const response = await fetch('/api/apps/google_calendar/manage', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ action: 'select_calendar', calendarId, calendarName }),
@@ -299,7 +312,7 @@ export function ConnectedAppDetailPanel({
     setError(null);
     try {
       const next = !googleSyncEnabled;
-      const response = await fetch('/api/apps/google_calendar', {
+      const response = await fetch('/api/apps/google_calendar/manage', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ action: 'set_sync_enabled', enabled: next }),
@@ -348,7 +361,7 @@ export function ConnectedAppDetailPanel({
     setBusy(true);
     setError(null);
     try {
-      const endpoint = provider === 'google_calendar' ? '/api/apps/google_calendar' : `/api/apps/${provider}`;
+      const endpoint = provider === 'google_calendar' ? '/api/apps/google_calendar/manage' : `/api/apps/${provider}`;
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },

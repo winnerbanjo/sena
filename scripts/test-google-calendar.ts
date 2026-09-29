@@ -290,14 +290,38 @@ async function run() {
   console.log('PASS reconnect without duplicates');
 
   gcal.registerGoogleCalendarSyncHandlers();
-  const root = globalThis as typeof globalThis & { __senaSyncHandlers?: Record<string, unknown> };
-  assert.ok(root.__senaSyncHandlers?.google_calendar);
+  const handlerRoot = globalThis as typeof globalThis & { __senaSyncHandlers?: Record<string, unknown> };
+  assert.ok(handlerRoot.__senaSyncHandlers?.google_calendar);
   console.log('PASS Google Calendar sync handlers registered');
 
   const manage = await gcal.getGoogleCalendarManageState(ids.property);
   assert.equal(manage.connected, true);
   assert.ok(manage.calendars.length >= 1);
   console.log('PASS manage state');
+
+  await platform.disconnectOAuthIntegration({
+    propertyId: ids.property,
+    provider: 'google_calendar',
+    actorUserId: ids.user,
+  });
+  const disconnected = await gcal.getGoogleCalendarManageState(ids.property);
+  assert.equal(disconnected.connected, false);
+  assert.deepEqual(disconnected.calendars, []);
+  assert.equal(disconnected.syncEnabled, false);
+  assert.equal(disconnected.selectedCalendarId, null);
+  console.log('PASS disconnected Google Calendar manage state');
+
+  const fs = await import('node:fs');
+  const path = await import('node:path');
+  const repoRoot = path.resolve(process.cwd());
+  assert.equal(fs.existsSync(path.join(repoRoot, 'apps/dashboard/src/app/api/apps/google_calendar/route.ts')), false);
+  assert.equal(fs.existsSync(path.join(repoRoot, 'apps/dashboard/src/app/api/apps/google_calendar/manage/route.ts')), true);
+  const panel = fs.readFileSync(path.join(repoRoot, 'apps/dashboard/src/components/connected-app-detail-panel.tsx'), 'utf8');
+  assert.match(panel, /fetch\(`\/api\/apps\/\$\{provider\}`/);
+  assert.match(panel, /\/api\/apps\/google_calendar\/manage/);
+  assert.doesNotMatch(panel, /fetch\('\/api\/apps\/google_calendar'/);
+  assert.doesNotMatch(panel, /fetch\(`\/api\/apps\/google_calendar\?/);
+  console.log('PASS Google Calendar detail route no longer shadowed');
 
   globalThis.fetch = originalFetch;
   console.log('GOOGLE CALENDAR TESTS: PASS');

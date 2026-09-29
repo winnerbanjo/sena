@@ -28,7 +28,7 @@ When sync is **disabled**:
 
 ## Operator flow
 1. Connect from Connected Apps → Google Calendar
-2. Select a calendar (`GET/POST /api/apps/google_calendar`)
+2. Select a calendar (`GET/POST /api/apps/google_calendar/manage`)
 3. Enable reservation sync
 4. New/updated reservations queue background jobs; Sync Now re-syncs mapped + recently changed stays since enablement (no historical dump)
 
