@@ -336,6 +336,52 @@ async function run() {
   assert.equal(withoutPkce.get('code_verifier'), null);
   console.log('PASS Zoho token exchange PKCE + regional accounts base');
 
+  // Org list must surface API business errors and regional API hosts.
+  assert.equal(zoho.zohoApiBaseFromMetadata({ location: 'eu' }), 'https://www.zohoapis.eu/invoice/v3');
+  assert.equal(zoho.zohoApiBaseFromMetadata({ apiDomain: 'https://www.zohoapis.in' }), 'https://www.zohoapis.in/invoice/v3');
+  const originalFetch2 = globalThis.fetch;
+  globalThis.fetch = (async (input: any) => {
+    const url = String(input);
+    if (url.includes('/organizations')) {
+      return new Response(JSON.stringify({ code: 5, message: 'Invalid URL Passed' }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    return originalFetch2(input);
+  }) as typeof fetch;
+  // Re-seed connected zoho with tokens for manage-state org fetch
+  const zohoIntegration2 = await platform.markIntegrationAuthorized({
+    propertyId: ids.property,
+    provider: 'zoho_invoice',
+    category: 'accounting',
+    actorUserId: ids.user,
+    accountLabel: 'Zoho QA',
+    environment: 'https://www.zohoapis.com',
+    accountMetadata: { apiDomain: 'https://www.zohoapis.com', organizationId: undefined, location: 'us' },
+  });
+  await platform.upsertOAuthTokens({
+    integrationId: zohoIntegration2.id,
+    accessToken: 'zoho-access',
+    refreshToken: 'zoho-refresh',
+    expiresAt: new Date(Date.now() + 3600_000),
+    accountMetadata: { apiDomain: 'https://www.zohoapis.com', location: 'us' },
+  });
+  const manageFailed = await zoho.getZohoManageState(ids.property);
+  assert.equal(manageFailed.connectionStatus, 'connected');
+  assert.deepEqual(manageFailed.organizations, []);
+  assert.equal(manageFailed.organizationsError, 'ZOHO_API_5');
+  globalThis.fetch = originalFetch2;
+  console.log('PASS Zoho organizations fetch surfaces API errors');
+
+  // UI must not hide org selection when list is empty.
+  const panelSource = fs.readFileSync(path.join(root, 'apps/dashboard/src/components/connected-app-detail-panel.tsx'), 'utf8');
+  assert.match(panelSource, /zohoOrgsEmpty/);
+  assert.match(panelSource, /zohoOrgsRetry/);
+  assert.match(panelSource, /loadZohoManage/);
+  assert.match(panelSource, /organizationsError/);
+  console.log('PASS Zoho organization picker always rendered when connected');
+
   globalThis.fetch = originalFetch;
   console.log('ZOHO INVOICE TESTS: PASS');
 }

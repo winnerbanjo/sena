@@ -550,7 +550,11 @@
     "zohoSyncDisabled": "Usawazishaji wa ankara umezimwa. Ramani zilizopo zinahifadhiwa.",
     "zohoSyncToggleFailed": "Haikuweza kusasisha usawazishaji.",
     "zohoLastSynced": "Ilisawazishwa mwisho {time}",
-    "zohoConnected": "Zoho Invoice imeunganishwa"
+    "zohoConnected": "Zoho Invoice imeunganishwa",
+    "zohoOrgsLoading": "Inapakia mashirika ya Zoho…",
+    "zohoOrgsLoadFailed": "Imeshindwa kupakia mashirika ya Zoho. Jaribu tena au unganisha upya ikiwa itaendelea.",
+    "zohoOrgsRetry": "Jaribu tena",
+    "zohoOrgsEmpty": "Hakuna mashirika ya Zoho Invoice yaliyorudishwa kwa akaunti hii."
   },
   "billing": {
     "title": "Bili na mpango",

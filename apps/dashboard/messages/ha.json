@@ -550,7 +550,11 @@
     "zohoSyncDisabled": "An kashe daidaita takardun kuɗi. An kiyaye map ɗin da ake da su.",
     "zohoSyncToggleFailed": "An kasa sabunta daidaitawa.",
     "zohoLastSynced": "An daidaita ƙarshe {time}",
-    "zohoConnected": "An haɗa Zoho Invoice"
+    "zohoConnected": "An haɗa Zoho Invoice",
+    "zohoOrgsLoading": "Ana lodin ƙungiyoyin Zoho…",
+    "zohoOrgsLoadFailed": "An kasa lodin ƙungiyoyin Zoho. Sake gwadawa ko sake haɗawa idan ya ci gaba.",
+    "zohoOrgsRetry": "Sake gwadawa",
+    "zohoOrgsEmpty": "Babu ƙungiyoyin Zoho Invoice da aka dawo da su ga wannan asusun."
   },
   "billing": {
     "title": "Bili da tsari",

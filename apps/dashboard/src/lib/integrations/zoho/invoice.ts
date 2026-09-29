@@ -25,6 +25,17 @@ const LOCATION_ACCOUNTS: Record<string, string> = {
   sa: 'https://accounts.zoho.sa',
 };
 
+const LOCATION_API: Record<string, string> = {
+  us: 'https://www.zohoapis.com',
+  eu: 'https://www.zohoapis.eu',
+  in: 'https://www.zohoapis.in',
+  au: 'https://www.zohoapis.com.au',
+  jp: 'https://www.zohoapis.jp',
+  ca: 'https://www.zohocloud.ca',
+  cn: 'https://www.zohoapis.com.cn',
+  sa: 'https://www.zohoapis.sa',
+};
+
 const LOCATION_INVOICE_APP: Record<string, string> = {
   us: 'https://invoice.zoho.com',
   eu: 'https://invoice.zoho.eu',
@@ -99,8 +110,10 @@ export function zohoApiBaseFromMetadata(metadata: unknown) {
       : typeof record.environment === 'string'
         ? record.environment
         : null;
+  const location = typeof record.location === 'string' ? record.location.toLowerCase() : '';
+  const fromLocation = location && LOCATION_API[location] ? LOCATION_API[location] : null;
   const configured = process.env.SENA_ZOHO_API_BASE || process.env.ZOHO_API_BASE;
-  const base = (fromAccount || configured || 'https://www.zohoapis.com').replace(/\/$/, '');
+  const base = (fromAccount || fromLocation || configured || 'https://www.zohoapis.com').replace(/\/$/, '');
   return `${base}/invoice/v3`;
 }
 
@@ -200,10 +213,14 @@ export async function getZohoAccessContext(propertyId: string) {
     integration.metadata && typeof integration.metadata === 'object'
       ? String((integration.metadata as Record<string, unknown>).organizationId || '')
       : '';
+  const tokenMeta =
+    tokens.accountMetadata && typeof tokens.accountMetadata === 'object'
+      ? (tokens.accountMetadata as Record<string, unknown>)
+      : {};
   return {
     integration,
     tokens: tokens as ZohoTokens,
-    apiBase: zohoApiBaseFromMetadata(meta),
+    apiBase: zohoApiBaseFromMetadata({ ...meta, ...tokenMeta }),
     organizationId: organizationId || null,
     syncEnabled: isZohoSyncEnabled(integration),
   };
@@ -217,9 +234,13 @@ async function zohoFetch(propertyId: string, path: string, init?: RequestInit) {
   if (ctx.organizationId) headers.set('X-com-zoho-invoice-organizationid', ctx.organizationId);
   const response = await fetch(`${ctx.apiBase}${path}`, { ...init, headers, cache: 'no-store' });
   const json = await response.json().catch(() => null);
-  if (!response.ok) {
-    const code = json?.code || response.status;
-    if (response.status === 401) throw new Error('ZOHO_REAUTH_REQUIRED');
+  const zohoCode = json && typeof json === 'object' && typeof (json as { code?: unknown }).code === 'number'
+    ? (json as { code: number }).code
+    : null;
+  // Zoho often returns HTTP 200 with a non-zero business `code`.
+  if (!response.ok || (zohoCode !== null && zohoCode !== 0)) {
+    const code = zohoCode ?? json?.code ?? response.status;
+    if (response.status === 401 || zohoCode === 57 || zohoCode === 14) throw new Error('ZOHO_REAUTH_REQUIRED');
     if (response.status === 429) throw new Error('ZOHO_RATE_LIMIT');
     throw new Error(`ZOHO_API_${code}`);
   }
@@ -228,12 +249,22 @@ async function zohoFetch(propertyId: string, path: string, init?: RequestInit) {
 
 export async function listZohoOrganizations(propertyId: string) {
   const { json } = await zohoFetch(propertyId, '/organizations');
-  const orgs = Array.isArray(json?.organizations) ? json.organizations : [];
-  return orgs.map((org: any) => ({
-    organizationId: String(org.organization_id),
-    name: String(org.name || org.organization_id),
-    currency: org.currency_code || null,
-  }));
+  const raw = Array.isArray(json?.organizations)
+    ? json.organizations
+    : Array.isArray(json?.data)
+      ? json.data
+      : [];
+  return raw
+    .map((org: any) => {
+      const organizationId = org?.organization_id ?? org?.organizationId ?? org?.id;
+      if (organizationId == null || organizationId === '') return null;
+      return {
+        organizationId: String(organizationId),
+        name: String(org?.name || organizationId),
+        currency: org?.currency_code || org?.currencyCode || null,
+      };
+    })
+    .filter(Boolean) as Array<{ organizationId: string; name: string; currency: string | null }>;
 }
 
 /** Manage-panel snapshot. Never throws ZOHO_NOT_CONNECTED — disconnected is a valid UI state. */
@@ -250,16 +281,23 @@ export async function getZohoManageState(propertyId: string) {
       healthStatus: integration?.healthStatus || null,
       lastSyncAt: integration?.lastSyncAt?.toISOString() || null,
       lastErrorMessage: integration?.lastErrorMessage || null,
+      organizationsError: null as string | null,
     };
   }
 
   const org = getZohoOrganization(integration);
   let organizations: Array<{ organizationId: string; name: string; currency: string | null }> = [];
+  let organizationsError: string | null = null;
   try {
     organizations = await listZohoOrganizations(propertyId);
   } catch (error: any) {
     if (error?.message === 'ZOHO_REAUTH_REQUIRED') throw error;
-    // Connected but org list failed — still return selection so UI can render.
+    organizationsError =
+      error?.message === 'ZOHO_RATE_LIMIT'
+        ? 'ZOHO_RATE_LIMIT'
+        : typeof error?.message === 'string' && error.message.startsWith('ZOHO_API_')
+          ? error.message
+          : 'ORGANIZATIONS_FETCH_FAILED';
   }
 
   return {
@@ -270,7 +308,8 @@ export async function getZohoManageState(propertyId: string) {
     connectionStatus: integration.status,
     healthStatus: integration.healthStatus || null,
     lastSyncAt: integration.lastSyncAt?.toISOString() || null,
-    lastErrorMessage: integration.lastErrorMessage || null,
+    lastErrorMessage: integration?.lastErrorMessage || null,
+    organizationsError,
   };
 }
 
