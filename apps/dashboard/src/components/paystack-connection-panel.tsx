@@ -6,6 +6,7 @@ import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogH
 import { ChevronLeft, Loader2 } from 'lucide-react';
 import { Topbar } from '@/components/topbar';
 import { ConnectedAppLogo } from '@/components/connected-apps/connected-app-logo';
+import { ProviderEducationSections } from '@/components/connected-apps/provider-education';
 
 type PaystackState = {
   status: string;
@@ -157,20 +158,30 @@ export function PaystackConnectionPanel({ onBack }: { onBack?: () => void }) {
         {feedback && <div role="status" className="max-w-3xl rounded border border-[#E8E2DA] bg-white px-4 py-3 text-sm text-[#191816]">{feedback}</div>}
 
         {!managed ? (
-          <section className="max-w-xl rounded-2xl border border-[#E8E2DA] bg-white p-5 sm:p-6">
-            <div className="flex items-start gap-3">
-              <ConnectedAppLogo provider="paystack" name={t('paystack')} size="md" />
-              <div>
-                <h2 className="font-semibold text-[#191816]">{t('paystack')}</h2>
-                <p className="mt-1 text-sm text-[#7A7267]">{t('statusNotConnected')}</p>
+          <div className="max-w-3xl space-y-6">
+            <section className="rounded-2xl border border-[#E8E2DA] bg-white p-5 sm:p-6">
+              <div className="flex items-start gap-3">
+                <ConnectedAppLogo provider="paystack" name={t('paystack')} size="md" />
+                <div>
+                  <h2 className="font-semibold text-[#191816]">{t('paystack')}</h2>
+                  <p className="mt-1 text-sm text-[#7A7267]">{t('statusNotConnected')}</p>
+                </div>
               </div>
-            </div>
-            {canManage ? (
-              <Button className="mt-5" onClick={() => { setReplace(false); setFeedback(''); setOpen(true); }}>Connect</Button>
-            ) : (
-              <p className="mt-5 text-sm text-[#7A7267]">A property owner can connect this property&apos;s Paystack account.</p>
-            )}
-          </section>
+              {canManage ? (
+                <Button className="mt-5" onClick={() => { setReplace(false); setFeedback(''); setOpen(true); }}>
+                  {t('connectPaystack')}
+                </Button>
+              ) : (
+                <p className="mt-5 text-sm text-[#7A7267]">A property owner can connect this property&apos;s Paystack account.</p>
+              )}
+            </section>
+            <ProviderEducationSections
+              provider="paystack"
+              brandName={t('paystack')}
+              availability="available"
+              connected={false}
+            />
+          </div>
         ) : (
           <div className="max-w-3xl space-y-5">
             <section className="rounded-xl border border-[#E8E2DA] bg-white p-5 sm:p-6 shadow-2xs">

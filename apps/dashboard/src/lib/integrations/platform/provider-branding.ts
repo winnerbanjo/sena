@@ -1,10 +1,17 @@
+import { providerLogoSrcFromContent, getProviderContent } from './provider-content';
+
 export const PROVIDER_LOGO_SRC: Record<string, string> = {
   paystack: '/assets/providers/paystack.svg',
   flutterwave: '/assets/providers/flutterwave.svg',
+  stripe: '/assets/providers/stripe.svg',
   google_calendar: '/assets/providers/google-calendar.svg',
+  outlook_calendar: '/assets/providers/outlook.svg',
   zoho_invoice: '/assets/providers/zoho.svg',
   zoho_books: '/assets/providers/zoho.svg',
   whatsapp: '/assets/providers/whatsapp.svg',
+  gmail: '/assets/providers/gmail.svg',
+  outlook_mail: '/assets/providers/outlook.svg',
+  brevo: '/assets/providers/brevo.svg',
   booking_com: '/assets/providers/booking-com.svg',
   airbnb: '/assets/providers/airbnb.svg',
   expedia: '/assets/providers/expedia.svg',
@@ -16,10 +23,15 @@ export const PROVIDER_LOGO_SRC: Record<string, string> = {
 export type ProviderCopyKey =
   | 'paystack'
   | 'flutterwave'
+  | 'stripe'
   | 'googleCalendar'
+  | 'outlookCalendar'
   | 'zohoInvoice'
   | 'zohoBooks'
   | 'whatsapp'
+  | 'gmail'
+  | 'outlookMail'
+  | 'brevo'
   | 'bookingCom'
   | 'airbnb'
   | 'expedia'
@@ -33,9 +45,15 @@ const PROVIDER_COPY: Record<
 > = {
   paystack: { nameKey: 'paystack', descriptionKey: 'paystackDescription', categoryKey: 'paymentsCategory' },
   flutterwave: { nameKey: 'flutterwave', descriptionKey: 'flutterwaveDescription', categoryKey: 'paymentsCategory' },
+  stripe: { nameKey: 'stripe', descriptionKey: 'stripeDescription', categoryKey: 'paymentsCategory' },
   google_calendar: {
     nameKey: 'googleCalendar',
     descriptionKey: 'googleCalendarDescription',
+    categoryKey: 'calendarCategory',
+  },
+  outlook_calendar: {
+    nameKey: 'outlookCalendar',
+    descriptionKey: 'outlookCalendarDescription',
     categoryKey: 'calendarCategory',
   },
   zoho_invoice: {
@@ -45,6 +63,13 @@ const PROVIDER_COPY: Record<
   },
   zoho_books: { nameKey: 'zohoBooks', descriptionKey: 'zohoBooksDescription', categoryKey: 'accountingCategory' },
   whatsapp: { nameKey: 'whatsapp', descriptionKey: 'whatsappDescription', categoryKey: 'communicationsCategory' },
+  gmail: { nameKey: 'gmail', descriptionKey: 'gmailDescription', categoryKey: 'communicationsCategory' },
+  outlook_mail: {
+    nameKey: 'outlookMail',
+    descriptionKey: 'outlookMailDescription',
+    categoryKey: 'communicationsCategory',
+  },
+  brevo: { nameKey: 'brevo', descriptionKey: 'brevoDescription', categoryKey: 'communicationsCategory' },
   booking_com: {
     nameKey: 'bookingCom',
     descriptionKey: 'bookingComDescription',
@@ -62,11 +87,15 @@ const PROVIDER_COPY: Record<
 };
 
 export function providerLogoSrc(provider: string): string | null {
-  return PROVIDER_LOGO_SRC[provider] || null;
+  return PROVIDER_LOGO_SRC[provider] || providerLogoSrcFromContent(provider);
 }
 
 export function providerCopyKeys(provider: string) {
   return PROVIDER_COPY[provider] || null;
+}
+
+export function providerBrandName(provider: string): string | null {
+  return getProviderContent(provider)?.brandName || PROVIDER_COPY[provider]?.nameKey || null;
 }
 
 export function categoryLabelKey(category: string): string {

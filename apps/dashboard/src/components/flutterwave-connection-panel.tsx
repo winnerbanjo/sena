@@ -6,6 +6,7 @@ import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogH
 import { ChevronLeft, Loader2 } from 'lucide-react';
 import { Topbar } from '@/components/topbar';
 import { ConnectedAppLogo } from '@/components/connected-apps/connected-app-logo';
+import { ProviderEducationSections } from '@/components/connected-apps/provider-education';
 
 type FlutterwaveState = {
   status: string;
@@ -204,20 +205,30 @@ export function FlutterwaveConnectionPanel({ onBack }: { onBack?: () => void }) 
         {feedback && <div role="status" className="max-w-3xl rounded border border-[#E8E2DA] bg-white px-4 py-3 text-sm text-[#191816]">{feedback}</div>}
 
         {!managed ? (
-          <section className="max-w-xl rounded-xl border border-[#E8E2DA] bg-white p-5 sm:p-6 shadow-2xs">
-            <div className="flex items-start gap-3">
-              <ConnectedAppLogo provider="flutterwave" name={t('flutterwave')} size="md" />
-              <div className="min-w-0">
-                <h2 className="font-semibold text-[#191816]">{t('flutterwave')}</h2>
-                <p className="mt-1 text-sm text-[#7A7267]">{t('statusNotConnected')}</p>
+          <div className="max-w-3xl space-y-6">
+            <section className="rounded-xl border border-[#E8E2DA] bg-white p-5 sm:p-6 shadow-2xs">
+              <div className="flex items-start gap-3">
+                <ConnectedAppLogo provider="flutterwave" name={t('flutterwave')} size="md" />
+                <div className="min-w-0">
+                  <h2 className="font-semibold text-[#191816]">{t('flutterwave')}</h2>
+                  <p className="mt-1 text-sm text-[#7A7267]">{t('statusNotConnected')}</p>
+                </div>
               </div>
-            </div>
-            {canManage ? (
-              <Button className="mt-5" onClick={() => { setReplace(false); setFeedback(''); setOpen(true); }}>{t('connect')}</Button>
-            ) : (
-              <p className="mt-5 text-sm text-[#7A7267]">{t('ownerConnectsFlutterwave')}</p>
-            )}
-          </section>
+              {canManage ? (
+                <Button className="mt-5" onClick={() => { setReplace(false); setFeedback(''); setOpen(true); }}>
+                  {t('connectFlutterwave')}
+                </Button>
+              ) : (
+                <p className="mt-5 text-sm text-[#7A7267]">{t('ownerConnectsFlutterwave')}</p>
+              )}
+            </section>
+            <ProviderEducationSections
+              provider="flutterwave"
+              brandName={t('flutterwave')}
+              availability="available"
+              connected={false}
+            />
+          </div>
         ) : (
           <div className="max-w-3xl space-y-5">
             <section className="rounded-xl border border-[#E8E2DA] bg-white p-5 sm:p-6 shadow-2xs">
