@@ -390,6 +390,19 @@ export async function syncZohoContact(propertyId: string, guestId: string) {
   };
   if (guest.email) contactPayload.email = guest.email;
   if (guest.phone) contactPayload.phone = guest.phone;
+  // Zoho Invoice often ignores top-level email/phone on create unless a primary contact person is present.
+  if (guest.email || guest.phone) {
+    const [firstName, ...rest] = String(guest.fullName || 'Guest').trim().split(/\s+/);
+    contactPayload.contact_persons = [
+      {
+        first_name: firstName || 'Guest',
+        last_name: rest.join(' ') || firstName || 'Guest',
+        ...(guest.email ? { email: guest.email } : {}),
+        ...(guest.phone ? { phone: guest.phone } : {}),
+        is_primary_contact: true,
+      },
+    ];
+  }
 
   let externalId = existing?.externalObjectId;
   if (externalId) {

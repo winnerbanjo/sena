@@ -140,6 +140,7 @@ async function run() {
   const originalFetch = globalThis.fetch;
   let contactCreates = 0;
   let invoiceCreates = 0;
+  let lastContactCreateBody: any = null;
   globalThis.fetch = (async (input: any, init?: any) => {
     const url = String(input);
     const method = (init?.method || 'GET').toUpperCase();
@@ -153,7 +154,10 @@ async function run() {
       return new Response(JSON.stringify({ contacts: [] }), { status: 200, headers: { 'content-type': 'application/json' } });
     }
     if (url.includes('/contacts') && (method === 'POST' || method === 'PUT')) {
-      if (method === 'POST') contactCreates += 1;
+      if (method === 'POST') {
+        contactCreates += 1;
+        lastContactCreateBody = JSON.parse(String(init?.body || '{}'));
+      }
       return new Response(JSON.stringify({ contact: { contact_id: 'z-contact-1' } }), {
         status: 200,
         headers: { 'content-type': 'application/json' },
@@ -192,10 +196,13 @@ async function run() {
 
   const contact = await zoho.syncZohoContact(ids.property, ids.guest);
   assert.equal(contact.contactId, 'z-contact-1');
+  assert.equal(lastContactCreateBody?.email, 'ada@zoho-qa.invalid');
+  assert.equal(lastContactCreateBody?.contact_persons?.[0]?.email, 'ada@zoho-qa.invalid');
+  assert.equal(lastContactCreateBody?.contact_persons?.[0]?.is_primary_contact, true);
   const contactAgain = await zoho.syncZohoContact(ids.property, ids.guest);
   assert.equal(contactAgain.contactId, 'z-contact-1');
   assert.equal(contactCreates, 1, 'must not create duplicate Zoho contacts');
-  console.log('PASS contact mapping + duplicate contact protection');
+  console.log('PASS contact mapping + duplicate contact protection + contact_persons email');
 
   const invoice = await zoho.syncZohoInvoice(ids.property, ids.invoice);
   assert.equal(invoice.invoiceId, 'z-inv-1');
