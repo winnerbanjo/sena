@@ -55,7 +55,7 @@ function run() {
   assert.match(appsPage, /statusNotConnected/);
   assert.match(appsPage, /t\('flutterwave'\)/);
   assert.equal(en.apps.flutterwave, 'Flutterwave');
-  assert.equal(en.apps.flutterwaveDescription, "Accept online payments through your property's Flutterwave account.");
+  assert.equal(en.apps.flutterwaveDescription, 'Accept online payments directly into your Flutterwave account.');
   pass('TEST 4 Paystack actual connection state is preserved');
 
   assert.match(appsPage, /manage=\$\{app\.provider\}|manage=paystack/);
