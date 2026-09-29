@@ -777,7 +777,9 @@
     "zohoBooksPaymentAccount": "Compte de dépôt (facultatif)",
     "zohoBooksPaymentAccountHelp": "Choisissez le compte cash/banque Zoho Books qui reçoit les paiements synchronisés. Laissez vide pour utiliser le défaut de l’organisation.",
     "zohoBooksPaymentAccountDefault": "Défaut de l’organisation",
-    "zohoBooksPaymentAccountSaved": "Compte de dépôt enregistré."
+    "zohoBooksPaymentAccountSaved": "Compte de dépôt enregistré.",
+    "zohoBooksOrgsEmpty": "Aucune organisation Zoho Books n’a été renvoyée pour ce compte.",
+    "zohoBooksOrgsEmptyHelp": "Les organisations Zoho Invoice sont distinctes de Zoho Books. Créez ou mettez à niveau une organisation dans Zoho Books, puis actualisez cette page. La connexion Sena reste intacte."
   },
   "billing": {
     "title": "Facturation et forfait",

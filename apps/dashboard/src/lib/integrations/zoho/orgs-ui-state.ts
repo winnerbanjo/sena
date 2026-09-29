@@ -10,7 +10,7 @@ export type ZohoOrgsView =
 /**
  * Connected-apps Zoho org panel view model.
  * Never treat pre-fetch idle as "empty organizations" — that falsely shows
- * "No Zoho Invoice organizations were returned" before manage responds.
+ * empty-org copy before manage responds. Empty copy is provider-specific in the UI.
  */
 export function resolveZohoOrgsView(input: {
   connected: boolean;

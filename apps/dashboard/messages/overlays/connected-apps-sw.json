@@ -151,5 +151,7 @@
   "zohoBooksPaymentAccount": "Akaunti ya amana (si lazima)",
   "zohoBooksPaymentAccountHelp": "Chagua akaunti ya pesa/benki ya Zoho Books inayopokea malipo yaliyosawazishwa. Acha tupu utumie chaguo-msingi la shirika.",
   "zohoBooksPaymentAccountDefault": "Chaguo-msingi la shirika",
-  "zohoBooksPaymentAccountSaved": "Akaunti ya amana imehifadhiwa."
+  "zohoBooksPaymentAccountSaved": "Akaunti ya amana imehifadhiwa.",
+  "zohoBooksOrgsEmpty": "Hakuna mashirika ya Zoho Books yaliyorudishwa kwa akaunti hii.",
+  "zohoBooksOrgsEmptyHelp": "Mashirika ya Zoho Invoice ni tofauti na Zoho Books. Unda au sasisha shirika katika Zoho Books, kisha onyesha upya ukurasa huu. Muunganisho wa Sena unabaki."
 }
