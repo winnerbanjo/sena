@@ -32,17 +32,15 @@ export function ConnectedAppLogo({
     <div
       className={`flex shrink-0 items-center justify-center overflow-hidden rounded-xl border border-[#E8E2DA] bg-white ${SIZE[size]} ${className}`}
       dir="ltr"
+      aria-hidden="true"
     >
       {src ? (
         // Local SVG brand marks — plain img keeps proportions without Next image config.
         // eslint-disable-next-line @next/next/no-img-element
         <img src={src} alt="" className="h-[70%] w-[70%] object-contain" />
       ) : (
-        <span className="text-xs font-semibold tracking-wide text-[#71382D]" aria-hidden>
-          {initials || 'App'}
-        </span>
+        <span className="text-xs font-semibold tracking-wide text-[#71382D]">{initials || 'App'}</span>
       )}
-      <span className="sr-only">{name}</span>
     </div>
   );
 }
