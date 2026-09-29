@@ -126,6 +126,11 @@ export async function settlePropertyPaystack(attemptId: string, verified: any) {
     void import('@/lib/integrations/zoho/invoice')
       .then(({ maybeQueueZohoPaymentSync }) => maybeQueueZohoPaymentSync(outcome.propertyId, outcome.paymentId!))
       .catch(() => null);
+    void import('@/lib/integrations/zoho/books')
+      .then(({ maybeQueueZohoBooksPaymentSync }) =>
+        maybeQueueZohoBooksPaymentSync(outcome.propertyId, outcome.paymentId!)
+      )
+      .catch(() => null);
   }
 
   return { status: outcome.status, attemptId: outcome.attemptId };

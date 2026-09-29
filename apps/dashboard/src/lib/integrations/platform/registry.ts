@@ -209,7 +209,7 @@ export async function ensureConnectedAppsPlatformSchema() {
           ('gmail', 'Gmail', 'communications', 'Send guest email from Gmail (planned).', 'coming_soon', 'oauth2', '["guest_email"]'::jsonb, 55, NULL),
           ('outlook_mail', 'Outlook Mail', 'communications', 'Send guest email from Outlook (planned).', 'coming_soon', 'oauth2', '["guest_email"]'::jsonb, 56, NULL),
           ('brevo', 'Brevo', 'communications', 'Send guest email through Brevo (planned).', 'coming_soon', 'api_key', '["guest_email"]'::jsonb, 57, NULL),
-          ('zoho_books', 'Zoho Books', 'accounting', 'Sync accounting objects to Zoho Books.', 'coming_soon', 'oauth2', '["contact_sync","invoice_export"]'::jsonb, 110, NULL),
+          ('zoho_books', 'Zoho Books', 'accounting', 'Export guests, invoices, and verified payments to Zoho Books. Sena remains the source of truth for settlement.', 'available', 'oauth2', '["contact_sync","invoice_export","payment_sync"]'::jsonb, 35, 'https://www.zoho.com/books/api/v3/'),
           ('quickbooks', 'QuickBooks Online', 'accounting', 'Sync accounting objects to QuickBooks Online.', 'coming_soon', 'oauth2', '["contact_sync","invoice_export"]'::jsonb, 120, NULL),
           ('xero', 'Xero', 'accounting', 'Sync accounting objects to Xero.', 'coming_soon', 'oauth2', '["contact_sync","invoice_export"]'::jsonb, 130, NULL),
           ('channex', 'Channex', 'channel_management', 'Distribute inventory across OTAs via Channex.', 'coming_soon', 'api_key', '["channel_management"]'::jsonb, 250, NULL),
