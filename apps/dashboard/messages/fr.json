@@ -550,7 +550,11 @@
     "zohoSyncDisabled": "Synchronisation des factures désactivée. Les correspondances existantes sont conservées.",
     "zohoSyncToggleFailed": "Impossible de mettre à jour la synchronisation.",
     "zohoLastSynced": "Dernière synchronisation {time}",
-    "zohoConnected": "Zoho Invoice connecté"
+    "zohoConnected": "Zoho Invoice connecté",
+    "zohoOrgsLoading": "Chargement des organisations Zoho…",
+    "zohoOrgsLoadFailed": "Impossible de charger les organisations Zoho. Réessayez ou reconnectez si cela continue.",
+    "zohoOrgsRetry": "Réessayer",
+    "zohoOrgsEmpty": "Aucune organisation Zoho Invoice n’a été renvoyée pour ce compte."
   },
   "billing": {
     "title": "Facturation et forfait",

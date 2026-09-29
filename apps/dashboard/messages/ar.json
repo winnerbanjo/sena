@@ -550,7 +550,11 @@
     "zohoSyncDisabled": "مزامنة الفواتير متوقفة. تبقى الربط السابق محفوظًا.",
     "zohoSyncToggleFailed": "تعذّر تحديث مزامنة الفواتير.",
     "zohoLastSynced": "آخر مزامنة {time}",
-    "zohoConnected": "تم ربط Zoho Invoice"
+    "zohoConnected": "تم ربط Zoho Invoice",
+    "zohoOrgsLoading": "جاري تحميل مؤسسات Zoho…",
+    "zohoOrgsLoadFailed": "تعذر تحميل مؤسسات Zoho. أعد المحاولة أو أعد الاتصال إذا استمر الأمر.",
+    "zohoOrgsRetry": "إعادة المحاولة",
+    "zohoOrgsEmpty": "لم تُرجع أي مؤسسات Zoho Invoice لهذا الحساب."
   },
   "billing": {
     "title": "الفوترة والخطة",

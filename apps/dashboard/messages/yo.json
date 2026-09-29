@@ -550,7 +550,11 @@
     "zohoSyncDisabled": "Ìmúṣọkan ìwé-owó ti pa. Àwọn ìsopọ̀ tó wà ṣì wà.",
     "zohoSyncToggleFailed": "Kò le ṣe àtúnṣe ìmúṣọkan.",
     "zohoLastSynced": "Ìgbà ìmúṣọkan tó kẹ́yìn {time}",
-    "zohoConnected": "Zoho Invoice ti sopọ̀"
+    "zohoConnected": "Zoho Invoice ti sopọ̀",
+    "zohoOrgsLoading": "Ń gba àwọn àjọ Zoho…",
+    "zohoOrgsLoadFailed": "Kò le gba àwọn àjọ Zoho. Gbìyànjú lẹ́ẹ̀kan sí i tàbí so pọ̀ mọ́lẹ̀.",
+    "zohoOrgsRetry": "Gbìyànjú lẹ́ẹ̀kan sí i",
+    "zohoOrgsEmpty": "Kò sí àjọ Zoho Invoice kankan fún àkántì yìí."
   },
   "billing": {
     "title": "Ìsanwó àti ètò",

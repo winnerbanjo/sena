@@ -550,7 +550,11 @@
     "zohoSyncDisabled": "Invoice sync is off. Existing mappings are kept.",
     "zohoSyncToggleFailed": "Could not update invoice sync.",
     "zohoLastSynced": "Last synced {time}",
-    "zohoConnected": "Zoho Invoice connected"
+    "zohoConnected": "Zoho Invoice connected",
+    "zohoOrgsLoading": "Loading Zoho organizations…",
+    "zohoOrgsLoadFailed": "Could not load Zoho organizations. Retry or reconnect if this continues.",
+    "zohoOrgsRetry": "Retry",
+    "zohoOrgsEmpty": "No Zoho Invoice organizations were returned for this account."
   },
   "billing": {
     "title": "Billing & Plan",

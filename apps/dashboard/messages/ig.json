@@ -550,7 +550,11 @@
     "zohoSyncDisabled": "Agbanyụrụ mmekọrịta akwụkwọ ụgwọ. Ejidere map ndị dị.",
     "zohoSyncToggleFailed": "Enweghị ike imelite mmekọrịta.",
     "zohoLastSynced": "Emere mmekọrịta ikpeazụ {time}",
-    "zohoConnected": "Ejikọtara Zoho Invoice"
+    "zohoConnected": "Ejikọtara Zoho Invoice",
+    "zohoOrgsLoading": "Na-ebugo òtù Zoho…",
+    "zohoOrgsLoadFailed": "Enweghị ike ibugo òtù Zoho. Nwaa ọzọ ma ọ bụ jikọọ ọzọ ma ọ gaa n'ihu.",
+    "zohoOrgsRetry": "Nwaa ọzọ",
+    "zohoOrgsEmpty": "Enweghị òtù Zoho Invoice ọ bụla eweghachitere maka akaụntụ a."
   },
   "billing": {
     "title": "Ụgwọ na atụmatụ",
