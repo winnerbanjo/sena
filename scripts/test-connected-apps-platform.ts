@@ -188,9 +188,24 @@ async function run() {
     idempotencyKey: 'qa-sync-1',
   });
   assert.equal(job1.id, job2.id);
+  assert.equal(job2.status, 'queued');
   const processed = await platform.processSyncQueue(async () => ({}), 5);
   assert.equal(processed.some((row) => row?.status === 'completed'), true);
-  console.log('PASS sync enqueue idempotency + worker completion');
+  const job3 = await platform.enqueueSyncJob({
+    propertyId: ids.property,
+    integrationId: integration.id,
+    provider: 'zoho_invoice',
+    direction: 'outbound',
+    trigger: 'event',
+    jobType: 'platform_ping',
+    idempotencyKey: 'qa-sync-1',
+    payload: { reason: 'mutation' },
+  });
+  assert.equal(job3.id, job1.id);
+  assert.equal(job3.status, 'queued');
+  const processedAgain = await platform.processSyncQueue(async () => ({}), 5);
+  assert.equal(processedAgain.some((row) => row?.status === 'completed'), true);
+  console.log('PASS sync enqueue idempotency + terminal re-queue + worker completion');
 
   // Audit scrubbing
   const scrubbed = platform.scrubAuditDetails({ account: 'Zoho QA', access_token: 'leak', secretKey: 'sk_test_leak' });

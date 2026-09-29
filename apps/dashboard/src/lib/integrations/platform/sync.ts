@@ -31,8 +31,39 @@ export async function enqueueSyncJob(input: {
         eq(integrationSyncJobs.idempotencyKey, input.idempotencyKey)
       ),
     });
-    if (existing && ['queued', 'processing', 'retrying', 'completed'].includes(existing.status)) {
+    // In-flight jobs stay collapsed (no duplicate workers). Terminal jobs are re-queued so
+    // later mutations (assign-room, check-in, cancel, etc.) can sync again under the same key.
+    if (existing && ['queued', 'processing', 'retrying'].includes(existing.status)) {
       return existing;
+    }
+    if (existing) {
+      const now = new Date();
+      const [updated] = await db
+        .update(integrationSyncJobs)
+        .set({
+          status: 'queued',
+          direction: input.direction,
+          trigger: input.trigger,
+          jobType: input.jobType,
+          payload: input.payload || existing.payload || {},
+          cursor: input.cursor === undefined ? existing.cursor : input.cursor,
+          maxAttempts: input.maxAttempts || existing.maxAttempts || 8,
+          attemptCount: 0,
+          nextRunAt: now,
+          lastError: null,
+          startedAt: null,
+          completedAt: null,
+          updatedAt: now,
+        })
+        .where(eq(integrationSyncJobs.id, existing.id))
+        .returning();
+
+      await db
+        .update(integrations)
+        .set({ lastSyncAttemptAt: now, healthStatus: 'syncing', updatedAt: now })
+        .where(eq(integrations.id, input.integrationId));
+
+      return updated;
     }
   }
 
