@@ -43,6 +43,8 @@ export function ConnectedAppDetailPanel({
   const [message, setMessage] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [zohoOrgs, setZohoOrgs] = React.useState<Array<{ organizationId: string; name: string }>>([]);
+  const [googleCalendars, setGoogleCalendars] = React.useState<Array<{ id: string; summary: string }>>([]);
+  const [selectedGoogleCalendarId, setSelectedGoogleCalendarId] = React.useState<string | null>(null);
 
   const load = React.useCallback(async () => {
     const response = await fetch(`/api/apps/${provider}`, { cache: 'no-store' });
@@ -67,6 +69,17 @@ export function ConnectedAppDetailPanel({
     })();
   }, [provider, data?.app?.connectionStatus]);
 
+  React.useEffect(() => {
+    if (provider !== 'google_calendar') return;
+    void (async () => {
+      const response = await fetch('/api/apps/google_calendar', { cache: 'no-store' });
+      if (!response.ok) return;
+      const payload = await response.json().catch(() => ({}));
+      if (Array.isArray(payload.calendars)) setGoogleCalendars(payload.calendars);
+      if (typeof payload.selectedCalendarId === 'string') setSelectedGoogleCalendarId(payload.selectedCalendarId);
+    })();
+  }, [provider, data?.app?.connectionStatus]);
+
   async function selectZohoOrg(organizationId: string, organizationName?: string) {
     setBusy(true);
     setError(null);
@@ -83,6 +96,29 @@ export function ConnectedAppDetailPanel({
         return;
       }
       setMessage('Zoho organization selected.');
+      await load();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function selectGoogleCalendar(calendarId: string) {
+    setBusy(true);
+    setError(null);
+    try {
+      const response = await fetch('/api/apps/google_calendar', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ action: 'select_calendar', calendarId }),
+        cache: 'no-store',
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setError(payload.error || 'Could not select calendar.');
+        return;
+      }
+      setSelectedGoogleCalendarId(calendarId);
+      setMessage('Google Calendar selected.');
       await load();
     } finally {
       setBusy(false);
@@ -259,6 +295,28 @@ export function ConnectedAppDetailPanel({
                         className="min-h-11 rounded-lg border border-[#E8E2DA] px-3 text-sm font-medium text-[#71382D] disabled:opacity-60"
                       >
                         Use this org
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
+
+            {provider === 'google_calendar' && data?.canManage && app.connectionStatus === 'connected' && googleCalendars.length > 0 ? (
+              <section className="max-w-3xl space-y-3">
+                <h2 className="text-sm font-medium text-[#191816]">Target calendar</h2>
+                <p className="text-sm text-[#7A7267]">Reservations sync outbound to the selected calendar. Selected: {selectedGoogleCalendarId || 'primary'}.</p>
+                <ul className="divide-y divide-[#E8E2DA] rounded-xl border border-[#E8E2DA] bg-white">
+                  {googleCalendars.map((calendar) => (
+                    <li key={calendar.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 text-sm">
+                      <span className="text-[#191816]">{calendar.summary}</span>
+                      <button
+                        type="button"
+                        disabled={busy || selectedGoogleCalendarId === calendar.id}
+                        onClick={() => void selectGoogleCalendar(calendar.id)}
+                        className="min-h-11 rounded-lg border border-[#E8E2DA] px-3 text-sm font-medium text-[#71382D] disabled:opacity-60"
+                      >
+                        {selectedGoogleCalendarId === calendar.id ? 'Selected' : 'Use calendar'}
                       </button>
                     </li>
                   ))}
