@@ -117,6 +117,12 @@ export async function POST(req: NextRequest) {
     // Fetch enriched reservation details for response and webhooks
     const fullReservation = await ReservationService.getById(reservation.id);
 
+    void import('@/lib/integrations/google/calendar')
+      .then(({ maybeQueueGoogleReservationSync }) =>
+        maybeQueueGoogleReservationSync(propertyId, reservation.id)
+      )
+      .catch(() => null);
+
     const responsePayload = {
       data: {
         id: fullReservation?.id || reservation.id,

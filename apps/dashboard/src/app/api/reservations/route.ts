@@ -194,6 +194,12 @@ async function handlePOST(req: NextRequest) {
       }
     }
 
+    void import('@/lib/integrations/google/calendar')
+      .then(({ maybeQueueGoogleReservationSync }) =>
+        maybeQueueGoogleReservationSync(propertyId, reservation.id)
+      )
+      .catch(() => null);
+
     return NextResponse.json({ success: true, reservation });
   } catch (error: any) {
     console.error('Error creating reservation:', error);

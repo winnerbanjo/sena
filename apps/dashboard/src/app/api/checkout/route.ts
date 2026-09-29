@@ -107,6 +107,12 @@ export async function POST(req: NextRequest) {
       console.error('Non-critical: Confirmation email dispatch failed:', emailErr);
     }
 
+    void import('@/lib/integrations/google/calendar')
+      .then(({ maybeQueueGoogleReservationSync }) =>
+        maybeQueueGoogleReservationSync(property.id, reservation.id)
+      )
+      .catch(() => null);
+
     let onlinePayment;
     if (onlineProvider) {
       const host = req.headers.get('host') || 'app.sena.ng';

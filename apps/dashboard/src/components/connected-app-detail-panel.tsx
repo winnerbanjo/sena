@@ -57,9 +57,15 @@ export function ConnectedAppDetailPanel({
   const [zohoSyncEnabled, setZohoSyncEnabled] = React.useState(false);
   const [zohoOrgsError, setZohoOrgsError] = React.useState<string | null>(null);
   const [zohoOrgsFetchStatus, setZohoOrgsFetchStatus] = React.useState<ZohoOrgsFetchStatus>('idle');
-  const [googleCalendars, setGoogleCalendars] = React.useState<Array<{ id: string; summary: string }>>([]);
+  const [googleCalendars, setGoogleCalendars] = React.useState<Array<{ id: string; summary: string; primary?: boolean }>>([]);
   const [selectedGoogleCalendarId, setSelectedGoogleCalendarId] = React.useState<string | null>(null);
+  const [selectedGoogleCalendarName, setSelectedGoogleCalendarName] = React.useState<string | null>(null);
+  const [googleSyncEnabled, setGoogleSyncEnabled] = React.useState(false);
+  const [googleAccountEmail, setGoogleAccountEmail] = React.useState<string | null>(null);
+  const [googleCalendarsError, setGoogleCalendarsError] = React.useState<string | null>(null);
+  const [googleCalendarsFetchStatus, setGoogleCalendarsFetchStatus] = React.useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
   const zohoManageRequestId = React.useRef(0);
+  const googleManageRequestId = React.useRef(0);
 
   const load = React.useCallback(async () => {
     const response = await fetch(`/api/apps/${provider}?_=${Date.now()}`, { cache: 'no-store' });
@@ -148,6 +154,14 @@ export function ConnectedAppDetailPanel({
     setZohoSyncEnabled(false);
     setZohoOrgsError(null);
     setZohoOrgsFetchStatus('idle');
+    googleManageRequestId.current += 1;
+    setGoogleCalendars([]);
+    setSelectedGoogleCalendarId(null);
+    setSelectedGoogleCalendarName(null);
+    setGoogleSyncEnabled(false);
+    setGoogleAccountEmail(null);
+    setGoogleCalendarsError(null);
+    setGoogleCalendarsFetchStatus('idle');
   }, [workspacePropertyId]);
 
   React.useEffect(() => {
@@ -156,16 +170,42 @@ export function ConnectedAppDetailPanel({
     void loadZohoManage();
   }, [provider, data?.app?.connectionStatus, loadZohoManage]);
 
+  const loadGoogleManage = React.useCallback(async () => {
+    if (provider !== 'google_calendar') return;
+    const requestId = ++googleManageRequestId.current;
+    setGoogleCalendarsFetchStatus('loading');
+    setGoogleCalendarsError(null);
+    try {
+      const response = await fetch(`/api/apps/google_calendar?_=${Date.now()}`, { cache: 'no-store' });
+      const payload = await response.json().catch(() => ({}));
+      if (requestId !== googleManageRequestId.current) return;
+      if (workspacePropertyId && payload.property?.id && payload.property.id !== workspacePropertyId) {
+        window.location.assign(`/apps?manage=${encodeURIComponent(provider)}`);
+        return;
+      }
+      if (!response.ok) {
+        setGoogleCalendarsFetchStatus('error');
+        setGoogleCalendarsError(payload.error || t('googleCalendarsLoadFailed'));
+        return;
+      }
+      setGoogleCalendars(Array.isArray(payload.calendars) ? payload.calendars : []);
+      setSelectedGoogleCalendarId(typeof payload.selectedCalendarId === 'string' ? payload.selectedCalendarId : null);
+      setSelectedGoogleCalendarName(typeof payload.selectedCalendarName === 'string' ? payload.selectedCalendarName : null);
+      setGoogleSyncEnabled(Boolean(payload.syncEnabled));
+      setGoogleAccountEmail(typeof payload.accountEmail === 'string' ? payload.accountEmail : null);
+      setGoogleCalendarsFetchStatus('ready');
+    } catch {
+      if (requestId !== googleManageRequestId.current) return;
+      setGoogleCalendarsFetchStatus('error');
+      setGoogleCalendarsError(t('googleCalendarsLoadFailed'));
+    }
+  }, [provider, t, workspacePropertyId]);
+
   React.useEffect(() => {
     if (provider !== 'google_calendar') return;
-    void (async () => {
-      const response = await fetch('/api/apps/google_calendar', { cache: 'no-store' });
-      if (!response.ok) return;
-      const payload = await response.json().catch(() => ({}));
-      if (Array.isArray(payload.calendars)) setGoogleCalendars(payload.calendars);
-      if (typeof payload.selectedCalendarId === 'string') setSelectedGoogleCalendarId(payload.selectedCalendarId);
-    })();
-  }, [provider, data?.app?.connectionStatus]);
+    if (data?.app?.connectionStatus !== 'connected') return;
+    void loadGoogleManage();
+  }, [provider, data?.app?.connectionStatus, loadGoogleManage]);
 
   async function retryZohoOrgs() {
     setBusy(true);
@@ -227,23 +267,51 @@ export function ConnectedAppDetailPanel({
     }
   }
 
-  async function selectGoogleCalendar(calendarId: string) {
+  async function selectGoogleCalendar(calendarId: string, calendarName?: string) {
     setBusy(true);
     setError(null);
     try {
       const response = await fetch('/api/apps/google_calendar', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ action: 'select_calendar', calendarId }),
+        body: JSON.stringify({ action: 'select_calendar', calendarId, calendarName }),
         cache: 'no-store',
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) {
-        setError(payload.error || 'Could not select calendar.');
+        setError(payload.error || t('googleCalendarSelectFailed'));
         return;
       }
       setSelectedGoogleCalendarId(calendarId);
-      setMessage('Google Calendar selected.');
+      setSelectedGoogleCalendarName(calendarName || null);
+      if (payload.calendarChanged) setGoogleSyncEnabled(false);
+      else if (typeof payload.syncEnabled === 'boolean') setGoogleSyncEnabled(payload.syncEnabled);
+      setMessage(t('googleCalendarSelected'));
+      await load();
+      await loadGoogleManage();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function toggleGoogleSync() {
+    setBusy(true);
+    setError(null);
+    try {
+      const next = !googleSyncEnabled;
+      const response = await fetch('/api/apps/google_calendar', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ action: 'set_sync_enabled', enabled: next }),
+        cache: 'no-store',
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setError(payload.error || t('googleSyncToggleFailed'));
+        return;
+      }
+      setGoogleSyncEnabled(Boolean(payload.syncEnabled));
+      setMessage(next ? t('googleSyncEnabled') : t('googleSyncDisabled'));
       await load();
     } finally {
       setBusy(false);
@@ -280,10 +348,15 @@ export function ConnectedAppDetailPanel({
     setBusy(true);
     setError(null);
     try {
-      const response = await fetch(`/api/apps/${provider}`, {
+      const endpoint = provider === 'google_calendar' ? '/api/apps/google_calendar' : `/api/apps/${provider}`;
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ action: 'sync_now', jobType: 'full_sync' }),
+        body: JSON.stringify(
+          provider === 'google_calendar'
+            ? { action: 'sync_now' }
+            : { action: 'sync_now', jobType: 'full_sync' }
+        ),
         cache: 'no-store',
       });
       const payload = await response.json().catch(() => ({}));
@@ -510,25 +583,100 @@ export function ConnectedAppDetailPanel({
               </section>
             ) : null}
 
-            {provider === 'google_calendar' && data?.canManage && app.connectionStatus === 'connected' && googleCalendars.length > 0 ? (
-              <section className="max-w-3xl space-y-3">
-                <h2 className="text-sm font-medium text-[#191816]">Target calendar</h2>
-                <p className="text-sm text-[#7A7267]">Reservations sync outbound to the selected calendar. Selected: {selectedGoogleCalendarId || 'primary'}.</p>
-                <ul className="divide-y divide-[#E8E2DA] rounded-xl border border-[#E8E2DA] bg-white">
-                  {googleCalendars.map((calendar) => (
-                    <li key={calendar.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 text-sm">
-                      <span className="text-[#191816]">{calendar.summary}</span>
-                      <button
-                        type="button"
-                        disabled={busy || selectedGoogleCalendarId === calendar.id}
-                        onClick={() => void selectGoogleCalendar(calendar.id)}
-                        className="min-h-11 rounded-lg border border-[#E8E2DA] px-3 text-sm font-medium text-[#71382D] disabled:opacity-60"
-                      >
-                        {selectedGoogleCalendarId === calendar.id ? 'Selected' : 'Use calendar'}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
+            {provider === 'google_calendar' && data?.canManage && app.connectionStatus === 'connected' ? (
+              <section className="max-w-3xl space-y-4">
+                <div className="rounded-xl border border-[#E8E2DA] bg-white p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <h2 className="text-sm font-medium text-[#191816]">{t('googleSyncReservations')}</h2>
+                      <p className="mt-1 text-sm text-[#7A7267]">{t('googleSyncReservationsHelp')}</p>
+                      {googleAccountEmail || app.accountLabel ? (
+                        <p className="mt-2 text-xs text-[#7A7267]">
+                          {t('googleAccount')}:{' '}
+                          <span className="text-[#191816] ltr-isolate" dir="ltr">
+                            {googleAccountEmail || app.accountLabel}
+                          </span>
+                        </p>
+                      ) : null}
+                      {selectedGoogleCalendarId ? (
+                        <p className="mt-1 text-xs text-[#7A7267]">
+                          {t('googleTargetCalendar')}:{' '}
+                          <span className="text-[#191816]">{selectedGoogleCalendarName || selectedGoogleCalendarId}</span>
+                        </p>
+                      ) : (
+                        <p className="mt-2 text-xs text-[#71382D]">{t('googleCalendarRequired')}</p>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={googleSyncEnabled}
+                      aria-label={t('googleSyncReservations')}
+                      disabled={busy || !selectedGoogleCalendarId}
+                      onClick={() => void toggleGoogleSync()}
+                      className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors disabled:opacity-50 ${
+                        googleSyncEnabled ? 'bg-[#2E6B4F]' : 'bg-[#D5CDC3]'
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-5 w-5 transform rounded-full bg-white transition ${
+                          googleSyncEnabled ? 'translate-x-6' : 'translate-x-1'
+                        }`}
+                      />
+                    </button>
+                  </div>
+                  {app.lastSyncAt ? (
+                    <p className="mt-3 text-xs text-[#7A7267]">
+                      {t('zohoLastSynced', { time: new Date(app.lastSyncAt).toLocaleString() })}
+                    </p>
+                  ) : null}
+                </div>
+
+                {googleCalendarsFetchStatus === 'loading' || googleCalendarsFetchStatus === 'idle' ? (
+                  <p className="text-sm text-[#7A7267]">{t('googleCalendarsLoading')}</p>
+                ) : null}
+                {googleCalendarsFetchStatus === 'error' ? (
+                  <div className="space-y-3 rounded-xl border border-[#E5D4BC] bg-[#FBF7F1] p-4">
+                    <p className="text-sm text-[#71382D]">{googleCalendarsError || t('googleCalendarsLoadFailed')}</p>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => void loadGoogleManage()}
+                      className="min-h-11 rounded-lg border border-[#E8E2DA] bg-white px-3 text-sm font-medium text-[#71382D] disabled:opacity-60"
+                    >
+                      {t('googleCalendarsRetry')}
+                    </button>
+                  </div>
+                ) : null}
+                {googleCalendarsFetchStatus === 'ready' && googleCalendars.length === 0 ? (
+                  <p className="text-sm text-[#7A7267]">{t('googleCalendarsEmpty')}</p>
+                ) : null}
+                {googleCalendarsFetchStatus === 'ready' && googleCalendars.length > 0 ? (
+                  <div className="space-y-3">
+                    <h2 className="text-sm font-medium text-[#191816]">{t('googleTargetCalendar')}</h2>
+                    <p className="text-sm text-[#7A7267]">{t('googleTargetCalendarHelp')}</p>
+                    <ul className="divide-y divide-[#E8E2DA] rounded-xl border border-[#E8E2DA] bg-white">
+                      {googleCalendars.map((calendar) => (
+                        <li key={calendar.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 text-sm">
+                          <span className="text-[#191816]">
+                            {calendar.summary}
+                            {calendar.primary ? (
+                              <span className="ml-2 text-xs text-[#7A7267]">({t('googlePrimaryBadge')})</span>
+                            ) : null}
+                          </span>
+                          <button
+                            type="button"
+                            disabled={busy || selectedGoogleCalendarId === calendar.id}
+                            onClick={() => void selectGoogleCalendar(calendar.id, calendar.summary)}
+                            className="min-h-11 rounded-lg border border-[#E8E2DA] px-3 text-sm font-medium text-[#71382D] disabled:opacity-60"
+                          >
+                            {selectedGoogleCalendarId === calendar.id ? t('googleCalendarSelectedLabel') : t('googleUseCalendar')}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
               </section>
             ) : null}
 

@@ -89,7 +89,13 @@ function defaultScopes(provider: string): string[] {
     case 'zoho_invoice':
       return ['ZohoInvoice.contacts.READ', 'ZohoInvoice.contacts.CREATE', 'ZohoInvoice.contacts.UPDATE', 'ZohoInvoice.invoices.READ', 'ZohoInvoice.invoices.CREATE', 'ZohoInvoice.invoices.UPDATE', 'ZohoInvoice.customerpayments.CREATE', 'ZohoInvoice.customerpayments.READ', 'ZohoInvoice.settings.READ'];
     case 'google_calendar':
-      return ['https://www.googleapis.com/auth/calendar.events'];
+      return [
+        'openid',
+        'email',
+        'profile',
+        'https://www.googleapis.com/auth/calendar.readonly',
+        'https://www.googleapis.com/auth/calendar.events',
+      ];
     case 'whatsapp':
       return ['whatsapp_business_management', 'whatsapp_business_messaging'];
     default:
