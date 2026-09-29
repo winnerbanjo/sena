@@ -211,6 +211,67 @@ async function run() {
   assert.equal(invoiceCreates, 1, 'must not create duplicate Zoho invoices');
   console.log('PASS invoice sync + duplicate invoice protection');
 
+  // Paid Zoho invoices reject edits — remapping must not fail (mapping stays authoritative).
+  let rejectPaidInvoicePut = true;
+  globalThis.fetch = (async (input: any, init?: any) => {
+    const url = String(input);
+    const method = (init?.method || 'GET').toUpperCase();
+    if (url.includes('/oauth/v2/token') && method === 'POST') {
+      return new Response(JSON.stringify({ access_token: 'zoho-access-refreshed', expires_in: 3600, api_domain: 'https://www.zohoapis.com' }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    if (url.includes('/contacts') && method === 'GET') {
+      return new Response(JSON.stringify({ contacts: [] }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    if (url.includes('/contacts') && (method === 'POST' || method === 'PUT')) {
+      if (method === 'POST') {
+        contactCreates += 1;
+        lastContactCreateBody = JSON.parse(String(init?.body || '{}'));
+      }
+      return new Response(JSON.stringify({ contact: { contact_id: 'z-contact-1' } }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    if (url.includes('/invoices/') && method === 'PUT' && rejectPaidInvoicePut) {
+      return new Response(JSON.stringify({ code: 110701, message: 'Invoice cannot be edited' }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    if (url.includes('/invoices') && (method === 'POST' || method === 'PUT')) {
+      if (method === 'POST') invoiceCreates += 1;
+      return new Response(JSON.stringify({ invoice: { invoice_id: 'z-inv-1' } }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    if (url.includes('/customerpayments') && method === 'POST') {
+      return new Response(JSON.stringify({ payment: { payment_id: 'z-pay-1' } }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    if (url.includes('/organizations')) {
+      return new Response(
+        JSON.stringify({
+          organizations: [
+            { organization_id: 'org-1', name: 'QA Org', currency_code: 'NGN' },
+            { organization_id: 'org-2', name: 'Other Org', currency_code: 'USD' },
+          ],
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } }
+      );
+    }
+    return originalFetch(input, init);
+  }) as typeof fetch;
+  const paidInvoiceAgain = await zoho.syncZohoInvoice(ids.property, ids.invoice);
+  assert.equal(paidInvoiceAgain.invoiceId, 'z-inv-1');
+  console.log('PASS paid Zoho invoice remapping tolerates 110701');
+  rejectPaidInvoicePut = false;
+
   const payment = await zoho.syncZohoPayment(ids.property, ids.payment);
   assert.equal(payment.paymentId, 'z-pay-1');
   const paymentAgain = await zoho.syncZohoPayment(ids.property, ids.payment);

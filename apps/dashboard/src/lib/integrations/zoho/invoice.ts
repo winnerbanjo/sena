@@ -494,7 +494,13 @@ export async function syncZohoInvoice(propertyId: string, invoiceId: string) {
 
   let externalId = existing?.externalObjectId;
   if (externalId) {
-    await zohoFetch(propertyId, `/invoices/${externalId}`, { method: 'PUT', body: JSON.stringify(payload) });
+    try {
+      await zohoFetch(propertyId, `/invoices/${externalId}`, { method: 'PUT', body: JSON.stringify(payload) });
+    } catch (error: any) {
+      // Paid/closed Zoho invoices reject edits (e.g. code 110701). Mapping remains authoritative.
+      const message = typeof error?.message === 'string' ? error.message : '';
+      if (!message.includes('ZOHO_API_110701') && !message.includes('ZOHO_API_110702')) throw error;
+    }
   } else {
     const created = await zohoFetch(propertyId, '/invoices', { method: 'POST', body: JSON.stringify(payload) });
     externalId = String(created.json?.invoice?.invoice_id || '');
