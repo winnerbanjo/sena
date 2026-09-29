@@ -1,10 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" role="img" aria-label="Google Calendar">
-  <rect x="6" y="8" width="36" height="34" rx="6" fill="#fff" stroke="#DADCE0" stroke-width="1.5"/>
-  <path fill="#4285F4" d="M6 14a6 6 0 0 1 6-6h24a6 6 0 0 1 6 6v4H6v-4z"/>
-  <rect x="14" y="5" width="3.5" height="8" rx="1.75" fill="#4285F4"/>
-  <rect x="30.5" y="5" width="3.5" height="8" rx="1.75" fill="#4285F4"/>
-  <path fill="#3C4043" d="M18.2 35.2V22.8h2.4l3.2 8.6h.1l3.2-8.6h2.4v12.4h-2.1v-8.5h-.1l-3.1 8.5h-1.4l-3.1-8.5h-.1v8.5h-2.1z"/>
-  <circle cx="15" cy="24" r="1.6" fill="#EA4335"/>
-  <circle cx="24" cy="24" r="1.6" fill="#FBBC04"/>
-  <circle cx="33" cy="24" r="1.6" fill="#34A853"/>
+  <rect x="6" y="8" width="36" height="34" rx="5" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1.5"/>
+  <path d="M11 8h26a5 5 0 0 1 5 5v5H6v-5a5 5 0 0 1 5-5z" fill="#1A73E8"/>
+  <rect x="15" y="4.5" width="3.2" height="8" rx="1.6" fill="#1A73E8"/>
+  <rect x="29.8" y="4.5" width="3.2" height="8" rx="1.6" fill="#1A73E8"/>
+  <text x="24" y="36" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="700" fill="#3C4043">31</text>
+  <circle cx="14.5" cy="22.5" r="1.4" fill="#EA4335"/>
+  <circle cx="24" cy="22.5" r="1.4" fill="#FBBC04"/>
+  <circle cx="33.5" cy="22.5" r="1.4" fill="#34A853"/>
 </svg>
