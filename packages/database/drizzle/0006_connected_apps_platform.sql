@@ -194,12 +194,10 @@ DO $$ BEGIN
  ALTER TABLE "guest_message_templates" ADD CONSTRAINT "guest_message_templates_property_id_properties_id_fk" FOREIGN KEY ("property_id") REFERENCES "public"."properties"("id") ON DELETE cascade ON UPDATE no action;
 EXCEPTION WHEN duplicate_object THEN null; END $$;
 --> statement-breakpoint
-UPDATE "integration_catalog" SET "capabilities" = '["online_payments","invoice_payments","direct_booking","webhooks"]'::jsonb, "sort_order" = 10, "docs_url" = 'https://paystack.com/docs' WHERE "provider" = 'paystack';
---> statement-breakpoint
-UPDATE "integration_catalog" SET "capabilities" = '["online_payments","invoice_payments","direct_booking","webhooks"]'::jsonb, "sort_order" = 20, "docs_url" = 'https://developer.flutterwave.com' WHERE "provider" = 'flutterwave';
---> statement-breakpoint
 INSERT INTO "integration_catalog" ("provider", "name", "category", "description", "availability", "auth_type", "capabilities", "sort_order", "docs_url")
 VALUES
+  ('paystack', 'Paystack', 'payments', 'Accept property payments using the hotel''s own Paystack account.', 'available', 'secret_key', '["online_payments","invoice_payments","direct_booking","webhooks"]'::jsonb, 10, 'https://paystack.com/docs'),
+  ('flutterwave', 'Flutterwave', 'payments', 'Accept property payments using the hotel''s own Flutterwave account.', 'available', 'secret_key', '["online_payments","invoice_payments","direct_booking","webhooks"]'::jsonb, 20, 'https://developer.flutterwave.com'),
   ('zoho_invoice', 'Zoho Invoice', 'accounting', 'Export guests, invoices, and verified payments to Zoho Invoice. Sena remains the source of truth for settlement.', 'available', 'oauth2', '["contact_sync","invoice_export","payment_sync"]'::jsonb, 30, 'https://www.zoho.com/invoice/api/v3/'),
   ('google_calendar', 'Google Calendar', 'calendar', 'Sync reservations to Google Calendar with guest name, reference, dates, and room details.', 'available', 'oauth2', '["calendar_sync","reservation_events","push_watch"]'::jsonb, 40, 'https://developers.google.com/calendar'),
   ('whatsapp', 'WhatsApp Business', 'communications', 'Send guest lifecycle messages through the official WhatsApp Business Platform.', 'available', 'oauth2', '["guest_whatsapp","message_templates"]'::jsonb, 50, 'https://developers.facebook.com/docs/whatsapp'),

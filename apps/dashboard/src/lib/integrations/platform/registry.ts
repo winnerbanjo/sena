@@ -199,6 +199,8 @@ export async function ensureConnectedAppsPlatformSchema() {
       await db.execute(sql`
         INSERT INTO integration_catalog (provider, name, category, description, availability, auth_type, capabilities, sort_order, docs_url)
         VALUES
+          ('paystack', 'Paystack', 'payments', 'Accept property payments using the hotel''s own Paystack account.', 'available', 'secret_key', '["online_payments","invoice_payments","direct_booking","webhooks"]'::jsonb, 10, 'https://paystack.com/docs'),
+          ('flutterwave', 'Flutterwave', 'payments', 'Accept property payments using the hotel''s own Flutterwave account.', 'available', 'secret_key', '["online_payments","invoice_payments","direct_booking","webhooks"]'::jsonb, 20, 'https://developer.flutterwave.com'),
           ('zoho_invoice', 'Zoho Invoice', 'accounting', 'Export guests, invoices, and verified payments to Zoho Invoice. Sena remains the source of truth for settlement.', 'available', 'oauth2', '["contact_sync","invoice_export","payment_sync"]'::jsonb, 30, 'https://www.zoho.com/invoice/api/v3/'),
           ('google_calendar', 'Google Calendar', 'calendar', 'Sync reservations to Google Calendar with guest name, reference, dates, and room details.', 'available', 'oauth2', '["calendar_sync","reservation_events","push_watch"]'::jsonb, 40, 'https://developers.google.com/calendar'),
           ('whatsapp', 'WhatsApp Business', 'communications', 'Send guest lifecycle messages through the official WhatsApp Business Platform.', 'available', 'oauth2', '["guest_whatsapp","message_templates"]'::jsonb, 50, 'https://developers.facebook.com/docs/whatsapp'),
@@ -217,10 +219,9 @@ export async function ensureConnectedAppsPlatformSchema() {
           auth_type = EXCLUDED.auth_type,
           capabilities = EXCLUDED.capabilities,
           sort_order = EXCLUDED.sort_order,
+          docs_url = COALESCE(EXCLUDED.docs_url, integration_catalog.docs_url),
           updated_at = now()
       `);
-      await db.execute(sql`UPDATE integration_catalog SET capabilities = '["online_payments","invoice_payments","direct_booking","webhooks"]'::jsonb, sort_order = 10 WHERE provider = 'paystack'`);
-      await db.execute(sql`UPDATE integration_catalog SET capabilities = '["online_payments","invoice_payments","direct_booking","webhooks"]'::jsonb, sort_order = 20 WHERE provider = 'flutterwave'`);
     })().catch((error) => {
       schemaReady = null;
       throw error;

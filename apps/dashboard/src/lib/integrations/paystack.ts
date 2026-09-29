@@ -1,7 +1,16 @@
 import crypto from 'node:crypto';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { db, integrationAuditLogs, integrationCredentials, integrations, properties } from '@sena/database';
 import { decryptIntegrationSecret, encryptIntegrationSecret, maskSecret, readIntegrationSecret } from './crypto';
+
+/** Ensure Paystack remains connectable even if catalog seeds were skipped (schema-only push). */
+async function ensurePaystackCatalogRow() {
+  await db.execute(sql`
+    INSERT INTO integration_catalog (provider, name, category, description, availability, auth_type, capabilities, sort_order, docs_url)
+    VALUES ('paystack', 'Paystack', 'payments', 'Accept property payments using the hotel''s own Paystack account.', 'available', 'secret_key', '["online_payments","invoice_payments","direct_booking","webhooks"]'::jsonb, 10, 'https://paystack.com/docs')
+    ON CONFLICT (provider) DO NOTHING
+  `);
+}
 
 export type PaystackMode = 'test' | 'live';
 
@@ -104,6 +113,7 @@ export async function requireConnectedPaystack(propertyId: string) {
 }
 
 export async function connectPaystack(propertyId: string, actorUserId: string, secret: string, replace = false, fetcher: typeof fetch = fetch) {
+  await ensurePaystackCatalogRow();
   const verified = await verifyPaystackSecret(secret.trim(), fetcher);
   const encryptedValue = encryptIntegrationSecret(secret.trim());
   const suffix = secret.trim().slice(-4);
