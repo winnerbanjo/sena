@@ -43,6 +43,33 @@ function defaultAccountsBase() {
   );
 }
 
+/** Resolve Zoho accounts host for token exchange from callback `location` (user DC). */
+export function accountsBaseForLocation(location?: string | null) {
+  const loc = typeof location === 'string' ? location.toLowerCase().trim() : '';
+  if (loc && LOCATION_ACCOUNTS[loc]) return LOCATION_ACCOUNTS[loc];
+  return defaultAccountsBase();
+}
+
+/** Build Zoho authorization_code token request body (never log this — contains secrets). */
+export function buildZohoAuthorizationCodeTokenBody(input: {
+  code: string;
+  redirectUri: string;
+  clientId: string;
+  clientSecret: string;
+  codeVerifier?: string;
+}) {
+  const body = new URLSearchParams({
+    grant_type: 'authorization_code',
+    client_id: input.clientId,
+    client_secret: input.clientSecret,
+    redirect_uri: input.redirectUri,
+    code: input.code,
+  });
+  // Authorize may include PKCE code_challenge; Zoho then requires matching code_verifier.
+  if (input.codeVerifier) body.set('code_verifier', input.codeVerifier);
+  return body;
+}
+
 export function accountsBaseFromMetadata(metadata: unknown) {
   const record = metadata && typeof metadata === 'object' ? (metadata as Record<string, unknown>) : {};
   if (typeof record.accountsDomain === 'string' && record.accountsDomain.startsWith('https://')) {
