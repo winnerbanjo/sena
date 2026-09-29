@@ -69,6 +69,8 @@ export async function GET(req: NextRequest) {
       codeVerifier: consumed.codeVerifier,
       clientId,
       clientSecret,
+      location: url.searchParams.get('location'),
+      accountsServer: url.searchParams.get('accounts-server'),
     });
 
     const integration = await markIntegrationAuthorized({
@@ -106,22 +108,48 @@ export async function GET(req: NextRequest) {
     const safe = ['OAUTH_STATE_INVALID', 'OAUTH_STATE_EXPIRED', 'OAUTH_PROPERTY_MISMATCH', 'OAUTH_PROVIDER_MISMATCH', 'OAUTH_ACTOR_MISMATCH', 'OAUTH_CLIENT_MISSING', 'TOKEN_EXCHANGE_FAILED'].includes(reason)
       ? reason
       : 'oauth_failed';
+    try {
+      await writeIntegrationAudit({
+        propertyId: tenant.propertyId,
+        actorUserId: tenant.userId,
+        action: `${provider}.oauth_failed`,
+        details: { reason: safe },
+      });
+    } catch {
+      // Audit is best-effort; still redirect with safe reason.
+    }
     return NextResponse.redirect(`${origin}/apps?oauth=error&reason=${encodeURIComponent(safe)}`);
   }
 }
 
 async function exchangeAuthorizationCode(
   provider: string,
-  input: { code: string; redirectUri: string; codeVerifier?: string; clientId: string; clientSecret: string }
+  input: {
+    code: string;
+    redirectUri: string;
+    codeVerifier?: string;
+    clientId: string;
+    clientSecret: string;
+    location?: string | null;
+    accountsServer?: string | null;
+  }
 ) {
   if (provider === 'zoho_invoice') {
-    const accountsBase = (process.env.SENA_ZOHO_ACCOUNTS_BASE || process.env.ZOHO_ACCOUNTS_BASE || 'https://accounts.zoho.com').replace(/\/$/, '');
-    const body = new URLSearchParams({
-      grant_type: 'authorization_code',
-      client_id: input.clientId,
-      client_secret: input.clientSecret,
-      redirect_uri: input.redirectUri,
+    const { accountsBaseForLocation, buildZohoAuthorizationCodeTokenBody } = await import(
+      '@/lib/integrations/zoho/invoice'
+    );
+    // Prefer explicit accounts-server from Zoho callback, then location DC, then env default.
+    const accountsBase = (
+      (typeof input.accountsServer === 'string' && input.accountsServer.startsWith('https://')
+        ? input.accountsServer
+        : accountsBaseForLocation(input.location)) || 'https://accounts.zoho.com'
+    ).replace(/\/$/, '');
+    const body = buildZohoAuthorizationCodeTokenBody({
       code: input.code,
+      redirectUri: input.redirectUri,
+      clientId: input.clientId,
+      clientSecret: input.clientSecret,
+      codeVerifier: input.codeVerifier,
     });
     const response = await fetch(`${accountsBase}/oauth/v2/token`, {
       method: 'POST',
@@ -129,10 +157,33 @@ async function exchangeAuthorizationCode(
       body,
       cache: 'no-store',
     });
-    const json = await response.json().catch(() => null) as any;
-    if (!response.ok || !json?.access_token) throw new Error('TOKEN_EXCHANGE_FAILED');
+    const json = (await response.json().catch(() => null)) as any;
+    if (!response.ok || !json?.access_token) {
+      // Sanitize provider error for ops — never log code/secret/tokens.
+      const providerError =
+        typeof json?.error === 'string'
+          ? json.error
+          : typeof json?.error_description === 'string'
+            ? 'provider_error'
+            : `http_${response.status}`;
+      console.error('zoho_token_exchange_failed', {
+        status: response.status,
+        providerError,
+        accountsBase,
+        location: input.location || null,
+        hasCodeVerifier: Boolean(input.codeVerifier),
+        redirectUriHost: (() => {
+          try {
+            return new URL(input.redirectUri).host;
+          } catch {
+            return 'invalid';
+          }
+        })(),
+      });
+      throw new Error('TOKEN_EXCHANGE_FAILED');
+    }
     const apiDomain = typeof json.api_domain === 'string' ? json.api_domain : null;
-    const location = typeof json.location === 'string' ? json.location.toLowerCase() : null;
+    const location = typeof json.location === 'string' ? json.location.toLowerCase() : input.location?.toLowerCase() || null;
     return {
       accessToken: String(json.access_token),
       refreshToken: json.refresh_token ? String(json.refresh_token) : undefined,
@@ -143,7 +194,7 @@ async function exchangeAuthorizationCode(
       accountMetadata: {
         apiDomain,
         location,
-        // Persist the accounts DC used for authorize/token so refresh stays on the same region.
+        // Persist the accounts DC actually used for this exchange so refresh stays regional.
         accountsDomain: accountsBase,
       },
     };
@@ -164,7 +215,7 @@ async function exchangeAuthorizationCode(
       body,
       cache: 'no-store',
     });
-    const json = await response.json().catch(() => null) as any;
+    const json = (await response.json().catch(() => null)) as any;
     if (!response.ok || !json?.access_token) throw new Error('TOKEN_EXCHANGE_FAILED');
     return {
       accessToken: String(json.access_token),
@@ -187,7 +238,7 @@ async function exchangeAuthorizationCode(
     const response = await fetch(`https://graph.facebook.com/v21.0/oauth/access_token?${body.toString()}`, {
       cache: 'no-store',
     });
-    const json = await response.json().catch(() => null) as any;
+    const json = (await response.json().catch(() => null)) as any;
     if (!response.ok || !json?.access_token) throw new Error('TOKEN_EXCHANGE_FAILED');
     return {
       accessToken: String(json.access_token),

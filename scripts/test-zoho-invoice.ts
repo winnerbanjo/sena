@@ -313,6 +313,29 @@ async function run() {
   assert.doesNotMatch(panel, /fetch\('\/api\/apps\/zoho_invoice'/);
   console.log('PASS Zoho detail route no longer shadowed');
 
+  // Callback token exchange must include PKCE verifier and honor Zoho user DC.
+  assert.equal(zoho.accountsBaseForLocation('eu'), 'https://accounts.zoho.eu');
+  assert.equal(zoho.accountsBaseForLocation('in'), 'https://accounts.zoho.in');
+  assert.equal(zoho.accountsBaseForLocation(null), 'https://accounts.zoho.com');
+  const tokenBody = zoho.buildZohoAuthorizationCodeTokenBody({
+    code: 'auth-code',
+    redirectUri: 'https://app.sena.ng/api/apps/oauth/callback',
+    clientId: 'client',
+    clientSecret: 'secret',
+    codeVerifier: 'verifier-value',
+  });
+  assert.equal(tokenBody.get('grant_type'), 'authorization_code');
+  assert.equal(tokenBody.get('code_verifier'), 'verifier-value');
+  assert.equal(tokenBody.get('redirect_uri'), 'https://app.sena.ng/api/apps/oauth/callback');
+  const withoutPkce = zoho.buildZohoAuthorizationCodeTokenBody({
+    code: 'auth-code',
+    redirectUri: 'https://app.sena.ng/api/apps/oauth/callback',
+    clientId: 'client',
+    clientSecret: 'secret',
+  });
+  assert.equal(withoutPkce.get('code_verifier'), null);
+  console.log('PASS Zoho token exchange PKCE + regional accounts base');
+
   globalThis.fetch = originalFetch;
   console.log('ZOHO INVOICE TESTS: PASS');
 }
