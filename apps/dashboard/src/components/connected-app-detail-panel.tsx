@@ -659,7 +659,9 @@ export function ConnectedAppDetailPanel({
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <h2 className="text-sm font-medium text-[#191816]">{t('zohoSyncInvoices')}</h2>
-                      <p className="mt-1 text-sm text-[#7A7267]">{t('zohoSyncInvoicesHelp')}</p>
+                      <p className="mt-1 text-sm text-[#7A7267]">
+                        {provider === 'zoho_books' ? t('zohoBooksSyncInvoicesHelp') : t('zohoSyncInvoicesHelp')}
+                      </p>
                       {zohoSelectedOrgName ? (
                         <p className="mt-2 text-xs text-[#7A7267]">
                           {t('zohoOrganization')}: <span className="text-[#191816]">{zohoSelectedOrgName}</span>
@@ -753,7 +755,9 @@ export function ConnectedAppDetailPanel({
                     return (
                       <div className="space-y-3">
                         <h2 className="text-sm font-medium text-[#191816]">{t('zohoOrganization')}</h2>
-                        <p className="text-sm text-[#7A7267]">{t('zohoOrganizationHelp')}</p>
+                        <p className="text-sm text-[#7A7267]">
+                          {provider === 'zoho_books' ? t('zohoBooksOrganizationHelp') : t('zohoOrganizationHelp')}
+                        </p>
                         <ul className="divide-y divide-[#E8E2DA] rounded-2xl border border-[#E8E2DA] bg-white">
                           {zohoView.organizations.map((org) => (
                             <li key={org.organizationId} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 text-sm">

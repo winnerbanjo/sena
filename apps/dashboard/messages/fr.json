@@ -779,7 +779,9 @@
     "zohoBooksPaymentAccountDefault": "Défaut de l’organisation",
     "zohoBooksPaymentAccountSaved": "Compte de dépôt enregistré.",
     "zohoBooksOrgsEmpty": "Aucune organisation Zoho Books n’a été renvoyée pour ce compte.",
-    "zohoBooksOrgsEmptyHelp": "Les organisations Zoho Invoice sont distinctes de Zoho Books. Créez ou mettez à niveau une organisation dans Zoho Books, puis actualisez cette page. La connexion Sena reste intacte."
+    "zohoBooksOrgsEmptyHelp": "Les organisations Zoho Invoice sont distinctes de Zoho Books. Créez ou mettez à niveau une organisation dans Zoho Books, puis actualisez cette page. La connexion Sena reste intacte.",
+    "zohoBooksOrganizationHelp": "Choisissez l’organisation Zoho Books qui reçoit les contacts et factures synchronisés.",
+    "zohoBooksSyncInvoicesHelp": "Lorsque c’est activé, les nouvelles factures Sena se synchronisent vers Zoho Books en arrière-plan. Les factures historiques ne sont pas exportées automatiquement."
   },
   "billing": {
     "title": "Facturation et forfait",
