@@ -78,7 +78,7 @@ export async function POST(req: NextRequest) {
 function defaultScopes(provider: string): string[] {
   switch (provider) {
     case 'zoho_invoice':
-      return ['ZohoInvoice.contacts.READ', 'ZohoInvoice.contacts.CREATE', 'ZohoInvoice.invoices.READ', 'ZohoInvoice.invoices.CREATE', 'ZohoInvoice.invoices.UPDATE', 'ZohoInvoice.settings.READ'];
+      return ['ZohoInvoice.contacts.READ', 'ZohoInvoice.contacts.CREATE', 'ZohoInvoice.contacts.UPDATE', 'ZohoInvoice.invoices.READ', 'ZohoInvoice.invoices.CREATE', 'ZohoInvoice.invoices.UPDATE', 'ZohoInvoice.customerpayments.CREATE', 'ZohoInvoice.customerpayments.READ', 'ZohoInvoice.settings.READ'];
     case 'google_calendar':
       return ['https://www.googleapis.com/auth/calendar.events'];
     case 'whatsapp':

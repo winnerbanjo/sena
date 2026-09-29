@@ -42,6 +42,7 @@ export function ConnectedAppDetailPanel({
   const [busy, setBusy] = React.useState(false);
   const [message, setMessage] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
+  const [zohoOrgs, setZohoOrgs] = React.useState<Array<{ organizationId: string; name: string }>>([]);
 
   const load = React.useCallback(async () => {
     const response = await fetch(`/api/apps/${provider}`, { cache: 'no-store' });
@@ -55,6 +56,38 @@ export function ConnectedAppDetailPanel({
   React.useEffect(() => {
     void load();
   }, [load]);
+
+  React.useEffect(() => {
+    if (provider !== 'zoho_invoice') return;
+    void (async () => {
+      const response = await fetch('/api/apps/zoho_invoice', { cache: 'no-store' });
+      if (!response.ok) return;
+      const payload = await response.json().catch(() => ({}));
+      if (Array.isArray(payload.organizations)) setZohoOrgs(payload.organizations);
+    })();
+  }, [provider, data?.app?.connectionStatus]);
+
+  async function selectZohoOrg(organizationId: string, organizationName?: string) {
+    setBusy(true);
+    setError(null);
+    try {
+      const response = await fetch('/api/apps/zoho_invoice', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ action: 'select_organization', organizationId, organizationName }),
+        cache: 'no-store',
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setError(payload.error || 'Could not select Zoho organization.');
+        return;
+      }
+      setMessage('Zoho organization selected.');
+      await load();
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function startOAuth() {
     setBusy(true);
@@ -210,6 +243,28 @@ export function ConnectedAppDetailPanel({
             ) : (
               <p className="text-sm text-[#7A7267]">{t('ownerManagesApps')}</p>
             )}
+
+            {provider === 'zoho_invoice' && data?.canManage && app.connectionStatus === 'connected' && zohoOrgs.length > 0 ? (
+              <section className="max-w-3xl space-y-3">
+                <h2 className="text-sm font-medium text-[#191816]">Zoho organization</h2>
+                <p className="text-sm text-[#7A7267]">Choose which Zoho Invoice organization receives synced contacts and invoices.</p>
+                <ul className="divide-y divide-[#E8E2DA] rounded-xl border border-[#E8E2DA] bg-white">
+                  {zohoOrgs.map((org) => (
+                    <li key={org.organizationId} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 text-sm">
+                      <span className="text-[#191816]">{org.name}</span>
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => void selectZohoOrg(org.organizationId, org.name)}
+                        className="min-h-11 rounded-lg border border-[#E8E2DA] px-3 text-sm font-medium text-[#71382D] disabled:opacity-60"
+                      >
+                        Use this org
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
 
             {app.lastErrorMessage ? (
               <section className="max-w-3xl rounded-xl border border-[#E5D4BC] bg-[#F7F1E8] p-4">
