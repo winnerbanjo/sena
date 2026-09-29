@@ -65,7 +65,7 @@ export function ConnectedAppDetailPanel({
   React.useEffect(() => {
     if (provider !== 'zoho_invoice') return;
     void (async () => {
-      const response = await fetch('/api/apps/zoho_invoice', { cache: 'no-store' });
+      const response = await fetch('/api/apps/zoho_invoice/manage', { cache: 'no-store' });
       if (!response.ok) return;
       const payload = await response.json().catch(() => ({}));
       if (Array.isArray(payload.organizations)) setZohoOrgs(payload.organizations);
@@ -90,7 +90,7 @@ export function ConnectedAppDetailPanel({
     setBusy(true);
     setError(null);
     try {
-      const response = await fetch('/api/apps/zoho_invoice', {
+      const response = await fetch('/api/apps/zoho_invoice/manage', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ action: 'select_organization', organizationId, organizationName }),
@@ -116,7 +116,7 @@ export function ConnectedAppDetailPanel({
     setError(null);
     try {
       const next = !zohoSyncEnabled;
-      const response = await fetch('/api/apps/zoho_invoice', {
+      const response = await fetch('/api/apps/zoho_invoice/manage', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ action: 'set_sync_enabled', enabled: next }),

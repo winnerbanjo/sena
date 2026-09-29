@@ -1,6 +1,5 @@
 import { NextRequest } from 'next/server';
 import { jsonNoStore, ownerOnly, resolveAppsTenant } from '@/lib/integrations/platform/access';
-import { getPropertyIntegration } from '@/lib/integrations/platform/registry';
 import {
   listZohoOrganizations,
   selectZohoOrganization,
@@ -9,12 +8,15 @@ import {
   syncZohoInvoice,
   syncZohoPayment,
   setZohoSyncEnabled,
-  getZohoOrganization,
-  getZohoInvoiceSyncStatus,
   retryZohoInvoiceSync,
-  isZohoSyncEnabled,
+  getZohoManageState,
+  getZohoInvoiceSyncStatus,
 } from '@/lib/integrations/zoho/invoice';
 
+/**
+ * Zoho-specific manage actions live under /api/apps/zoho_invoice/manage so they do not
+ * shadow GET /api/apps/zoho_invoice (Connected App detail / disconnect via [provider]).
+ */
 export async function GET(req: NextRequest) {
   const result = await resolveAppsTenant(req);
   if ('error' in result) return result.error;
@@ -31,26 +33,13 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const integration = await getPropertyIntegration(result.resolved.propertyId, 'zoho_invoice');
-    const org = getZohoOrganization(integration);
-    const organizations = await listZohoOrganizations(result.resolved.propertyId);
-    return jsonNoStore({
-      organizations,
-      selectedOrganizationId: org.organizationId,
-      selectedOrganizationName: org.organizationName,
-      syncEnabled: isZohoSyncEnabled(integration),
-      connectionStatus: integration?.status || 'disconnected',
-      healthStatus: integration?.healthStatus || null,
-      lastSyncAt: integration?.lastSyncAt?.toISOString() || null,
-      lastErrorMessage: integration?.lastErrorMessage || null,
-    });
+    const state = await getZohoManageState(result.resolved.propertyId);
+    return jsonNoStore(state);
   } catch (error: any) {
     const message =
-      error?.message === 'ZOHO_NOT_CONNECTED'
-        ? 'Connect Zoho Invoice first.'
-        : error?.message === 'OAUTH_CLIENT_MISSING'
-          ? 'Zoho OAuth client is not configured.'
-          : 'Could not load Zoho organizations.';
+      error?.message === 'OAUTH_CLIENT_MISSING'
+        ? 'Zoho OAuth client is not configured.'
+        : 'Could not load Zoho organizations.';
     return jsonNoStore({ error: message }, { status: 422 });
   }
 }
