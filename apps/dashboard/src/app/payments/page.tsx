@@ -18,6 +18,8 @@ import {
 import { CreditCard, Download, Plus } from 'lucide-react';
 import { Topbar } from '../../components/topbar';
 import { useDialogA11y } from '../../components/use-dialog-a11y';
+import { PaymentReceiptField, usePaymentReceipt } from '../../components/payment-receipt-field';
+import { manualPaymentBody } from '../../lib/payment-receipt-file';
 
 interface PaymentItem {
   id: string;
@@ -45,6 +47,7 @@ export default function PaymentsPage() {
   const [recordForm, setRecordForm] = React.useState({ reservationId: '', amount: '', method: 'cash', reference: '', note: '' });
   const idempotencyKey = React.useRef('');
   const recordDialogRef = useDialogA11y<HTMLFormElement>(recordOpen, () => setRecordOpen(false));
+  const receipt = usePaymentReceipt({ invalid: t('receiptInvalid'), tooLarge: t('receiptTooLarge') });
 
   React.useEffect(() => {
     Promise.all([
@@ -110,20 +113,27 @@ export default function PaymentsPage() {
       if (!reservation || !Number.isInteger(amountMinorUnits) || amountMinorUnits <= 0 || amountMinorUnits > outstanding) {
         throw new Error('Enter an amount up to the outstanding balance.');
       }
+      const request = manualPaymentBody({
+        reservationId: reservation.id,
+        amountMinorUnits,
+        method: recordForm.method,
+        providerReference: recordForm.reference || undefined,
+        notes: recordForm.note || undefined,
+      }, receipt.file);
       const res = await fetch('/api/payments', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Idempotency-Key': idempotencyKey.current },
-        body: JSON.stringify({
-          reservationId: reservation.id,
-          amountMinorUnits,
-          method: recordForm.method,
-          providerReference: recordForm.reference || undefined,
-          notes: recordForm.note || undefined,
-        }),
+        headers: { ...request.headers, 'Idempotency-Key': idempotencyKey.current },
+        body: request.body,
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Payment could not be recorded.');
+      if (!res.ok) {
+        if (data.code === 'receipt_type') throw new Error(t('receiptInvalid'));
+        if (data.code === 'receipt_size') throw new Error(t('receiptTooLarge'));
+        throw new Error(data.error || 'Payment could not be recorded.');
+      }
+      if (data.receiptError) window.alert(t('receiptUploadFailed'));
       setRecordOpen(false);
+      receipt.clear();
       idempotencyKey.current = '';
       window.location.reload();
     } catch (error: any) {
@@ -155,7 +165,7 @@ export default function PaymentsPage() {
               <Download className="w-3.5 h-3.5 mr-1" />
               Export CSV
             </Button>
-            <Button size="sm" className="text-xs" onClick={() => setRecordOpen(true)}>
+            <Button size="sm" className="text-xs" onClick={() => { receipt.clear(); setRecordError(''); setRecordOpen(true); }}>
               <Plus className="w-3.5 h-3.5 mr-1" />
               Record payment
             </Button>
@@ -385,6 +395,23 @@ export default function PaymentsPage() {
             <label htmlFor="record-reference" className="block text-sm">Reference
               <input id="record-reference" value={recordForm.reference} onChange={(event) => setRecordForm({ ...recordForm, reference: event.target.value })} className="mt-1 w-full min-h-11 border border-[#E8E2DA] rounded px-3 py-2" />
             </label>
+            <PaymentReceiptField
+              id="record-receipt"
+              copy={{
+                label: t('receiptLabel'),
+                upload: t('receiptUpload'),
+                help: t('receiptHelp'),
+                remove: t('receiptRemove'),
+                selected: t('receiptSelected'),
+                invalid: t('receiptInvalid'),
+                tooLarge: t('receiptTooLarge'),
+              }}
+              file={receipt.file}
+              previewUrl={receipt.previewUrl}
+              message={receipt.message}
+              onChoose={receipt.choose}
+              onClear={receipt.clear}
+            />
             <label htmlFor="record-note" className="block text-sm">Note
               <input id="record-note" value={recordForm.note} onChange={(event) => setRecordForm({ ...recordForm, note: event.target.value })} className="mt-1 w-full min-h-11 border border-[#E8E2DA] rounded px-3 py-2" />
             </label>

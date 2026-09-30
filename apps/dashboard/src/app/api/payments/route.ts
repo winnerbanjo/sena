@@ -1,6 +1,8 @@
 import { apiError } from '@/lib/api-error';
 import { folioBalance, settlementLabel } from '@/lib/financial-status';
 import { getMerchantRequest, withMerchant } from '@/lib/merchant-route';
+import { optionalReceiptFromForm, settleWithOptionalReceipt, type ReceiptFileInput } from '@/lib/payment-receipt-file';
+import { persistPaymentReceipt } from '@/lib/payment-receipt-persist';
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { db, operationalNotifications, payments, reservations, guests, transferProofs, paymentReceipts } from '@sena/database';
@@ -114,21 +116,44 @@ async function handleGET(req: NextRequest) {
   }
 }
 
+async function readRecordPaymentInput(req: NextRequest): Promise<{ body: Record<string, unknown>; receipt: ReceiptFileInput | null; error?: { status: number; error: string; code: string } }> {
+  const contentType = req.headers.get('content-type') || '';
+  if (!contentType.includes('multipart/form-data')) {
+    return { body: getMerchantRequest(req)?.body || await req.json(), receipt: null };
+  }
+  const form = await req.formData();
+  const uploaded = await optionalReceiptFromForm(form);
+  if (uploaded.error) return { body: {}, receipt: uploaded.receipt, error: uploaded.error };
+  return {
+    body: {
+      reservationId: String(form.get('reservationId') || ''),
+      amountMinorUnits: Number(form.get('amountMinorUnits')),
+      method: String(form.get('method') || ''),
+      providerReference: String(form.get('providerReference') || '') || undefined,
+      notes: String(form.get('notes') || '') || undefined,
+    },
+    receipt: uploaded.receipt,
+  };
+}
+
 async function handlePOST(req: NextRequest) {
   try {
     const session = await auth();
-    const body = await req.json();
-
-    const tenant = await resolveTenantForRequest(session, req);
+    const parsed = await readRecordPaymentInput(req);
+    if (parsed.error) return NextResponse.json({ error: parsed.error.error, code: parsed.error.code, paymentRecorded: false }, { status: parsed.error.status });
+    const body = parsed.body;
+    const merchant = getMerchantRequest(req);
+    const tenant = merchant?.tenant || await resolveTenantForRequest(session, req);
     if (!tenant?.propertyId || !body.reservationId) {
       return NextResponse.json({ error: 'Choose a reservation at this property.' }, { status: 400 });
     }
-    const reservation = await db.query.reservations.findFirst({ where: eq(reservations.id, body.reservationId) });
+    const reservation = await db.query.reservations.findFirst({ where: eq(reservations.id, String(body.reservationId)) });
     if (!reservation || reservation.propertyId !== tenant.propertyId) {
       return NextResponse.json({ error: 'Reservation not found' }, { status: 404 });
     }
-    const allowedMethods = ['cash', 'pos', 'bank_transfer'];
-    if (!allowedMethods.includes(body.method)) {
+    const allowedMethods = ['cash', 'pos', 'bank_transfer'] as const;
+    const method = String(body.method);
+    if (!allowedMethods.includes(method as typeof allowedMethods[number])) {
       return NextResponse.json({ error: 'Choose cash, POS, or bank transfer.' }, { status: 400 });
     }
 
@@ -139,47 +164,67 @@ async function handlePOST(req: NextRequest) {
       name: session?.user?.name || 'Staff Member',
     };
 
-    const payment = await PaymentService.recordPayment(
-      {
-        reservationId: body.reservationId,
-        amountMinorUnits: Number(body.amountMinorUnits),
-        provider: 'manual',
-        providerReference: body.providerReference || `MAN-${Date.now()}`,
-        method: body.method || 'cash',
-        notes: body.notes,
+    const settled = await settleWithOptionalReceipt({
+      receipt: parsed.receipt,
+      recordPayment: async () => {
+        const payment = await PaymentService.recordPayment(
+          {
+            reservationId: String(body.reservationId),
+            amountMinorUnits: Number(body.amountMinorUnits),
+            provider: 'manual',
+            providerReference: typeof body.providerReference === 'string' && body.providerReference ? body.providerReference : `MAN-${Date.now()}`,
+            method: method as 'cash' | 'pos' | 'bank_transfer',
+            notes: typeof body.notes === 'string' ? body.notes : undefined,
+          },
+          idempotencyKey,
+          actor
+        );
+
+        await db.insert(operationalNotifications).values({
+          propertyId: tenant.propertyId,
+          dedupeKey: `manual:${payment.id}`,
+          kind: 'payment',
+          title: 'Payment received',
+          body: 'A front-desk payment was recorded.',
+          href: '/payments',
+        }).onConflictDoNothing();
+
+        try {
+          const guest = await db.query.guests.findFirst({ where: eq(guests.id, reservation.guestId) });
+          if (guest?.email && payment.providerReference) {
+            await sendPaymentReceiptEmail({
+              guestEmail: guest.email,
+              guestName: guest.fullName,
+              reference: reservation.reference,
+              paymentReference: payment.providerReference,
+              propertyName: tenant.property.name,
+              amountFormatted: `${payment.currency} ${(payment.amountMinorUnits / 100).toFixed(2)}`,
+              paymentMethod: payment.method,
+              paidAt: new Date().toLocaleString('en-NG'),
+            });
+          }
+        } catch (emailErr) {
+          console.warn('[PAYMENT RECEIPT EMAIL]', emailErr);
+        }
+
+        return { success: true, payment, paymentId: payment.id, propertyId: payment.propertyId };
       },
-      idempotencyKey,
-      actor
-    );
-
-    await db.insert(operationalNotifications).values({
-      propertyId: tenant.propertyId,
-      dedupeKey: `manual:${payment.id}`,
-      kind: 'payment',
-      title: 'Payment received',
-      body: 'A front-desk payment was recorded.',
-      href: '/payments',
-    }).onConflictDoNothing();
-
-    try {
-      const guest = await db.query.guests.findFirst({ where: eq(guests.id, reservation.guestId) });
-      if (guest?.email && payment.providerReference) {
-        await sendPaymentReceiptEmail({
-          guestEmail: guest.email,
-          guestName: guest.fullName,
-          reference: reservation.reference,
-          paymentReference: payment.providerReference,
-          propertyName: tenant.property.name,
-          amountFormatted: `${payment.currency} ${(payment.amountMinorUnits / 100).toFixed(2)}`,
-          paymentMethod: payment.method,
-          paidAt: new Date().toLocaleString('en-NG'),
+      attach: async (payment) => {
+        if (!parsed.receipt || payment.propertyId !== tenant.propertyId) {
+          return { attached: false, error: 'Payment was recorded, but the receipt was not attached.' };
+        }
+        return persistPaymentReceipt({
+          propertyId: payment.propertyId,
+          paymentId: payment.paymentId,
+          userId: tenant.userId,
+          actorName: tenant.user.fullName || actor.name,
+          organizationId: tenant.property.organizationId,
+          file: parsed.receipt,
         });
-      }
-    } catch (emailErr) {
-      console.warn('[PAYMENT RECEIPT EMAIL]', emailErr);
-    }
+      },
+    });
 
-    return NextResponse.json({ success: true, payment });
+    return NextResponse.json(settled.body, { status: settled.status });
   } catch (error: any) {
     console.error('Record payment error:', error);
     return NextResponse.json({ error: apiError(error) }, { status: 400 });

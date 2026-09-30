@@ -401,7 +401,15 @@
     "paystack": "Paystack",
     "walkInGuest": "Client de passage",
     "viewReceipt": "Voir le reçu",
-    "downloadReceipt": "Télécharger"
+    "downloadReceipt": "Télécharger",
+    "receiptLabel": "Reçu de paiement",
+    "receiptUpload": "Téléverser le reçu",
+    "receiptHelp": "Facultatif. JPG, JPEG, PNG, WEBP ou PDF. 10 Mo maximum.",
+    "receiptRemove": "Retirer",
+    "receiptSelected": "Fichier sélectionné",
+    "receiptInvalid": "Téléversez un reçu JPG, PNG, WebP ou PDF.",
+    "receiptTooLarge": "Le reçu doit faire 10 Mo ou moins.",
+    "receiptUploadFailed": "Le paiement a été enregistré, mais le reçu n’a pas été joint. Réessayez de le joindre."
   },
   "invoices": {
     "title": "Factures et folios",

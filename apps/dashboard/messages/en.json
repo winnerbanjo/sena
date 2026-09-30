@@ -401,7 +401,15 @@
     "paystack": "Paystack",
     "walkInGuest": "Walk-in Guest",
     "viewReceipt": "View receipt",
-    "downloadReceipt": "Download"
+    "downloadReceipt": "Download",
+    "receiptLabel": "Payment Receipt",
+    "receiptUpload": "Upload receipt",
+    "receiptHelp": "Optional. JPG, JPEG, PNG, WEBP, or PDF. Maximum 10 MB.",
+    "receiptRemove": "Remove",
+    "receiptSelected": "Selected file",
+    "receiptInvalid": "Upload a JPG, PNG, WebP, or PDF receipt.",
+    "receiptTooLarge": "Receipt must be 10 MB or smaller.",
+    "receiptUploadFailed": "Payment was recorded, but the receipt was not attached. Try attaching it again."
   },
   "invoices": {
     "title": "Invoices & Folios",
