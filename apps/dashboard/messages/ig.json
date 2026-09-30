@@ -399,7 +399,9 @@
     "pos": "POS",
     "bankTransfer": "Nnyefe ụlọ akụ",
     "paystack": "Paystack",
-    "walkInGuest": "Ọbịa walk-in"
+    "walkInGuest": "Ọbịa walk-in",
+    "viewReceipt": "Lee akwụkwọ nnata",
+    "downloadReceipt": "Budata"
   },
   "invoices": {
     "title": "Akwụkwọ ụgwọ na akaụntụ",
@@ -408,7 +410,16 @@
     "paidInFull": "Akwụọla nke ọma",
     "paymentDue": "Ụgwọ dị",
     "overdue": "Agafewo oge",
-    "empty": "Enweghị akwụkwọ ụgwọ ma."
+    "empty": "Enweghị akwụkwọ ụgwọ ma.",
+    "receiptLabel": "Tinye akwụkwọ nnata",
+    "receiptUpload": "Bulite akwụkwọ nnata",
+    "receiptHelp": "Ọ bụghị iwu. Tinye akwụkwọ POS, nnata mbufe, ma ọ bụ ihe akaebe ọzọ nke ịkwụ ụgwọ.",
+    "receiptRemove": "Wepụ",
+    "receiptSelected": "Faịlụ ahọpụtara",
+    "receiptInvalid": "Bulite akwụkwọ nnata JPG, PNG, WebP, ma ọ bụ PDF.",
+    "receiptTooLarge": "Akwụkwọ nnata agaghị agafe 10 MB.",
+    "receiptUploadFailed": "Edekọrọ ịkwụ ụgwọ, mana akwụkwọ nnata adịghị. Nwaa itinye ya ọzọ.",
+    "receiptAttached": "Akwụkwọ nnata ụgwọ"
   },
   "offers": {
     "title": "Onu ahịa",

@@ -28,6 +28,7 @@ interface PaymentItem {
   method: 'card' | 'bank_transfer' | 'pos' | 'cash';
   status: 'successful' | 'pending' | 'refunded';
   date: string;
+  hasReceipt: boolean;
 }
 
 export default function PaymentsPage() {
@@ -60,6 +61,7 @@ export default function PaymentsPage() {
             provider: p.provider || 'manual',
             method: p.method || 'cash',
             status: p.status || 'successful',
+            hasReceipt: Boolean(p.hasReceipt),
             date: new Date(p.createdAt).toLocaleString('en-GB', {
               day: '2-digit',
               month: 'short',
@@ -224,6 +226,12 @@ export default function PaymentsPage() {
                 <p className="font-serif text-lg">{formatNaira(pay.amountMinorUnits)}</p>
                 <p className="text-sm text-[#5C564D]">{pay.provider === 'paystack' ? 'Paystack' : 'Manual'} · {pay.provider === 'paystack' ? 'Online' : pay.method === 'bank_transfer' ? 'Bank transfer' : pay.method === 'pos' ? 'POS' : 'Cash'} · {pay.status}</p>
                 <p className="text-sm text-[#7A7267]">{pay.reference} · {pay.date}</p>
+                {pay.hasReceipt && (
+                  <p className="flex flex-wrap gap-x-3 text-sm">
+                    <a className="text-[#71382D] underline" href={`/api/payments/${pay.id}/receipt`} target="_blank" rel="noopener noreferrer">{t('viewReceipt')}</a>
+                    <a className="text-[#71382D] underline" href={`/api/payments/${pay.id}/receipt?download=1`} target="_blank" rel="noopener noreferrer">{t('downloadReceipt')}</a>
+                  </p>
+                )}
               </div>
             ))}
           </div>
@@ -257,7 +265,13 @@ export default function PaymentsPage() {
                 payments.map((pay) => (
                   <TableRow key={pay.id}>
                     <TableCell className="font-mono text-xs font-semibold text-[#B85C3E]">
-                      {pay.reference}
+                      <div>{pay.reference}</div>
+                      {pay.hasReceipt && (
+                        <div className="mt-1 flex flex-wrap gap-x-3 font-sans font-normal">
+                          <a className="text-[#71382D] underline" href={`/api/payments/${pay.id}/receipt`} target="_blank" rel="noopener noreferrer">{t('viewReceipt')}</a>
+                          <a className="text-[#71382D] underline" href={`/api/payments/${pay.id}/receipt?download=1`} target="_blank" rel="noopener noreferrer">{t('downloadReceipt')}</a>
+                        </div>
+                      )}
                   </TableCell>
                   <TableCell className="font-medium text-sm text-[#191816]">
                     {pay.guestName}

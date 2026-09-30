@@ -399,7 +399,9 @@
     "pos": "POS",
     "bankTransfer": "Tura ta banki",
     "paystack": "Paystack",
-    "walkInGuest": "Bako na walk-in"
+    "walkInGuest": "Bako na walk-in",
+    "viewReceipt": "Duba rasit",
+    "downloadReceipt": "Sauke"
   },
   "invoices": {
     "title": "Lisafofin kuɗi da lissafi",
@@ -408,7 +410,16 @@
     "paidInFull": "An biya gaba ɗaya",
     "paymentDue": "Ana binne biya",
     "overdue": "Ya wuce lokaci",
-    "empty": "Babu lisafofin kuɗi tukuna."
+    "empty": "Babu lisafofin kuɗi tukuna.",
+    "receiptLabel": "Haɗa rasit",
+    "receiptUpload": "Loda rasit",
+    "receiptHelp": "Na zaɓi. Haɗa rasitin POS, rasitin canja wurin kuɗi, ko wani hujjar biyan kuɗi.",
+    "receiptRemove": "Cire",
+    "receiptSelected": "Fayil da aka zaɓa",
+    "receiptInvalid": "Loda rasit na JPG, PNG, WebP, ko PDF.",
+    "receiptTooLarge": "Rasit kada ya wuce 10 MB.",
+    "receiptUploadFailed": "An rubuta biyan kuɗi, amma ba a haɗa rasit ba. Sake ƙoƙarin haɗawa.",
+    "receiptAttached": "Rasitin biyan kuɗi"
   },
   "offers": {
     "title": "Tayin",

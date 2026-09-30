@@ -395,6 +395,30 @@ export const payments = pgTable(
   ]
 );
 
+/** Supporting proof for a recorded payment. Immutable after create. Not ledger truth. */
+export const paymentReceipts = pgTable(
+  'payment_receipts',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    propertyId: uuid('property_id')
+      .references(() => properties.id, { onDelete: 'cascade' })
+      .notNull(),
+    paymentId: uuid('payment_id')
+      .references(() => payments.id, { onDelete: 'cascade' })
+      .notNull(),
+    uploadedByUserId: uuid('uploaded_by_user_id').references(() => users.id),
+    storageKey: text('storage_key').notNull(),
+    contentType: varchar('content_type', { length: 100 }).notNull(),
+    originalFilename: varchar('original_filename', { length: 255 }),
+    byteSize: integer('byte_size').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    index('payment_receipts_payment_idx').on(t.paymentId),
+    index('payment_receipts_property_idx').on(t.propertyId, t.createdAt),
+  ]
+);
+
 export const integrationCatalog = pgTable('integration_catalog', {
   provider: varchar('provider', { length: 50 }).primaryKey(),
   name: varchar('name', { length: 100 }).notNull(),
