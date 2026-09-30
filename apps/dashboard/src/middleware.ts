@@ -28,6 +28,7 @@ const DASHBOARD_ROUTES = new Set([
   'calendar',
   'front-desk',
   'rooms',
+  'apartments',
   'housekeeping',
   'guests',
   'website',
