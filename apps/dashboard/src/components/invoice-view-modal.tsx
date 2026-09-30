@@ -214,13 +214,22 @@ export function InvoiceViewModal({
         headers,
         body,
       });
-      const data = await res.json();
-      if (!res.ok) {
-        if (data.code === 'receipt_type') throw new Error(t('receiptInvalid'));
-        if (data.code === 'receipt_size') throw new Error(t('receiptTooLarge'));
-        throw new Error(data.error || 'Failed to record payment');
+      let data: { error?: string; code?: string; paymentRecorded?: boolean; receiptError?: string } | null = null;
+      try {
+        data = await res.json();
+      } catch {
+        data = null;
       }
-      if (data.receiptError) window.alert(t('receiptUploadFailed'));
+      if (!res.ok) {
+        if (data?.code === 'receipt_type') throw new Error(t('receiptInvalid'));
+        if (data?.code === 'receipt_size') throw new Error(t('receiptTooLarge'));
+        if (data?.paymentRecorded === false) {
+          throw new Error(data.error || 'This payment could not be recorded. No payment was added. Please try again.');
+        }
+        if (data?.error) throw new Error(data.error);
+        throw new Error('We could not confirm this payment. Refresh this invoice before trying again.');
+      }
+      if (data?.receiptError) window.alert(t('receiptUploadFailed'));
       
       paymentRequestKey.current = null;
       clearReceipt();
