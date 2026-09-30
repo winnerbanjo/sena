@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db, properties, roomTypes, eq } from '@sena/database';
-import { checkAvailability } from '@sena/inventory';
+import { db, properties, roomTypes, apartments, and, eq } from '@sena/database';
+import { checkApartmentAvailability, checkAvailability } from '@sena/inventory';
 
 export async function GET(req: NextRequest) {
   try {
@@ -42,22 +42,49 @@ export async function GET(req: NextRequest) {
       .where(eq(roomTypes.propertyId, property.id));
 
     // Calculate real availability for each room type
-    const availableTypes = await Promise.all(
-      types.map(async (rt) => {
-        const avail = await checkAvailability(property.id, rt.id, checkIn, checkOut);
-        return {
-          id: rt.id,
-          name: rt.name,
-          bedType: rt.bedType || 'King bed',
-          capacity: rt.capacity || 2,
-          pricePerNight: rt.basePriceMinorUnits,
-          remaining: avail.minAvailable,
-          isAvailable: avail.isAvailable,
-          description: rt.description || 'Thoughtfully appointed room with premium finishes.',
-          amenities: (rt.amenities as string[]) || ['Fast Wi-Fi', 'En-suite bath', 'Breakfast included'],
-        };
-      })
-    );
+    const units = await db
+      .select()
+      .from(apartments)
+      .where(and(eq(apartments.propertyId, property.id), eq(apartments.bookingVisibility, true)));
+
+    const availableTypes = [
+      ...(await Promise.all(
+        types.map(async (rt) => {
+          const avail = await checkAvailability(property.id, rt.id, checkIn, checkOut);
+          return {
+            id: rt.id,
+            kind: 'room' as const,
+            name: rt.name,
+            bedType: rt.bedType || 'King bed',
+            capacity: rt.capacity || 2,
+            pricePerNight: rt.basePriceMinorUnits,
+            remaining: avail.minAvailable,
+            isAvailable: avail.isAvailable,
+            description: rt.description || 'Thoughtfully appointed room with premium finishes.',
+            amenities: (rt.amenities as string[]) || ['Fast Wi-Fi', 'En-suite bath', 'Breakfast included'],
+          };
+        })
+      )),
+      ...(await Promise.all(
+        units
+          .filter((unit) => unit.operationalStatus !== 'blocked' && unit.operationalStatus !== 'maintenance')
+          .map(async (unit) => {
+            const avail = await checkApartmentAvailability(property.id, unit.id, checkIn, checkOut);
+            return {
+              id: unit.id,
+              kind: 'apartment' as const,
+              name: unit.name,
+              bedType: unit.bedConfiguration || 'Apartment',
+              capacity: unit.maxGuests || 2,
+              pricePerNight: unit.basePriceMinorUnits,
+              remaining: avail.minAvailable,
+              isAvailable: avail.isAvailable,
+              description: unit.description || 'A standalone apartment you can book directly.',
+              amenities: (unit.amenities as string[]) || [],
+            };
+          })
+      )),
+    ];
 
     return NextResponse.json({
       property: {

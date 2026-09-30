@@ -4,6 +4,7 @@ import {
   reservations,
   guests,
   roomTypes,
+  apartments,
   rooms,
   properties,
   integrations,
@@ -325,6 +326,9 @@ export async function syncReservationToGoogleCalendar(propertyId: string, reserv
   const [roomType] = reservation.roomTypeId
     ? await db.select().from(roomTypes).where(eq(roomTypes.id, reservation.roomTypeId)).limit(1)
     : [null];
+  const [apartment] = reservation.apartmentId
+    ? await db.select().from(apartments).where(eq(apartments.id, reservation.apartmentId)).limit(1)
+    : [null];
   const [room] = reservation.roomId
     ? await db.select().from(rooms).where(eq(rooms.id, reservation.roomId)).limit(1)
     : [null];
@@ -342,8 +346,8 @@ export async function syncReservationToGoogleCalendar(propertyId: string, reserv
     checkInTime: property?.checkInTime || '14:00',
     checkOutTime: property?.checkOutTime || '11:00',
     timezone: property?.timezone || 'Africa/Lagos',
-    roomTypeName: roomType?.name || null,
-    roomNumber: room?.roomNumber || null,
+    roomTypeName: roomType?.name || apartment?.name || null,
+    roomNumber: apartment ? null : room?.roomNumber || null,
     status: reservation.status,
     paymentStatus: reservation.paymentStatus || null,
     source: reservation.source || null,

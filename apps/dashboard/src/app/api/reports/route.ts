@@ -2,7 +2,7 @@ import { apiError } from '@/lib/api-error';
 import { getMerchantRequest, withMerchant } from '@/lib/merchant-route';
 import { parseReportRange, reportRangeBounds } from '@/lib/reports';
 import { NextRequest, NextResponse } from 'next/server';
-import { db, payments, reservations, rooms, roomTypes, and, desc, eq, gt, gte, lte, ne } from '@sena/database';
+import { db, payments, reservations, rooms, roomTypes, apartments, and, desc, eq, gt, gte, lte, ne } from '@sena/database';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,7 +27,7 @@ async function handleGET(req: NextRequest) {
     rangeEndExclusive.setDate(rangeEndExclusive.getDate() + 1);
     rangeEndExclusive.setHours(0, 0, 0, 0);
 
-    const [reservationRows, paymentRows, roomRows, roomTypeRows] = await Promise.all([
+    const [reservationRows, paymentRows, roomRows, roomTypeRows, apartmentRows] = await Promise.all([
       db
         .select({
           id: reservations.id,
@@ -39,10 +39,13 @@ async function handleGET(req: NextRequest) {
           checkInDate: reservations.checkInDate,
           checkOutDate: reservations.checkOutDate,
           roomTypeId: reservations.roomTypeId,
+          apartmentId: reservations.apartmentId,
           roomTypeName: roomTypes.name,
+          apartmentName: apartments.name,
         })
         .from(reservations)
         .leftJoin(roomTypes, eq(reservations.roomTypeId, roomTypes.id))
+        .leftJoin(apartments, eq(reservations.apartmentId, apartments.id))
         .where(
           and(
             eq(reservations.propertyId, propertyId),
@@ -87,6 +90,13 @@ async function handleGET(req: NextRequest) {
         })
         .from(roomTypes)
         .where(eq(roomTypes.propertyId, propertyId)),
+      db
+        .select({
+          id: apartments.id,
+          housekeepingStatus: apartments.housekeepingStatus,
+        })
+        .from(apartments)
+        .where(eq(apartments.propertyId, propertyId)),
     ]);
 
     return NextResponse.json({
@@ -96,7 +106,15 @@ async function handleGET(req: NextRequest) {
       endIso: bounds.endIso,
       reservations: reservationRows,
       payments: paymentRows,
-      rooms: roomRows,
+      rooms: [
+        ...roomRows,
+        ...apartmentRows.map((unit) => ({
+          id: unit.id,
+          roomTypeId: null,
+          housekeepingStatus: unit.housekeepingStatus,
+          kind: 'apartment' as const,
+        })),
+      ],
       roomTypes: roomTypeRows,
     });
   } catch (error: unknown) {

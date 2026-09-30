@@ -138,7 +138,9 @@ export function CheckInRoomDialog({
         : `/api/reservations/${reservation.id}/eligible-rooms`;
 
     Promise.all([
-      fetch(url)
+      reservation.apartmentId
+        ? Promise.resolve()
+        : fetch(url)
         .then((res) => (res.ok ? res.json() : Promise.reject(new Error('Could not load rooms'))))
         .then((data) => {
           setRooms(Array.isArray(data.rooms) ? data.rooms : []);
@@ -165,6 +167,31 @@ export function CheckInRoomDialog({
     }
     if (forCheckIn && due > 0 && !outstandingAuthorized) {
       setConfirmOutstanding(true);
+      return;
+    }
+    if (reservation.apartmentId && mode === 'check-in') {
+      setSubmitting(true);
+      setErrorMsg(null);
+      try {
+        const res = await fetch(`/api/reservations/${reservation.id}/check-in`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ allowOutstandingBalance: forCheckIn && due > 0 && outstandingAuthorized }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || 'Request failed');
+        onCompleted({
+          roomId: reservation.roomId || '',
+          roomNumber: reservation.apartmentName || reservation.roomNumber,
+          status: 'checked_in',
+        });
+        toast.success('Guest Checked In', `${reservation.apartmentName} is now occupied.`);
+        onOpenChange(false);
+      } catch (error: any) {
+        setErrorMsg(error.message || 'Could not complete this request.');
+      } finally {
+        setSubmitting(false);
+      }
       return;
     }
     if (mustChooseRoom && !selectedRoomId) {

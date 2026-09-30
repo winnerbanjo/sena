@@ -1,3 +1,10 @@
+export {
+  APARTMENT_BLOCKING_STATUSES,
+  checkApartmentAvailability,
+  createApartmentHold,
+  deriveApartmentBoardStatus,
+  type ApartmentBoardStatus,
+} from './apartments';
 import { getDatesBetween } from '@sena/config';
 import { db, inventory, roomTypes, bookingHolds } from '@sena/database';
 import { and, eq, inArray, sql, gt } from 'drizzle-orm';

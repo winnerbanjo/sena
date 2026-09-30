@@ -218,7 +218,7 @@ function ReservationsContent() {
                         </td>
                         <td className="py-4 px-5">
                           <span className="font-medium text-[#191816] block">
-                            {formatAssignedRoom(res.roomNumber)}
+                            {formatAssignedRoom(res.roomNumber, res.apartmentName)}
                           </span>
                           <span className="text-[11px] text-[#8C8275]">{res.roomType}</span>
                         </td>

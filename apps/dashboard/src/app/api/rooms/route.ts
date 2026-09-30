@@ -74,7 +74,7 @@ async function handleGET(req: NextRequest) {
 
     const taskByRoom = new Map<string, (typeof openTasks)[number]>();
     for (const task of openTasks) {
-      if (!taskByRoom.has(task.roomId)) taskByRoom.set(task.roomId, task);
+      if (task.roomId && !taskByRoom.has(task.roomId)) taskByRoom.set(task.roomId, task);
     }
 
     return NextResponse.json({

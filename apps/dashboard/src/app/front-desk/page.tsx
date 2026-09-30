@@ -270,7 +270,7 @@ export default function FrontDeskPage() {
                         </td>
                         <td className="py-4 px-5">
                           <span className="font-medium text-[#71382D] block">
-                            <Ltr>{formatAssignedRoom(res.roomNumber)}</Ltr>
+                            <Ltr>{formatAssignedRoom(res.roomNumber, res.apartmentName)}</Ltr>
                           </span>
                           <span className="text-[11px] text-[#8C8275]">{res.roomType}</span>
                         </td>

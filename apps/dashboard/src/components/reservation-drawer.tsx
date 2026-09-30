@@ -94,7 +94,7 @@ export function ReservationDrawer({
             {reservation.guestName}
           </DrawerTitle>
           <p className="text-xs text-[#7A7267] mt-1">
-            {reservation.roomType} · {formatAssignedRoom(reservation.roomNumber)}
+            {reservation.apartmentName ? reservation.apartmentName : `${reservation.roomType} · ${formatAssignedRoom(reservation.roomNumber)}`}
           </p>
         </div>
 
@@ -111,7 +111,7 @@ export function ReservationDrawer({
                 Check in
               </Button>
             )}
-            {isConfirmed && (
+            {isConfirmed && !reservation.apartmentId && (
               <Button
                 size="sm"
                 variant="secondary"
@@ -182,7 +182,7 @@ export function ReservationDrawer({
                     Assigned Room
                   </span>
                   <strong className="text-sm text-[#191816] block">
-                    {formatAssignedRoom(reservation.roomNumber)}
+                    {reservation.apartmentName || formatAssignedRoom(reservation.roomNumber)}
                   </strong>
                 </div>
               </div>

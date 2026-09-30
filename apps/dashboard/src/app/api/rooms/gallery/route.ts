@@ -12,7 +12,7 @@ import {
   type GalleryPhoto,
 } from '@/lib/room-gallery';
 import { deleteMediaFromSpaces, uploadMediaToSpaces } from '@sena/integrations';
-import { and, asc, eq, roomImages, roomTypes, rooms, db } from '@sena/database';
+import { and, asc, eq, apartments, roomImages, roomTypes, rooms, db } from '@sena/database';
 import { NextRequest, NextResponse } from 'next/server';
 import { randomUUID } from 'crypto';
 
@@ -22,14 +22,16 @@ function photo(row: typeof roomImages.$inferSelect): GalleryPhoto {
   return { id: row.id, url: row.url, isCover: row.isCover, sortOrder: row.sortOrder };
 }
 
-async function loadTargetGallery(propertyId: string, target: { roomTypeId?: string | null; roomId?: string | null }) {
+async function loadTargetGallery(propertyId: string, target: { roomTypeId?: string | null; roomId?: string | null; apartmentId?: string | null }) {
   const rows = await db
     .select()
     .from(roomImages)
     .where(
-      target.roomId
-        ? and(eq(roomImages.propertyId, propertyId), eq(roomImages.roomId, target.roomId))
-        : and(eq(roomImages.propertyId, propertyId), eq(roomImages.roomTypeId, target.roomTypeId!))
+      target.apartmentId
+        ? and(eq(roomImages.propertyId, propertyId), eq(roomImages.apartmentId, target.apartmentId))
+        : target.roomId
+          ? and(eq(roomImages.propertyId, propertyId), eq(roomImages.roomId, target.roomId))
+          : and(eq(roomImages.propertyId, propertyId), eq(roomImages.roomTypeId, target.roomTypeId!))
     )
     .orderBy(asc(roomImages.sortOrder));
   return rows;
@@ -47,7 +49,21 @@ async function syncLegacyImages(propertyId: string, target: { roomTypeId?: strin
   return rows.map(photo);
 }
 
-async function ownedTarget(propertyId: string, roomTypeId?: string | null, roomId?: string | null) {
+function galleryWhere(propertyId: string, image: { roomId: string | null; roomTypeId: string | null; apartmentId: string | null }) {
+  if (image.apartmentId) return and(eq(roomImages.propertyId, propertyId), eq(roomImages.apartmentId, image.apartmentId));
+  if (image.roomId) return and(eq(roomImages.propertyId, propertyId), eq(roomImages.roomId, image.roomId));
+  return and(eq(roomImages.propertyId, propertyId), eq(roomImages.roomTypeId, image.roomTypeId!));
+}
+
+async function ownedTarget(propertyId: string, roomTypeId?: string | null, roomId?: string | null, apartmentId?: string | null) {
+  if (apartmentId) {
+    const [apartment] = await db
+      .select({ id: apartments.id })
+      .from(apartments)
+      .where(and(eq(apartments.id, apartmentId), eq(apartments.propertyId, propertyId)))
+      .limit(1);
+    return apartment ? { apartmentId: apartment.id } : null;
+  }
   if (roomId) {
     const [room] = await db
       .select({ id: rooms.id })
@@ -76,7 +92,8 @@ async function handlePOST(req: NextRequest) {
     const form = await req.formData();
     const roomTypeId = String(form.get('roomTypeId') || '') || null;
     const roomId = String(form.get('roomId') || '') || null;
-    const target = await ownedTarget(propertyId, roomTypeId, roomId);
+    const apartmentId = String(form.get('apartmentId') || '') || null;
+    const target = await ownedTarget(propertyId, roomTypeId, roomId, apartmentId);
     if (!target) return NextResponse.json({ error: 'That room could not be found for this property.' }, { status: 404 });
 
     const files = form.getAll('files').filter((entry): entry is File => entry instanceof File && entry.size > 0);
@@ -104,6 +121,7 @@ async function handlePOST(req: NextRequest) {
         propertyId,
         roomTypeId: 'roomTypeId' in target ? target.roomTypeId : null,
         roomId: 'roomId' in target ? target.roomId : null,
+        apartmentId: 'apartmentId' in target ? target.apartmentId : null,
         imageId,
         extension: decision.extension,
       });
@@ -131,6 +149,7 @@ async function handlePOST(req: NextRequest) {
           propertyId,
           roomTypeId: 'roomTypeId' in target ? target.roomTypeId : null,
           roomId: 'roomId' in target ? target.roomId : null,
+          apartmentId: 'apartmentId' in target ? target.apartmentId : null,
           storageKey,
           url: stored.url,
           originalFilename: file.name.slice(0, 255),
@@ -163,7 +182,7 @@ async function handlePATCH(req: NextRequest) {
     if (!image || !galleryBelongsToProperty(image.propertyId, propertyId)) {
       return NextResponse.json({ error: 'That photo could not be found for this property.' }, { status: 404 });
     }
-    const target = { roomTypeId: image.roomTypeId, roomId: image.roomId };
+    const target = { roomTypeId: image.roomTypeId, roomId: image.roomId, apartmentId: image.apartmentId };
     const current = (await loadTargetGallery(propertyId, target)).map(photo);
 
     if (body.action === 'cover') {
@@ -171,11 +190,7 @@ async function handlePATCH(req: NextRequest) {
         await tx
           .update(roomImages)
           .set({ isCover: false })
-          .where(
-            image.roomId
-              ? and(eq(roomImages.propertyId, propertyId), eq(roomImages.roomId, image.roomId))
-              : and(eq(roomImages.propertyId, propertyId), eq(roomImages.roomTypeId, image.roomTypeId!))
-          );
+          .where(galleryWhere(propertyId, image));
         await tx.update(roomImages).set({ isCover: true }).where(and(eq(roomImages.id, image.id), eq(roomImages.propertyId, propertyId)));
       });
     } else if (body.action === 'move' && (body.direction === 'earlier' || body.direction === 'later')) {
@@ -208,7 +223,7 @@ async function handleDELETE(req: NextRequest) {
     if (!image || !galleryBelongsToProperty(image.propertyId, propertyId)) {
       return NextResponse.json({ error: 'That photo could not be found for this property.' }, { status: 404 });
     }
-    const target = { roomTypeId: image.roomTypeId, roomId: image.roomId };
+    const target = { roomTypeId: image.roomTypeId, roomId: image.roomId, apartmentId: image.apartmentId };
     const current = (await loadTargetGallery(propertyId, target)).map(photo);
     const nextCoverId = coverAfterRemoval(current, image.id);
 
@@ -218,11 +233,7 @@ async function handleDELETE(req: NextRequest) {
         await tx
           .update(roomImages)
           .set({ isCover: false })
-          .where(
-            image.roomId
-              ? and(eq(roomImages.propertyId, propertyId), eq(roomImages.roomId, image.roomId))
-              : and(eq(roomImages.propertyId, propertyId), eq(roomImages.roomTypeId, image.roomTypeId!))
-          );
+          .where(galleryWhere(propertyId, image));
         await tx
           .update(roomImages)
           .set({ isCover: true })

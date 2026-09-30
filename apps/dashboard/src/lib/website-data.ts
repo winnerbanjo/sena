@@ -1,4 +1,4 @@
-import { db, properties, websiteConfigs, roomTypes, reviews, eq, desc } from '@sena/database';
+import { db, properties, websiteConfigs, roomTypes, apartments, roomImages, reviews, and, asc, eq, desc } from '@sena/database';
 
 export interface WebsiteData {
   property: {
@@ -94,6 +94,10 @@ export interface WebsiteData {
     amenities: string[];
     images: string[];
     totalInventory: number;
+    kind?: 'room' | 'apartment';
+    location?: string;
+    bedrooms?: number;
+    bathrooms?: number;
   }>;
   reviews: {
     items: Array<{
@@ -135,6 +139,24 @@ export async function getWebsiteData(slug: string, isPreview = false): Promise<W
       .from(roomTypes)
       .where(eq(roomTypes.propertyId, property.id))
       .orderBy(desc(roomTypes.createdAt));
+
+    const apartmentRecords = await db
+      .select()
+      .from(apartments)
+      .where(
+        and(
+          eq(apartments.propertyId, property.id),
+          eq(apartments.websiteVisibility, true),
+          eq(apartments.bookingVisibility, true)
+        )
+      )
+      .orderBy(desc(apartments.createdAt));
+
+    const galleryRows = await db
+      .select()
+      .from(roomImages)
+      .where(eq(roomImages.propertyId, property.id))
+      .orderBy(asc(roomImages.sortOrder));
 
     // 4. Fetch published reviews
     const reviewRecords = await db
@@ -310,20 +332,49 @@ export async function getWebsiteData(slug: string, isPreview = false): Promise<W
         ],
         isPublished: effectiveConfig.isPublished ?? true,
       },
-      rooms: roomRecords.map((r) => ({
-        id: r.id,
-        name: r.name,
-        description: r.description || 'Thoughtfully appointed room with premium finishes.',
-        capacity: r.capacity || 2,
-        bedType: r.bedType || 'King Bed',
-        basePriceMinorUnits: r.basePriceMinorUnits,
-        amenities: (r.amenities as string[]) || ['High-Speed Wi-Fi', 'En-suite bath', 'Breakfast included'],
-        images:
-          r.images && (r.images as string[]).length > 0
-            ? (r.images as string[])
-            : ['https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&w=1000&q=80'],
-        totalInventory: r.totalInventory,
-      })),
+      rooms: [
+        ...roomRecords.map((r) => ({
+          id: r.id,
+          name: r.name,
+          description: r.description || 'Thoughtfully appointed room with premium finishes.',
+          capacity: r.capacity || 2,
+          bedType: r.bedType || 'King Bed',
+          basePriceMinorUnits: r.basePriceMinorUnits,
+          amenities: (r.amenities as string[]) || ['High-Speed Wi-Fi', 'En-suite bath', 'Breakfast included'],
+          images:
+            r.images && (r.images as string[]).length > 0
+              ? (r.images as string[])
+              : ['https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&w=1000&q=80'],
+          totalInventory: r.totalInventory,
+          kind: 'room' as const,
+        })),
+        ...apartmentRecords
+          .filter((unit) => unit.operationalStatus !== 'blocked' && unit.operationalStatus !== 'maintenance')
+          .map((unit) => {
+            const photos = galleryRows
+              .filter((image) => image.apartmentId === unit.id)
+              .sort((left, right) => Number(right.isCover) - Number(left.isCover) || left.sortOrder - right.sortOrder)
+              .map((image) => image.url);
+            const location = unit.usePropertyAddress
+              ? [property.address, property.country].filter(Boolean).join(', ')
+              : [unit.address, unit.area, unit.city, unit.state, unit.country].filter(Boolean).join(', ');
+            return {
+              id: unit.id,
+              name: unit.name,
+              description: unit.description || 'A standalone apartment you can book directly.',
+              capacity: unit.maxGuests || 2,
+              bedType: unit.bedConfiguration || 'Apartment',
+              basePriceMinorUnits: unit.basePriceMinorUnits,
+              amenities: (unit.amenities as string[]) || [],
+              images: photos.length > 0 ? photos : ['https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=1000&q=80'],
+              totalInventory: 1,
+              kind: 'apartment' as const,
+              location,
+              bedrooms: unit.bedrooms,
+              bathrooms: unit.bathrooms,
+            };
+          }),
+      ],
       reviews: {
         items: publishedReviews.map((r) => ({
           id: r.id,

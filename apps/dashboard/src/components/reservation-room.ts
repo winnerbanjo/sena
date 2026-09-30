@@ -19,7 +19,9 @@ export function mapReservationItem(r: {
   guestEmail?: string;
   guestPhone?: string;
   roomTypeName?: string;
-  roomTypeId?: string;
+  roomTypeId?: string | null;
+  apartmentId?: string | null;
+  apartmentName?: string | null;
   roomId?: string | null;
   roomNumber?: string | null;
   checkInDate: string;
@@ -40,10 +42,12 @@ export function mapReservationItem(r: {
     guestName: r.guestName || 'Unnamed Guest',
     guestEmail: r.guestEmail || '',
     guestPhone: r.guestPhone || '',
-    roomType: r.roomTypeName || 'Room type unavailable',
-    roomTypeId: r.roomTypeId,
+    roomType: r.apartmentName ? r.apartmentName : r.roomTypeName || 'Room type unavailable',
+    roomTypeId: r.roomTypeId || undefined,
+    apartmentId: r.apartmentId || null,
+    apartmentName: r.apartmentName || null,
     roomId: r.roomId || null,
-    roomNumber: r.roomNumber || 'Unassigned',
+    roomNumber: r.apartmentName || r.roomNumber || 'Unassigned',
     checkInDate: r.checkInDate,
     checkOutDate: r.checkOutDate,
     nights: r.nights,
@@ -62,7 +66,8 @@ export function isPhysicalRoomAssigned(reservation: Pick<ReservationItem, 'roomI
   return Boolean(reservation.roomId) && reservation.roomNumber !== 'Unassigned';
 }
 
-export function formatAssignedRoom(roomNumber?: string | null) {
+export function formatAssignedRoom(roomNumber?: string | null, apartmentName?: string | null) {
+  if (apartmentName) return apartmentName;
   if (!roomNumber || roomNumber === 'Unassigned') return 'Unassigned';
   return roomNumber.startsWith('Room ') ? roomNumber : `Room ${roomNumber}`;
 }

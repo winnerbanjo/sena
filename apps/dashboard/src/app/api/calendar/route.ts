@@ -3,7 +3,7 @@ import { apiError } from '@/lib/api-error';
 import { withMerchant } from '@/lib/merchant-route';
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
-import { db, properties, rooms, roomTypes, reservations, guests , propertyMembers, organizationMembers } from '@sena/database';
+import { db, properties, rooms, roomTypes, apartments, reservations, guests , propertyMembers, organizationMembers } from '@sena/database';
 import { eq, and, gte, lte, or } from 'drizzle-orm';
 
 import { resolveTenantForRequest } from '@/lib/tenant';
@@ -30,20 +30,47 @@ async function handleGET(req: NextRequest) {
     if (!isValidCalendarDate(startDate) || !isValidCalendarDate(endDate) || endDate <= startDate) return NextResponse.json({ error: 'Choose a valid calendar date range.' }, { status: 400 });
 
     // 1. Fetch Rooms with Room Types
-    const roomList = await db
-      .select({
-        id: rooms.id,
-        roomNumber: rooms.roomNumber,
-        floor: rooms.floor,
-        operationalStatus: rooms.operationalStatus,
-        housekeepingStatus: rooms.housekeepingStatus,
-        roomTypeId: rooms.roomTypeId,
-        roomTypeName: roomTypes.name,
-      })
-      .from(rooms)
-      .innerJoin(roomTypes, eq(rooms.roomTypeId, roomTypes.id))
-      .where(eq(rooms.propertyId, propertyId))
-      .orderBy(rooms.roomNumber);
+    const [roomList, apartmentList] = await Promise.all([
+      db
+        .select({
+          id: rooms.id,
+          roomNumber: rooms.roomNumber,
+          floor: rooms.floor,
+          operationalStatus: rooms.operationalStatus,
+          housekeepingStatus: rooms.housekeepingStatus,
+          roomTypeId: rooms.roomTypeId,
+          roomTypeName: roomTypes.name,
+        })
+        .from(rooms)
+        .innerJoin(roomTypes, eq(rooms.roomTypeId, roomTypes.id))
+        .where(eq(rooms.propertyId, propertyId))
+        .orderBy(rooms.roomNumber),
+      db
+        .select({
+          id: apartments.id,
+          name: apartments.name,
+          apartmentType: apartments.apartmentType,
+          operationalStatus: apartments.operationalStatus,
+          housekeepingStatus: apartments.housekeepingStatus,
+        })
+        .from(apartments)
+        .where(eq(apartments.propertyId, propertyId))
+        .orderBy(apartments.name),
+    ]);
+    const calendarRows = [
+      ...roomList.map((room) => ({ ...room, kind: 'room' as const, group: 'rooms' as const })),
+      ...apartmentList.map((apartment) => ({
+        id: apartment.id,
+        roomNumber: apartment.name,
+        floor: null,
+        operationalStatus: apartment.operationalStatus,
+        housekeepingStatus: apartment.housekeepingStatus,
+        roomTypeId: null,
+        roomTypeName: apartment.apartmentType,
+        kind: 'apartment' as const,
+        group: 'apartments' as const,
+      })),
+    ];
 
     // 2. Fetch Reservations overlapping the date range
     const resList = await db
@@ -51,6 +78,7 @@ async function handleGET(req: NextRequest) {
         id: reservations.id,
         reference: reservations.reference,
         roomId: reservations.roomId,
+        apartmentId: reservations.apartmentId,
         guestId: reservations.guestId,
         guestName: guests.fullName,
         checkInDate: reservations.checkInDate,
@@ -70,7 +98,7 @@ async function handleGET(req: NextRequest) {
       );
 
     const payload = {
-      rooms: roomList,
+      rooms: calendarRows,
       reservations: resList,
       dateRange: { startDate, endDate },
     };

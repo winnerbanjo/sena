@@ -86,6 +86,7 @@ export function CommandPalette({ open, onClose, onOpenNewReservation }: CommandP
     { id: 'p-cal', category: 'pages', title: tNav('calendar'), subtitle: tNav('calendarSubtitle'), aliases: 'Calendar Master', icon: Calendar, action: () => router.push('/calendar') },
     { id: 'p-front', category: 'pages', title: tNav('frontDesk'), subtitle: tNav('frontDeskSubtitle'), aliases: 'Front Desk', icon: DoorOpen, action: () => router.push('/front-desk') },
     { id: 'p-rooms', category: 'pages', title: tNav('rooms'), subtitle: tNav('roomsSubtitle'), aliases: 'Rooms Inventory', icon: Layers, action: () => router.push('/rooms') },
+    { id: 'p-apartments', category: 'pages', title: tNav('apartments'), subtitle: tNav('apartmentsSubtitle'), aliases: 'Apartments Shortlets Serviced', icon: Layers, action: () => router.push('/apartments') },
     { id: 'p-hk', category: 'pages', title: tNav('housekeeping'), subtitle: tNav('housekeepingSubtitle'), aliases: 'Housekeeping', icon: Brush, action: () => router.push('/housekeeping') },
     { id: 'p-guests', category: 'pages', title: tNav('guests'), subtitle: tNav('guestsSubtitle'), aliases: 'Guests Directory', icon: Users, action: () => router.push('/guests') },
     { id: 'p-web', category: 'pages', title: tNav('website'), subtitle: tNav('websiteSubtitle'), aliases: 'Website CMS', icon: Globe, action: () => router.push('/website') },

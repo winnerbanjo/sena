@@ -3,7 +3,7 @@ import { getMerchantRequest, withMerchant } from '@/lib/merchant-route';
 import { eq, desc, inArray, and } from 'drizzle-orm';
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
-import { db, reservations, guests, rooms, roomTypes, properties, reservationEvents , propertyMembers, organizationMembers, transferProofs } from '@sena/database';
+import { db, reservations, guests, rooms, roomTypes, apartments, properties, reservationEvents , propertyMembers, organizationMembers, transferProofs } from '@sena/database';
 import { ReservationService } from '@sena/reservations';
 import { sendBookingConfirmationEmail, sendSenaEmail } from '@sena/email';
 import { formatNaira } from '@sena/config';
@@ -43,11 +43,14 @@ async function handleGET(req: NextRequest) {
         roomNumber: rooms.roomNumber,
         roomTypeId: reservations.roomTypeId,
         roomTypeName: roomTypes.name,
+        apartmentId: reservations.apartmentId,
+        apartmentName: apartments.name,
       })
       .from(reservations)
       .leftJoin(guests, eq(reservations.guestId, guests.id))
       .leftJoin(rooms, eq(reservations.roomId, rooms.id))
       .leftJoin(roomTypes, eq(reservations.roomTypeId, roomTypes.id))
+      .leftJoin(apartments, eq(reservations.apartmentId, apartments.id))
       .where(eq(reservations.propertyId, propertyId))
       .orderBy(desc(reservations.createdAt));
 
@@ -106,6 +109,7 @@ async function handlePOST(req: NextRequest) {
         guestId: body.guestId,
         guest: body.guest,
         roomTypeId: body.roomTypeId,
+        apartmentId: body.apartmentId,
         roomId: body.roomId || undefined,
         checkInDate: body.checkInDate,
         checkOutDate: body.checkOutDate,
@@ -137,11 +141,11 @@ async function handlePOST(req: NextRequest) {
       .where(eq(properties.id, propertyId))
       .limit(1);
 
-    const [rt] = await db
-      .select({ name: roomTypes.name })
-      .from(roomTypes)
-      .where(eq(roomTypes.id, body.roomTypeId))
-      .limit(1);
+    const [rt] = body.roomTypeId
+      ? await db.select({ name: roomTypes.name }).from(roomTypes).where(eq(roomTypes.id, body.roomTypeId)).limit(1)
+      : body.apartmentId
+        ? await db.select({ name: apartments.name }).from(apartments).where(eq(apartments.id, body.apartmentId)).limit(1)
+        : [undefined];
 
     // Send transactional booking confirmation email to guest
     if (body.guest?.email) {

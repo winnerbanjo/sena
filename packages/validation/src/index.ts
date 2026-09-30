@@ -53,6 +53,55 @@ export const createRoomSchema = z.object({
 
 export type CreateRoomInput = z.infer<typeof createRoomSchema>;
 
+export const APARTMENT_TYPES = [
+  'studio',
+  'one_bedroom',
+  'two_bedroom',
+  'three_bedroom',
+  'four_plus',
+  'penthouse',
+  'duplex',
+  'villa',
+  'other',
+] as const;
+
+export const apartmentInputSchema = z
+  .object({
+    name: z.string().trim().min(2, 'Enter the apartment name.').max(255),
+    description: z.string().trim().max(4000).optional().nullable(),
+    apartmentType: z.enum(APARTMENT_TYPES),
+    apartmentTypeCustom: z.string().trim().max(100).optional().nullable(),
+    bedrooms: z.coerce.number().int().min(0).max(30),
+    bathrooms: z.coerce.number().int().min(0).max(30),
+    bedConfiguration: z.string().trim().min(2, 'Enter the bed configuration.').max(100),
+    maxGuests: z.coerce.number().int().min(1).max(50),
+    basePriceMinorUnits: z.coerce.number().int().min(100, 'Enter a nightly rate.'),
+    amenities: z.array(z.string().trim().min(1).max(80)).max(40).default([]),
+    usePropertyAddress: z.boolean().default(true),
+    address: z.string().trim().max(500).optional().nullable(),
+    area: z.string().trim().max(120).optional().nullable(),
+    city: z.string().trim().max(120).optional().nullable(),
+    state: z.string().trim().max(120).optional().nullable(),
+    country: z.string().trim().max(100).optional().nullable(),
+    websiteVisibility: z.boolean().default(true),
+    bookingVisibility: z.boolean().default(true),
+    notes: z.string().trim().max(2000).optional().nullable(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.apartmentType === 'other' && !data.apartmentTypeCustom?.trim()) {
+      ctx.addIssue({ code: 'custom', message: 'Enter the apartment type.', path: ['apartmentTypeCustom'] });
+    }
+    if (!data.usePropertyAddress) {
+      if (!data.address || data.address.trim().length < 5) {
+        ctx.addIssue({ code: 'custom', message: 'Enter the apartment address.', path: ['address'] });
+      }
+      if (!data.city?.trim()) ctx.addIssue({ code: 'custom', message: 'Enter the city.', path: ['city'] });
+      if (!data.country?.trim()) ctx.addIssue({ code: 'custom', message: 'Enter the country.', path: ['country'] });
+    }
+  });
+
+export type ApartmentInput = z.infer<typeof apartmentInputSchema>;
+
 // Guest
 export const createGuestSchema = z.object({
   fullName: z.string().min(2, 'Guest full name is required'),
@@ -69,7 +118,8 @@ export type CreateGuestInput = z.infer<typeof createGuestSchema>;
 // Reservation
 export const createReservationSchema = z.object({
   propertyId: z.string().uuid(),
-  roomTypeId: z.string().uuid(),
+  roomTypeId: z.string().uuid().optional(),
+  apartmentId: z.string().uuid().optional(),
   roomId: z.string().uuid().optional(),
   checkInDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Must be YYYY-MM-DD'),
   checkOutDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Must be YYYY-MM-DD'),
@@ -99,6 +149,9 @@ export const createReservationSchema = z.object({
     message: 'Check-out date must be after check-in date',
     path: ['checkOutDate'],
   }
+).refine(
+  (data) => Boolean(data.roomTypeId) !== Boolean(data.apartmentId),
+  { message: 'Choose a room or an apartment.', path: ['roomTypeId'] }
 ).refine(
   (data) => Boolean(data.guestId || data.guest),
   {

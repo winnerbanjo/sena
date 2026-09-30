@@ -3,11 +3,11 @@ import type { Role, Permission } from '@sena/types';
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { resolveTenantForRequest } from './tenant';
-import { db, reservations, rooms, roomTypes, guests, propertyInvoices, reviews, apiKeys, webhookEndpoints, housekeepingTasks, propertyMembers, propertyBankAccounts, transferProofs, eq, and } from '@sena/database';
+import { db, reservations, rooms, roomTypes, apartments, guests, propertyInvoices, reviews, apiKeys, webhookEndpoints, housekeepingTasks, propertyMembers, propertyBankAccounts, transferProofs, eq, and } from '@sena/database';
 
 type Handler = (req: NextRequest, context: any) => Promise<Response>;
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const tables = { reservationId: reservations, roomId: rooms, roomTypeId: roomTypes, guestId: guests, invoiceId: propertyInvoices, reviewId: reviews, keyId: apiKeys, webhookId: webhookEndpoints, taskId: housekeepingTasks, memberId: propertyMembers, bankAccountId: propertyBankAccounts, proofId: transferProofs };
+const tables = { reservationId: reservations, roomId: rooms, roomTypeId: roomTypes, apartmentId: apartments, guestId: guests, invoiceId: propertyInvoices, reviewId: reviews, keyId: apiKeys, webhookId: webhookEndpoints, taskId: housekeepingTasks, memberId: propertyMembers, bankAccountId: propertyBankAccounts, proofId: transferProofs };
 
 type MerchantRequestContext = {
   session: { user?: { id?: string } | null } | null;
@@ -34,7 +34,7 @@ export function withMerchant(handler: Handler, scope: string): Handler {
       const role = aliases[rawRole] || rawRole as Role;
       const permissions = ROLE_PERMISSIONS[role] || [];
       const read = req.method === 'GET';
-      const required: Record<string, Permission | Permission[]> = { settings: 'room.edit', calendar: 'reservation.read', reservations: read ? 'reservation.read' : 'reservation.create', guests: read ? 'guest.read' : 'guest.edit', rooms: read ? 'room.read' : 'room.edit', housekeeping: 'housekeeping.update', payments: read ? 'payment.read' : 'payment.record', invoices: read ? 'payment.read' : 'payment.record', staff: 'staff.invite', subscription: 'billing.manage', website: 'website.edit', reviews: 'website.edit', upload: 'website.edit', connect: 'billing.manage', reports: ['analytics.read', 'payment.read'] };
+      const required: Record<string, Permission | Permission[]> = { settings: 'room.edit', calendar: 'reservation.read', reservations: read ? 'reservation.read' : 'reservation.create', guests: read ? 'guest.read' : 'guest.edit', rooms: read ? 'room.read' : 'room.edit', apartments: read ? 'room.read' : 'room.edit', housekeeping: 'housekeeping.update', payments: read ? 'payment.read' : 'payment.record', invoices: read ? 'payment.read' : 'payment.record', staff: 'staff.invite', subscription: 'billing.manage', website: 'website.edit', reviews: 'website.edit', upload: 'website.edit', connect: 'billing.manage', reports: ['analytics.read', 'payment.read'] };
       const needed = required[scope];
       const allowed = Array.isArray(needed) ? needed.some((permission) => permissions.includes(permission)) : Boolean(needed && permissions.includes(needed));
       if (!needed || !allowed) return NextResponse.json({ error: 'Your role does not allow this action. Contact your property manager.' }, { status: 403 });
@@ -51,6 +51,7 @@ export function withMerchant(handler: Handler, scope: string): Handler {
       const id = params.id || req.nextUrl.searchParams.get('id') || body.id;
       if (id) {
         const key = scope === 'reservations' ? 'reservationId' : scope === 'invoices' ? 'invoiceId' : scope === 'reviews' ? 'reviewId'
+          : scope === 'apartments' ? 'apartmentId'
           : scope === 'rooms' ? (req.nextUrl.searchParams.get('type') === 'category' ? 'roomTypeId' : 'roomId')
           : req.nextUrl.pathname.includes('/keys') ? 'keyId'
           : req.nextUrl.pathname.includes('/webhooks') ? 'webhookId'

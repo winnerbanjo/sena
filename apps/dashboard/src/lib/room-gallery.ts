@@ -147,15 +147,18 @@ export function storageKeyForRoomImage(input: {
   propertyId: string;
   roomTypeId?: string | null;
   roomId?: string | null;
+  apartmentId?: string | null;
   imageId: string;
   extension: string;
 }) {
-  const folder = input.roomId
-    ? `rooms/${input.propertyId}/rooms/${input.roomId}`
-    : `rooms/${input.propertyId}/categories/${input.roomTypeId || 'pending'}`;
+  const folder = input.apartmentId
+    ? `apartments/${input.propertyId}/${input.apartmentId}`
+    : input.roomId
+      ? `rooms/${input.propertyId}/rooms/${input.roomId}`
+      : `rooms/${input.propertyId}/categories/${input.roomTypeId || 'pending'}`;
   return `${folder}/${input.imageId}.${input.extension}`;
 }
 
 export function canDeleteStoredRoomImage(storageKey: string, propertyId: string) {
-  return storageKey.startsWith(`rooms/${propertyId}/`);
+  return storageKey.startsWith(`rooms/${propertyId}/`) || storageKey.startsWith(`apartments/${propertyId}/`);
 }

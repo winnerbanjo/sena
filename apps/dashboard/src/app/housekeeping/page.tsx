@@ -9,6 +9,7 @@ import { Topbar } from '../../components/topbar';
 
 type HousekeepingRoom = {
   id: string;
+  kind: 'room' | 'apartment';
   number: string;
   type: string;
   floor: string;
@@ -48,6 +49,7 @@ export default function HousekeepingPage() {
         setRooms(
           data.rooms.map((r: any) => ({
             id: r.id,
+            kind: r.kind === 'apartment' ? 'apartment' : 'room',
             number: r.roomNumber,
             type: r.roomTypeName,
             floor: r.floor || 'Floor 1',
@@ -80,7 +82,7 @@ export default function HousekeepingPage() {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         cache: 'no-store',
-        body: JSON.stringify({ roomId, ...body }),
+        body: JSON.stringify(rooms.find((room) => room.id === roomId)?.kind === 'apartment' ? { apartmentId: roomId, ...body } : { roomId, ...body }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'Could not update this room.');
@@ -176,7 +178,7 @@ export default function HousekeepingPage() {
                   <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                     <div className="space-y-1 min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
-                        <strong className="text-lg font-serif font-normal text-[#191816]">Room {room.number}</strong>
+                        <strong className="text-lg font-serif font-normal text-[#191816]">{room.kind === 'apartment' ? room.number : `Room ${room.number}`}</strong>
                         <span className="text-xs text-[#7A7267]">{room.type}</span>
                       </div>
                       <p className={`text-xs font-medium ${isDirty ? 'text-[#B85C3E]' : isCleaning ? 'text-[#3B6699]' : 'text-[#2E6B4F]'}`}>

@@ -6,6 +6,8 @@ export interface ReservationItem {
   guestPhone: string;
   roomType: string;
   roomTypeId?: string;
+  apartmentId?: string | null;
+  apartmentName?: string | null;
   roomId?: string | null;
   roomNumber: string;
   checkInDate: string;

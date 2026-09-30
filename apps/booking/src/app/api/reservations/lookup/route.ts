@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db, reservations, properties, guests, roomTypes, eq } from '@sena/database';
+import { db, reservations, properties, guests, roomTypes, apartments, eq } from '@sena/database';
 
 export async function GET(req: NextRequest) {
   try {
@@ -23,12 +23,14 @@ export async function GET(req: NextRequest) {
         totalAmountMinorUnits: reservations.totalAmountMinorUnits,
         propertyName: properties.name,
         roomTypeName: roomTypes.name,
+        apartmentName: apartments.name,
         guestName: guests.fullName,
         guestEmail: guests.email,
       })
       .from(reservations)
       .innerJoin(properties, eq(reservations.propertyId, properties.id))
-      .innerJoin(roomTypes, eq(reservations.roomTypeId, roomTypes.id))
+      .leftJoin(roomTypes, eq(reservations.roomTypeId, roomTypes.id))
+      .leftJoin(apartments, eq(reservations.apartmentId, apartments.id))
       .innerJoin(guests, eq(reservations.guestId, guests.id))
       .where(eq(reservations.reference, ref.toUpperCase().trim()))
       .limit(1);

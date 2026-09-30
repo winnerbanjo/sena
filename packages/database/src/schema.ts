@@ -196,7 +196,49 @@ export const rooms = pgTable(
   ]
 );
 
-/** Gallery photos for a room category or one physical room. Category photos are the default. */
+/**
+ * Standalone bookable apartments (serviced apartments, shortlets).
+ * One row is one unit. This is not a room category.
+ * Properties are not locked to hotels or apartments; both can exist together.
+ */
+export const apartments = pgTable(
+  'apartments',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    propertyId: uuid('property_id')
+      .references(() => properties.id, { onDelete: 'cascade' })
+      .notNull(),
+    name: varchar('name', { length: 255 }).notNull(),
+    description: text('description'),
+    apartmentType: varchar('apartment_type', { length: 50 }).notNull(),
+    apartmentTypeCustom: varchar('apartment_type_custom', { length: 100 }),
+    bedrooms: integer('bedrooms').notNull().default(1),
+    bathrooms: integer('bathrooms').notNull().default(1),
+    bedConfiguration: varchar('bed_configuration', { length: 100 }).notNull(),
+    maxGuests: integer('max_guests').notNull().default(2),
+    basePriceMinorUnits: integer('base_price_minor_units').notNull(),
+    amenities: jsonb('amenities').$type<string[]>().default([]).notNull(),
+    usePropertyAddress: boolean('use_property_address').notNull().default(true),
+    address: text('address'),
+    area: varchar('area', { length: 120 }),
+    city: varchar('city', { length: 120 }),
+    state: varchar('state', { length: 120 }),
+    country: varchar('country', { length: 100 }),
+    operationalStatus: varchar('operational_status', { length: 50 }).notNull().default('available'),
+    housekeepingStatus: varchar('housekeeping_status', { length: 50 }).notNull().default('clean'),
+    websiteVisibility: boolean('website_visibility').notNull().default(true),
+    bookingVisibility: boolean('booking_visibility').notNull().default(true),
+    notes: text('notes'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex('apartments_property_name_idx').on(t.propertyId, t.name),
+    index('apartments_property_idx').on(t.propertyId),
+  ]
+);
+
+/** Gallery photos for a room category, one physical room, or one apartment. */
 export const roomImages = pgTable(
   'room_images',
   {
@@ -206,6 +248,7 @@ export const roomImages = pgTable(
       .notNull(),
     roomTypeId: uuid('room_type_id').references(() => roomTypes.id, { onDelete: 'cascade' }),
     roomId: uuid('room_id').references(() => rooms.id, { onDelete: 'cascade' }),
+    apartmentId: uuid('apartment_id').references(() => apartments.id, { onDelete: 'cascade' }),
     storageKey: text('storage_key').notNull(),
     url: text('url').notNull(),
     originalFilename: varchar('original_filename', { length: 255 }),
@@ -219,6 +262,7 @@ export const roomImages = pgTable(
   (t) => [
     index('room_images_type_idx').on(t.roomTypeId, t.sortOrder),
     index('room_images_room_idx').on(t.roomId, t.sortOrder),
+    index('room_images_apartment_idx').on(t.apartmentId, t.sortOrder),
     index('room_images_property_idx').on(t.propertyId),
   ]
 );
@@ -254,9 +298,8 @@ export const bookingHolds = pgTable(
     propertyId: uuid('property_id')
       .references(() => properties.id, { onDelete: 'cascade' })
       .notNull(),
-    roomTypeId: uuid('room_type_id')
-      .references(() => roomTypes.id, { onDelete: 'cascade' })
-      .notNull(),
+    roomTypeId: uuid('room_type_id').references(() => roomTypes.id, { onDelete: 'cascade' }),
+    apartmentId: uuid('apartment_id').references(() => apartments.id, { onDelete: 'cascade' }),
     checkInDate: varchar('check_in_date', { length: 10 }).notNull(), // YYYY-MM-DD
     checkOutDate: varchar('check_out_date', { length: 10 }).notNull(), // YYYY-MM-DD
     quantity: integer('quantity').notNull().default(1),
@@ -268,6 +311,7 @@ export const bookingHolds = pgTable(
   },
   (t) => [
     index('holds_prop_rt_status_idx').on(t.propertyId, t.roomTypeId, t.status, t.expiresAt),
+    index('holds_apartment_status_idx').on(t.propertyId, t.apartmentId, t.status, t.expiresAt),
   ]
 );
 
@@ -315,9 +359,8 @@ export const reservations = pgTable(
     guestId: uuid('guest_id')
       .references(() => guests.id, { onDelete: 'cascade' })
       .notNull(),
-    roomTypeId: uuid('room_type_id')
-      .references(() => roomTypes.id, { onDelete: 'cascade' })
-      .notNull(),
+    roomTypeId: uuid('room_type_id').references(() => roomTypes.id, { onDelete: 'cascade' }),
+    apartmentId: uuid('apartment_id').references(() => apartments.id, { onDelete: 'restrict' }),
     roomId: uuid('room_id').references(() => rooms.id, { onDelete: 'set null' }),
     checkInDate: varchar('check_in_date', { length: 10 }).notNull(), // YYYY-MM-DD
     checkOutDate: varchar('check_out_date', { length: 10 }).notNull(), // YYYY-MM-DD
@@ -338,6 +381,7 @@ export const reservations = pgTable(
     index('res_prop_status_idx').on(t.propertyId, t.status),
     index('res_prop_dates_idx').on(t.propertyId, t.checkInDate, t.checkOutDate),
     index('res_guest_idx').on(t.guestId),
+    index('res_apartment_dates_idx').on(t.apartmentId, t.checkInDate, t.checkOutDate),
   ]
 );
 
@@ -658,9 +702,8 @@ export const housekeepingTasks = pgTable(
     propertyId: uuid('property_id')
       .references(() => properties.id, { onDelete: 'cascade' })
       .notNull(),
-    roomId: uuid('room_id')
-      .references(() => rooms.id, { onDelete: 'cascade' })
-      .notNull(),
+    roomId: uuid('room_id').references(() => rooms.id, { onDelete: 'cascade' }),
+    apartmentId: uuid('apartment_id').references(() => apartments.id, { onDelete: 'cascade' }),
     status: varchar('status', { length: 50 }).notNull().default('dirty'),
     assignedToUserId: uuid('assigned_to_user_id').references(() => users.id),
     notes: text('notes'),

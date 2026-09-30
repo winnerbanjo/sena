@@ -4,7 +4,7 @@ import { withMerchant } from '@/lib/merchant-route';
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { ReservationService } from '@sena/reservations';
-import { db, reservations, guests, rooms, roomTypes, properties, eq } from '@sena/database';
+import { db, reservations, guests, rooms, roomTypes, apartments, properties, eq } from '@sena/database';
 import { sendSenaEmail } from '@sena/email';
 
 async function handlePOST(
@@ -16,8 +16,12 @@ async function handlePOST(
     const body = await req.json();
     const roomId = typeof body.roomId === 'string' ? body.roomId : '';
     const allowOutstandingBalance = Boolean(body.allowOutstandingBalance);
-
-    if (!roomId) {
+    const [existing] = await db
+      .select({ apartmentId: reservations.apartmentId })
+      .from(reservations)
+      .where(eq(reservations.id, reservationId))
+      .limit(1);
+    if (!existing?.apartmentId && !roomId) {
       return NextResponse.json(
         { error: 'Select a physical room before checking in.', code: 'ROOM_ASSIGNMENT_REQUIRED' },
         { status: 400 }
@@ -30,7 +34,7 @@ async function handlePOST(
       name: session?.user?.name || 'Front Desk Staff',
     };
 
-    await ReservationService.checkIn(reservationId, roomId, actor, { allowOutstandingBalance });
+    await ReservationService.checkIn(reservationId, existing?.apartmentId ? null : roomId, actor, { allowOutstandingBalance });
 
     const [resRow] = await db
       .select({ propertyId: reservations.propertyId })
@@ -54,6 +58,7 @@ async function handlePOST(
           guestName: guests.fullName,
           guestEmail: guests.email,
           roomNumber: rooms.roomNumber,
+          apartmentName: apartments.name,
           roomTypeName: roomTypes.name,
           propertyName: properties.name,
           propertyAddress: properties.address,
@@ -62,8 +67,9 @@ async function handlePOST(
         })
         .from(reservations)
         .innerJoin(guests, eq(reservations.guestId, guests.id))
-        .innerJoin(rooms, eq(rooms.id, roomId))
-        .innerJoin(roomTypes, eq(rooms.roomTypeId, roomTypes.id))
+        .leftJoin(rooms, eq(rooms.id, reservations.roomId))
+        .leftJoin(roomTypes, eq(reservations.roomTypeId, roomTypes.id))
+        .leftJoin(apartments, eq(reservations.apartmentId, apartments.id))
         .innerJoin(properties, eq(reservations.propertyId, properties.id))
         .where(eq(reservations.id, reservationId))
         .limit(1);
@@ -78,8 +84,8 @@ async function handlePOST(
             propertyAddress: stayData.propertyAddress,
             propertyPhone: stayData.propertyPhone,
             propertyEmail: stayData.propertyEmail,
-            roomNumber: stayData.roomNumber,
-            roomType: stayData.roomTypeName,
+            roomNumber: stayData.apartmentName || stayData.roomNumber || 'Apartment',
+            roomType: stayData.apartmentName || stayData.roomTypeName || 'Apartment',
             checkoutDate: stayData.checkoutDate,
           },
           {
