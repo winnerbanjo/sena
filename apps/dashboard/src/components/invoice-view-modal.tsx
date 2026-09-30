@@ -165,8 +165,19 @@ export function InvoiceViewModal({
           notes: payNotes.trim() || undefined,
         }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to record payment');
+      let data: { error?: string; paymentRecorded?: boolean } | null = null;
+      try {
+        data = await res.json();
+      } catch {
+        data = null;
+      }
+      if (!res.ok) {
+        if (data?.paymentRecorded === false) {
+          throw new Error(data.error || 'This payment could not be recorded. No payment was added. Please try again.');
+        }
+        if (data?.error) throw new Error(data.error);
+        throw new Error('We could not confirm this payment. Refresh this invoice before trying again.');
+      }
       
       paymentRequestKey.current = null;
       setRecordPaymentOpen(false);
