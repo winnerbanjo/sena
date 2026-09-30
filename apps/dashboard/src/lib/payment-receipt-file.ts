@@ -88,6 +88,43 @@ export function resolveReceiptAccess(input: {
   return { status: 200, storageKey: receipt.storageKey };
 }
 
+export async function optionalReceiptFromForm(
+  form: FormData,
+  field = 'receipt',
+): Promise<{ receipt: ReceiptFileInput | null; error?: { status: number; error: string; code: 'receipt_type' | 'receipt_size' } }> {
+  const uploaded = form.get(field);
+  if (!(uploaded instanceof File) || uploaded.size <= 0) return { receipt: null };
+  const receipt: ReceiptFileInput = {
+    name: uploaded.name,
+    type: uploaded.type,
+    size: uploaded.size,
+    bytes: new Uint8Array(await uploaded.arrayBuffer()),
+  };
+  const inspected = inspectPaymentReceipt(receipt);
+  if (!inspected.ok) return { receipt, error: { status: 422, error: inspected.error, code: inspected.code } };
+  return { receipt };
+}
+
+/** JSON when no file is attached, so a payment can still be recorded. Multipart only when a receipt is present. */
+export function manualPaymentBody(
+  fields: Record<string, string | number | undefined>,
+  receipt: File | null,
+): { headers: Record<string, string>; body: BodyInit } {
+  if (!receipt) {
+    const json: Record<string, string | number> = {};
+    for (const [key, value] of Object.entries(fields)) {
+      if (value !== undefined && value !== '') json[key] = value;
+    }
+    return { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(json) };
+  }
+  const form = new FormData();
+  for (const [key, value] of Object.entries(fields)) {
+    if (value !== undefined && value !== '') form.set(key, String(value));
+  }
+  form.set('receipt', receipt);
+  return { headers: {}, body: form };
+}
+
 export function receiptContentDisposition(filename: string, download: boolean): string {
   const ascii = filename.replace(/[^\w.\- ]+/g, '_') || 'receipt';
   const kind = download ? 'attachment' : 'inline';

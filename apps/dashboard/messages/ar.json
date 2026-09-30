@@ -401,7 +401,15 @@
     "paystack": "Paystack",
     "walkInGuest": "ضيف حضور مباشر",
     "viewReceipt": "عرض الإيصال",
-    "downloadReceipt": "تنزيل"
+    "downloadReceipt": "تنزيل",
+    "receiptLabel": "إيصال الدفع",
+    "receiptUpload": "تحميل الإيصال",
+    "receiptHelp": "اختياري. JPG أو JPEG أو PNG أو WEBP أو PDF. الحد الأقصى 10 ميغابايت.",
+    "receiptRemove": "إزالة",
+    "receiptSelected": "الملف المحدد",
+    "receiptInvalid": "ارفع إيصالاً بصيغة JPG أو PNG أو WebP أو PDF.",
+    "receiptTooLarge": "يجب ألا يتجاوز الإيصال 10 ميغابايت.",
+    "receiptUploadFailed": "سُجّل الدفع، لكن لم يُرفق الإيصال. حاول إرفاقه مرة أخرى."
   },
   "invoices": {
     "title": "الفواتير والحسابات",

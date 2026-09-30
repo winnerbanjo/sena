@@ -401,7 +401,15 @@
     "paystack": "Paystack",
     "walkInGuest": "Ọbịa walk-in",
     "viewReceipt": "Lee akwụkwọ nnata",
-    "downloadReceipt": "Budata"
+    "downloadReceipt": "Budata",
+    "receiptLabel": "Akwụkwọ nnata ụgwọ",
+    "receiptUpload": "Bulite akwụkwọ nnata",
+    "receiptHelp": "Ọ bụghị iwu. JPG, JPEG, PNG, WEBP, ma ọ bụ PDF. Oke bụ 10 MB.",
+    "receiptRemove": "Wepụ",
+    "receiptSelected": "Faịlụ ahọpụtara",
+    "receiptInvalid": "Bulite akwụkwọ nnata JPG, PNG, WebP, ma ọ bụ PDF.",
+    "receiptTooLarge": "Akwụkwọ nnata agaghị agafe 10 MB.",
+    "receiptUploadFailed": "Edekọrọ ịkwụ ụgwọ, mana akwụkwọ nnata adịghị. Nwaa itinye ya ọzọ."
   },
   "invoices": {
     "title": "Akwụkwọ ụgwọ na akaụntụ",

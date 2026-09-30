@@ -3,7 +3,8 @@
 import * as React from 'react';
 import { formatNaira } from '@sena/config';
 import { useTranslations } from 'next-intl';
-import { inspectPaymentReceipt } from '@/lib/payment-receipt-file';
+import { manualPaymentBody } from '@/lib/payment-receipt-file';
+import { PaymentReceiptField, usePaymentReceipt } from './payment-receipt-field';
 import { useDialogA11y } from './use-dialog-a11y';
 import { Badge, Button } from '@sena/ui';
 import {
@@ -87,11 +88,9 @@ export function InvoiceViewModal({
   const [payMethod, setPayMethod] = React.useState<'pos' | 'cash' | 'bank_transfer' | 'card'>('pos');
   const [payRef, setPayRef] = React.useState('');
   const [payNotes, setPayNotes] = React.useState('');
-  const [receiptFile, setReceiptFile] = React.useState<File | null>(null);
-  const [receiptPreview, setReceiptPreview] = React.useState<string | null>(null);
-  const [receiptMessage, setReceiptMessage] = React.useState('');
   const paymentRequestKey = React.useRef<string | null>(null);
   const t = useTranslations('invoices');
+  const receipt = usePaymentReceipt({ invalid: t('receiptInvalid'), tooLarge: t('receiptTooLarge') });
   const [submittingPay, setSubmittingPay] = React.useState(false);
 
   const [sendingEmail, setSendingEmail] = React.useState(false);
@@ -149,35 +148,6 @@ export function InvoiceViewModal({
     }
   }
 
-  function clearReceipt() {
-    setReceiptPreview((current) => {
-      if (current) URL.revokeObjectURL(current);
-      return null;
-    });
-    setReceiptFile(null);
-    setReceiptMessage('');
-  }
-
-  async function chooseReceipt(file: File | null) {
-    if (receiptPreview) URL.revokeObjectURL(receiptPreview);
-    setReceiptPreview(null);
-    setReceiptFile(null);
-    if (!file) {
-      setReceiptMessage('');
-      return;
-    }
-    const bytes = new Uint8Array(await file.arrayBuffer());
-    const inspected = inspectPaymentReceipt({ name: file.name, type: file.type || '', size: file.size, bytes });
-    if (!inspected.ok) {
-      setReceiptMessage(inspected.code === 'receipt_size' ? t('receiptTooLarge') : t('receiptInvalid'));
-      return;
-    }
-    const stored = new File([bytes], file.name, { type: file.type });
-    setReceiptMessage('');
-    setReceiptFile(stored);
-    setReceiptPreview(stored.type.startsWith('image/') ? URL.createObjectURL(stored) : null);
-  }
-
   if (!isOpen || !invoice) return null;
 
   const balanceMinorUnits = Math.max(0, invoice.totalAmountMinorUnits - invoice.paidAmountMinorUnits);
@@ -190,29 +160,16 @@ export function InvoiceViewModal({
     setSubmittingPay(true);
     try {
       const amountKobo = Math.round(Number(payAmount) * 100);
-      const headers: Record<string, string> = { 'Idempotency-Key': paymentRequestKey.current! };
-      let body: BodyInit;
-      if (receiptFile) {
-        const form = new FormData();
-        form.set('amountMinorUnits', String(amountKobo));
-        form.set('method', payMethod);
-        form.set('providerReference', payRef.trim());
-        form.set('notes', payNotes.trim());
-        form.set('receipt', receiptFile);
-        body = form;
-      } else {
-        headers['Content-Type'] = 'application/json';
-        body = JSON.stringify({
-          amountMinorUnits: amountKobo,
-          method: payMethod,
-          providerReference: payRef.trim() || undefined,
-          notes: payNotes.trim() || undefined,
-        });
-      }
+      const request = manualPaymentBody({
+        amountMinorUnits: amountKobo,
+        method: payMethod,
+        providerReference: payRef.trim() || undefined,
+        notes: payNotes.trim() || undefined,
+      }, receipt.file);
       const res = await fetch(`/api/invoices/${invoice.id}/payments`, {
         method: 'POST',
-        headers,
-        body,
+        headers: { ...request.headers, 'Idempotency-Key': paymentRequestKey.current! },
+        body: request.body,
       });
       let data: { error?: string; code?: string; paymentRecorded?: boolean; receiptError?: string } | null = null;
       try {
@@ -232,7 +189,7 @@ export function InvoiceViewModal({
       if (data?.receiptError) window.alert(t('receiptUploadFailed'));
       
       paymentRequestKey.current = null;
-      clearReceipt();
+      receipt.clear();
       setRecordPaymentOpen(false);
       setPayAmount('');
       setPayRef('');
@@ -752,35 +709,23 @@ export function InvoiceViewModal({
                   />
                 </div>
 
-                <div>
-                  <label htmlFor="settlement-receipt" className="block text-[#7A7267] font-medium mb-1">{t('receiptLabel')}</label>
-                  <input
-                    id="settlement-receipt"
-                    type="file"
-                    accept=".jpg,.jpeg,.png,.webp,.pdf,image/jpeg,image/png,image/webp,application/pdf"
-                    aria-describedby="settlement-receipt-help"
-                    onChange={(event) => {
-                      void chooseReceipt(event.target.files?.[0] || null);
-                      event.target.value = '';
-                    }}
-                    className="w-full max-w-full text-xs text-[#191816] file:me-3 file:rounded file:border-0 file:bg-[#FAF7F2] file:px-3 file:py-2 file:text-xs file:font-medium file:text-[#191816]"
-                  />
-                  <p id="settlement-receipt-help" className="text-[10px] text-[#7A7267] mt-1">{t('receiptHelp')}</p>
-                  <div aria-live="polite" className="mt-2">
-                    {receiptFile && (
-                      <div className="flex items-center gap-2 min-w-0">
-                        {receiptPreview && (
-                          <img src={receiptPreview} alt="" className="h-10 w-10 rounded border border-[#E8E2DA] object-cover" />
-                        )}
-                        <span className="min-w-0 flex-1 truncate text-[#191816]">{t('receiptSelected')}: {receiptFile.name}</span>
-                        <button type="button" onClick={clearReceipt} className="shrink-0 text-[#71382D] underline">
-                          {t('receiptRemove')}
-                        </button>
-                      </div>
-                    )}
-                    {receiptMessage && <p role="alert" className="text-[#B85C3E]">{receiptMessage}</p>}
-                  </div>
-                </div>
+                <PaymentReceiptField
+                  id="settlement-receipt"
+                  appearance="invoice"
+                  copy={{
+                    label: t('receiptLabel'),
+                    help: t('receiptHelp'),
+                    remove: t('receiptRemove'),
+                    selected: t('receiptSelected'),
+                    invalid: t('receiptInvalid'),
+                    tooLarge: t('receiptTooLarge'),
+                  }}
+                  file={receipt.file}
+                  previewUrl={receipt.previewUrl}
+                  message={receipt.message}
+                  onChoose={receipt.choose}
+                  onClear={receipt.clear}
+                />
 
                 <div>
                   <label className="block text-[#7A7267] font-medium mb-1">Settlement Notes (Optional)</label>

@@ -401,7 +401,15 @@
     "paystack": "Paystack",
     "walkInGuest": "Bako na walk-in",
     "viewReceipt": "Duba rasit",
-    "downloadReceipt": "Sauke"
+    "downloadReceipt": "Sauke",
+    "receiptLabel": "Rasitin biyan kuɗi",
+    "receiptUpload": "Loda rasit",
+    "receiptHelp": "Na zaɓi. JPG, JPEG, PNG, WEBP, ko PDF. Iyakar 10 MB.",
+    "receiptRemove": "Cire",
+    "receiptSelected": "Fayil ɗin da aka zaɓa",
+    "receiptInvalid": "Loda rasit na JPG, PNG, WebP, ko PDF.",
+    "receiptTooLarge": "Rasit dole ya zama 10 MB ko ƙasa da haka.",
+    "receiptUploadFailed": "An rubuta biyan kuɗi, amma ba a haɗa rasit ba. Sake ƙoƙarin haɗawa."
   },
   "invoices": {
     "title": "Lisafofin kuɗi da lissafi",

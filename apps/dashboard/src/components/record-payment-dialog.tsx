@@ -1,8 +1,11 @@
 'use client';
 
 import * as React from 'react';
+import { useTranslations } from 'next-intl';
 import { formatNaira } from '@sena/config';
 import { Button } from '@sena/ui';
+import { manualPaymentBody } from '@/lib/payment-receipt-file';
+import { PaymentReceiptField, usePaymentReceipt } from './payment-receipt-field';
 import { useDialogA11y } from './use-dialog-a11y';
 
 export function RecordPaymentDialog({
@@ -32,6 +35,8 @@ export function RecordPaymentDialog({
   const [note, setNote] = React.useState('');
   const [error, setError] = React.useState('');
   const [saving, setSaving] = React.useState(false);
+  const t = useTranslations('payments');
+  const receipt = usePaymentReceipt({ invalid: t('receiptInvalid'), tooLarge: t('receiptTooLarge') });
   const key = React.useRef(crypto.randomUUID());
   const overlayRef = useDialogA11y<HTMLFormElement>(open && !embedded, onClose);
   const formRef = React.useRef<HTMLFormElement>(null);
@@ -44,9 +49,10 @@ export function RecordPaymentDialog({
       setTransferReference('');
       setNote('');
       setError('');
+      receipt.clear();
       key.current = crypto.randomUUID();
     }
-  }, [open, outstandingMinorUnits]);
+  }, [open, outstandingMinorUnits, receipt.clear]);
 
   if (!open) return null;
 
@@ -59,19 +65,25 @@ export function RecordPaymentDialog({
       if (!Number.isInteger(amountMinorUnits) || amountMinorUnits <= 0 || amountMinorUnits > outstandingMinorUnits) {
         throw new Error(embedded ? 'Enter an amount up to the amount due.' : 'Enter an amount up to the outstanding balance.');
       }
+      const request = manualPaymentBody({
+        reservationId,
+        amountMinorUnits,
+        method,
+        providerReference: transferReference || undefined,
+        notes: note || undefined,
+      }, receipt.file);
       const res = await fetch('/api/payments', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Idempotency-Key': key.current },
-        body: JSON.stringify({
-          reservationId,
-          amountMinorUnits,
-          method,
-          providerReference: transferReference || undefined,
-          notes: note || undefined,
-        }),
+        headers: { ...request.headers, 'Idempotency-Key': key.current },
+        body: request.body,
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Payment could not be recorded.');
+      if (!res.ok) {
+        if (data.code === 'receipt_type') throw new Error(t('receiptInvalid'));
+        if (data.code === 'receipt_size') throw new Error(t('receiptTooLarge'));
+        throw new Error(data.error || 'Payment could not be recorded.');
+      }
+      if (data.receiptError) window.alert(t('receiptUploadFailed'));
       onRecorded?.();
       onClose();
     } catch (err: any) {
@@ -91,7 +103,7 @@ export function RecordPaymentDialog({
       role={embedded ? undefined : 'dialog'}
       aria-modal={embedded ? undefined : true}
       aria-labelledby="settle-payment-title"
-      className={embedded ? 'space-y-4' : 'w-full max-w-md max-h-[90vh] overflow-y-auto bg-white rounded-lg p-5 space-y-4'}
+      className={embedded ? 'space-y-4 max-h-[85vh] overflow-y-auto' : 'w-full max-w-md max-h-[90vh] overflow-y-auto bg-white rounded-lg p-5 space-y-4'}
     >
       <h2 id="settle-payment-title" className="font-serif text-xl">
         {title}
@@ -112,6 +124,23 @@ export function RecordPaymentDialog({
       <label htmlFor="settle-ref" className="block text-sm">Transfer or POS reference
         <input id="settle-ref" value={transferReference} onChange={(event) => setTransferReference(event.target.value)} className="mt-1 w-full min-h-11 border border-[#E8E2DA] rounded px-3 py-2" />
       </label>
+      <PaymentReceiptField
+        id="settle-receipt"
+        copy={{
+          label: t('receiptLabel'),
+          upload: t('receiptUpload'),
+          help: t('receiptHelp'),
+          remove: t('receiptRemove'),
+          selected: t('receiptSelected'),
+          invalid: t('receiptInvalid'),
+          tooLarge: t('receiptTooLarge'),
+        }}
+        file={receipt.file}
+        previewUrl={receipt.previewUrl}
+        message={receipt.message}
+        onChoose={receipt.choose}
+        onClear={receipt.clear}
+      />
       <label htmlFor="settle-note" className="block text-sm">Note
         <input id="settle-note" value={note} onChange={(event) => setNote(event.target.value)} className="mt-1 w-full min-h-11 border border-[#E8E2DA] rounded px-3 py-2" />
       </label>

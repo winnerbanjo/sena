@@ -1,9 +1,9 @@
 import { applyInvoiceSettlementToReservation } from '@/lib/invoice-settlement';
 import { getMerchantRequest, withMerchant } from '@/lib/merchant-route';
-import { inspectPaymentReceipt, settleWithOptionalReceipt, storePaymentReceipt, type ReceiptFileInput } from '@/lib/payment-receipt-file';
+import { optionalReceiptFromForm, settleWithOptionalReceipt, type ReceiptFileInput } from '@/lib/payment-receipt-file';
+import { persistPaymentReceipt } from '@/lib/payment-receipt-persist';
 import { NextRequest, NextResponse } from 'next/server';
-import { db, propertyInvoices, payments, reservations, idempotencyKeys, operationalNotifications, paymentReceipts, activityLogs, eq, and, sql } from '@sena/database';
-import { deleteMediaFromSpaces, uploadMediaToSpaces } from '@sena/integrations';
+import { db, propertyInvoices, payments, reservations, idempotencyKeys, operationalNotifications, eq, sql } from '@sena/database';
 
 async function readSettlementInput(req: NextRequest): Promise<{ body: Record<string, unknown>; receipt: ReceiptFileInput | null; error?: { status: number; error: string; code: string } }> {
   const contentType = req.headers.get('content-type') || '';
@@ -11,18 +11,8 @@ async function readSettlementInput(req: NextRequest): Promise<{ body: Record<str
     return { body: await req.json(), receipt: null };
   }
   const form = await req.formData();
-  const uploaded = form.get('receipt');
-  let receipt: ReceiptFileInput | null = null;
-  if (uploaded instanceof File && uploaded.size > 0) {
-    receipt = {
-      name: uploaded.name,
-      type: uploaded.type,
-      size: uploaded.size,
-      bytes: new Uint8Array(await uploaded.arrayBuffer()),
-    };
-    const inspected = inspectPaymentReceipt(receipt);
-    if (!inspected.ok) return { body: {}, receipt, error: { status: 422, error: inspected.error, code: inspected.code } };
-  }
+  const uploaded = await optionalReceiptFromForm(form);
+  if (uploaded.error) return { body: {}, receipt: uploaded.receipt, error: uploaded.error };
   return {
     body: {
       amountMinorUnits: Number(form.get('amountMinorUnits')),
@@ -30,7 +20,7 @@ async function readSettlementInput(req: NextRequest): Promise<{ body: Record<str
       providerReference: String(form.get('providerReference') || ''),
       notes: String(form.get('notes') || ''),
     },
-    receipt,
+    receipt: uploaded.receipt,
   };
 }
 
@@ -79,35 +69,13 @@ async function handlePOST(req: NextRequest, { params }: { params: Promise<{ id: 
       if (!parsed.receipt || !merchant || payment.propertyId !== merchant.tenant.propertyId) {
         return { attached: false, error: 'Payment was recorded, but the receipt was not attached.' };
       }
-      return storePaymentReceipt({
+      return persistPaymentReceipt({
         propertyId: payment.propertyId,
         paymentId: payment.paymentId,
-        receiptId: crypto.randomUUID(),
         userId: merchant.tenant.userId,
         actorName: merchant.tenant.user.fullName,
+        organizationId: merchant.tenant.property.organizationId,
         file: parsed.receipt,
-        alreadyAttached: async () => Boolean(await db.query.paymentReceipts.findFirst({
-          where: and(eq(paymentReceipts.paymentId, payment.paymentId), eq(paymentReceipts.propertyId, payment.propertyId)),
-        })),
-        upload: async (storageKey, bytes, contentType) => uploadMediaToSpaces({ key: storageKey, body: Buffer.from(bytes), contentType, acl: 'private' }),
-        remove: async (storageKey) => {
-          await deleteMediaFromSpaces(storageKey);
-        },
-        insert: async (row) => {
-          await db.insert(paymentReceipts).values(row);
-        },
-        audit: async (row) => {
-          await db.insert(activityLogs).values({
-            organizationId: merchant.tenant.property.organizationId,
-            propertyId: payment.propertyId,
-            actorId: row.actorId,
-            actorName: row.actorName,
-            action: 'payment_receipt_attached',
-            resource: 'payment',
-            resourceId: row.paymentId,
-            newValue: { receiptId: row.receiptId, filename: row.filename },
-          });
-        },
       });
     },
   });

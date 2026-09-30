@@ -401,7 +401,15 @@
     "paystack": "Paystack",
     "walkInGuest": "Mgeni wa walk-in",
     "viewReceipt": "Angalia risiti",
-    "downloadReceipt": "Pakua"
+    "downloadReceipt": "Pakua",
+    "receiptLabel": "Risiti ya malipo",
+    "receiptUpload": "Pakia risiti",
+    "receiptHelp": "Si lazima. JPG, JPEG, PNG, WEBP, au PDF. Upeo ni MB 10.",
+    "receiptRemove": "Ondoa",
+    "receiptSelected": "Faili iliyochaguliwa",
+    "receiptInvalid": "Pakia risiti ya JPG, PNG, WebP, au PDF.",
+    "receiptTooLarge": "Risiti lazima iwe MB 10 au chini.",
+    "receiptUploadFailed": "Malipo yamerekodiwa, lakini risiti haijaambatanishwa. Jaribu kuambatanisha tena."
   },
   "invoices": {
     "title": "Ankara na akaunti",

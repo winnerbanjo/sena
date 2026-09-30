@@ -4,6 +4,8 @@ import { resolve } from 'node:path';
 import {
   PAYMENT_RECEIPT_MAX_BYTES,
   inspectPaymentReceipt,
+  manualPaymentBody,
+  optionalReceiptFromForm,
   paymentReceiptStorageKey,
   receiptContentDisposition,
   resolveReceiptAccess,
@@ -180,7 +182,7 @@ console.log('PASS authorized staff can view a receipt; unauthorized and cross-pr
 
 const locales = ['en', 'fr', 'ar', 'sw', 'yo', 'ha', 'ig'];
 const invoiceKeys = ['receiptLabel', 'receiptHelp', 'receiptRemove', 'receiptSelected', 'receiptInvalid', 'receiptTooLarge', 'receiptUploadFailed', 'receiptAttached'];
-const paymentKeys = ['viewReceipt', 'downloadReceipt'];
+const paymentKeys = ['viewReceipt', 'downloadReceipt', 'receiptLabel', 'receiptUpload', 'receiptHelp', 'receiptRemove', 'receiptSelected', 'receiptInvalid', 'receiptTooLarge', 'receiptUploadFailed'];
 for (const locale of locales) {
   const messages = JSON.parse(readFileSync(resolve('apps/dashboard/messages', `${locale}.json`), 'utf8'));
   for (const key of invoiceKeys) assert.equal(typeof messages.invoices[key], 'string', `${locale} invoices.${key}`);
@@ -188,27 +190,85 @@ for (const locale of locales) {
 }
 const arabic = JSON.parse(readFileSync('apps/dashboard/messages/ar.json', 'utf8'));
 assert.match(arabic.invoices.receiptLabel, /إيصال|إرفاق/);
+assert.match(arabic.payments.receiptLabel, /إيصال/);
 console.log('PASS localization keys exist in en, fr, ar, sw, yo, ha, and ig');
 
+const plainRequest = manualPaymentBody({ reservationId: propertyA, amountMinorUnits: 1500, method: 'cash', notes: '' }, null);
+assert.equal(plainRequest.headers['Content-Type'], 'application/json');
+const plainPayload = JSON.parse(String(plainRequest.body));
+assert.equal(plainPayload.reservationId, propertyA);
+assert.equal(plainPayload.amountMinorUnits, 1500);
+assert.equal(plainPayload.notes, undefined);
+assert.equal('receipt' in plainPayload, false);
+const withRequest = manualPaymentBody({ reservationId: propertyA, amountMinorUnits: 1500, method: 'pos' }, new File([jpeg.bytes], 'slip.jpg', { type: 'image/jpeg' }));
+assert.equal(withRequest.headers['Content-Type'], undefined);
+assert.ok(withRequest.body instanceof FormData);
+assert.ok(withRequest.body.get('receipt') instanceof File);
+console.log('PASS general record-payment sends JSON without a receipt and multipart only when a file is attached');
+
+const invalidForm = new FormData();
+invalidForm.set('receipt', new File([Uint8Array.from([1, 2, 3, 4])], 'virus.pdf', { type: 'application/pdf' }));
+const invalidUpload = await optionalReceiptFromForm(invalidForm);
+assert.equal(invalidUpload.error?.code, 'receipt_type');
+const oversized = new File([jpeg.bytes], 'big.jpg', { type: 'image/jpeg' });
+Object.defineProperty(oversized, 'size', { value: PAYMENT_RECEIPT_MAX_BYTES + 1 });
+const oversizedForm = new FormData();
+oversizedForm.set('receipt', oversized);
+const oversizedUpload = await optionalReceiptFromForm(oversizedForm);
+assert.equal(oversizedUpload.error?.code, 'receipt_size');
+console.log('PASS invalid and oversize receipts are rejected before a general payment is recorded');
+
+const field = readFileSync('apps/dashboard/src/components/payment-receipt-field.tsx', 'utf8');
+assert.match(field, /htmlFor=\{id\}/);
+assert.match(field, /const helpId = `\$\{id\}-help`/);
+assert.match(field, /aria-describedby=\{helpId\}/);
+assert.match(field, /aria-live="polite"/);
+assert.match(field, /w-full max-w-full/);
+assert.doesNotMatch(field, /min-w-\[4\d{2}px\]/);
 const modal = readFileSync('apps/dashboard/src/components/invoice-view-modal.tsx', 'utf8');
 const referenceAt = modal.indexOf('Transaction / POS Reference');
-const receiptAt = modal.indexOf('htmlFor="settlement-receipt"');
+const receiptAt = modal.indexOf('id="settlement-receipt"');
 const notesAt = modal.indexOf('Settlement Notes (Optional)');
 const confirmAt = modal.indexOf('Confirm Payment');
 assert.ok(referenceAt < receiptAt && receiptAt < notesAt && notesAt < confirmAt);
 assert.match(modal, /w-full max-w-md max-h-\[90vh\] overflow-y-auto/);
-assert.match(modal, /id="settlement-receipt"/);
-assert.match(modal, /aria-describedby="settlement-receipt-help"/);
-assert.match(modal, /aria-live="polite"/);
+assert.match(modal, /manualPaymentBody/);
 assert.doesNotMatch(modal, /min-w-\[4\d{2}px\]/);
+const paymentsPage = readFileSync('apps/dashboard/src/app/payments/page.tsx', 'utf8');
+const pageReference = paymentsPage.indexOf('id="record-reference"');
+const pageReceipt = paymentsPage.indexOf('id="record-receipt"');
+const pageNote = paymentsPage.indexOf('id="record-note"');
+const pageConfirm = paymentsPage.indexOf('Confirm payment');
+assert.ok(pageReference < pageReceipt && pageReceipt < pageNote && pageNote < pageConfirm);
+assert.match(paymentsPage, /max-h-\[90vh\] overflow-y-auto/);
+assert.match(paymentsPage, /manualPaymentBody/);
+const dialog = readFileSync('apps/dashboard/src/components/record-payment-dialog.tsx', 'utf8');
+const dialogReference = dialog.indexOf('id="settle-ref"');
+const dialogReceipt = dialog.indexOf('id="settle-receipt"');
+const dialogNote = dialog.indexOf('id="settle-note"');
+assert.ok(dialogReference < dialogReceipt && dialogReceipt < dialogNote);
+assert.match(dialog, /max-h-\[85vh\] overflow-y-auto/);
+assert.match(dialog, /manualPaymentBody/);
+assert.match(readFileSync('apps/dashboard/src/components/check-in-room-dialog.tsx', 'utf8'), /RecordPaymentDialog/);
+assert.match(readFileSync('apps/dashboard/src/components/reservation-drawer.tsx', 'utf8'), /\/api\/payments\/\$\{payment.id\}\/receipt/);
 const route = readFileSync('apps/dashboard/src/app/api/invoices/[id]/payments/route.ts', 'utf8');
 assert.match(route, /applyInvoiceSettlementToReservation/);
+assert.match(route, /persistPaymentReceipt/);
 assert.doesNotMatch(route, /Amount is more than the reservation outstanding balance/);
 assert.match(route, /maybeQueueZohoPaymentSync/);
 assert.match(route, /maybeQueueZohoBooksPaymentSync/);
-assert.match(route, /acl: 'private'/);
+const paymentsRoute = readFileSync('apps/dashboard/src/app/api/payments/route.ts', 'utf8');
+assert.match(paymentsRoute, /settleWithOptionalReceipt/);
+assert.match(paymentsRoute, /persistPaymentReceipt/);
+assert.match(paymentsRoute, /receipt: null/);
+assert.doesNotMatch(paymentsRoute, /Amount is more than the reservation outstanding balance/);
+const persist = readFileSync('apps/dashboard/src/lib/payment-receipt-persist.ts', 'utf8');
+assert.match(persist, /acl: 'private'/);
+assert.match(persist, /paymentId: args.paymentId/);
+assert.match(persist, /propertyId: args.propertyId/);
+assert.doesNotMatch(persist, /digitaloceanspaces\.com/);
 assert.match(readFileSync('apps/dashboard/src/app/api/payments/[id]/receipt/route.ts', 'utf8'), /withMerchant\(handleGET, 'payments'\)/);
-console.log('PASS mobile settlement form stays within the viewport and existing payment sync remains');
+console.log('PASS every manual payment surface shares one receipt field, private storage, and authenticated view');
 
 console.log('payment receipt checks passed');
 }

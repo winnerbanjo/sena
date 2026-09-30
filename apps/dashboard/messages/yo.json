@@ -401,7 +401,15 @@
     "paystack": "Paystack",
     "walkInGuest": "Àlejò tó wá tààrà",
     "viewReceipt": "Wo ìwé-ẹ̀rí",
-    "downloadReceipt": "Gba sílẹ̀"
+    "downloadReceipt": "Gba sílẹ̀",
+    "receiptLabel": "Ìwé-ẹ̀rí ìsanwó",
+    "receiptUpload": "Gbé ìwé-ẹ̀rí sókè",
+    "receiptHelp": "Kò pọndandan. JPG, JPEG, PNG, WEBP, tàbí PDF. Ó pọ̀ jù 10 MB lọ kò yẹ.",
+    "receiptRemove": "Yọ kúrò",
+    "receiptSelected": "Fáìlì tí a yàn",
+    "receiptInvalid": "Gbé ìwé-ẹ̀rí JPG, PNG, WebP, tàbí PDF sókè.",
+    "receiptTooLarge": "Ìwé-ẹ̀rí kò gbọ́dọ̀ ju 10 MB lọ.",
+    "receiptUploadFailed": "A ti ṣe àkọsílẹ̀ ìsanwó, ṣùgbọ́n a kò so ìwé-ẹ̀rí pọ̀. Gbìyànjú láti so ó pọ̀ lẹ́ẹ̀kan sí i."
   },
   "invoices": {
     "title": "Ìwé-owó àti àkọ́lé",

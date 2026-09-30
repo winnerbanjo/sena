@@ -45,6 +45,7 @@ export function ReservationDrawer({
   const t = useTranslations('payments');
   const [payOpen, setPayOpen] = React.useState(false);
   const [history, setHistory] = React.useState<any[]>([]);
+  const [historyVersion, setHistoryVersion] = React.useState(0);
 
   React.useEffect(() => {
     if (!open || !reservation) return;
@@ -52,7 +53,7 @@ export function ReservationDrawer({
       .then((res) => (res.ok ? res.json() : { payments: [] }))
       .then((data) => setHistory(Array.isArray(data.payments) ? data.payments : []))
       .catch(() => setHistory([]));
-  }, [open, reservation]);
+  }, [open, reservation, historyVersion]);
 
   if (!reservation) return null;
 
@@ -317,7 +318,10 @@ export function ReservationDrawer({
           reference={reservation.reference}
           outstandingMinorUnits={outstanding}
           checkedOut={isCheckedOut}
-          onRecorded={onPaymentRecorded}
+          onRecorded={() => {
+            setHistoryVersion((version) => version + 1);
+            onPaymentRecorded?.();
+          }}
         />
       </DrawerContent>
     </Drawer>
