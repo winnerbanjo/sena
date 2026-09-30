@@ -21,6 +21,7 @@ import {
 
 interface RoomType {
   id: string;
+  kind?: 'room' | 'apartment';
   name: string;
   description?: string;
   basePriceMinorUnits: number;
@@ -157,7 +158,7 @@ function EmbedBookingContent() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           property_id: property.id,
-          room_type_id: selectedRoom.id,
+          ...(selectedRoom.kind === 'apartment' ? { apartment_id: selectedRoom.id } : { room_type_id: selectedRoom.id }),
           check_in: checkIn,
           check_out: checkOut,
           num_guests: guests,

@@ -25,6 +25,7 @@ async function handleGET(
         id: reservations.id,
         propertyId: reservations.propertyId,
         roomTypeId: reservations.roomTypeId,
+        apartmentId: reservations.apartmentId,
         checkInDate: reservations.checkInDate,
         checkOutDate: reservations.checkOutDate,
         roomId: reservations.roomId,
@@ -35,6 +36,10 @@ async function handleGET(
 
     if (!reservation) {
       return NextResponse.json({ error: 'This item is not available in your property.' }, { status: 404 });
+    }
+
+    if (reservation.apartmentId || !reservation.roomTypeId) {
+      return NextResponse.json({ rooms: [], assignedRoomId: null, apartment: Boolean(reservation.apartmentId) });
     }
 
     const rooms = await ReservationService.eligibleRooms({

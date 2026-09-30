@@ -15,6 +15,7 @@ interface AvailableRoom {
   remaining: number;
   description: string;
   amenities: string[];
+  kind?: 'room' | 'apartment';
 }
 
 export default function BookingEnginePage() {
@@ -95,7 +96,7 @@ export default function BookingEnginePage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           propertyId: property.id,
-          roomTypeId: room.id,
+          ...(room.kind === 'apartment' ? { apartmentId: room.id } : { roomTypeId: room.id }),
           checkInDate: checkIn,
           checkOutDate: checkOut,
           quantity: 1,
@@ -149,7 +150,7 @@ export default function BookingEnginePage() {
         body: JSON.stringify({
           holdId,
           propertyId: property.id,
-          roomTypeId: selectedRoom.id,
+          ...(selectedRoom.kind === 'apartment' ? { apartmentId: selectedRoom.id } : { roomTypeId: selectedRoom.id }),
           checkInDate: checkIn,
           checkOutDate: checkOut,
           numGuests,

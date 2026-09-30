@@ -12,6 +12,7 @@ export function RoomGalleryEditor({
   onChange,
   roomTypeId,
   roomId,
+  apartmentId,
   label,
   help,
 }: {
@@ -19,6 +20,7 @@ export function RoomGalleryEditor({
   onChange: (photos: EditablePhoto[]) => void;
   roomTypeId?: string;
   roomId?: string;
+  apartmentId?: string;
   label: string;
   help: string;
 }) {
@@ -27,7 +29,7 @@ export function RoomGalleryEditor({
   const [uploading, setUploading] = React.useState(false);
   const [progress, setProgress] = React.useState('');
   const [error, setError] = React.useState('');
-  const persisted = Boolean(roomTypeId || roomId);
+  const persisted = Boolean(roomTypeId || roomId || apartmentId);
 
   async function upload(files: File[]) {
     if (files.length === 0) return;
@@ -63,6 +65,7 @@ export function RoomGalleryEditor({
       files.forEach((file) => form.append('files', file));
       if (roomTypeId) form.append('roomTypeId', roomTypeId);
       if (roomId) form.append('roomId', roomId);
+      if (apartmentId) form.append('apartmentId', apartmentId);
       const response = await fetch('/api/rooms/gallery', { method: 'POST', body: form });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || t('uploadFailed'));

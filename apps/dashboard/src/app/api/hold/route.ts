@@ -1,27 +1,29 @@
 import { apiError } from '@/lib/api-error';
 import { NextRequest, NextResponse } from 'next/server';
-import { createHold, releaseHold } from '@sena/inventory';
+import { createApartmentHold, createHold, releaseHold } from '@sena/inventory';
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { propertyId, roomTypeId, checkInDate, checkOutDate, quantity = 1, guestName, guestEmail } = body;
+    const { propertyId, roomTypeId, apartmentId, checkInDate, checkOutDate, quantity = 1, guestName, guestEmail } = body;
 
-    if (!propertyId || !roomTypeId || !checkInDate || !checkOutDate) {
+    if (!propertyId || (!roomTypeId && !apartmentId) || (roomTypeId && apartmentId) || !checkInDate || !checkOutDate) {
       return NextResponse.json(
-        { error: 'Missing required parameters: propertyId, roomTypeId, checkInDate, checkOutDate' },
+        { error: 'Missing required parameters: propertyId, roomTypeId or apartmentId, checkInDate, checkOutDate' },
         { status: 400 }
       );
     }
 
-    const holdResult = await createHold(
-      propertyId,
-      roomTypeId,
-      checkInDate,
-      checkOutDate,
-      Number(quantity),
-      { name: guestName, email: guestEmail }
-    );
+    const holdResult = apartmentId
+      ? await createApartmentHold(propertyId, apartmentId, checkInDate, checkOutDate, Number(quantity), { name: guestName, email: guestEmail })
+      : await createHold(
+          propertyId,
+          roomTypeId,
+          checkInDate,
+          checkOutDate,
+          Number(quantity),
+          { name: guestName, email: guestEmail }
+        );
 
     return NextResponse.json({
       success: true,
@@ -32,7 +34,7 @@ export async function POST(req: NextRequest) {
     });
   } catch (error: any) {
     console.error('Error creating 10-minute hold:', error);
-    const isConflict = error.message?.includes('not available') || error.message?.includes('capacity');
+    const isConflict = /not available|capacity|already booked|out of service|held once/i.test(error.message || '');
     return NextResponse.json(
       { error: apiError(error) },
       { status: isConflict ? 409 : 500 }

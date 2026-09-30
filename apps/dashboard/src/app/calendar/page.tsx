@@ -31,6 +31,7 @@ function generateDates(baseDate = new Date(), numDays = 7) {
 
 export default function CalendarPage() {
   const t = useTranslations('calendar');
+  const tNav = useTranslations('navigation');
   const [baseDate, setBaseDate] = React.useState(new Date());
   const [calendarDates, setCalendarDates] = React.useState(() => generateDates(new Date(), 7));
   const [rooms, setRooms] = React.useState<any[]>([]);
@@ -91,9 +92,10 @@ export default function CalendarPage() {
             roomType: '',
             roomNumber: '',
             roomId: r.roomId,
+            apartmentId: r.apartmentId,
             checkInDate: r.checkInDate,
             checkOutDate: r.checkOutDate,
-            nights: 1,
+            nights: Math.max(1, Math.round((Date.parse(r.checkOutDate) - Date.parse(r.checkInDate)) / 86400000)),
             numGuests: 1,
             source: r.source || 'direct',
             status: r.status,
@@ -207,20 +209,33 @@ export default function CalendarPage() {
                   </td>
                 </tr>
               ) : (
-                rooms.map((room) => {
-                  const res = reservations.find((r) => (r as any).roomId === room.id || r.roomNumber === room.roomNumber);
+                rooms.map((room, index) => {
+                  const previous = rooms[index - 1];
+                  const showGroup = room.group && room.group !== previous?.group && rooms.some((row) => row.group === 'apartments') && rooms.some((row) => row.group === 'rooms');
+                  const res = reservations.find((r) =>
+                    room.kind === 'apartment' ? (r as any).apartmentId === room.id : ((r as any).roomId === room.id || r.roomNumber === room.roomNumber)
+                  );
 
                   return (
-                    <tr key={room.id} className="hover:bg-[#FAF7F2]/40 transition-colors">
-                      {/* Room title */}
+                    <React.Fragment key={room.id}>
+                    {showGroup ? (
+                      <tr>
+                        <td colSpan={calendarDates.length + 1} className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-[#7A7267] bg-[#F4EFE8]">
+                          {room.group === 'apartments' ? tNav('apartments') : tNav('rooms')}
+                        </td>
+                      </tr>
+                    ) : null}
+                    <tr className="hover:bg-[#FAF7F2]/40 transition-colors">
                       <td className="p-3 border-r border-[#E8E2DA] bg-[#FAF9F6]">
                         <div className="flex items-baseline justify-between">
                           <strong className="text-sm font-serif text-[#191816]">
-                            Room {room.roomNumber}
+                            {room.kind === 'apartment' ? room.roomNumber : `Room ${room.roomNumber}`}
                           </strong>
-                          <span className="text-[10px] font-mono text-[#7A7267] uppercase">
-                            {room.floor || 'FL 1'}
-                          </span>
+                          {room.kind === 'apartment' ? null : (
+                            <span className="text-[10px] font-mono text-[#7A7267] uppercase">
+                              {room.floor || 'FL 1'}
+                            </span>
+                          )}
                         </div>
                         <span className="text-[11px] text-[#7A7267] block truncate">
                           {room.roomTypeName || 'Deluxe'}
@@ -299,6 +314,7 @@ export default function CalendarPage() {
                         );
                       })}
                     </tr>
+                    </React.Fragment>
                   );
                 }))}
             </tbody>

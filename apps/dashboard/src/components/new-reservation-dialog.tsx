@@ -28,9 +28,11 @@ interface NewReservationDialogProps {
 
 interface RoomTypeOption {
   id: string;
+  kind: 'room' | 'apartment';
   name: string;
   price: number;
   available: number;
+  maxGuests?: number;
 }
 
 export function NewReservationDialog({
@@ -52,6 +54,8 @@ export function NewReservationDialog({
   const [checkIn, setCheckIn] = React.useState(getTodayStr());
   const [checkOut, setCheckOut] = React.useState(getTomorrowStr());
   const [roomOptions, setRoomOptions] = React.useState<RoomTypeOption[]>([]);
+  const [accommodationFilter, setAccommodationFilter] = React.useState<'all' | 'rooms' | 'apartments'>('all');
+  const [accommodationQuery, setAccommodationQuery] = React.useState('');
   const [loadingRooms, setLoadingRooms] = React.useState(false);
   const [selectedRoomId, setSelectedRoomId] = React.useState<string>('');
   const [physicalRoomId, setPhysicalRoomId] = React.useState<string>('');
@@ -74,22 +78,32 @@ export function NewReservationDialog({
       setEligibleRooms([]);
       setLoadingRooms(true);
 
-      fetch('/api/rooms')
-        .then((res) => (res.ok ? res.json() : null))
-        .then((data) => {
-          if (data && data.roomTypes && data.roomTypes.length > 0) {
-            const mapped = data.roomTypes.map((rt: any) => ({
+      Promise.all([
+        fetch('/api/rooms').then((res) => (res.ok ? res.json() : null)),
+        fetch('/api/apartments').then((res) => (res.ok ? res.json() : null)),
+      ])
+        .then(([roomsData, apartmentsData]) => {
+          const mapped: RoomTypeOption[] = [
+            ...((roomsData?.roomTypes || []).map((rt: any) => ({
               id: rt.id,
+              kind: 'room' as const,
               name: rt.name,
               price: rt.basePriceMinorUnits,
               available: rt.totalInventory || 0,
-            }));
-            setRoomOptions(mapped);
-            setSelectedRoomId((prev) => (mapped.some((m: any) => m.id === prev) ? prev : mapped[0].id));
-          } else {
-            setRoomOptions([]);
-            setSelectedRoomId('');
-          }
+            }))),
+            ...((apartmentsData?.apartments || []).map((apartment: any) => ({
+              id: apartment.id,
+              kind: 'apartment' as const,
+              name: apartment.name,
+              price: apartment.basePriceMinorUnits,
+              available: apartment.availability ?? 1,
+              maxGuests: apartment.maxGuests,
+            }))),
+          ];
+          setRoomOptions(mapped);
+          setAccommodationFilter('all');
+          setAccommodationQuery('');
+          setSelectedRoomId((prev) => (mapped.some((item) => item.id === prev) ? prev : mapped[0]?.id || ''));
         })
         .catch(() => {
           setRoomOptions([]);
@@ -100,7 +114,8 @@ export function NewReservationDialog({
   }, [open]);
 
   React.useEffect(() => {
-    if (!open || !selectedRoomId || !checkIn || !checkOut || checkOut <= checkIn) {
+    const selectedKind = roomOptions.find((option) => option.id === selectedRoomId)?.kind;
+    if (!open || selectedKind === 'apartment' || !selectedRoomId || !checkIn || !checkOut || checkOut <= checkIn) {
       setEligibleRooms([]);
       setPhysicalRoomId('');
       return;
@@ -126,9 +141,17 @@ export function NewReservationDialog({
       });
 
     return () => controller.abort();
-  }, [open, selectedRoomId, checkIn, checkOut]);
+  }, [open, selectedRoomId, checkIn, checkOut, roomOptions]);
 
   const nights = (() => { try { return calculateNights(checkIn, checkOut); } catch { return 0; } })();
+  const hasRooms = roomOptions.some((option) => option.kind === 'room');
+  const hasApartments = roomOptions.some((option) => option.kind === 'apartment');
+  const visibleOptions = roomOptions.filter((option) => {
+    if (accommodationFilter === 'rooms' && option.kind !== 'room') return false;
+    if (accommodationFilter === 'apartments' && option.kind !== 'apartment') return false;
+    const query = accommodationQuery.trim().toLowerCase();
+    return !query || option.name.toLowerCase().includes(query);
+  });
   const selectedRoomObj = roomOptions.find((r) => r.id === selectedRoomId) || null;
   const totalAmountMinorUnits = selectedRoomObj ? selectedRoomObj.price * nights : 0;
 
@@ -148,11 +171,11 @@ export function NewReservationDialog({
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Idempotency-Key': requestKey.current },
         body: JSON.stringify({
-          roomTypeId: selectedRoomId,
-          roomId: physicalRoomId || undefined,
+          ...(selectedRoomObj?.kind === 'apartment'
+            ? { apartmentId: selectedRoomId, numGuests: Math.min(2, selectedRoomObj.maxGuests || 2) }
+            : { roomTypeId: selectedRoomId, roomId: physicalRoomId || undefined, numGuests: 2 }),
           checkInDate: checkIn,
           checkOutDate: checkOut,
-          numGuests: 2,
           source,
           paymentStatus,
           paidAmountMinorUnits: paymentStatus === 'paid' ? totalAmountMinorUnits : 0,
@@ -260,22 +283,43 @@ export function NewReservationDialog({
               </div>
             </div>
 
-            {/* Room selection */}
             <div>
-              <Label>{t('roomCategory')}</Label>
-              <div className="grid grid-cols-3 gap-2">
+              <Label>{hasApartments && hasRooms ? t('accommodation') : hasApartments ? t('apartment') : t('roomCategory')}</Label>
+              {hasApartments && hasRooms ? (
+                <div className="mb-2 flex flex-wrap gap-2">
+                  {(['all', 'rooms', 'apartments'] as const).map((filter) => (
+                    <button
+                      key={filter}
+                      type="button"
+                      onClick={() => setAccommodationFilter(filter)}
+                      className={`px-2.5 py-1.5 rounded border text-xs ${accommodationFilter === filter ? 'border-[#B85C3E] bg-[#FAFAFA] text-[#71382D]' : 'border-[#E8E2DA] bg-white text-[#191816]'}`}
+                    >
+                      {t(filter === 'all' ? 'accommodationAll' : filter === 'rooms' ? 'accommodationRooms' : 'accommodationApartments')}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+              {hasApartments && hasRooms ? (
+                <Input
+                  value={accommodationQuery}
+                  onChange={(event) => setAccommodationQuery(event.target.value)}
+                  placeholder={t('searchAccommodation')}
+                  className="mb-2"
+                />
+              ) : null}
+              <div className={`grid gap-2 ${hasApartments ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-3'}`}>
                 {loadingRooms ? (
-                  <div className="col-span-3 text-xs text-[#7A7267] p-3 bg-[#FAFAFA] rounded border border-[#E8E2DA] flex items-center justify-center gap-2">
+                  <div className="text-xs text-[#7A7267] p-3 bg-[#FAFAFA] rounded border border-[#E8E2DA] flex items-center justify-center gap-2">
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
                     {t('loadingRooms')}
                   </div>
-                ) : roomOptions.length === 0 ? (
-                  <div className="col-span-3 p-3 bg-[#FFF8F5] rounded border border-[#F0D5C3] text-xs text-[#71382D]">
-                    <strong className="block mb-0.5">{t('noCategories')}</strong>
-                    {t('noCategoriesHint')}
+                ) : visibleOptions.length === 0 ? (
+                  <div className="p-3 bg-[#FFF8F5] rounded border border-[#F0D5C3] text-xs text-[#71382D]">
+                    <strong className="block mb-0.5">{hasApartments ? t('noAccommodation') : t('noCategories')}</strong>
+                    {hasApartments ? t('noAccommodationHint') : t('noCategoriesHint')}
                   </div>
                 ) : (
-                  roomOptions.map((rm) => (
+                  visibleOptions.map((rm) => (
                     <button
                       key={rm.id}
                       type="button"
@@ -291,10 +335,10 @@ export function NewReservationDialog({
                         {rm.name}
                       </span>
                       <span className="text-[11px] text-[#7A7267] block">
-                        {formatNaira(rm.price)}/nt
+                        {rm.kind === 'apartment' ? t('apartment') : t('roomCategory')} · {formatNaira(rm.price)}/nt
                       </span>
                       <span className="text-[10px] text-[#2E6B4F] mt-1 block">
-                        {rm.available} in inventory
+                        {rm.kind === 'apartment' ? t('oneUnit') : `${rm.available} in inventory`}
                       </span>
                     </button>
                   ))
@@ -302,7 +346,7 @@ export function NewReservationDialog({
               </div>
             </div>
 
-            <div>
+            {selectedRoomObj?.kind === 'apartment' ? null : <div>
               <Label id="assign-room-label">{tFront('assignRoom')}</Label>
               <div className="flex flex-wrap gap-2 mb-2">
                 <button
@@ -329,7 +373,7 @@ export function NewReservationDialog({
               <p className="text-[11px] text-[#8C8275] mt-1.5">
                 Optional. You can reserve the room type now and assign a specific room at check-in.
               </p>
-            </div>
+            </div>}
 
             {/* Guest Details */}
             <div className="pt-2 border-t border-[#E8E2DA] space-y-3">

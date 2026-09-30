@@ -19,6 +19,7 @@ export async function POST(req: NextRequest) {
 
     const propertyId = body.property_id || body.propertyId;
     const roomTypeId = body.room_type_id || body.roomTypeId;
+    const apartmentId = body.apartment_id || body.apartmentId;
     const checkIn = body.check_in || body.checkInDate;
     const checkOut = body.check_out || body.checkOutDate;
     const holdId = body.hold_id || body.holdId;
@@ -33,7 +34,7 @@ export async function POST(req: NextRequest) {
     const paymentMethod = body.payment_method || body.paymentMethod || 'pay_at_property';
     const source = (body.source || 'api') as any;
 
-    if (!propertyId || !roomTypeId || !checkIn || !checkOut || !guestName || !guestEmail) {
+    if (!propertyId || (!roomTypeId && !apartmentId) || (roomTypeId && apartmentId) || !checkIn || !checkOut || !guestName || !guestEmail) {
       return NextResponse.json(
         {
           error: {
@@ -68,7 +69,7 @@ export async function POST(req: NextRequest) {
           and(
             eq(bookingHolds.id, holdId),
             eq(bookingHolds.propertyId, propertyId),
-            eq(bookingHolds.roomTypeId, roomTypeId)
+            apartmentId ? eq(bookingHolds.apartmentId, apartmentId) : eq(bookingHolds.roomTypeId, roomTypeId)
           )
         )
         .limit(1);
@@ -92,7 +93,8 @@ export async function POST(req: NextRequest) {
     const reservation = await ReservationService.create(
       {
         propertyId,
-        roomTypeId,
+        roomTypeId: apartmentId ? undefined : roomTypeId,
+        apartmentId: apartmentId || undefined,
         checkInDate: checkIn,
         checkOutDate: checkOut,
         numGuests,
@@ -128,11 +130,20 @@ export async function POST(req: NextRequest) {
         id: fullReservation?.id || reservation.id,
         reference: fullReservation?.reference || reservation.reference,
         property_id: propertyId,
-        room_type: {
-          id: fullReservation?.roomType?.id || roomTypeId,
-          name: fullReservation?.roomType?.name || '',
-          bed_type: fullReservation?.roomType?.bedType || '',
-        },
+        room_type: fullReservation?.apartment
+          ? null
+          : {
+              id: fullReservation?.roomType?.id || roomTypeId,
+              name: fullReservation?.roomType?.name || '',
+              bed_type: fullReservation?.roomType?.bedType || '',
+            },
+        apartment: fullReservation?.apartment
+          ? {
+              id: fullReservation.apartment.id,
+              name: fullReservation.apartment.name,
+              bed_configuration: fullReservation.apartment.bedConfiguration,
+            }
+          : null,
         check_in: fullReservation?.checkInDate || checkIn,
         check_out: fullReservation?.checkOutDate || checkOut,
         nights: fullReservation?.nights || 1,

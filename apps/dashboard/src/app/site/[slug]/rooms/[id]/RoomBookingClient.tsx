@@ -105,7 +105,7 @@ export function RoomBookingClient({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           propertyId: property.id,
-          roomTypeId: room.id,
+          ...(room.kind === 'apartment' ? { apartmentId: room.id } : { roomTypeId: room.id }),
           checkInDate: checkIn,
           checkOutDate: checkOut,
           quantity: 1,
@@ -144,7 +144,7 @@ export function RoomBookingClient({
         body: JSON.stringify({
           holdId,
           propertyId: property.id,
-          roomTypeId: room.id,
+          ...(room.kind === 'apartment' ? { apartmentId: room.id } : { roomTypeId: room.id }),
           checkInDate: checkIn,
           checkOutDate: checkOut,
           numGuests: guests,

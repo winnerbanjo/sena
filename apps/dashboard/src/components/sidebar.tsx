@@ -15,6 +15,7 @@ import {
   Home,
   Layers,
   Brush,
+  Building2,
   Tag,
   TrendingUp,
   Users,
@@ -44,6 +45,7 @@ interface NavSection {
       | 'calendar'
       | 'frontDesk'
       | 'rooms'
+      | 'apartments'
       | 'housekeeping'
       | 'guests'
       | 'website'
@@ -76,6 +78,7 @@ const NAV_SECTIONS: NavSection[] = [
       { id: 'calendar', labelKey: 'calendar', href: '/calendar', icon: Calendar },
       { id: 'frontDesk', labelKey: 'frontDesk', href: '/front-desk', icon: DoorOpen },
       { id: 'rooms', labelKey: 'rooms', href: '/rooms', icon: Layers },
+      { id: 'apartments', labelKey: 'apartments', href: '/apartments', icon: Building2 },
       { id: 'housekeeping', labelKey: 'housekeeping', href: '/housekeeping', icon: Brush },
       { id: 'guests', labelKey: 'guests', href: '/guests', icon: Users },
     ],
@@ -132,7 +135,7 @@ function SidebarNavItems({ onNavigate }: { onNavigate?: () => void }) {
         }
       } else if (isHousekeeping) {
         if (section.titleKey === 'operations') {
-          items = items.filter((i) => ['housekeeping', 'rooms'].includes(i.id));
+          items = items.filter((i) => ['housekeeping', 'rooms', 'apartments'].includes(i.id));
         } else if (section.titleKey && ['sales', 'insights', 'manage'].includes(section.titleKey)) {
           items = [];
         }

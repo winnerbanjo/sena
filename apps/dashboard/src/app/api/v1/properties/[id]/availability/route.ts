@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db, roomTypes, properties } from '@sena/database';
+import { db, roomTypes, apartments, properties } from '@sena/database';
 import { eq, and } from 'drizzle-orm';
-import { checkAvailability } from '@sena/inventory';
+import { checkApartmentAvailability, checkAvailability } from '@sena/inventory';
 import { calculateNights } from '@sena/config';
 import { authenticateApiRequest, logApiRequest } from '@/lib/api-auth';
 
@@ -151,7 +151,40 @@ export async function GET(
       })
     );
 
-    const filtered = results.filter(Boolean);
+    const apartmentRows = await db
+      .select()
+      .from(apartments)
+      .where(and(eq(apartments.propertyId, id), eq(apartments.bookingVisibility, true)));
+
+    const apartmentResults = await Promise.all(
+      apartmentRows
+        .filter((unit) => unit.operationalStatus !== 'blocked' && unit.operationalStatus !== 'maintenance')
+        .map(async (unit) => {
+          if (guests && unit.maxGuests < guests) return null;
+          const avail = await checkApartmentAvailability(id, unit.id, checkIn, checkOut);
+          return {
+            kind: 'apartment',
+            apartment_id: unit.id,
+            room_type_id: null,
+            name: unit.name,
+            description: unit.description,
+            capacity: unit.maxGuests,
+            bed_type: unit.bedConfiguration,
+            bedrooms: unit.bedrooms,
+            bathrooms: unit.bathrooms,
+            is_available: avail.isAvailable,
+            available_quantity: avail.minAvailable,
+            nightly_price_minor_units: unit.basePriceMinorUnits,
+            total_amount_minor_units: unit.basePriceMinorUnits * nights,
+            currency,
+            nights,
+            amenities: unit.amenities || [],
+            images: [],
+          };
+        })
+    );
+
+    const filtered = [...results, ...apartmentResults].filter(Boolean);
 
     const res = NextResponse.json({
       data: {

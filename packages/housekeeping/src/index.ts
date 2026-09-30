@@ -1,4 +1,4 @@
-import { activityLogs, db, housekeepingTasks, properties, propertyMembers, rooms, users } from '@sena/database';
+import { activityLogs, apartments, db, housekeepingTasks, properties, propertyMembers, rooms, users } from '@sena/database';
 import type { HousekeepingStatus } from '@sena/types';
 import { and, desc, eq, inArray } from 'drizzle-orm';
 
@@ -15,15 +15,19 @@ function isRevoked(permissions: unknown) {
 
 export async function ensureOpenHousekeepingTask(
   tx: any,
-  input: { propertyId: string; roomId: string; notes?: string }
+  input: { propertyId: string; roomId?: string; apartmentId?: string; notes?: string }
 ) {
+  if (!input.roomId && !input.apartmentId) throw new Error('Choose a room.');
+  const unit = input.apartmentId
+    ? eq(housekeepingTasks.apartmentId, input.apartmentId)
+    : eq(housekeepingTasks.roomId, input.roomId!);
   const [open] = await tx
     .select()
     .from(housekeepingTasks)
     .where(
       and(
         eq(housekeepingTasks.propertyId, input.propertyId),
-        eq(housekeepingTasks.roomId, input.roomId),
+        unit,
         inArray(housekeepingTasks.status, [...OPEN_TASK_STATUSES])
       )
     )
@@ -37,7 +41,8 @@ export async function ensureOpenHousekeepingTask(
     .insert(housekeepingTasks)
     .values({
       propertyId: input.propertyId,
-      roomId: input.roomId,
+      roomId: input.roomId || null,
+      apartmentId: input.apartmentId || null,
       status: 'dirty',
       notes: input.notes,
     })
@@ -273,6 +278,7 @@ export class HousekeepingService {
       .select({
         id: housekeepingTasks.id,
         roomId: housekeepingTasks.roomId,
+        apartmentId: housekeepingTasks.apartmentId,
         status: housekeepingTasks.status,
         notes: housekeepingTasks.notes,
         assignedToUserId: housekeepingTasks.assignedToUserId,
@@ -302,7 +308,158 @@ export class HousekeepingService {
       .filter((member) => !isRevoked(member.permissions) && !(Array.isArray(member.permissions) && member.permissions.includes('status:invited')))
       .map((member) => ({ userId: member.userId, name: member.name, role: member.role }));
 
-    return { rooms: roomList, tasks, staff: eligibleStaff };
+    const apartmentList = await db
+      .select({
+        id: apartments.id,
+        name: apartments.name,
+        apartmentType: apartments.apartmentType,
+        operationalStatus: apartments.operationalStatus,
+        housekeepingStatus: apartments.housekeepingStatus,
+        updatedAt: apartments.updatedAt,
+      })
+      .from(apartments)
+      .where(eq(apartments.propertyId, propertyId))
+      .orderBy(apartments.name);
+
+    return { rooms: roomList, apartments: apartmentList, tasks, staff: eligibleStaff };
+  }
+
+  static async sendApartmentToHousekeeping(
+    propertyId: string,
+    apartmentId: string,
+    actor = { id: '', name: 'Staff' },
+    notes?: string
+  ) {
+    return db.transaction(async (tx) => {
+      const [apartment] = await tx
+        .select({
+          id: apartments.id,
+          name: apartments.name,
+          housekeepingStatus: apartments.housekeepingStatus,
+          organizationId: properties.organizationId,
+        })
+        .from(apartments)
+        .innerJoin(properties, eq(apartments.propertyId, properties.id))
+        .where(and(eq(apartments.id, apartmentId), eq(apartments.propertyId, propertyId)))
+        .limit(1)
+        .for('update');
+      if (!apartment) throw new Error('Apartment not found');
+      const prevStatus = apartment.housekeepingStatus;
+      if (apartment.housekeepingStatus !== 'dirty') {
+        await tx.update(apartments).set({ housekeepingStatus: 'dirty', updatedAt: new Date() }).where(eq(apartments.id, apartmentId));
+      }
+      const task = await ensureOpenHousekeepingTask(tx, {
+        propertyId,
+        apartmentId,
+        notes: notes || 'Sent to housekeeping from Apartments.',
+      });
+      await tx.insert(activityLogs).values({
+        organizationId: apartment.organizationId,
+        propertyId,
+        actorId: actorUserId(actor),
+        actorName: actor.name,
+        action: `${apartment.name} sent to housekeeping`,
+        resource: 'housekeeping',
+        resourceId: apartmentId,
+        previousValue: { housekeepingStatus: prevStatus },
+        newValue: { housekeepingStatus: 'dirty', taskId: task.id },
+      });
+      return { apartmentId, status: 'dirty' as const, taskId: task.id };
+    });
+  }
+
+  static async assignApartmentStaff(
+    propertyId: string,
+    apartmentId: string,
+    assignedToUserId: string | null,
+    actor = { id: '', name: 'Staff' }
+  ) {
+    return db.transaction(async (tx) => {
+      const [apartment] = await tx
+        .select({ id: apartments.id, name: apartments.name, organizationId: properties.organizationId })
+        .from(apartments)
+        .innerJoin(properties, eq(apartments.propertyId, properties.id))
+        .where(and(eq(apartments.id, apartmentId), eq(apartments.propertyId, propertyId)))
+        .limit(1)
+        .for('update');
+      if (!apartment) throw new Error('Apartment not found');
+      if (assignedToUserId) {
+        if (!UUID.test(assignedToUserId)) throw new Error('Choose a valid staff member.');
+        const [member] = await tx
+          .select({ userId: propertyMembers.userId, permissions: propertyMembers.permissions })
+          .from(propertyMembers)
+          .where(and(eq(propertyMembers.propertyId, propertyId), eq(propertyMembers.userId, assignedToUserId)))
+          .limit(1);
+        if (!member || isRevoked(member.permissions)) throw new Error('This staff member is not available in your property.');
+      }
+      const task = await ensureOpenHousekeepingTask(tx, { propertyId, apartmentId, notes: 'Opened for staff assignment.' });
+      await tx.update(housekeepingTasks).set({ assignedToUserId: assignedToUserId || null, updatedAt: new Date() }).where(eq(housekeepingTasks.id, task.id));
+      await tx.insert(activityLogs).values({
+        organizationId: apartment.organizationId,
+        propertyId,
+        actorId: actorUserId(actor),
+        actorName: actor.name,
+        action: assignedToUserId ? `${apartment.name} housekeeping assigned` : `${apartment.name} housekeeping unassigned`,
+        resource: 'housekeeping',
+        resourceId: apartmentId,
+        newValue: { assignedToUserId: assignedToUserId || null, taskId: task.id },
+      });
+      return { apartmentId, taskId: task.id, assignedToUserId: assignedToUserId || null };
+    });
+  }
+
+  static async updateApartmentStatus(
+    propertyId: string,
+    apartmentId: string,
+    newStatus: HousekeepingStatus,
+    actor = { id: '', name: 'Housekeeper' }
+  ) {
+    if (!['clean', 'dirty', 'cleaning', 'inspection'].includes(newStatus)) throw new Error('Choose a valid housekeeping status.');
+    if (newStatus === 'dirty') return this.sendApartmentToHousekeeping(propertyId, apartmentId, actor);
+    return db.transaction(async (tx) => {
+      const [apartment] = await tx
+        .select({
+          id: apartments.id,
+          name: apartments.name,
+          housekeepingStatus: apartments.housekeepingStatus,
+          operationalStatus: apartments.operationalStatus,
+          organizationId: properties.organizationId,
+        })
+        .from(apartments)
+        .innerJoin(properties, eq(apartments.propertyId, properties.id))
+        .where(and(eq(apartments.id, apartmentId), eq(apartments.propertyId, propertyId)))
+        .limit(1)
+        .for('update');
+      if (!apartment) throw new Error('Apartment not found');
+      const now = new Date();
+      const assignee = actorUserId(actor);
+      await tx.update(apartments).set({ housekeepingStatus: newStatus, updatedAt: now }).where(eq(apartments.id, apartmentId));
+      if (newStatus === 'cleaning') {
+        const task = await ensureOpenHousekeepingTask(tx, { propertyId, apartmentId, notes: 'Cleaning started.' });
+        await tx.update(housekeepingTasks).set({
+          status: 'cleaning',
+          assignedToUserId: task.assignedToUserId || assignee,
+          startedAt: task.startedAt || now,
+          updatedAt: now,
+        }).where(eq(housekeepingTasks.id, task.id));
+      } else if (newStatus === 'clean' || newStatus === 'inspection') {
+        await tx.update(housekeepingTasks).set({ status: 'clean', completedAt: now, updatedAt: now }).where(
+          and(eq(housekeepingTasks.propertyId, propertyId), eq(housekeepingTasks.apartmentId, apartmentId), inArray(housekeepingTasks.status, ['dirty', 'cleaning']))
+        );
+      }
+      await tx.insert(activityLogs).values({
+        organizationId: apartment.organizationId,
+        propertyId,
+        actorId: assignee,
+        actorName: actor.name,
+        action: `${apartment.name} marked ${newStatus}`,
+        resource: 'apartments',
+        resourceId: apartmentId,
+        previousValue: { housekeepingStatus: apartment.housekeepingStatus },
+        newValue: { housekeepingStatus: newStatus },
+      });
+      return { apartmentId, status: newStatus, operationalStatus: apartment.operationalStatus };
+    });
   }
 
   static async getSummary(propertyId: string) {

@@ -10,6 +10,7 @@ export async function POST(req: NextRequest) {
       holdId,
       propertyId,
       roomTypeId,
+      apartmentId,
       checkInDate,
       checkOutDate,
       numGuests = 1,
@@ -19,7 +20,7 @@ export async function POST(req: NextRequest) {
       paymentMethod = 'direct',
     } = body;
 
-    if (!propertyId || !roomTypeId || !checkInDate || !checkOutDate || !guestName || !guestEmail) {
+    if (!propertyId || (!roomTypeId && !apartmentId) || (roomTypeId && apartmentId) || !checkInDate || !checkOutDate || !guestName || !guestEmail) {
       return NextResponse.json(
         { error: 'Missing required booking details' },
         { status: 400 }
@@ -39,7 +40,8 @@ export async function POST(req: NextRequest) {
     const reservation = await ReservationService.create(
       {
         propertyId,
-        roomTypeId,
+        roomTypeId: apartmentId ? undefined : roomTypeId,
+        apartmentId: apartmentId || undefined,
         checkInDate,
         checkOutDate,
         numGuests: Number(numGuests),

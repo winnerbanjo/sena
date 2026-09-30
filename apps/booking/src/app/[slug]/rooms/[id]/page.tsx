@@ -58,6 +58,12 @@ export default async function RoomDetailPage({
                 <BedDouble className="w-3.5 h-3.5 text-[#5C564D]" />
                 {room.bedType}
               </span>
+              {room.location ? (
+                <span className="flex items-center gap-1">
+                  <MapPin className="w-3.5 h-3.5 text-[#5C564D]" />
+                  {room.location}
+                </span>
+              ) : null}
             </div>
           </div>
 

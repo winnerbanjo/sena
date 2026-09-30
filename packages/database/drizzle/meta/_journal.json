@@ -64,6 +64,13 @@
       "when": 1791200000000,
       "tag": "0008_payment_receipts",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1791300000000,
+      "tag": "0009_apartments",
+      "breakpoints": true
     }
   ]
 }

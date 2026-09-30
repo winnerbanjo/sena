@@ -186,8 +186,9 @@ export interface Reservation {
   reference: string; // e.g. 'SEN-84K2JQ'
   propertyId: string;
   guestId: string;
-  roomTypeId: string;
-  roomId?: string; // assigned room (optional before check-in)
+  roomTypeId: string | null;
+  apartmentId?: string | null;
+  roomId?: string | null;
   checkInDate: string; // YYYY-MM-DD
   checkOutDate: string; // YYYY-MM-DD
   nights: number;

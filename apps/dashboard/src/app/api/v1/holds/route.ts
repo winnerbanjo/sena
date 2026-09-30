@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createHold } from '@sena/inventory';
+import { createApartmentHold, createHold } from '@sena/inventory';
 import { authenticateApiRequest, logApiRequest } from '../../../../lib/api-auth';
 
 export async function POST(req: NextRequest) {
@@ -16,12 +16,13 @@ export async function POST(req: NextRequest) {
 
     const propertyId = body.property_id || body.propertyId;
     const roomTypeId = body.room_type_id || body.roomTypeId;
+    const apartmentId = body.apartment_id || body.apartmentId;
     const checkIn = body.check_in || body.checkInDate;
     const checkOut = body.check_out || body.checkOutDate;
     const quantity = Number(body.quantity || 1);
     const guest = body.guest || {};
 
-    if (!propertyId || !roomTypeId || !checkIn || !checkOut) {
+    if (!propertyId || (!roomTypeId && !apartmentId) || (roomTypeId && apartmentId) || !checkIn || !checkOut) {
       return NextResponse.json(
         {
           error: {
@@ -40,14 +41,16 @@ export async function POST(req: NextRequest) {
     }
 
     // Atomically create 10-minute hold in authoritative inventory
-    const holdResult = await createHold(
-      propertyId,
-      roomTypeId,
-      checkIn,
-      checkOut,
-      quantity,
-      { name: guest.name, email: guest.email }
-    );
+    const holdResult = apartmentId
+      ? await createApartmentHold(propertyId, apartmentId, checkIn, checkOut, quantity, { name: guest.name, email: guest.email })
+      : await createHold(
+          propertyId,
+          roomTypeId,
+          checkIn,
+          checkOut,
+          quantity,
+          { name: guest.name, email: guest.email }
+        );
 
     const ttlSeconds = Math.max(0, Math.floor((new Date(holdResult.expiresAt).getTime() - Date.now()) / 1000));
 
@@ -56,7 +59,9 @@ export async function POST(req: NextRequest) {
         data: {
           id: holdResult.holdId,
           property_id: propertyId,
-          room_type_id: roomTypeId,
+          room_type_id: apartmentId ? null : roomTypeId,
+          apartment_id: apartmentId || null,
+          kind: apartmentId ? 'apartment' : 'room',
           check_in: checkIn,
           check_out: checkOut,
           quantity,
@@ -72,7 +77,7 @@ export async function POST(req: NextRequest) {
     return res;
   } catch (error: any) {
     console.error('API Error /v1/holds:', error);
-    const isConflict = error.message?.includes('not available') || error.message?.includes('capacity');
+    const isConflict = /not available|capacity|already booked|out of service|held once/i.test(error.message || '');
     const statusCode = isConflict ? 409 : 500;
     const errorCode = isConflict ? 'ROOM_UNAVAILABLE' : 'INTERNAL_SERVER_ERROR';
 
