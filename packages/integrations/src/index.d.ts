@@ -17,6 +17,10 @@ export declare function uploadMediaToSpaces(params: {
     url: string;
     simulated?: undefined;
 }>;
+export declare function readPrivateMediaFromSpaces(key: string): Promise<{
+    body: Uint8Array;
+    contentType?: string;
+} | null>;
 export declare const redis: Redis | null;
 export declare function getCache<T>(key: string): Promise<T | null>;
 export declare function setCache(key: string, value: unknown, ttlSeconds?: number): Promise<void>;

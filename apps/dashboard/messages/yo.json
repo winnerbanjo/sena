@@ -399,7 +399,9 @@
     "pos": "POS",
     "bankTransfer": "Ìfiránṣẹ́ banki",
     "paystack": "Paystack",
-    "walkInGuest": "Àlejò tó wá tààrà"
+    "walkInGuest": "Àlejò tó wá tààrà",
+    "viewReceipt": "Wo ìwé-ẹ̀rí",
+    "downloadReceipt": "Gba sílẹ̀"
   },
   "invoices": {
     "title": "Ìwé-owó àti àkọ́lé",
@@ -408,7 +410,16 @@
     "paidInFull": "A ti san tán",
     "paymentDue": "Owó tó kù",
     "overdue": "Ó ti pẹ́",
-    "empty": "Kò sí ìwé-owó sibẹ̀."
+    "empty": "Kò sí ìwé-owó sibẹ̀.",
+    "receiptLabel": "So ìwé-ẹ̀rí owó pọ̀",
+    "receiptUpload": "Gbé ìwé-ẹ̀rí sókè",
+    "receiptHelp": "Kò pọn dandan. So ìwé POS, ìwé ìfiránṣẹ́ owó, tàbí ẹ̀rí ìsanwó mìíràn pọ̀.",
+    "receiptRemove": "Yọ kúrò",
+    "receiptSelected": "Fáìlì tí a yàn",
+    "receiptInvalid": "Gbé ìwé-ẹ̀rí JPG, PNG, WebP, tàbí PDF sókè.",
+    "receiptTooLarge": "Ìwé-ẹ̀rí kò gbọ́dọ̀ tóbi ju 10 MB lọ.",
+    "receiptUploadFailed": "A ti ṣe àkọsílẹ̀ ìsanwó, ṣùgbọ́n a kò so ìwé-ẹ̀rí pọ̀. Gbìyànjú láti so ó pọ̀ lẹ́ẹ̀kan sí i.",
+    "receiptAttached": "Ìwé-ẹ̀rí ìsanwó"
   },
   "offers": {
     "title": "Àwọn ìfilọ́lẹ̀",

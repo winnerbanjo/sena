@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { formatNaira, formatStayDates } from '@sena/config';
 import {
   Badge,
@@ -41,6 +42,7 @@ export function ReservationDrawer({
   onCheckOut,
   onPaymentRecorded,
 }: ReservationDrawerProps) {
+  const t = useTranslations('payments');
   const [payOpen, setPayOpen] = React.useState(false);
   const [history, setHistory] = React.useState<any[]>([]);
 
@@ -264,9 +266,17 @@ export function ReservationDrawer({
                 )}
                 <div className="pt-2 border-t border-[#E8E2DA] space-y-2">
                   {history.map((payment) => (
-                    <div key={payment.id} className="flex items-center justify-between text-xs">
-                      <span>{payment.method === 'bank_transfer' ? 'Bank transfer' : payment.method === 'pos' ? 'POS' : payment.provider === 'paystack' ? 'Paystack' : 'Cash'}</span>
-                      <strong>{formatNaira(payment.amountMinorUnits)}</strong>
+                    <div key={payment.id} className="space-y-1 text-xs">
+                      <div className="flex items-center justify-between gap-2">
+                        <span>{payment.method === 'bank_transfer' ? 'Bank transfer' : payment.method === 'pos' ? 'POS' : payment.provider === 'paystack' ? 'Paystack' : 'Cash'}</span>
+                        <strong>{formatNaira(payment.amountMinorUnits)}</strong>
+                      </div>
+                      {payment.hasReceipt && (
+                        <div className="flex flex-wrap gap-x-3">
+                          <a className="text-[#71382D] underline" href={`/api/payments/${payment.id}/receipt`} target="_blank" rel="noopener noreferrer">{t('viewReceipt')}</a>
+                          <a className="text-[#71382D] underline" href={`/api/payments/${payment.id}/receipt?download=1`} target="_blank" rel="noopener noreferrer">{t('downloadReceipt')}</a>
+                        </div>
+                      )}
                     </div>
                   ))}
                   <Link
