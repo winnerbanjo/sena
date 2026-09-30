@@ -196,6 +196,33 @@ export const rooms = pgTable(
   ]
 );
 
+/** Gallery photos for a room category or one physical room. Category photos are the default. */
+export const roomImages = pgTable(
+  'room_images',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    propertyId: uuid('property_id')
+      .references(() => properties.id, { onDelete: 'cascade' })
+      .notNull(),
+    roomTypeId: uuid('room_type_id').references(() => roomTypes.id, { onDelete: 'cascade' }),
+    roomId: uuid('room_id').references(() => rooms.id, { onDelete: 'cascade' }),
+    storageKey: text('storage_key').notNull(),
+    url: text('url').notNull(),
+    originalFilename: varchar('original_filename', { length: 255 }),
+    contentType: varchar('content_type', { length: 100 }).notNull(),
+    byteSize: integer('byte_size').notNull().default(0),
+    sortOrder: integer('sort_order').notNull().default(0),
+    isCover: boolean('is_cover').notNull().default(false),
+    uploadedByUserId: uuid('uploaded_by_user_id').references(() => users.id),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    index('room_images_type_idx').on(t.roomTypeId, t.sortOrder),
+    index('room_images_room_idx').on(t.roomId, t.sortOrder),
+    index('room_images_property_idx').on(t.propertyId),
+  ]
+);
+
 // 8. Inventory Model (Per Property + Room Type + Date)
 // Crucial for sub-100ms availability queries & concurrency locks
 export const inventory = pgTable(

@@ -11,13 +11,17 @@ import {
   DialogTitle,
   Input,
 } from '@sena/ui';
-import { Check, Plus, Upload, Image as ImageIcon, X } from 'lucide-react';
+import { Check, Plus } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import type { RoomCategory } from './mock-data';
+import { coverFirstUrls, RoomGalleryEditor } from './room-gallery-editor';
+import type { GalleryPhoto } from '@/lib/room-gallery';
 
 interface AddCategoryDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onAddCategory: (category: RoomCategory) => void;
+  onAddCategory: (category: RoomCategory) => void | Promise<{ ok: boolean; error?: string } | void>;
+  category?: RoomCategory | null;
 }
 
 const COMMON_AMENITIES = [
@@ -35,33 +39,62 @@ const COMMON_AMENITIES = [
   'Butler Service',
 ];
 
-const CATEGORY_PRESET_IMAGES = [
-  { label: 'King Suite', url: 'https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&w=800&q=80' },
-  { label: 'Deluxe Room', url: 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=800&q=80' },
-  { label: 'Executive Suite', url: 'https://images.unsplash.com/photo-1618773928121-c32242e63f39?auto=format&fit=crop&w=800&q=80' },
-  { label: 'Standard Room', url: 'https://images.unsplash.com/photo-1566665797739-1674de7a421a?auto=format&fit=crop&w=800&q=80' },
-];
-
 export function AddCategoryDialog({
   open,
   onOpenChange,
   onAddCategory,
+  category,
 }: AddCategoryDialogProps) {
+  const t = useTranslations('rooms');
+  const editing = Boolean(category);
   const [name, setName] = React.useState('');
   const [code, setCode] = React.useState('');
   const [rateNaira, setRateNaira] = React.useState('');
   const [maxGuests, setMaxGuests] = React.useState('2');
   const [bedType, setBedType] = React.useState('1 King Bed');
   const [description, setDescription] = React.useState('');
-  const [imageUrl, setImageUrl] = React.useState('');
-  const [uploading, setUploading] = React.useState(false);
+  const [photos, setPhotos] = React.useState<GalleryPhoto[]>([]);
   const [selectedAmenities, setSelectedAmenities] = React.useState<string[]>([
     'High-speed Wi-Fi',
     'Air Conditioning',
     'Smart TV',
   ]);
   const [error, setError] = React.useState('');
-  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const [saving, setSaving] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!open) return;
+    if (!category) {
+      setName('');
+      setCode('');
+      setRateNaira('');
+      setMaxGuests('2');
+      setBedType('1 King Bed');
+      setDescription('');
+      setPhotos([]);
+      setSelectedAmenities(['High-speed Wi-Fi', 'Air Conditioning', 'Smart TV']);
+      setError('');
+      return;
+    }
+    setName(category.name);
+    setCode(category.name.slice(0, 3).toUpperCase());
+    setRateNaira(String(Math.round(category.baseRateMinorUnits / 100)));
+    setMaxGuests(String(category.maxGuests || 2));
+    setBedType(category.bedType || '1 King Bed');
+    setDescription(category.description || '');
+    setSelectedAmenities(category.amenities || []);
+    setPhotos(
+      category.gallery?.length
+        ? category.gallery
+        : (category.images || []).filter(Boolean).map((url, sortOrder) => ({
+            id: `legacy-${sortOrder}`,
+            url,
+            isCover: sortOrder === 0,
+            sortOrder,
+          }))
+    );
+    setError('');
+  }, [open, category]);
 
   // Auto-generate a 3-character code when name changes if code is untouched
   function handleNameChange(val: string) {
@@ -82,50 +115,7 @@ export function AddCategoryDialog({
     );
   }
 
-  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setUploading(true);
-    setError('');
-
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-
-      const res = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        if (data.url) {
-          setImageUrl(data.url);
-        }
-      } else {
-        const reader = new FileReader();
-        reader.onload = () => {
-          if (typeof reader.result === 'string') {
-            setImageUrl(reader.result);
-          }
-        };
-        reader.readAsDataURL(file);
-      }
-    } catch {
-      const reader = new FileReader();
-      reader.onload = () => {
-        if (typeof reader.result === 'string') {
-          setImageUrl(reader.result);
-        }
-      };
-      reader.readAsDataURL(file);
-    } finally {
-      setUploading(false);
-    }
-  }
-
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) {
       setError('Please provide a category name.');
@@ -137,21 +127,34 @@ export function AddCategoryDialog({
       setError('Please enter a valid nightly rate in Naira.');
       return;
     }
+    const guests = parseInt(maxGuests, 10);
+    if (!Number.isInteger(guests) || guests < 1 || guests > 20) {
+      setError('Maximum guests must be between 1 and 20.');
+      return;
+    }
 
+    const images = photos;
     const newCategory: RoomCategory = {
-      id: `cat-${Date.now()}`,
+      id: category?.id || `cat-${Date.now()}`,
       name: name.trim(),
-      code: code.trim().toUpperCase() || name.slice(0, 3).toUpperCase(),
+      code: name.trim().slice(0, 3).toUpperCase(),
       baseRateMinorUnits: Math.round(parsedRate * 100), // convert to kobo
-      maxGuests: parseInt(maxGuests, 10) || 2,
+      maxGuests: guests,
       bedType: bedType.trim() || '1 King Bed',
       description: description.trim() || 'Comfortable and elegantly appointed room.',
       amenities: selectedAmenities,
-      imageUrl: imageUrl.trim() || undefined,
-      images: imageUrl.trim() ? [imageUrl.trim()] : [],
+      imageUrl: coverFirstUrls(photos)[0],
+      images: coverFirstUrls(photos),
+      gallery: photos,
     };
 
-    onAddCategory(newCategory);
+    setSaving(true);
+    const result = await onAddCategory(newCategory);
+    setSaving(false);
+    if (result && result.ok === false) {
+      setError(result.error || 'Could not save this category.');
+      return;
+    }
     onOpenChange(false);
 
     // Reset form
@@ -159,7 +162,7 @@ export function AddCategoryDialog({
     setCode('');
     setRateNaira('');
     setDescription('');
-    setImageUrl('');
+    setPhotos([]);
     setError('');
   }
 
@@ -168,10 +171,10 @@ export function AddCategoryDialog({
       <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="font-serif text-xl sm:text-2xl text-[#191816]">
-            Add Room Category
+            {editing ? t('editCategory') : 'Add Room Category'}
           </DialogTitle>
           <DialogDescription className="text-xs text-[#7A7267]">
-            Define a tier or room class with photo, nightly rate, bedding setup, and amenities.
+            {editing ? t('editCategoryHelp') : 'Define a tier or room class with photos, nightly rate, bedding setup, and amenities.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -200,11 +203,13 @@ export function AddCategoryDialog({
               <label className="font-medium text-[#191816]">Short Code</label>
               <Input
                 placeholder="e.g. DLX, EXE"
-                value={code}
+                value={editing ? name.slice(0, 3).toUpperCase() : code}
                 onChange={(e) => setCode(e.target.value.toUpperCase())}
                 maxLength={5}
+                readOnly={editing}
                 className="h-9 text-xs font-mono uppercase"
               />
+              {editing && <p className="text-[10px] text-[#7A7267]">{t('codeFromName')}</p>}
             </div>
           </div>
 
@@ -265,69 +270,13 @@ export function AddCategoryDialog({
             />
           </div>
 
-          {/* Category Image Upload & Selection */}
-          <div className="space-y-1.5 pt-1">
-            <label className="font-medium text-[#191816] flex items-center justify-between">
-              <span>Category Photo</span>
-              {uploading && <span className="text-[10px] text-[#B85C3E] animate-pulse">Uploading photo...</span>}
-            </label>
-
-            {imageUrl ? (
-              <div className="relative rounded-lg overflow-hidden border border-[#E8E2DA] h-28 w-full group">
-                <img
-                  src={imageUrl}
-                  alt="Category preview"
-                  className="w-full h-full object-cover"
-                />
-                <button
-                  type="button"
-                  onClick={() => setImageUrl('')}
-                  className="absolute top-2 right-2 p-1 rounded-full bg-black/60 text-white hover:bg-black transition-colors"
-                  title="Remove image"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <div
-                  onClick={() => fileInputRef.current?.click()}
-                  className="border-2 border-dashed border-[#E8E2DA] hover:border-[#B85C3E] rounded-lg p-3 text-center cursor-pointer bg-[#FAF8F5] transition-colors"
-                >
-                  <ImageIcon className="w-6 h-6 text-[#7A7267] mx-auto mb-1" />
-                  <p className="text-xs font-medium text-[#191816]">Upload Category Photo</p>
-                  <p className="text-[10px] text-[#7A7267]">Click to select PNG, JPG or WEBP</p>
-                </div>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleFileUpload}
-                  className="hidden"
-                />
-
-                {/* Quick Presets */}
-                <div>
-                  <span className="text-[10px] text-[#7A7267] block mb-1">Or choose a preset category photo:</span>
-                  <div className="grid grid-cols-4 gap-1.5">
-                    {CATEGORY_PRESET_IMAGES.map((p, idx) => (
-                      <button
-                        key={idx}
-                        type="button"
-                        onClick={() => setImageUrl(p.url)}
-                        className="rounded border border-[#E8E2DA] overflow-hidden hover:border-[#B85C3E] transition-all text-left"
-                      >
-                        <img src={p.url} alt={p.label} className="w-full h-10 object-cover" />
-                        <span className="block text-[9px] text-[#7A7267] p-0.5 truncate text-center">
-                          {p.label}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
+          <RoomGalleryEditor
+            photos={photos}
+            onChange={setPhotos}
+            roomTypeId={category?.id && /^[0-9a-f-]{36}$/i.test(category.id) ? category.id : undefined}
+            label={t('roomPhotos')}
+            help={t('categoryGalleryHelp')}
+          />
 
           {/* Amenities Selection */}
           <div className="space-y-2 pt-1">
@@ -365,9 +314,9 @@ export function AddCategoryDialog({
             >
               Cancel
             </Button>
-            <Button type="submit" className="text-xs" disabled={uploading}>
+            <Button type="submit" disabled={saving} className="text-xs min-h-11">
               <Plus className="w-3.5 h-3.5 mr-1" />
-              Save Category
+              {editing ? t('saveChanges') : 'Save Category'}
             </Button>
           </DialogFooter>
         </form>

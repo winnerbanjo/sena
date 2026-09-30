@@ -11,8 +11,11 @@ import {
   DialogTitle,
   Input,
 } from '@sena/ui';
-import { Plus, Upload, Image as ImageIcon, X, Layers, Hash } from 'lucide-react';
+import { Plus, Layers, Hash } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import type { RoomCategory, RoomItem } from './mock-data';
+import { coverFirstUrls, RoomGalleryEditor } from './room-gallery-editor';
+import type { GalleryPhoto } from '@/lib/room-gallery';
 
 interface AddRoomDialogProps {
   open: boolean;
@@ -27,13 +30,6 @@ interface AddRoomDialogProps {
 
 const DEFAULT_FLOORS = ['Floor 1', 'Floor 2', 'Floor 3', 'Floor 4', 'Ground Floor', 'Penthouse'];
 
-const ROOM_PRESET_IMAGES = [
-  { label: 'King Suite', url: 'https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&w=800&q=80' },
-  { label: 'Deluxe Room', url: 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=800&q=80' },
-  { label: 'Executive Suite', url: 'https://images.unsplash.com/photo-1618773928121-c32242e63f39?auto=format&fit=crop&w=800&q=80' },
-  { label: 'Standard Room', url: 'https://images.unsplash.com/photo-1566665797739-1674de7a421a?auto=format&fit=crop&w=800&q=80' },
-];
-
 export function AddRoomDialog({
   open,
   onOpenChange,
@@ -44,6 +40,7 @@ export function AddRoomDialog({
   onAddRooms,
   onOpenAddCategory,
 }: AddRoomDialogProps) {
+  const t = useTranslations('rooms');
   const [creationMode, setCreationMode] = React.useState<'single' | 'multiple'>('single');
   const [number, setNumber] = React.useState('');
   
@@ -56,10 +53,8 @@ export function AddRoomDialog({
   const [floor, setFloor] = React.useState('Floor 1');
   const [operational, setOperational] = React.useState<'available' | 'occupied' | 'maintenance'>('available');
   const [housekeeping, setHousekeeping] = React.useState<'clean' | 'cleaning' | 'dirty' | 'inspection'>('clean');
-  const [imageUrl, setImageUrl] = React.useState('');
-  const [uploading, setUploading] = React.useState(false);
+  const [photos, setPhotos] = React.useState<GalleryPhoto[]>([]);
   const [error, setError] = React.useState('');
-  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   // Update type if defaultCategory changes or dialog opens
   React.useEffect(() => {
@@ -129,49 +124,6 @@ export function AddRoomDialog({
     }
   }
 
-  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setUploading(true);
-    setError('');
-
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-
-      const res = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        if (data.url) {
-          setImageUrl(data.url);
-        }
-      } else {
-        const reader = new FileReader();
-        reader.onload = () => {
-          if (typeof reader.result === 'string') {
-            setImageUrl(reader.result);
-          }
-        };
-        reader.readAsDataURL(file);
-      }
-    } catch {
-      const reader = new FileReader();
-      reader.onload = () => {
-        if (typeof reader.result === 'string') {
-          setImageUrl(reader.result);
-        }
-      };
-      reader.readAsDataURL(file);
-    } finally {
-      setUploading(false);
-    }
-  }
-
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
@@ -194,6 +146,7 @@ export function AddRoomDialog({
 
     const resolvedType = type || (categories[0]?.name || 'Deluxe Room');
 
+    const images = creationMode === 'single' ? photos : [];
     const createdItems: RoomItem[] = roomsToAdd.map((rmNum) => {
       let rmFloor = floor;
       if (rmFloor === 'Floor 1' && rmNum.length >= 3 && /^\d+$/.test(rmNum)) {
@@ -206,7 +159,8 @@ export function AddRoomDialog({
         floor: rmFloor,
         operational,
         housekeeping,
-        imageUrl: imageUrl.trim() || undefined,
+        imageUrl: coverFirstUrls(photos)[0],
+        gallery: creationMode === 'single' ? photos : [],
       };
     });
 
@@ -221,7 +175,7 @@ export function AddRoomDialog({
     // Reset form
     setNumber('');
     setBatchRawInput('');
-    setImageUrl('');
+    setPhotos([]);
     setError('');
   }
 
@@ -439,87 +393,12 @@ export function AddRoomDialog({
             </div>
           )}
 
-          {/* Room Photo / Picture Upload & Presets */}
-          <div className="space-y-2 pt-2 border-t border-[#E8E2DA]">
-            <div className="flex items-center justify-between">
-              <label className="font-medium text-[#191816] flex items-center gap-1.5">
-                <ImageIcon className="w-3.5 h-3.5 text-[#B85C3E]" />
-                <span>Room Photo / Image</span>
-                {creationMode === 'multiple' && (
-                  <span className="text-[10px] text-[#7A7267] font-normal">(Shared across all {parsedBatchRooms.length} rooms)</span>
-                )}
-              </label>
-              {imageUrl && (
-                <button
-                  type="button"
-                  onClick={() => setImageUrl('')}
-                  className="text-[11px] text-[#B85C3E] hover:underline"
-                >
-                  Remove photo
-                </button>
-              )}
-            </div>
-
-            {imageUrl ? (
-              <div className="relative w-full h-32 rounded-lg overflow-hidden border border-[#E8E2DA] group bg-black/5">
-                <img
-                  src={imageUrl}
-                  alt="Room Preview"
-                  className="w-full h-full object-cover"
-                />
-                <button
-                  type="button"
-                  onClick={() => setImageUrl('')}
-                  className="absolute top-2 right-2 p-1 rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              </div>
+          <div className="space-y-2 border-t border-[#E8E2DA] pt-2">
+            {creationMode === 'multiple' ? (
+              <p className="text-[11px] text-[#7A7267]">{t('batchPhotosHelp')}</p>
             ) : (
-              <div
-                onClick={() => fileInputRef.current?.click()}
-                className="w-full h-24 border-2 border-dashed border-[#E8E2DA] hover:border-[#B85C3E] rounded-lg flex flex-col items-center justify-center gap-1.5 cursor-pointer bg-[#FAF8F5] transition-colors p-3 text-center"
-              >
-                <Upload className="w-5 h-5 text-[#B85C3E]" />
-                <span className="text-xs font-medium text-[#191816]">
-                  {uploading ? 'Uploading to Spaces...' : 'Upload Room Photo'}
-                </span>
-                <span className="text-[10px] text-[#7A7267]">
-                  PNG, JPG or WebP up to 10MB
-                </span>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleFileUpload}
-                  className="hidden"
-                />
-              </div>
+              <RoomGalleryEditor photos={photos} onChange={setPhotos} label={t('roomPhotos')} help={t('roomGalleryHelp')} />
             )}
-
-            {/* Custom URL or Curated Presets */}
-            <div className="space-y-1.5 pt-1">
-              <Input
-                placeholder="Or paste external photo URL..."
-                value={imageUrl}
-                onChange={(e) => setImageUrl(e.target.value)}
-                className="h-8 text-[11px]"
-              />
-
-              <div className="flex items-center gap-1.5 overflow-x-auto py-1">
-                <span className="text-[10px] text-[#7A7267] whitespace-nowrap">Presets:</span>
-                {ROOM_PRESET_IMAGES.map((preset) => (
-                  <button
-                    key={preset.label}
-                    type="button"
-                    onClick={() => setImageUrl(preset.url)}
-                    className="text-[10px] px-2 py-0.5 rounded border border-[#E8E2DA] bg-white hover:bg-[#F5F2ED] text-[#191816] whitespace-nowrap transition-colors"
-                  >
-                    {preset.label}
-                  </button>
-                ))}
-              </div>
-            </div>
           </div>
 
           <DialogFooter className="pt-2">
