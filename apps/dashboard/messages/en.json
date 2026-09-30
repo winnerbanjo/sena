@@ -361,7 +361,9 @@
     "pos": "POS",
     "bankTransfer": "Bank Transfer",
     "paystack": "Paystack",
-    "walkInGuest": "Walk-in Guest"
+    "walkInGuest": "Walk-in Guest",
+    "viewReceipt": "View receipt",
+    "downloadReceipt": "Download"
   },
   "invoices": {
     "title": "Invoices & Folios",
@@ -370,7 +372,16 @@
     "paidInFull": "Paid in Full",
     "paymentDue": "Payment due",
     "overdue": "Overdue",
-    "empty": "No invoices yet."
+    "empty": "No invoices yet.",
+    "receiptLabel": "Attach receipt",
+    "receiptUpload": "Upload receipt",
+    "receiptHelp": "Optional. Attach a POS slip, transfer receipt or other proof of payment.",
+    "receiptRemove": "Remove",
+    "receiptSelected": "Selected file",
+    "receiptInvalid": "Upload a JPG, PNG, WebP, or PDF receipt.",
+    "receiptTooLarge": "Receipt must be 10 MB or smaller.",
+    "receiptUploadFailed": "Payment was recorded, but the receipt was not attached. Try attaching it again.",
+    "receiptAttached": "Payment receipt"
   },
   "offers": {
     "title": "Offers",

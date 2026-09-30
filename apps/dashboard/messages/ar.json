@@ -361,7 +361,9 @@
     "pos": "نقطة بيع",
     "bankTransfer": "تحويل بنكي",
     "paystack": "Paystack",
-    "walkInGuest": "ضيف حضور مباشر"
+    "walkInGuest": "ضيف حضور مباشر",
+    "viewReceipt": "عرض الإيصال",
+    "downloadReceipt": "تنزيل"
   },
   "invoices": {
     "title": "الفواتير والحسابات",
@@ -370,7 +372,16 @@
     "paidInFull": "مدفوعة بالكامل",
     "paymentDue": "دفعة مستحقة",
     "overdue": "متأخرة",
-    "empty": "لا فواتير بعد."
+    "empty": "لا فواتير بعد.",
+    "receiptLabel": "إرفاق إيصال",
+    "receiptUpload": "تحميل الإيصال",
+    "receiptHelp": "اختياري. أرفق قسيمة نقاط البيع أو إيصال التحويل أو إثبات دفع آخر.",
+    "receiptRemove": "إزالة",
+    "receiptSelected": "الملف المحدد",
+    "receiptInvalid": "ارفع إيصالاً بصيغة JPG أو PNG أو WebP أو PDF.",
+    "receiptTooLarge": "يجب ألا يتجاوز الإيصال 10 ميغابايت.",
+    "receiptUploadFailed": "سُجّل الدفع، لكن لم يُرفق الإيصال. حاول إرفاقه مرة أخرى.",
+    "receiptAttached": "إيصال الدفع"
   },
   "offers": {
     "title": "العروض",

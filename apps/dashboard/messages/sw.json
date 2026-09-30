@@ -361,7 +361,9 @@
     "pos": "POS",
     "bankTransfer": "Uhamisho wa benki",
     "paystack": "Paystack",
-    "walkInGuest": "Mgeni wa walk-in"
+    "walkInGuest": "Mgeni wa walk-in",
+    "viewReceipt": "Angalia risiti",
+    "downloadReceipt": "Pakua"
   },
   "invoices": {
     "title": "Ankara na akaunti",
@@ -370,7 +372,16 @@
     "paidInFull": "Imelipwa kamili",
     "paymentDue": "Malipo yanadaiwa",
     "overdue": "Imechelewa",
-    "empty": "Hakuna ankara bado."
+    "empty": "Hakuna ankara bado.",
+    "receiptLabel": "Ambatanisha risiti",
+    "receiptUpload": "Pakia risiti",
+    "receiptHelp": "Si lazima. Ambatanisha hati ya POS, risiti ya uhamisho, au uthibitisho mwingine wa malipo.",
+    "receiptRemove": "Ondoa",
+    "receiptSelected": "Faili iliyochaguliwa",
+    "receiptInvalid": "Pakia risiti ya JPG, PNG, WebP, au PDF.",
+    "receiptTooLarge": "Risiti isiwe zaidi ya MB 10.",
+    "receiptUploadFailed": "Malipo yamerekodiwa, lakini risiti haijaambatanishwa. Jaribu kuambatanisha tena.",
+    "receiptAttached": "Risiti ya malipo"
   },
   "offers": {
     "title": "Ofa",

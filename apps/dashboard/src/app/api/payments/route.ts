@@ -3,10 +3,10 @@ import { folioBalance, settlementLabel } from '@/lib/financial-status';
 import { getMerchantRequest, withMerchant } from '@/lib/merchant-route';
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
-import { db, operationalNotifications, payments, reservations, guests, transferProofs } from '@sena/database';
+import { db, operationalNotifications, payments, reservations, guests, transferProofs, paymentReceipts } from '@sena/database';
 import { PaymentService } from '@sena/payments';
 import { sendPaymentReceiptEmail } from '@sena/email';
-import { and, desc, eq, ne } from 'drizzle-orm';
+import { and, desc, eq, inArray, ne } from 'drizzle-orm';
 
 import { resolveTenantForRequest } from '@/lib/tenant';
 
@@ -95,7 +95,19 @@ async function handleGET(req: NextRequest) {
       .filter((row) => row.outstandingMinorUnits > 0)
       .sort((a, b) => b.outstandingMinorUnits - a.outstandingMinorUnits);
 
-    return NextResponse.json({ payments: paymentList, receivables, transferProofs: proofs });
+    const paymentIds = paymentList.map((payment) => payment.id);
+    const receiptRows = paymentIds.length
+      ? await db
+          .select({ paymentId: paymentReceipts.paymentId })
+          .from(paymentReceipts)
+          .where(and(eq(paymentReceipts.propertyId, propertyId), inArray(paymentReceipts.paymentId, paymentIds)))
+      : [];
+    const receipts = new Set(receiptRows.map((row) => row.paymentId));
+    return NextResponse.json({
+      payments: paymentList.map((payment) => ({ ...payment, hasReceipt: receipts.has(payment.id) })),
+      receivables,
+      transferProofs: proofs,
+    });
   } catch (error: any) {
     console.error('Payments API error:', error);
     return NextResponse.json({ error: apiError(error) }, { status: 500 });
