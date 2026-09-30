@@ -374,3 +374,8 @@
     grid-column:span 2!important;
   }
 }
+
+.footer-social{display:flex;flex-wrap:wrap;align-items:center;gap:0;margin:8px 0 0 -12px}
+.footer-social a{display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;color:var(--muted);border-radius:50%}
+.footer-social a:hover{color:var(--clay)}
+.footer-social svg{width:17px;height:17px;display:block}
