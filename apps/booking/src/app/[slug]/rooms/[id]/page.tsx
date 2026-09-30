@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { getWebsiteData } from '../../../../lib/website-data';
 import { RoomBookingClient } from './RoomBookingClient';
+import { RoomPhotoGallery } from '../../../../components/room-photo-gallery';
 import { ArrowLeft, Users, BedDouble, Check, ShieldCheck, Clock, MapPin } from 'lucide-react';
 
 export default async function RoomDetailPage({
@@ -71,26 +72,7 @@ export default async function RoomDetailPage({
         {/* Main Grid: Gallery & Info (Left 7 Cols) + Interactive Booking (Right 5 Cols) */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           <div className="lg:col-span-7 space-y-8">
-            {/* Image Gallery */}
-            <div className="space-y-3">
-              <div className="relative aspect-[16/10] rounded-xl overflow-hidden shadow-md bg-stone-100">
-                <img
-                  src={room.images[0] || 'https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&w=1200&q=80'}
-                  alt={room.name}
-                  className="w-full h-full object-cover"
-                />
-              </div>
-
-              {room.images.length > 1 && (
-                <div className="grid grid-cols-3 gap-3">
-                  {room.images.slice(1, 4).map((img, idx) => (
-                    <div key={idx} className="relative aspect-[4/3] rounded-lg overflow-hidden bg-stone-100 shadow-2xs">
-                      <img src={img} alt={`${room.name} ${idx + 2}`} className="w-full h-full object-cover" />
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+            <RoomPhotoGallery images={room.images} name={room.name} />
 
             {/* Description */}
             <div className="bg-white rounded-xl border border-[#E8E2DA] p-6 space-y-3 shadow-2xs">

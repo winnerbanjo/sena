@@ -32,6 +32,7 @@ export interface RoomCategory {
   amenities: string[];
   imageUrl?: string;
   images?: string[];
+  gallery?: { id: string; url: string; isCover: boolean; sortOrder: number; file?: File }[];
 }
 
 export interface RoomItem {
@@ -40,8 +41,11 @@ export interface RoomItem {
   type: string;
   roomTypeId?: string;
   floor: string;
-  operational: 'available' | 'occupied' | 'maintenance';
+  operational: 'available' | 'occupied' | 'maintenance' | 'blocked';
   housekeeping: 'clean' | 'cleaning' | 'dirty' | 'inspection';
   housekeepingAssignee?: string | null;
+  description?: string;
   imageUrl?: string;
+  images?: string[];
+  gallery?: { id: string; url: string; isCover: boolean; sortOrder: number; file?: File }[];
 }

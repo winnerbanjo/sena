@@ -1,4 +1,4 @@
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import Redis from 'ioredis';
 
 // ==========================================
@@ -52,6 +52,12 @@ export async function uploadMediaToSpaces(params: {
     success: true,
     url: getSpacesPublicUrl(params.key),
   };
+}
+
+export async function deleteMediaFromSpaces(key: string) {
+  if (!s3Client || !key || key.startsWith('http')) return { success: true, skipped: true };
+  await s3Client.send(new DeleteObjectCommand({ Bucket: S3_BUCKET, Key: key }));
+  return { success: true };
 }
 
 // ==========================================

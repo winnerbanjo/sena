@@ -34,6 +34,10 @@ import {
 import { mapReservationItem } from '../../components/reservation-room';
 import { AddCategoryDialog } from '../../components/add-category-dialog';
 import { AddRoomDialog } from '../../components/add-room-dialog';
+import { EditRoomDialog } from '../../components/edit-room-dialog';
+import { RoomGalleryEditor } from '../../components/room-gallery-editor';
+import { galleryDisplayUrls, type GalleryPhoto } from '@/lib/room-gallery';
+import { roomDescriptionFromNotes } from '@/lib/room-edit';
 import { Topbar } from '../../components/topbar';
 
 export default function RoomsPage() {
@@ -45,6 +49,9 @@ export default function RoomsPage() {
   // Dialog states
   const [addRoomOpen, setAddRoomOpen] = React.useState(false);
   const [addCategoryOpen, setAddCategoryOpen] = React.useState(false);
+  const [editingCategory, setEditingCategory] = React.useState<RoomCategory | null>(null);
+  const [editingRoom, setEditingRoom] = React.useState<RoomItem | null>(null);
+  const [photoRoom, setPhotoRoom] = React.useState<RoomItem | null>(null);
   const [preselectedCategory, setPreselectedCategory] = React.useState<string | undefined>(undefined);
 
   // Success alert message
@@ -76,16 +83,17 @@ export default function RoomsPage() {
 
         if (data.rooms && data.roomTypes) {
           const mappedRooms: RoomItem[] = data.rooms.map((r: any) => {
-            let img = '';
+            let legacy = '';
             if (r.notes) {
               try {
                 const parsed = JSON.parse(r.notes);
-                if (parsed?.imageUrl) img = parsed.imageUrl;
+                if (parsed?.imageUrl) legacy = parsed.imageUrl;
               } catch {}
             }
-            if (!img && r.categoryImages && r.categoryImages.length > 0) {
-              img = r.categoryImages[0];
-            }
+            const gallery = Array.isArray(r.gallery) ? r.gallery : [];
+            const ownCover = galleryDisplayUrls(gallery)[0];
+            const categoryCover = r.categoryImages?.[0] || '';
+            const img = ownCover || legacy || categoryCover;
 
             return {
               id: r.id,
@@ -96,7 +104,9 @@ export default function RoomsPage() {
               operational: r.operationalStatus || 'available',
               housekeeping: r.housekeepingStatus || 'clean',
               housekeepingAssignee: r.housekeepingAssignee || null,
+              description: roomDescriptionFromNotes(r.notes),
               imageUrl: img || undefined,
+              gallery,
             };
           });
 
@@ -107,6 +117,7 @@ export default function RoomsPage() {
             bedType: rt.bedType,
             baseRateMinorUnits: rt.basePriceMinorUnits,
             maxGuests: rt.capacity || 2,
+            gallery: Array.isArray(rt.gallery) ? rt.gallery : [],
             amenities: rt.amenities || [],
             description: rt.description || '',
             imageUrl: rt.images?.[0] || undefined,
@@ -200,6 +211,21 @@ export default function RoomsPage() {
   }
 
   // Handle Add Room (persists to PostgreSQL)
+  async function uploadRoomPhotos(target: { roomId?: string; roomTypeId?: string }, photos: RoomItem['gallery']) {
+    const files = (photos || []).map((photo) => photo.file).filter((file): file is File => file instanceof File);
+    if (!target.roomId && !target.roomTypeId) return;
+    if (files.length === 0) return;
+    const form = new FormData();
+    files.forEach((file) => form.append('files', file));
+    if (target.roomId) form.append('roomId', target.roomId);
+    if (target.roomTypeId) form.append('roomTypeId', target.roomTypeId);
+    const response = await fetch('/api/rooms/gallery', { method: 'POST', body: form });
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      throw new Error(data.error || 'The room was saved, but the photos could not be uploaded.');
+    }
+  }
+
   async function handleAddRoom(newRoom: RoomItem) {
     try {
       const matchedCategory = categories.find((c) => c.name === newRoom.type);
@@ -211,12 +237,18 @@ export default function RoomsPage() {
           roomNumber: newRoom.number,
           roomTypeId: matchedCategory?.id,
           floor: newRoom.floor,
-          imageUrl: newRoom.imageUrl,
         }),
       });
 
       if (res.ok) {
-        showToast(`Room ${newRoom.number} added to inventory successfully!`);
+        const data = await res.json().catch(() => ({}));
+        let photoNote = '';
+        try {
+          if (data.data?.id) await uploadRoomPhotos({ roomId: data.data.id }, newRoom.gallery);
+        } catch (photoError: any) {
+          photoNote = photoError.message || 'Room saved, but the photos could not be uploaded.';
+        }
+        showToast(photoNote || `Room ${newRoom.number} added to inventory successfully!`);
         fetchRoomsData();
       } else {
         let errMsg = 'Failed to add room';
@@ -258,7 +290,6 @@ export default function RoomsPage() {
           roomNumbers: newRooms.map((r) => r.number),
           roomTypeId: matchedCategory?.id,
           floor: first.floor,
-          imageUrl: first.imageUrl,
         }),
       });
 
@@ -294,14 +325,20 @@ export default function RoomsPage() {
           description: newCategory.description,
           capacity: newCategory.maxGuests,
           amenities: newCategory.amenities,
-          imageUrl: newCategory.imageUrl,
-          images: newCategory.images,
         }),
       });
 
       if (res.ok) {
-        showToast(`Category "${newCategory.name}" created! You can now add rooms to it.`);
+        const data = await res.json().catch(() => ({}));
+        let photoNote = '';
+        try {
+          if (data.data?.id) await uploadRoomPhotos({ roomTypeId: data.data.id }, newCategory.gallery);
+        } catch (photoError: any) {
+          photoNote = photoError.message || 'Category saved, but the photos could not be uploaded.';
+        }
+        showToast(photoNote || `Category "${newCategory.name}" created! You can now add rooms to it.`);
         fetchRoomsData();
+        return { ok: true as const };
       } else {
         let errMsg = 'Failed to add category';
         try {
@@ -311,9 +348,69 @@ export default function RoomsPage() {
           errMsg = `Server error (${res.status})`;
         }
         showToast(errMsg);
+        return { ok: false as const, error: errMsg };
       }
     } catch (e: any) {
-      showToast(e.message || 'Error saving category');
+      const message = e.message || 'Error saving category';
+      showToast(message);
+      return { ok: false as const, error: message };
+    }
+    return { ok: false as const, error: 'Failed to add category' };
+  }
+
+  async function handleUpdateCategory(category: RoomCategory) {
+    try {
+      const res = await fetch('/api/rooms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'update_category',
+          id: category.id,
+          name: category.name,
+          bedType: category.bedType,
+          basePriceMinorUnits: category.baseRateMinorUnits,
+          description: category.description,
+          capacity: category.maxGuests,
+          amenities: category.amenities,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        return { ok: false as const, error: err.error || 'Could not save this category.' };
+      }
+      showToast(t('categoryUpdated'));
+      setEditingCategory(null);
+      fetchRoomsData();
+      return { ok: true as const };
+    } catch (e: any) {
+      return { ok: false as const, error: e.message || 'Could not save this category.' };
+    }
+  }
+
+  async function handleUpdateRoom(room: RoomItem) {
+    try {
+      const res = await fetch('/api/rooms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'update_room',
+          id: room.id,
+          roomNumber: room.number,
+          roomTypeId: room.roomTypeId,
+          floor: room.floor,
+          operationalStatus: room.operational,
+          housekeepingStatus: room.housekeeping,
+          description: room.description || '',
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) return { ok: false as const, error: data.error || t('roomUpdateFailed') };
+      showToast(t('roomUpdated'));
+      setEditingRoom(null);
+      fetchRoomsData();
+      return { ok: true as const };
+    } catch (e: any) {
+      return { ok: false as const, error: e.message || t('roomUpdateFailed') };
     }
   }
 
@@ -634,6 +731,13 @@ export default function RoomsPage() {
                                   </div>
                                   <button
                                     type="button"
+                                    onClick={() => setPhotoRoom(room)}
+                                    className="min-h-11 px-2 text-[11px] text-[#71382D]"
+                                  >
+                                    {t('roomPhotos')}
+                                  </button>
+                                  <button
+                                    type="button"
                                     onClick={() => handleDeleteRoom(room.id, room.number)}
                                     title="Delete room"
                                     className="p-1 text-[#7A7267] hover:text-[#B85C3E] rounded opacity-0 group-hover:opacity-100 transition-opacity"
@@ -644,6 +748,13 @@ export default function RoomsPage() {
                                 <span className="text-xs text-[#7A7267] block">
                                   {room.type}
                                 </span>
+                                <button
+                                  type="button"
+                                  onClick={() => setEditingRoom(room)}
+                                  className="mt-2 min-h-11 w-full rounded border border-[#71382D] px-3 text-xs font-medium text-[#71382D]"
+                                >
+                                  {t('editRoom')}
+                                </button>
                               </div>
 
                               <div className="pt-2 border-t border-[#E8E2DA] flex items-center justify-between text-[11px]">
@@ -766,9 +877,21 @@ export default function RoomsPage() {
                           </span>
                         </div>
 
-                        <Badge variant="clean">
-                          {roomCount} {roomCount === 1 ? 'room' : 'rooms'}
-                        </Badge>
+                        <div className="flex flex-col items-end gap-1">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingCategory(category);
+                              setAddCategoryOpen(true);
+                            }}
+                            className="min-h-11 px-2 text-xs text-[#71382D]"
+                          >
+                            {t('editCategory')}
+                          </button>
+                          <Badge variant="clean">
+                            {roomCount} {roomCount === 1 ? 'room' : 'rooms'}
+                          </Badge>
+                        </div>
                       </div>
 
                       <p className="text-xs text-[#7A7267] leading-relaxed line-clamp-2">
@@ -851,9 +974,44 @@ export default function RoomsPage() {
       {/* Add Room Category Dialog */}
       <AddCategoryDialog
         open={addCategoryOpen}
-        onOpenChange={setAddCategoryOpen}
-        onAddCategory={handleAddCategory}
+        category={editingCategory}
+        onOpenChange={(open) => {
+          setAddCategoryOpen(open);
+          if (!open) setEditingCategory(null);
+        }}
+        onAddCategory={editingCategory ? handleUpdateCategory : handleAddCategory}
       />
+
+      <EditRoomDialog
+        open={!!editingRoom}
+        room={editingRoom}
+        categories={categories}
+        onOpenChange={(open) => {
+          if (!open) {
+            setEditingRoom(null);
+            fetchRoomsData();
+          }
+        }}
+        onSave={handleUpdateRoom}
+      />
+
+      <Dialog open={!!photoRoom} onOpenChange={(open) => { if (!open) { setPhotoRoom(null); fetchRoomsData(); } }}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto bg-white">
+          <DialogHeader>
+            <DialogTitle className="font-serif text-lg text-[#191816]">{t('roomPhotos')}</DialogTitle>
+            <DialogDescription className="text-xs text-[#7A7267]">{t('roomGalleryHelp')}</DialogDescription>
+          </DialogHeader>
+          {photoRoom && (
+            <RoomGalleryEditor
+              photos={(photoRoom.gallery || []) as GalleryPhoto[]}
+              onChange={(gallery) => setPhotoRoom({ ...photoRoom, gallery })}
+              roomId={photoRoom.id}
+              label={t('roomPhotos')}
+              help={t('roomGalleryHelp')}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!assignRoom} onOpenChange={(open) => { if (!open) setAssignRoom(null); }}>
         <DialogContent className="max-w-md bg-white border border-[#E8E1D5]">

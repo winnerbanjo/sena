@@ -1,9 +1,11 @@
 import { apiError } from '@/lib/api-error';
 import { getMerchantRequest, withMerchant } from '@/lib/merchant-route';
+import { categoryUpdateFields, galleryDisplayUrls, type GalleryPhoto } from '@/lib/room-gallery';
+import { mergeRoomNotes, roomUpdateFields } from '@/lib/room-edit';
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
-import { db, roomTypes, rooms, reservations, housekeepingTasks, properties, propertyMembers, organizationMembers, users } from '@sena/database';
-import { and, eq, desc, ilike, inArray } from 'drizzle-orm';
+import { activityLogs, db, roomImages, roomTypes, rooms, reservations, housekeepingTasks, properties, propertyMembers, organizationMembers, users } from '@sena/database';
+import { and, asc, eq, desc, ilike, inArray } from 'drizzle-orm';
 
 import { resolveTenantForRequest } from '@/lib/tenant';
 
@@ -22,7 +24,7 @@ async function handleGET(req: NextRequest) {
       return NextResponse.json({ roomTypes: [], rooms: [] });
     }
 
-    const [fetchedRoomTypes, fetchedRooms, openTasks] = await Promise.all([
+    const [fetchedRoomTypes, fetchedRooms, openTasks, galleryRows] = await Promise.all([
       db
         .select()
         .from(roomTypes)
@@ -58,7 +60,17 @@ async function handleGET(req: NextRequest) {
         .from(housekeepingTasks)
         .leftJoin(users, eq(housekeepingTasks.assignedToUserId, users.id))
         .where(and(eq(housekeepingTasks.propertyId, propertyId), inArray(housekeepingTasks.status, ['dirty', 'cleaning']))),
+      db.select().from(roomImages).where(eq(roomImages.propertyId, propertyId)).orderBy(asc(roomImages.sortOrder)),
     ]);
+
+    const toPhoto = (row: (typeof galleryRows)[number]): GalleryPhoto => ({
+      id: row.id,
+      url: row.url,
+      isCover: row.isCover,
+      sortOrder: row.sortOrder,
+    });
+    const categoryGallery = (roomTypeId: string) => galleryRows.filter((row) => row.roomTypeId === roomTypeId).map(toPhoto);
+    const roomGallery = (roomId: string) => galleryRows.filter((row) => row.roomId === roomId).map(toPhoto);
 
     const taskByRoom = new Map<string, (typeof openTasks)[number]>();
     for (const task of openTasks) {
@@ -66,11 +78,20 @@ async function handleGET(req: NextRequest) {
     }
 
     return NextResponse.json({
-      roomTypes: fetchedRoomTypes,
+      roomTypes: fetchedRoomTypes.map((roomType) => {
+        const gallery = categoryGallery(roomType.id);
+        const images = gallery.length > 0 ? galleryDisplayUrls(gallery) : roomType.images || [];
+        return { ...roomType, images, gallery };
+      }),
       rooms: fetchedRooms.map((room) => {
         const task = taskByRoom.get(room.id);
+        const gallery = roomGallery(room.id);
+        const category = categoryGallery(room.roomTypeId);
         return {
           ...room,
+          gallery,
+          categoryGallery: category,
+          categoryImages: category.length > 0 ? galleryDisplayUrls(category) : room.categoryImages,
           housekeepingTaskId: task?.taskId || null,
           housekeepingAssigneeId: task?.assignedToUserId || null,
           housekeepingAssignee: task?.assignedTo || null,
@@ -97,11 +118,17 @@ async function handlePOST(req: NextRequest) {
 
     if (action === 'create_category') {
       const { name, bedType, basePriceMinorUnits, description, capacity, amenities, images, imageUrl } = body;
-      const categoryImages: string[] = Array.isArray(images) && images.length > 0
-        ? images
-        : imageUrl
-        ? [imageUrl]
-        : [];
+      const categoryImages = (Array.isArray(images) && images.length > 0 ? images : imageUrl ? [imageUrl] : [])
+        .map((entry: unknown) => {
+          if (entry && typeof entry === 'object' && 'url' in entry) {
+            const url = String((entry as { url?: string }).url || '').trim();
+            const storageKey = String((entry as { storageKey?: string }).storageKey || url).trim();
+            return { url, storageKey };
+          }
+          const url = String(entry || '').trim();
+          return { url, storageKey: url };
+        })
+        .filter((entry: { url: string }) => entry.url.length > 0 && !entry.url.startsWith('data:'));
 
       const [newType] = await db
         .insert(roomTypes)
@@ -113,12 +140,171 @@ async function handlePOST(req: NextRequest) {
           description: description || '',
           capacity: Number(capacity) || 2,
           amenities: amenities || ['Air Conditioning', 'Wi-Fi'],
-          images: categoryImages,
+          images: categoryImages.map((entry) => entry.url),
           totalInventory: 0,
         })
         .returning();
 
+      if (categoryImages.length > 0) {
+        await db.insert(roomImages).values(
+          categoryImages.map((entry, sortOrder) => ({
+            propertyId,
+            roomTypeId: newType.id,
+            storageKey: entry.storageKey,
+            url: entry.url,
+            contentType: 'image/jpeg',
+            byteSize: 0,
+            sortOrder,
+            isCover: sortOrder === 0,
+            uploadedByUserId: session?.user?.id,
+          }))
+        );
+      }
+
       return NextResponse.json({ success: true, data: newType });
+    }
+
+    if (action === 'update_category') {
+      const decision = categoryUpdateFields(body);
+      if (!decision.ok) return NextResponse.json({ error: decision.error }, { status: 400 });
+      const categoryId = String(body.id || '');
+      const [current] = await db
+        .select()
+        .from(roomTypes)
+        .where(and(eq(roomTypes.id, categoryId), eq(roomTypes.propertyId, propertyId)))
+        .limit(1);
+      if (!current) return NextResponse.json({ error: 'That category could not be found for this property.' }, { status: 404 });
+
+      const [updated] = await db
+        .update(roomTypes)
+        .set({ ...decision.fields, updatedAt: new Date() })
+        .where(and(eq(roomTypes.id, current.id), eq(roomTypes.propertyId, propertyId)))
+        .returning();
+
+      const merchant = getMerchantRequest(req);
+      const organizationId =
+        merchant?.tenant.property.organizationId ||
+        (
+          await db
+            .select({ organizationId: properties.organizationId })
+            .from(properties)
+            .where(eq(properties.id, propertyId))
+            .limit(1)
+        )[0]?.organizationId;
+      if (!organizationId) return NextResponse.json({ success: true, data: updated });
+      await db.insert(activityLogs).values({
+        organizationId,
+        propertyId,
+        actorId: merchant?.tenant.userId || session?.user?.id,
+        actorName: merchant?.tenant.user.fullName || 'Staff',
+        action: 'room_category.updated',
+        resource: 'room_type',
+        resourceId: updated.id,
+        previousValue: {
+          name: current.name,
+          bedType: current.bedType,
+          basePriceMinorUnits: current.basePriceMinorUnits,
+          description: current.description,
+          capacity: current.capacity,
+          amenities: current.amenities,
+        },
+        newValue: decision.fields,
+      });
+
+      return NextResponse.json({ success: true, data: updated });
+    }
+
+    if (action === 'update_room') {
+      const decision = roomUpdateFields(body);
+      if (!decision.ok) return NextResponse.json({ error: decision.error }, { status: 400 });
+      const roomId = String(body.id || '');
+      const [current] = await db
+        .select()
+        .from(rooms)
+        .where(and(eq(rooms.id, roomId), eq(rooms.propertyId, propertyId)))
+        .limit(1);
+      if (!current) return NextResponse.json({ error: 'That room could not be found for this property.' }, { status: 404 });
+
+      const [category] = await db
+        .select({ id: roomTypes.id })
+        .from(roomTypes)
+        .where(and(eq(roomTypes.id, decision.fields.roomTypeId), eq(roomTypes.propertyId, propertyId)))
+        .limit(1);
+      if (!category) return NextResponse.json({ error: 'That category could not be found for this property.' }, { status: 404 });
+
+      const [clash] = await db
+        .select({ id: rooms.id })
+        .from(rooms)
+        .where(and(eq(rooms.propertyId, propertyId), eq(rooms.roomNumber, decision.fields.roomNumber)))
+        .limit(1);
+      if (clash && clash.id !== current.id) {
+        return NextResponse.json({ error: 'That room number is already in use.' }, { status: 409 });
+      }
+
+      const [updated] = await db
+        .update(rooms)
+        .set({
+          roomNumber: decision.fields.roomNumber,
+          roomTypeId: decision.fields.roomTypeId,
+          floor: decision.fields.floor,
+          operationalStatus: decision.fields.operationalStatus,
+          housekeepingStatus: decision.fields.housekeepingStatus,
+          notes: mergeRoomNotes(current.notes, decision.fields.description),
+          updatedAt: new Date(),
+        })
+        .where(and(eq(rooms.id, current.id), eq(rooms.propertyId, propertyId)))
+        .returning();
+
+      if (current.roomTypeId !== updated.roomTypeId) {
+        for (const typeId of [current.roomTypeId, updated.roomTypeId]) {
+          const assigned = await db
+            .select({ id: rooms.id })
+            .from(rooms)
+            .where(and(eq(rooms.roomTypeId, typeId), eq(rooms.propertyId, propertyId)));
+          await db
+            .update(roomTypes)
+            .set({ totalInventory: assigned.length })
+            .where(and(eq(roomTypes.id, typeId), eq(roomTypes.propertyId, propertyId)));
+        }
+      }
+
+      const merchant = getMerchantRequest(req);
+      const organizationId =
+        merchant?.tenant.property.organizationId ||
+        (
+          await db
+            .select({ organizationId: properties.organizationId })
+            .from(properties)
+            .where(eq(properties.id, propertyId))
+            .limit(1)
+        )[0]?.organizationId;
+      if (organizationId) {
+        await db.insert(activityLogs).values({
+          organizationId,
+          propertyId,
+          actorId: merchant?.tenant.userId || session?.user?.id,
+          actorName: merchant?.tenant.user.fullName || 'Staff',
+          action: 'room.updated',
+          resource: 'room',
+          resourceId: updated.id,
+          previousValue: {
+            roomNumber: current.roomNumber,
+            roomTypeId: current.roomTypeId,
+            floor: current.floor,
+            operationalStatus: current.operationalStatus,
+            housekeepingStatus: current.housekeepingStatus,
+          },
+          newValue: {
+            roomNumber: updated.roomNumber,
+            roomTypeId: updated.roomTypeId,
+            floor: updated.floor,
+            operationalStatus: updated.operationalStatus,
+            housekeepingStatus: updated.housekeepingStatus,
+          },
+        });
+      }
+
+      return NextResponse.json({ success: true, data: updated });
     }
 
     if (action === 'create_room' || action === 'create_bulk_rooms') {
@@ -174,7 +360,25 @@ async function handlePOST(req: NextRequest) {
         }
       }
 
-      const notesPayload = imageUrl ? JSON.stringify({ imageUrl }) : null;
+      const roomImageUrls: { url: string; storageKey: string }[] =
+        roomList.length === 1 && Array.isArray(body.images)
+          ? body.images
+              .map((entry: unknown) => {
+                if (entry && typeof entry === 'object' && 'url' in entry) {
+                  const url = String((entry as { url?: string }).url || '').trim();
+                  return { url, storageKey: String((entry as { storageKey?: string }).storageKey || url) };
+                }
+                const url = String(entry || '').trim();
+                return { url, storageKey: url };
+              })
+              .filter((entry: { url: string }) => entry.url && !entry.url.startsWith('data:'))
+          : [];
+      const singleLegacyUrl =
+        roomList.length === 1 && roomImageUrls.length === 0 && imageUrl && !String(imageUrl).startsWith('data:')
+          ? String(imageUrl)
+          : '';
+      const coverUrl = roomImageUrls[0]?.url || singleLegacyUrl;
+      const notesPayload = coverUrl ? JSON.stringify({ imageUrl: coverUrl }) : null;
       const createdRooms: any[] = [];
 
       for (const num of roomList) {
@@ -199,6 +403,22 @@ async function handlePOST(req: NextRequest) {
           })
           .returning();
         createdRooms.push(newRoom);
+      }
+
+      if (createdRooms.length === 1 && roomImageUrls.length > 0) {
+        await db.insert(roomImages).values(
+          roomImageUrls.map((entry, sortOrder) => ({
+            propertyId,
+            roomId: createdRooms[0].id,
+            storageKey: entry.storageKey,
+            url: entry.url,
+            contentType: 'image/jpeg',
+            byteSize: 0,
+            sortOrder,
+            isCover: sortOrder === 0,
+            uploadedByUserId: session?.user?.id,
+          }))
+        );
       }
 
       // Update room type total inventory
