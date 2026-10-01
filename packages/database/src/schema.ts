@@ -408,6 +408,26 @@ export const reservationEvents = pgTable(
   ]
 );
 
+/** Internal staff notes on a reservation. Append-only. Never shown to guests. */
+export const reservationNotes = pgTable(
+  'reservation_notes',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    propertyId: uuid('property_id')
+      .references(() => properties.id, { onDelete: 'cascade' })
+      .notNull(),
+    reservationId: uuid('reservation_id')
+      .references(() => reservations.id, { onDelete: 'cascade' })
+      .notNull(),
+    authorUserId: uuid('author_user_id').references(() => users.id, { onDelete: 'set null' }),
+    body: text('body').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    index('reservation_notes_res_idx').on(t.propertyId, t.reservationId, t.createdAt),
+  ]
+);
+
 // 12. Payments
 export const payments = pgTable(
   'payments',

@@ -15,6 +15,7 @@ import {
   sql,
 } from '@sena/database';
 
+import { calculateInvoiceAmounts } from '@/lib/invoice-edit';
 import { resolveTenantForRequest } from '@/lib/tenant';
 import { PaymentService } from '@sena/payments';
 
@@ -195,38 +196,23 @@ async function handlePOST(req: NextRequest) {
     const nextNum = Number(countResult[0]?.count || 0) + 1;
     const invoiceNumber = `INV-${currentYear}-${crypto.randomUUID().replaceAll('-', '').slice(0, 16).toUpperCase()}`;
 
-    if (!Array.isArray(items) || items.some((item: any) => !Number.isSafeInteger(Number(item.quantity)) || Number(item.quantity) <= 0 || !Number.isSafeInteger(Number(item.unitPriceMinorUnits)) || Number(item.unitPriceMinorUnits) < 0)) return NextResponse.json({ error: 'Enter a whole quantity and a valid price for each item.' }, { status: 422 });
-
-    // 3. Calculate Itemized Subtotal
-    let subtotalMinorUnits = 0;
-    const formattedItems = items.map((item: any, idx: number) => {
-      const qty = Math.max(1, Number(item.quantity) || 1);
-      const unitPrice = Math.round(Number(item.unitPriceMinorUnits) || 0);
-      const total = qty * unitPrice;
-      subtotalMinorUnits += total;
-      return {
-        id: item.id || `item_${idx + 1}`,
-        description: item.description?.trim() || 'Service Charge',
-        category: item.category || 'other',
-        quantity: qty,
-        unitPriceMinorUnits: unitPrice,
-        totalMinorUnits: total,
-      };
+    const amounts = calculateInvoiceAmounts({
+      items,
+      applyVat: Boolean(applyVat),
+      applyConsumptionTax: Boolean(applyConsumptionTax),
+      applyServiceCharge: Boolean(applyServiceCharge),
+      discountMinorUnits: Math.max(0, Math.round(Number(discountMinorUnits) || 0)),
     });
-
-    // 4. Calculate Hospitality Taxes & Statutory Surcharges
-    // - 7.5% Nigerian Value Added Tax (VAT)
-    // - 5.0% Lagos / State Hotel Consumption Tax
-    // - 10.0% Hospitality Service Charge
-    const taxVatMinorUnits = applyVat ? Math.round(subtotalMinorUnits * 0.075) : 0;
-    const taxConsumptionMinorUnits = applyConsumptionTax ? Math.round(subtotalMinorUnits * 0.05) : 0;
-    const serviceChargeMinorUnits = applyServiceCharge ? Math.round(subtotalMinorUnits * 0.1) : 0;
-
-    const discount = Math.max(0, Math.min(subtotalMinorUnits, Math.round(Number(discountMinorUnits) || 0)));
-    const totalAmountMinorUnits = Math.max(
-      0,
-      subtotalMinorUnits + taxVatMinorUnits + taxConsumptionMinorUnits + serviceChargeMinorUnits - discount
-    );
+    if (!amounts.ok) return NextResponse.json({ error: amounts.error }, { status: 422 });
+    const {
+      items: formattedItems,
+      subtotalMinorUnits,
+      taxVatMinorUnits,
+      taxConsumptionMinorUnits,
+      serviceChargeMinorUnits,
+      discountMinorUnits: discount,
+      totalAmountMinorUnits,
+    } = amounts;
 
     const todayStr = new Date().toISOString().slice(0, 10);
     const resolvedIssueDate = issueDate || todayStr;

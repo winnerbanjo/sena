@@ -1,15 +1,16 @@
 import { createPublicInvoiceToken } from '@/lib/public-invoice-token';
 import { apiError } from '@/lib/api-error';
-import { withMerchant } from '@/lib/merchant-route';
+import { planInvoiceEdit } from '@/lib/invoice-edit';
+import { loadInvoicePresentation } from '@/lib/invoice-presentation';
+import { getMerchantRequest, withMerchant } from '@/lib/merchant-route';
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/auth';
 import {
+  activityLogs,
   db,
+  eq,
   propertyInvoices,
   properties,
   reservations,
-  guests,
-  eq,
 } from '@sena/database';
 
 async function handleGET(
@@ -38,10 +39,19 @@ async function handleGET(
       });
     }
 
+    const document = await loadInvoicePresentation(invoice.id, 'staff');
+
     return NextResponse.json({
       invoice: { ...invoice, publicToken: createPublicInvoiceToken(invoice.id) },
       property: prop,
       reservation,
+      document: document
+        ? {
+            property: document.property,
+            reservation: document.reservation,
+            payments: document.payments,
+          }
+        : null,
     });
   } catch (error: any) {
     console.error('[INVOICE DETAIL GET ERROR]', error);
@@ -55,37 +65,48 @@ async function handlePATCH(
 ) {
   try {
     const { id } = await params;
-    const body = await req.json();
+    const merchant = getMerchantRequest(req);
+    const body = merchant?.body ?? {};
 
     const invoice = await db.query.propertyInvoices.findFirst({
       where: eq(propertyInvoices.id, id),
     });
 
-    if (!invoice) {
+    if (!invoice || !merchant || invoice.propertyId !== merchant.tenant.propertyId) {
       return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
     }
 
-    const updates: Partial<typeof propertyInvoices.$inferInsert> = {
-      updatedAt: new Date(),
-    };
-
-    if (body.status !== undefined && body.status !== invoice.status) {
-      return NextResponse.json({ error: 'Invoice payment status changes only when a payment is recorded.' }, { status: 400 });
+    const planned = planInvoiceEdit(invoice, body);
+    if (!planned.ok) {
+      return NextResponse.json({ error: planned.error }, { status: planned.status });
     }
-    if (body.notes !== undefined) updates.notes = body.notes;
-    if (body.paymentTerms !== undefined) updates.paymentTerms = body.paymentTerms;
-    if (body.dueDate) updates.dueDate = body.dueDate;
 
-    const [updated] = await db
-      .update(propertyInvoices)
-      .set(updates)
-      .where(eq(propertyInvoices.id, id))
-      .returning();
+    const [updated] = await db.transaction(async (tx) => {
+      const [row] = await tx
+        .update(propertyInvoices)
+        .set(planned.patch)
+        .where(eq(propertyInvoices.id, id))
+        .returning();
+      if (planned.changes.length) {
+        await tx.insert(activityLogs).values({
+          organizationId: invoice.organizationId,
+          propertyId: invoice.propertyId,
+          actorId: merchant.tenant.userId,
+          actorName: merchant.tenant.user.fullName || 'Staff',
+          action: 'invoice.updated',
+          resource: 'invoice',
+          resourceId: invoice.id,
+          previousValue: Object.fromEntries(planned.changes.map((change) => [change.field, change.from])),
+          newValue: Object.fromEntries(planned.changes.map((change) => [change.field, change.to])),
+        });
+      }
+      return [row];
+    });
 
     return NextResponse.json({
       success: true,
       message: 'Invoice updated successfully',
-      invoice: updated,
+      invoice: { ...updated, publicToken: createPublicInvoiceToken(updated.id) },
     });
   } catch (error: any) {
     console.error('[INVOICE PATCH ERROR]', error);

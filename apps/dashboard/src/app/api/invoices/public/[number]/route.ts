@@ -10,6 +10,7 @@ import {
   desc,
   eq,
 } from '@sena/database';
+import { loadInvoicePresentation } from '@/lib/invoice-presentation';
 import { onlinePaymentAvailable } from '@/lib/online-provider';
 import { PaymentService } from '@sena/payments';
 
@@ -53,6 +54,8 @@ export async function GET(
       .orderBy(desc(transferProofs.submittedAt))
       .limit(1);
 
+    const presentation = await loadInvoicePresentation(invoice.id, 'public');
+
     return NextResponse.json({
       onlinePaymentAvailable: canPayOnline,
       bankTransferAvailable: bankAccounts.length > 0,
@@ -70,20 +73,23 @@ export async function GET(
         paidAmountMinorUnits: invoice.paidAmountMinorUnits, items: invoice.items,
         bankDetails, paymentTerms: invoice.paymentTerms, notes: invoice.notes,
       },
-      property: {
+      property: presentation?.property || {
         name: prop?.name,
         address: prop?.address,
         phone: prop?.phone,
         email: prop?.email,
+        logoUrl: null,
       },
-      reservation: reservation
+      reservation: presentation?.reservation || (reservation
         ? {
             reference: reservation.reference,
+            guestName: invoice.recipientName,
+            accommodation: '',
             checkInDate: reservation.checkInDate,
             checkOutDate: reservation.checkOutDate,
-            nights: reservation.nights,
           }
-        : null,
+        : null),
+      payments: presentation?.payments || [],
     });
   } catch (error: any) {
     console.error('[PUBLIC INVOICE GET ERROR]', error);

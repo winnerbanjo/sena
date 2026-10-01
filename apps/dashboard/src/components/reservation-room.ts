@@ -34,6 +34,7 @@ export function mapReservationItem(r: {
   totalAmountMinorUnits: number;
   paidAmountMinorUnits: number;
   pendingTransferProof?: boolean;
+  noteCount?: number;
   timeline?: ReservationItem['timeline'];
 }): ReservationItem {
   return {
@@ -58,6 +59,7 @@ export function mapReservationItem(r: {
     totalAmountMinorUnits: r.totalAmountMinorUnits,
     paidAmountMinorUnits: r.paidAmountMinorUnits,
     pendingTransferProof: Boolean(r.pendingTransferProof),
+    noteCount: r.noteCount || 0,
     timeline: r.timeline || [],
   };
 }
