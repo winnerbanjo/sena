@@ -36,8 +36,18 @@ html[lang="ar"] .font-serif:not(.theme-font-sample) {
 
 /* Signed-in dashboard only. Public hotel sites stay outside .sena-app. */
 .sena-app {
+  --sena-canvas: #faf8f6;
+  --sena-surface: #ffffff;
+  --sena-border: #e8e2da;
+  --sena-ink: #191816;
+  --sena-muted: #5c564d;
+  --sena-faint: #7a7267;
+  --sena-accent: #b85c3e;
+  --sena-accent-hover: #a34f33;
+  --sena-motion: 160ms;
   font-family: var(--font-poppins), var(--font-noto-sans), "Noto Sans", sans-serif;
   font-weight: 400;
+  background-color: var(--sena-canvas);
 }
 
 .sena-app .font-serif:not(.theme-font-sample) {

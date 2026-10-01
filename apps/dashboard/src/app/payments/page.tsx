@@ -147,27 +147,18 @@ export default function PaymentsPage() {
   if (loading || loadError) return <PageLoadState title={t('title')} failed={loadError} />;
 
   return (
-    <div className="flex-1 flex flex-col h-screen overflow-hidden">
+    <div className="flex h-screen flex-1 flex-col overflow-hidden bg-[#FAF8F6]">
       <Topbar title={t('title')} />
 
       <main className={pageMain}>
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#E8E2DA] pb-4">
-          <div>
-            <h2 className="text-base font-medium text-[#191816]">
-              Financials & Transactions
-            </h2>
-            <p className="text-xs text-[#7A7267] mt-1">
-              Successful recorded payments and outstanding guest balances.
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             <Button variant="secondary" size="sm" className="text-xs">
-              <Download className="w-3.5 h-3.5 mr-1" />
+              <Download className="me-1 h-3.5 w-3.5" />
               Export CSV
             </Button>
             <Button size="sm" className="text-xs" onClick={() => { receipt.clear(); setRecordError(''); setRecordOpen(true); }}>
-              <Plus className="w-3.5 h-3.5 mr-1" />
+              <Plus className="me-1 h-3.5 w-3.5" />
               Record payment
             </Button>
           </div>
@@ -192,8 +183,8 @@ export default function PaymentsPage() {
 
           <div className="md:col-span-3 p-5 rounded-lg bg-white border border-[#E8E2DA] flex flex-col justify-between space-y-3">
             <div>
-              <span className="text-[10px] font-mono uppercase tracking-wider text-[#7A7267] block mb-1">
-                Pending Folios
+              <span className="mb-1 block text-xs text-[#7A7267]">
+                Outstanding
               </span>
               <strong className="text-2xl font-medium tabular-nums text-[#191816]">
                 {formatNaira(pendingFoliosMinorUnits)}
@@ -206,8 +197,8 @@ export default function PaymentsPage() {
 
           <div className="md:col-span-3 p-5 rounded-lg bg-white border border-[#E8E2DA] flex flex-col justify-between space-y-3">
             <div>
-              <span className="text-[10px] font-mono uppercase tracking-wider text-[#7A7267] block mb-1">
-                Direct Booking Share
+              <span className="mb-1 block text-xs text-[#7A7267]">
+                Direct booking share
               </span>
               <strong className="text-2xl font-medium tabular-nums text-[#191816]">
                 {directBookingShare}%

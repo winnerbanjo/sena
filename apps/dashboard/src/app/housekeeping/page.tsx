@@ -112,20 +112,12 @@ export default function HousekeepingPage() {
   if (loading || loadError) return <PageLoadState title={t('title')} failed={loadError} />;
 
   return (
-    <div className="flex-1 flex flex-col h-screen overflow-hidden bg-white">
+    <div className="flex h-screen flex-1 flex-col overflow-hidden bg-[#FAF8F6]">
       <Topbar title={t('title')} />
 
       <main className={pageMain}>
-        <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-4 border-b border-[#E8E2DA] pb-4">
-          <div>
-            <h2 className="text-base font-medium text-[#191816]">
-              Room Readiness & Turnover
-            </h2>
-            <p className="text-xs text-[#7A7267] mt-1">
-              The same room states shown on Rooms and used by Front Desk check-in.
-            </p>
-          </div>
-          <span className="inline-flex items-center gap-1.5 text-[#B85C3E] font-medium text-xs">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
+          <span className="inline-flex items-center gap-1.5 text-sm font-medium text-[#71382D]">
             <span className="w-2 h-2 rounded-full bg-[#B85C3E]" />
             {dirtyCount} need cleaning
           </span>

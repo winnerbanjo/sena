@@ -19,6 +19,8 @@ const STATUS_TONE: Record<string, StatusTone> = {
   inspected: 'positive',
   ready: 'positive',
   confirmed: 'positive',
+  checked_out: 'neutral',
+  clean_ready: 'positive',
   paid: 'positive',
   settled: 'positive',
   connected: 'positive',
@@ -33,6 +35,7 @@ const STATUS_TONE: Record<string, StatusTone> = {
   needs_cleaning: 'warning',
   dirty: 'warning',
   cleaning: 'info',
+  inspection: 'info',
   in_progress: 'info',
   occupied: 'emphasis',
   checked_in: 'emphasis',
@@ -41,6 +44,7 @@ const STATUS_TONE: Record<string, StatusTone> = {
   not_paid: 'negative',
   cancelled: 'negative',
   canceled: 'negative',
+  no_show: 'negative',
   failed: 'negative',
   overdue: 'negative',
   disconnected: 'negative',
@@ -48,6 +52,7 @@ const STATUS_TONE: Record<string, StatusTone> = {
   archived: 'neutral',
   blocked: 'neutral',
   maintenance: 'neutral',
+  out_of_service: 'neutral',
   draft: 'neutral',
 };
 
@@ -74,7 +79,7 @@ export function StatusBadge({
   return (
     <span
       className={cn(
-        'inline-flex max-w-full items-center rounded border px-1.5 py-0.5 text-[11px] font-medium leading-4',
+        'inline-flex max-w-full items-center rounded-md border px-1.5 py-0.5 text-[11px] font-medium leading-4',
         TONE_CLASS[resolved],
         className
       )}

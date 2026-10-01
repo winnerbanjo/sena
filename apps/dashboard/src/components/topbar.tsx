@@ -70,7 +70,7 @@ export function Topbar({ title, onOpenNewReservation, onOpenSearch }: TopbarProp
       if (e.key === 'n' || e.key === 'N') {
         e.preventDefault();
         handleOpenNewRes();
-      } else if (e.key === '/') {
+      } else if (e.key === '/' || ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k')) {
         e.preventDefault();
         handleOpenSearch();
       }
@@ -81,7 +81,7 @@ export function Topbar({ title, onOpenNewReservation, onOpenSearch }: TopbarProp
   }, [handleOpenNewRes, handleOpenSearch]);
 
   return (
-    <header className="sticky top-0 z-30 flex h-14 flex-shrink-0 items-center justify-between border-b border-[#E8E2DA] bg-white px-4 sm:px-6 lg:px-8">
+    <header className="sticky top-0 z-30 flex h-16 flex-shrink-0 items-center justify-between border-b border-[#E8E2DA] bg-[#FAF8F6] px-4 sm:px-6 lg:px-8">
       <div className="flex min-w-0 items-center gap-2">
         <button
           onClick={openMobileNav}
@@ -91,7 +91,7 @@ export function Topbar({ title, onOpenNewReservation, onOpenSearch }: TopbarProp
           <Menu className="h-5 w-5" />
         </button>
 
-        <h1 className="truncate text-base font-semibold tracking-tight text-[#191816]">
+        <h1 className="truncate text-[22px] font-semibold tracking-tight text-[#191816] sm:text-[26px]">
           {heading}
         </h1>
       </div>
@@ -109,7 +109,7 @@ export function Topbar({ title, onOpenNewReservation, onOpenSearch }: TopbarProp
             <span className="truncate">{t('searchSena')}</span>
           </div>
           <div className="flex items-center gap-1">
-            <kbd className="px-1.5 py-0.5 rounded border border-[#E8E2DA] bg-[#F7F7F7] text-[10px] text-[#7A7267] font-mono">
+            <kbd className="rounded border border-[#E8E2DA] bg-white px-1.5 py-0.5 text-[10px] text-[#7A7267]">
               ⌘K
             </kbd>
           </div>
@@ -134,7 +134,7 @@ export function Topbar({ title, onOpenNewReservation, onOpenSearch }: TopbarProp
           <Plus className="w-4 h-4 flex-shrink-0" />
           <span className="hidden sm:inline">{t('newReservation')}</span>
           <span className="sm:hidden">{t('new')}</span>
-          <kbd className="hidden lg:inline ms-1 px-1 py-0.2 rounded bg-black/20 text-[10px] font-mono opacity-80">
+          <kbd className="ms-1 hidden rounded bg-black/20 px-1 py-0.5 text-[10px] opacity-80 lg:inline">
             N
           </kbd>
         </Button>

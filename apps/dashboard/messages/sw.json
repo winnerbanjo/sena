@@ -124,7 +124,9 @@
     "instantSearch": "Utafutaji wa haraka wa Sena",
     "invoicesSubtitle": "Folio, ankara na viungo vya malipo",
     "appsSubtitle": "Watoa malipo, vituo vya kuhifadhi, na huduma zilizounganishwa",
-    "billingSubtitle": "Mpango, upyaaji na historia ya bili"
+    "billingSubtitle": "Mpango, upyaaji na historia ya bili",
+    "money": "Pesa",
+    "growth": "Ukuaji"
   },
   "overview": {
     "title": "Muhtasari",

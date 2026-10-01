@@ -124,7 +124,9 @@
     "instantSearch": "بحث سينا الفوري",
     "invoicesSubtitle": "الكشوف والفواتير وروابط الدفع",
     "appsSubtitle": "مزودو الدفع وقنوات الحجز والخدمات المتصلة",
-    "billingSubtitle": "الخطة والتجديد وسجل الفوترة"
+    "billingSubtitle": "الخطة والتجديد وسجل الفوترة",
+    "money": "المال",
+    "growth": "النمو"
   },
   "overview": {
     "title": "نظرة عامة",

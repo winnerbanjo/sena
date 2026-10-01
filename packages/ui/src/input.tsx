@@ -2,7 +2,7 @@ import * as React from 'react';
 import { cn } from './utils';
 
 const fieldClass =
-  'flex w-full rounded border border-[#E8E2DA] bg-white px-3 text-sm text-[#191816] placeholder:text-[#7A7267] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#71382D] focus-visible:ring-offset-0 disabled:cursor-not-allowed disabled:bg-[#FAFAF8] disabled:opacity-60';
+  'flex w-full rounded-md border border-[#E8E2DA] bg-white px-3 text-sm text-[#191816] transition-colors duration-150 placeholder:text-[#7A7267] focus-visible:outline-none focus-visible:border-[#71382D] focus-visible:ring-2 focus-visible:ring-[#71382D]/30 focus-visible:ring-offset-0 disabled:cursor-not-allowed disabled:bg-[#FAFAF8] disabled:opacity-60';
 
 export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {}
 

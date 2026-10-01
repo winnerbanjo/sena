@@ -124,7 +124,9 @@
     "instantSearch": "Ìwá Sena kíákíá",
     "invoicesSubtitle": "Ìwé ìsanwó, ìwé-owó àti ìsopọ̀ ìsanwó",
     "appsSubtitle": "Olùpèsè ìsanwó, ìkànì ìfipamọ́, àti iṣẹ́ tí a sopọ̀",
-    "billingSubtitle": "Ètò, ìsọdọ̀tun àti ìtàn ìsanwó"
+    "billingSubtitle": "Ètò, ìsọdọ̀tun àti ìtàn ìsanwó",
+    "money": "Owó",
+    "growth": "Ìdàgbàsókè"
   },
   "overview": {
     "title": "Àkópọ̀",

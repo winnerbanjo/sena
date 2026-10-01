@@ -148,7 +148,7 @@ export default function OverviewPage() {
   if (loading || loadError) return <PageLoadState title={t('title')} failed={loadError} failureKind={failureKind} retry={fetchData} />;
 
   return (
-    <div className="flex-1 flex flex-col h-screen overflow-hidden bg-white text-[#191816]">
+    <div className="flex h-screen flex-1 flex-col overflow-hidden bg-[#FAF8F6] text-[#191816]">
       <Topbar
         title={t('title')}
         onOpenNewReservation={() => setNewResOpen(true)}
