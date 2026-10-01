@@ -1,5 +1,5 @@
 'use client';
-import { pageMain } from '../../components/design';
+import { pageMain, pageStack } from '../../components/design';
 import { formatAssignedRoom, mapReservationItem } from '../../components/reservation-room';
 import { CheckInRoomDialog, type RoomAssignmentMode } from '../../components/check-in-room-dialog';
 import { DeskPaymentBadge } from '../../components/check-in-payment-status';
@@ -128,32 +128,13 @@ export default function FrontDeskPage() {
   if (loading || loadError) return <PageLoadState title={t('title')} failed={loadError} failureKind={failureKind} retry={fetchReservations} />;
 
   return (
-    <div className="flex-1 flex flex-col h-screen overflow-hidden bg-white text-[#191816]">
+    <div className={pageStack + ' h-screen'}>
       <Topbar
         title={t('title')}
         onOpenNewReservation={() => setNewResOpen(true)}
       />
 
       <main className={pageMain}>
-        {/* Header */}
-        <div className="border-b border-[#E8E1D5] pb-6 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-          <div>
-            <h1 className="text-base font-medium text-[#191816]">
-              {t('heading')}
-            </h1>
-            <p className="text-xs text-[#7A7267] mt-1">
-              {t('subtitle')}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => setNewResOpen(true)}
-            className="px-4 py-2.5 rounded-lg bg-[#71382D] hover:bg-[#5A2C23] text-white text-xs font-semibold shadow-xs transition-colors self-start sm:self-auto cursor-pointer"
-          >
-            {t('recordWalkIn')}
-          </button>
-        </div>
-
         {/* Operational Filter Tabs */}
         <div className="flex items-center gap-6 border-b border-[#E8E1D5] text-xs">
           <button

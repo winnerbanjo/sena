@@ -124,7 +124,9 @@
     "instantSearch": "Neman Sena nan take",
     "invoicesSubtitle": "Folio, daftari da hanyoyin biya",
     "appsSubtitle": "Masu ba da biya, tashoshin ajiya, da ayyukan da aka haɗa",
-    "billingSubtitle": "Shiri, sabuntawa da tarihin biya"
+    "billingSubtitle": "Shiri, sabuntawa da tarihin biya",
+    "money": "Kuɗi",
+    "growth": "Ci gaba"
   },
   "overview": {
     "title": "Taƙaitawa",

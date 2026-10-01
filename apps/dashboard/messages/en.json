@@ -124,7 +124,9 @@
     "instantSearch": "Sena Instant Search",
     "invoicesSubtitle": "Folios, invoices, and guest payment links",
     "appsSubtitle": "Payment providers, booking channels, and connected services",
-    "billingSubtitle": "Plan, renewal, and billing history"
+    "billingSubtitle": "Plan, renewal, and billing history",
+    "money": "Money",
+    "growth": "Growth"
   },
   "overview": {
     "title": "Overview",

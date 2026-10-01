@@ -255,7 +255,7 @@ export default function ApartmentsPage() {
   if (loading || loadError) return <PageLoadState title={t('title')} failed={loadError} />;
 
   return (
-    <div className="flex h-screen flex-1 flex-col overflow-hidden bg-white">
+    <div className="flex h-screen flex-1 flex-col overflow-hidden bg-[#FAF8F6]">
       <Topbar title={t('title')} />
       <main className={pageMain}>
         <div className="mb-6 flex flex-col gap-3 border-b border-[#E8E2DA] pb-4 sm:flex-row sm:items-center sm:justify-between">

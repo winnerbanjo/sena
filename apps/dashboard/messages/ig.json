@@ -124,7 +124,9 @@
     "instantSearch": "Ọchụchọ Sena ngwa ngwa",
     "invoicesSubtitle": "Folio, akwụkwọ ụgwọ na njikọ ịkwụ ụgwọ",
     "appsSubtitle": "Ndị na-akwụ ụgwọ, ọwa nchekwa, na ọrụ ejikọrọ",
-    "billingSubtitle": "Atụmatụ, mmeghari na akụkọ ụgwọ"
+    "billingSubtitle": "Atụmatụ, mmeghari na akụkọ ụgwọ",
+    "money": "Ego",
+    "growth": "Uto"
   },
   "overview": {
     "title": "Nchịkọta",

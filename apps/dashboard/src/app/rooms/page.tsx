@@ -481,7 +481,7 @@ export default function RoomsPage() {
   if (loading || loadError) return <PageLoadState title={t('title')} failed={loadError} />;
 
   return (
-    <div className="flex-1 flex flex-col h-screen overflow-hidden bg-white">
+    <div className="flex h-screen flex-1 flex-col overflow-hidden bg-[#FAF8F6]">
       <Topbar title={t('title')} />
 
       <main className={pageMain}>

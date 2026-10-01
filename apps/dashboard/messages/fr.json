@@ -124,7 +124,9 @@
     "instantSearch": "Recherche instantanée Sena",
     "invoicesSubtitle": "Folios, factures et liens de paiement",
     "appsSubtitle": "Prestataires de paiement, canaux de réservation et services connectés",
-    "billingSubtitle": "Forfait, renouvellement et historique"
+    "billingSubtitle": "Forfait, renouvellement et historique",
+    "money": "Argent",
+    "growth": "Croissance"
   },
   "overview": {
     "title": "Vue d'ensemble",

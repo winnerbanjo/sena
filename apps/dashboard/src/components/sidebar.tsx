@@ -36,7 +36,7 @@ import { useTranslations } from 'next-intl';
 import { LanguageMenu } from './language-menu';
 
 interface NavSection {
-  titleKey?: 'operations' | 'sales' | 'insights' | 'manage';
+  titleKey?: 'operations' | 'money' | 'growth' | 'insights' | 'manage';
   items: {
     id: string;
     labelKey:
@@ -64,6 +64,7 @@ interface NavSection {
     href: string;
     icon: React.ComponentType<{ className?: string }>;
     badge?: string | number;
+    quiet?: boolean;
   }[];
 }
 
@@ -84,13 +85,18 @@ const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
-    titleKey: 'sales',
+    titleKey: 'money',
     items: [
-      { id: 'website', labelKey: 'website', href: '/website', icon: Globe },
-      { id: 'reviews', labelKey: 'reviews', href: '/website?tab=reviews', icon: Star },
-      { id: 'directBooking', labelKey: 'directBooking', href: '/booking-preview', icon: Compass },
       { id: 'payments', labelKey: 'payments', href: '/payments', icon: CreditCard },
       { id: 'invoices', labelKey: 'invoices', href: '/invoices', icon: Receipt },
+    ],
+  },
+  {
+    titleKey: 'growth',
+    items: [
+      { id: 'website', labelKey: 'website', href: '/website', icon: Globe },
+      { id: 'directBooking', labelKey: 'directBooking', href: '/booking-preview', icon: Compass },
+      { id: 'reviews', labelKey: 'reviews', href: '/website?tab=reviews', icon: Star },
       { id: 'offers', labelKey: 'offers', href: '/offers', icon: Tag },
     ],
   },
@@ -108,7 +114,7 @@ const NAV_SECTIONS: NavSection[] = [
       { id: 'apps', labelKey: 'apps', href: '/apps', icon: Plug },
       { id: 'billing', labelKey: 'billing', href: '/billing', icon: CreditCard },
       { id: 'settings', labelKey: 'settings', href: '/settings', icon: Settings },
-      { id: 'setupWizard', labelKey: 'setupWizard', href: '/onboarding', icon: HelpCircle },
+      { id: 'setupWizard', labelKey: 'setupWizard', href: '/onboarding', icon: HelpCircle, quiet: true },
     ],
   },
 ];
@@ -128,15 +134,13 @@ function SidebarNavItems({ onNavigate }: { onNavigate?: () => void }) {
     return NAV_SECTIONS.map((section) => {
       let items = section.items;
       if (isFrontDesk) {
-        if (section.titleKey === 'manage') {
+        if (section.titleKey === 'manage' || section.titleKey === 'growth' || section.titleKey === 'insights') {
           items = [];
-        } else if (section.titleKey === 'sales') {
-          items = items.filter((i) => ['payments', 'invoices'].includes(i.id));
         }
       } else if (isHousekeeping) {
         if (section.titleKey === 'operations') {
           items = items.filter((i) => ['housekeeping', 'rooms', 'apartments'].includes(i.id));
-        } else if (section.titleKey && ['sales', 'insights', 'manage'].includes(section.titleKey)) {
+        } else if (section.titleKey && ['money', 'growth', 'insights', 'manage'].includes(section.titleKey)) {
           items = [];
         }
       }
@@ -200,7 +204,7 @@ function SidebarNavItems({ onNavigate }: { onNavigate?: () => void }) {
           {visibleNavSections.map((section, idx) => (
             <div key={idx}>
               {section.titleKey && (
-                <div className="mb-1 px-2 text-[10px] font-medium uppercase tracking-wide text-[#7A7267]">
+                <div className="mb-1 px-2 text-[11px] font-medium text-[#7A7267]">
                   {tNav(section.titleKey)}
                 </div>
               )}
@@ -218,10 +222,12 @@ function SidebarNavItems({ onNavigate }: { onNavigate?: () => void }) {
                       href={item.href}
                       prefetch={false}
                       onClick={onNavigate}
-                      className={`flex items-center justify-between rounded px-2.5 py-2 text-[13px] font-medium transition-colors ${
+                      className={`flex items-center justify-between rounded-md px-2.5 py-2 text-[13px] font-medium transition-colors duration-150 ${
                         isActive
-                          ? 'bg-[#F6F1EA] text-[#191816]'
-                          : 'text-[#3F3A34] hover:bg-[#FAF8F6] hover:text-[#191816]'
+                          ? 'border-s-2 border-[#B85C3E] bg-[#F6F1EA] text-[#191816]'
+                          : item.quiet
+                            ? 'text-[#7A7267] hover:bg-[#FAF8F6] hover:text-[#191816]'
+                            : 'text-[#3F3A34] hover:bg-[#FAF8F6] hover:text-[#191816]'
                       }`}
                     >
                       <div className="flex items-center gap-2.5">
@@ -320,7 +326,7 @@ export function Sidebar() {
         <div className="fixed inset-0 z-50 lg:hidden">
           {/* Backdrop */}
           <div
-            className="fixed inset-0 bg-black/50 backdrop-blur-xs transition-opacity duration-200"
+            className="fixed inset-0 bg-[#191816]/40 transition-opacity duration-150"
             onClick={closeMobileNav}
             aria-hidden="true"
           />
