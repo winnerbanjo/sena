@@ -35,7 +35,8 @@ import { mapReservationItem } from '../../components/reservation-room';
 import { AddCategoryDialog } from '../../components/add-category-dialog';
 import { AddRoomDialog } from '../../components/add-room-dialog';
 import { EditRoomDialog } from '../../components/edit-room-dialog';
-import { RoomGalleryEditor } from '../../components/room-gallery-editor';
+import { GalleryCloseWarning, RoomGalleryEditor, type RoomGalleryEditorHandle } from '../../components/room-gallery-editor';
+import { closeNeedsUploadWarning } from '@/lib/gallery-upload-queue';
 import { galleryDisplayUrls, type GalleryPhoto } from '@/lib/room-gallery';
 import { roomDescriptionFromNotes } from '@/lib/room-edit';
 import { Topbar } from '../../components/topbar';
@@ -52,6 +53,9 @@ export default function RoomsPage() {
   const [editingCategory, setEditingCategory] = React.useState<RoomCategory | null>(null);
   const [editingRoom, setEditingRoom] = React.useState<RoomItem | null>(null);
   const [photoRoom, setPhotoRoom] = React.useState<RoomItem | null>(null);
+  const [photoUploadBusy, setPhotoUploadBusy] = React.useState(false);
+  const [photoCloseWarn, setPhotoCloseWarn] = React.useState(false);
+  const photoEditorRef = React.useRef<RoomGalleryEditorHandle>(null);
   const [preselectedCategory, setPreselectedCategory] = React.useState<string | undefined>(undefined);
 
   // Success alert message
@@ -211,21 +215,6 @@ export default function RoomsPage() {
   }
 
   // Handle Add Room (persists to PostgreSQL)
-  async function uploadRoomPhotos(target: { roomId?: string; roomTypeId?: string }, photos: RoomItem['gallery']) {
-    const files = (photos || []).map((photo) => photo.file).filter((file): file is File => file instanceof File);
-    if (!target.roomId && !target.roomTypeId) return;
-    if (files.length === 0) return;
-    const form = new FormData();
-    files.forEach((file) => form.append('files', file));
-    if (target.roomId) form.append('roomId', target.roomId);
-    if (target.roomTypeId) form.append('roomTypeId', target.roomTypeId);
-    const response = await fetch('/api/rooms/gallery', { method: 'POST', body: form });
-    if (!response.ok) {
-      const data = await response.json().catch(() => ({}));
-      throw new Error(data.error || 'The room was saved, but the photos could not be uploaded.');
-    }
-  }
-
   async function handleAddRoom(newRoom: RoomItem) {
     try {
       const matchedCategory = categories.find((c) => c.name === newRoom.type);
@@ -242,14 +231,9 @@ export default function RoomsPage() {
 
       if (res.ok) {
         const data = await res.json().catch(() => ({}));
-        let photoNote = '';
-        try {
-          if (data.data?.id) await uploadRoomPhotos({ roomId: data.data.id }, newRoom.gallery);
-        } catch (photoError: any) {
-          photoNote = photoError.message || 'Room saved, but the photos could not be uploaded.';
-        }
-        showToast(photoNote || `Room ${newRoom.number} added to inventory successfully!`);
+        showToast(`Room ${newRoom.number} added to inventory successfully!`);
         fetchRoomsData();
+        return { ok: true as const, id: data.data?.id as string | undefined };
       } else {
         let errMsg = 'Failed to add room';
         try {
@@ -330,15 +314,9 @@ export default function RoomsPage() {
 
       if (res.ok) {
         const data = await res.json().catch(() => ({}));
-        let photoNote = '';
-        try {
-          if (data.data?.id) await uploadRoomPhotos({ roomTypeId: data.data.id }, newCategory.gallery);
-        } catch (photoError: any) {
-          photoNote = photoError.message || 'Category saved, but the photos could not be uploaded.';
-        }
-        showToast(photoNote || `Category "${newCategory.name}" created! You can now add rooms to it.`);
+        showToast(`Category "${newCategory.name}" created! You can now add rooms to it.`);
         fetchRoomsData();
-        return { ok: true as const };
+        return { ok: true as const, id: data.data?.id as string | undefined };
       } else {
         let errMsg = 'Failed to add category';
         try {
@@ -379,7 +357,6 @@ export default function RoomsPage() {
         return { ok: false as const, error: err.error || 'Could not save this category.' };
       }
       showToast(t('categoryUpdated'));
-      setEditingCategory(null);
       fetchRoomsData();
       return { ok: true as const };
     } catch (e: any) {
@@ -406,7 +383,6 @@ export default function RoomsPage() {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) return { ok: false as const, error: data.error || t('roomUpdateFailed') };
       showToast(t('roomUpdated'));
-      setEditingRoom(null);
       fetchRoomsData();
       return { ok: true as const };
     } catch (e: any) {
@@ -995,7 +971,17 @@ export default function RoomsPage() {
         onSave={handleUpdateRoom}
       />
 
-      <Dialog open={!!photoRoom} onOpenChange={(open) => { if (!open) { setPhotoRoom(null); fetchRoomsData(); } }}>
+      <Dialog open={!!photoRoom} onOpenChange={(open) => {
+        if (!open && closeNeedsUploadWarning(photoUploadBusy)) {
+          setPhotoCloseWarn(true);
+          return;
+        }
+        if (!open) {
+          setPhotoCloseWarn(false);
+          setPhotoRoom(null);
+          fetchRoomsData();
+        }
+      }}>
         <DialogContent className="max-h-[90vh] overflow-y-auto bg-white">
           <DialogHeader>
             <DialogTitle className="font-serif text-lg text-[#191816]">{t('roomPhotos')}</DialogTitle>
@@ -1003,13 +989,26 @@ export default function RoomsPage() {
           </DialogHeader>
           {photoRoom && (
             <RoomGalleryEditor
+              ref={photoEditorRef}
               photos={(photoRoom.gallery || []) as GalleryPhoto[]}
               onChange={(gallery) => setPhotoRoom({ ...photoRoom, gallery })}
+              onActivityChange={(activity) => setPhotoUploadBusy(activity.busy)}
               roomId={photoRoom.id}
               label={t('roomPhotos')}
               help={t('roomGalleryHelp')}
             />
           )}
+          <GalleryCloseWarning
+            open={photoCloseWarn}
+            onKeep={() => setPhotoCloseWarn(false)}
+            onClose={() => {
+              photoEditorRef.current?.cancelActiveUploads();
+              setPhotoCloseWarn(false);
+              setPhotoUploadBusy(false);
+              setPhotoRoom(null);
+              fetchRoomsData();
+            }}
+          />
         </DialogContent>
       </Dialog>
 

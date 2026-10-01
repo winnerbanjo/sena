@@ -14,7 +14,8 @@ import {
 import { Plus, Layers, Hash } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import type { RoomCategory, RoomItem } from './mock-data';
-import { coverFirstUrls, RoomGalleryEditor } from './room-gallery-editor';
+import { GalleryCloseWarning, RoomGalleryEditor, type RoomGalleryEditorHandle } from './room-gallery-editor';
+import { closeNeedsUploadWarning, saveBlockedWhileUploading } from '@/lib/gallery-upload-queue';
 import type { GalleryPhoto } from '@/lib/room-gallery';
 
 interface AddRoomDialogProps {
@@ -23,7 +24,7 @@ interface AddRoomDialogProps {
   categories: RoomCategory[];
   existingRooms: RoomItem[];
   defaultCategory?: string;
-  onAddRoom: (room: RoomItem) => void;
+  onAddRoom: (room: RoomItem) => void | Promise<{ ok?: boolean; id?: string; error?: string } | void>;
   onAddRooms?: (rooms: RoomItem[]) => void;
   onOpenAddCategory: () => void;
 }
@@ -55,6 +56,18 @@ export function AddRoomDialog({
   const [housekeeping, setHousekeeping] = React.useState<'clean' | 'cleaning' | 'dirty' | 'inspection'>('clean');
   const [photos, setPhotos] = React.useState<GalleryPhoto[]>([]);
   const [error, setError] = React.useState('');
+  const [saving, setSaving] = React.useState(false);
+  const [activity, setActivity] = React.useState({ busy: false, failed: 0 });
+  const [confirmClose, setConfirmClose] = React.useState(false);
+  const editorRef = React.useRef<RoomGalleryEditorHandle>(null);
+  function requestClose(next: boolean) {
+    if (!next && closeNeedsUploadWarning(activity.busy)) {
+      setConfirmClose(true);
+      return;
+    }
+    onOpenChange(next);
+  }
+
 
   // Update type if defaultCategory changes or dialog opens
   React.useEffect(() => {
@@ -124,7 +137,7 @@ export function AddRoomDialog({
     }
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
 
@@ -146,7 +159,6 @@ export function AddRoomDialog({
 
     const resolvedType = type || (categories[0]?.name || 'Deluxe Room');
 
-    const images = creationMode === 'single' ? photos : [];
     const createdItems: RoomItem[] = roomsToAdd.map((rmNum) => {
       let rmFloor = floor;
       if (rmFloor === 'Floor 1' && rmNum.length >= 3 && /^\d+$/.test(rmNum)) {
@@ -159,18 +171,30 @@ export function AddRoomDialog({
         floor: rmFloor,
         operational,
         housekeeping,
-        imageUrl: coverFirstUrls(photos)[0],
+        imageUrl: '',
         gallery: creationMode === 'single' ? photos : [],
       };
     });
 
     if (onAddRooms && createdItems.length > 1) {
       onAddRooms(createdItems);
+      onOpenChange(false);
     } else {
-      createdItems.forEach((r) => onAddRoom(r));
+      setSaving(true);
+      try {
+        const result = await onAddRoom(createdItems[0]);
+        if (!result || result.ok === false) return;
+        const roomId = result.id;
+        if (roomId && editorRef.current?.hasPending()) {
+          const outcome = await editorRef.current.uploadPending({ roomId });
+          if (outcome.failed > 0) return;
+        }
+        if (editorRef.current?.failedCount()) return;
+        onOpenChange(false);
+      } finally {
+        setSaving(false);
+      }
     }
-
-    onOpenChange(false);
 
     // Reset form
     setNumber('');
@@ -180,7 +204,7 @@ export function AddRoomDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={requestClose}>
       <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="font-serif text-xl sm:text-2xl text-[#191816]">
@@ -397,7 +421,10 @@ export function AddRoomDialog({
             {creationMode === 'multiple' ? (
               <p className="text-[11px] text-[#7A7267]">{t('batchPhotosHelp')}</p>
             ) : (
-              <RoomGalleryEditor photos={photos} onChange={setPhotos} label={t('roomPhotos')} help={t('roomGalleryHelp')} />
+              <>
+                <RoomGalleryEditor ref={editorRef} photos={photos} onChange={setPhotos} onActivityChange={setActivity} label={t('roomPhotos')} help={t('roomGalleryHelp')} />
+                <GalleryCloseWarning open={confirmClose} onKeep={() => setConfirmClose(false)} onClose={() => { editorRef.current?.cancelActiveUploads(); setConfirmClose(false); onOpenChange(false); }} />
+              </>
             )}
           </div>
 
@@ -405,13 +432,14 @@ export function AddRoomDialog({
             <Button
               type="button"
               variant="outline"
-              onClick={() => onOpenChange(false)}
+              onClick={() => requestClose(false)}
               className="text-xs"
             >
               Cancel
             </Button>
             <Button
               type="submit"
+              disabled={saving || saveBlockedWhileUploading(activity.busy)}
               className="bg-[#B85C3E] hover:bg-[#A34E32] text-white text-xs font-semibold"
             >
               {creationMode === 'multiple'
