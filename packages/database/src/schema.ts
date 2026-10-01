@@ -229,12 +229,15 @@ export const apartments = pgTable(
     websiteVisibility: boolean('website_visibility').notNull().default(true),
     bookingVisibility: boolean('booking_visibility').notNull().default(true),
     notes: text('notes'),
+    archivedAt: timestamp('archived_at', { withTimezone: true }),
+    archivedBy: uuid('archived_by').references(() => users.id, { onDelete: 'set null' }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [
     uniqueIndex('apartments_property_name_idx').on(t.propertyId, t.name),
     index('apartments_property_idx').on(t.propertyId),
+    index('apartments_property_archived_idx').on(t.propertyId, t.archivedAt),
   ]
 );
 

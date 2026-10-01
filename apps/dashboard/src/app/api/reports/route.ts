@@ -2,7 +2,7 @@ import { apiError } from '@/lib/api-error';
 import { getMerchantRequest, withMerchant } from '@/lib/merchant-route';
 import { parseReportRange, reportRangeBounds } from '@/lib/reports';
 import { NextRequest, NextResponse } from 'next/server';
-import { db, payments, reservations, rooms, roomTypes, apartments, and, desc, eq, gt, gte, lte, ne } from '@sena/database';
+import { db, payments, reservations, rooms, roomTypes, apartments, and, desc, eq, gt, gte, isNull, lte, ne } from '@sena/database';
 
 export const dynamic = 'force-dynamic';
 
@@ -96,7 +96,7 @@ async function handleGET(req: NextRequest) {
           housekeepingStatus: apartments.housekeepingStatus,
         })
         .from(apartments)
-        .where(eq(apartments.propertyId, propertyId)),
+        .where(and(eq(apartments.propertyId, propertyId), isNull(apartments.archivedAt))),
     ]);
 
     return NextResponse.json({

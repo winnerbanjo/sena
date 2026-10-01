@@ -14,6 +14,7 @@
     "db:apply-user-locale": "tsx src/apply-user-locale-schema.ts",
     "db:apply-flutterwave": "tsx src/apply-flutterwave-schema.ts",
     "db:apply-connected-apps-platform": "tsx src/apply-connected-apps-platform-schema.ts",
+    "db:apply-apartment-archive": "tsx src/apply-apartment-archive-schema.ts",
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {

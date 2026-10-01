@@ -31,6 +31,7 @@ async function run() {
   const [receipts] = await migrator`select to_regclass('public.payment_receipts') as name`;
   if (!receipts?.name) await migrator.unsafe(readFileSync(resolve('packages/database/drizzle/0008_payment_receipts.sql'), 'utf8'));
   await migrator.unsafe(readFileSync(resolve('packages/database/drizzle/0009_apartments.sql'), 'utf8'));
+  await migrator.unsafe(readFileSync(resolve('packages/database/drizzle/0010_apartment_archive.sql'), 'utf8'));
   await migrator.end();
 
   const {

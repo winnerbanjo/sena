@@ -1,9 +1,15 @@
 import { apiError } from '@/lib/api-error';
 import { getMerchantRequest, withMerchant } from '@/lib/merchant-route';
 import { galleryDisplayUrls, type GalleryPhoto } from '@/lib/room-gallery';
-import { deriveApartmentBoardStatus } from '@sena/inventory';
+import { deleteMediaFromSpaces } from '@sena/integrations';
+import {
+  classifyApartmentRemoval,
+  deriveApartmentBoardStatus,
+  removeApartment,
+  roleMayEditApartmentInventory,
+} from '@sena/inventory';
 import { apartmentInputSchema } from '@sena/validation';
-import { apartments, db, properties, reservations, roomImages, and, asc, eq, inArray } from '@sena/database';
+import { apartments, bookingHolds, db, housekeepingTasks, properties, reservations, roomImages, and, asc, eq } from '@sena/database';
 import { NextRequest, NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
@@ -16,8 +22,7 @@ function blank(value: string | null | undefined) {
 }
 
 function canEdit(role: string) {
-  const normalized = role.trim().toLowerCase();
-  return ['owner', 'manager', 'general manager', 'property manager'].includes(normalized);
+  return roleMayEditApartmentInventory(role);
 }
 
 async function handleGET(req: NextRequest) {
@@ -32,7 +37,8 @@ async function handleGET(req: NextRequest) {
     .limit(1);
   const today = new Intl.DateTimeFormat('en-CA', { timeZone: property?.timezone || 'Africa/Lagos' }).format(new Date());
 
-  const [rows, stays, galleryRows] = await Promise.all([
+  const now = new Date();
+  const [rows, stays, galleryRows, holdRows, taskRows] = await Promise.all([
     db.select().from(apartments).where(eq(apartments.propertyId, propertyId)).orderBy(asc(apartments.name)),
     db
       .select({
@@ -42,23 +48,58 @@ async function handleGET(req: NextRequest) {
         checkOutDate: reservations.checkOutDate,
       })
       .from(reservations)
-      .where(and(eq(reservations.propertyId, propertyId), inArray(reservations.status, [...BLOCKING]))),
+      .where(eq(reservations.propertyId, propertyId)),
     db.select().from(roomImages).where(eq(roomImages.propertyId, propertyId)).orderBy(asc(roomImages.sortOrder)),
+    db
+      .select({
+        apartmentId: bookingHolds.apartmentId,
+        status: bookingHolds.status,
+        expiresAt: bookingHolds.expiresAt,
+      })
+      .from(bookingHolds)
+      .where(eq(bookingHolds.propertyId, propertyId)),
+    db
+      .select({
+        apartmentId: housekeepingTasks.apartmentId,
+        status: housekeepingTasks.status,
+      })
+      .from(housekeepingTasks)
+      .where(eq(housekeepingTasks.propertyId, propertyId)),
   ]);
 
   const photos = galleryRows.filter((row) => row.apartmentId);
   const list = rows.map((row) => {
     const ownStays = stays.filter((stay) => stay.apartmentId === row.id);
-    const coversToday = (stay: (typeof ownStays)[number]) => stay.checkInDate <= today && today < stay.checkOutDate;
+    const blockingStays = ownStays.filter((stay) => BLOCKING.includes(stay.status as (typeof BLOCKING)[number]));
+    const coversToday = (stay: (typeof blockingStays)[number]) => stay.checkInDate <= today && today < stay.checkOutDate;
     const gallery = photos
       .filter((image) => image.apartmentId === row.id)
       .map((image): GalleryPhoto => ({ id: image.id, url: image.url, isCover: image.isCover, sortOrder: image.sortOrder }));
     const boardStatus = deriveApartmentBoardStatus({
       operationalStatus: row.operationalStatus,
       housekeepingStatus: row.housekeepingStatus,
-      inHouse: ownStays.some((stay) => stay.status === 'checked_in' && coversToday(stay)),
-      reservedToday: ownStays.some((stay) => stay.status === 'confirmed' && coversToday(stay)),
+      inHouse: blockingStays.some((stay) => stay.status === 'checked_in' && coversToday(stay)),
+      reservedToday: blockingStays.some((stay) => stay.status === 'confirmed' && coversToday(stay)),
     });
+    const removal = row.archivedAt
+      ? { action: 'archived' as const }
+      : classifyApartmentRemoval({
+          today,
+          now,
+          operationalStatus: row.operationalStatus,
+          housekeepingStatus: row.housekeepingStatus,
+          reservations: ownStays.map((stay) => ({
+            status: stay.status,
+            checkInDate: stay.checkInDate,
+            checkOutDate: stay.checkOutDate,
+          })),
+          holds: holdRows
+            .filter((hold) => hold.apartmentId === row.id)
+            .map((hold) => ({ status: hold.status, expiresAt: hold.expiresAt })),
+          tasks: taskRows.filter((task) => task.apartmentId === row.id).map((task) => ({ status: task.status })),
+          paymentCount: 0,
+          invoiceCount: 0,
+        });
     const location = row.usePropertyAddress
       ? property?.address || ''
       : [row.address, row.area, row.city, row.state, row.country].filter(Boolean).join(', ');
@@ -68,7 +109,8 @@ async function handleGET(req: NextRequest) {
       coverUrl: galleryDisplayUrls(gallery)[0] || '',
       location,
       boardStatus,
-      availability: boardStatus === 'available' || boardStatus === 'needs_cleaning' ? 1 : 0,
+      availability: row.archivedAt || (boardStatus !== 'available' && boardStatus !== 'needs_cleaning') ? 0 : 1,
+      removal,
     };
   });
 
@@ -163,21 +205,38 @@ async function handlePATCH(req: NextRequest) {
 
 async function handleDELETE(req: NextRequest) {
   try {
-    const propertyId = getMerchantRequest(req)?.tenant.propertyId;
+    const merchant = getMerchantRequest(req);
+    const propertyId = merchant?.tenant.propertyId;
     if (!propertyId) return NextResponse.json({ error: 'Property not found' }, { status: 400 });
+    if (!canEdit(merchant?.tenant.role || '')) {
+      return NextResponse.json({ error: 'Your role does not allow this action. Contact your property manager.' }, { status: 403 });
+    }
     const apartmentId = req.nextUrl.searchParams.get('id') || '';
-    const [stay] = await db
-      .select({ id: reservations.id })
-      .from(reservations)
-      .where(and(eq(reservations.apartmentId, apartmentId), eq(reservations.propertyId, propertyId)))
+    const [property] = await db
+      .select({ timezone: properties.timezone, organizationId: properties.organizationId })
+      .from(properties)
+      .where(eq(properties.id, propertyId))
       .limit(1);
-    if (stay) return NextResponse.json({ error: 'This apartment has reservation history and cannot be deleted.' }, { status: 409 });
-    const [removed] = await db
-      .delete(apartments)
-      .where(and(eq(apartments.id, apartmentId), eq(apartments.propertyId, propertyId)))
-      .returning({ id: apartments.id });
-    if (!removed) return NextResponse.json({ error: 'That apartment could not be found for this property.' }, { status: 404 });
-    return NextResponse.json({ ok: true });
+    const today = new Intl.DateTimeFormat('en-CA', { timeZone: property?.timezone || 'Africa/Lagos' }).format(new Date());
+    const confirmName = typeof merchant?.body.confirmName === 'string' ? merchant.body.confirmName : '';
+    const result = await removeApartment({
+      propertyId,
+      apartmentId,
+      organizationId: property?.organizationId || merchant.tenant.property.organizationId,
+      actor: { id: merchant.tenant.userId, name: merchant.tenant.user.fullName || 'Staff' },
+      today,
+      confirmName,
+      deleteOwnedMedia: async (storageKey) => {
+        await deleteMediaFromSpaces(storageKey);
+      },
+    });
+    if (result.outcome === 'not_found') {
+      return NextResponse.json({ error: 'That apartment could not be found for this property.' }, { status: 404 });
+    }
+    if (result.outcome === 'blocked' || result.outcome === 'confirmation_required') {
+      return NextResponse.json({ error: result.message, code: result.code, outcome: result.outcome }, { status: 409 });
+    }
+    return NextResponse.json({ outcome: result.outcome, apartmentId: result.apartmentId });
   } catch (error: unknown) {
     return NextResponse.json({ error: apiError(error) }, { status: 400 });
   }

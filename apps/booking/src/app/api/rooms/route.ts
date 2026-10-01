@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db, properties, roomTypes, apartments, and, eq } from '@sena/database';
+import { db, properties, roomTypes, apartments, and, eq, isNull } from '@sena/database';
 import { checkApartmentAvailability, checkAvailability } from '@sena/inventory';
 
 export async function GET(req: NextRequest) {
@@ -45,7 +45,7 @@ export async function GET(req: NextRequest) {
     const units = await db
       .select()
       .from(apartments)
-      .where(and(eq(apartments.propertyId, property.id), eq(apartments.bookingVisibility, true)));
+      .where(and(eq(apartments.propertyId, property.id), isNull(apartments.archivedAt), eq(apartments.bookingVisibility, true)));
 
     const availableTypes = [
       ...(await Promise.all(

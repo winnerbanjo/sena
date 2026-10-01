@@ -4,7 +4,7 @@ import { withMerchant } from '@/lib/merchant-route';
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { db, properties, rooms, roomTypes, apartments, reservations, guests , propertyMembers, organizationMembers } from '@sena/database';
-import { eq, and, gte, lte, or } from 'drizzle-orm';
+import { eq, and, gte, lte, or, isNull } from 'drizzle-orm';
 
 import { resolveTenantForRequest } from '@/lib/tenant';
 
@@ -54,7 +54,7 @@ async function handleGET(req: NextRequest) {
           housekeepingStatus: apartments.housekeepingStatus,
         })
         .from(apartments)
-        .where(eq(apartments.propertyId, propertyId))
+        .where(and(eq(apartments.propertyId, propertyId), isNull(apartments.archivedAt)))
         .orderBy(apartments.name),
     ]);
     const calendarRows = [

@@ -91,7 +91,7 @@ export function NewReservationDialog({
               price: rt.basePriceMinorUnits,
               available: rt.totalInventory || 0,
             }))),
-            ...((apartmentsData?.apartments || []).map((apartment: any) => ({
+            ...((apartmentsData?.apartments || []).filter((apartment: { archivedAt?: string | null }) => !apartment.archivedAt).map((apartment: any) => ({
               id: apartment.id,
               kind: 'apartment' as const,
               name: apartment.name,

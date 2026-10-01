@@ -65,12 +65,13 @@ export async function checkApartmentAvailability(
       id: apartments.id,
       operationalStatus: apartments.operationalStatus,
       bookingVisibility: apartments.bookingVisibility,
+      archivedAt: apartments.archivedAt,
     })
     .from(apartments)
     .where(and(eq(apartments.id, apartmentId), eq(apartments.propertyId, propertyId)))
     .limit(1);
 
-  if (!apartment || apartment.operationalStatus === 'blocked' || apartment.operationalStatus === 'maintenance') {
+  if (!apartment || apartment.archivedAt || apartment.operationalStatus === 'blocked' || apartment.operationalStatus === 'maintenance') {
     return { isAvailable: false, minAvailable: 0 };
   }
 
@@ -114,6 +115,7 @@ export async function createApartmentHold(
       .for('update');
 
     if (!apartment) throw new Error('Apartment not found');
+    if (apartment.archivedAt) throw new Error('This apartment is archived and cannot take new reservations.');
     if (!apartment.bookingVisibility) throw new Error('This apartment is not available for online booking.');
     if (apartment.operationalStatus === 'blocked' || apartment.operationalStatus === 'maintenance') {
       throw new Error('This apartment is out of service.');
