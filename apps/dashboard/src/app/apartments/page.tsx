@@ -1,10 +1,11 @@
 'use client';
+import { pageMain } from '../../components/design';
 
 import * as React from 'react';
 import { useTranslations } from 'next-intl';
 import { formatNaira } from '@sena/config';
-import { Button } from '@sena/ui';
-import { Bath, BedDouble, MapPin, Plus, Users } from 'lucide-react';
+import { Button, StatusBadge } from '@sena/ui';
+import { MapPin, Plus } from 'lucide-react';
 import { Topbar } from '../../components/topbar';
 import { PageLoadState } from '../../components/page-load-state';
 import { AddApartmentDialog, APARTMENT_TYPE_KEYS, emptyApartmentDraft, type AddApartmentDialogHandle, type ApartmentDraft } from '../../components/add-apartment-dialog';
@@ -256,12 +257,9 @@ export default function ApartmentsPage() {
   return (
     <div className="flex h-screen flex-1 flex-col overflow-hidden bg-white">
       <Topbar title={t('title')} />
-      <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
-        <div className="mb-6 flex flex-col gap-4 border-b border-[#E8E2DA] pb-4 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h1 className="font-serif text-2xl text-[#191816]">{t('title')}</h1>
-            <p className="mt-1 max-w-xl text-sm text-[#7A7267]">{t('subtitle')}</p>
-          </div>
+      <main className={pageMain}>
+        <div className="mb-6 flex flex-col gap-3 border-b border-[#E8E2DA] pb-4 sm:flex-row sm:items-center sm:justify-between">
+          <p className="max-w-xl text-sm text-[#7A7267]">{t('subtitle')}</p>
           {canEdit ? (
             <Button
               onClick={() => {
@@ -277,13 +275,13 @@ export default function ApartmentsPage() {
           ) : null}
         </div>
 
-        <div className="mb-5 flex flex-wrap gap-2">
+        <div className="mb-5 flex gap-1 overflow-x-auto border-b border-[#E8E2DA]">
           {FILTERS.map((key) => (
             <button
               key={key}
               type="button"
               onClick={() => setFilter(key)}
-              className={`rounded-full border px-3 py-1.5 text-xs ${filter === key ? 'border-[#71382D] bg-[#71382D] text-white' : 'border-[#E8E2DA] text-[#5C564D]'}`}
+              className={`shrink-0 border-b-2 px-3 py-2 text-[13px] ${filter === key ? 'border-[#71382D] font-medium text-[#191816]' : 'border-transparent text-[#7A7267] hover:text-[#191816]'}`}
             >
               {t(key === 'needs_cleaning' ? 'needsCleaning' : key)} ({counts[key]})
             </button>
@@ -293,53 +291,75 @@ export default function ApartmentsPage() {
         {error && !open ? <p className="mb-4 text-start text-sm text-[#9E382A]">{error}</p> : null}
 
         {visible.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-[#E8E2DA] p-8 text-center text-sm text-[#7A7267]">{filter === 'archived' ? t('emptyArchived') : t('empty')}</div>
+          <div className="rounded-md border border-dashed border-[#E8E2DA] px-6 py-10 text-center">
+            <p className="text-sm font-medium text-[#191816]">{filter === 'archived' ? t('emptyArchived') : t('empty')}</p>
+            {filter === 'all' && canEdit ? (
+              <Button
+                className="mt-4"
+                onClick={() => {
+                  setDraft(emptyApartmentDraft());
+                  setError('');
+                  setOpen(true);
+                }}
+              >
+                {t('add')}
+              </Button>
+            ) : null}
+          </div>
         ) : (
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {visible.map((apartment) => (
-              <article key={apartment.id} className="overflow-hidden rounded-lg border border-[#E8E2DA] bg-white">
-                <div className="aspect-[16/10] bg-[#F4EFE8]">
+          <div className="grid grid-cols-1 items-stretch gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {visible.map((apartment) => {
+              const statusKey = apartment.archivedAt
+                ? 'archived'
+                : apartment.boardStatus === 'needs_cleaning'
+                  ? 'needsCleaning'
+                  : apartment.boardStatus === 'maintenance' || apartment.boardStatus === 'blocked'
+                    ? 'unavailable'
+                    : apartment.boardStatus;
+              const statusToken = apartment.archivedAt ? 'archived' : apartment.boardStatus;
+              return (
+              <article key={apartment.id} className="flex h-full flex-col overflow-hidden rounded-md border border-[#E8E2DA] bg-white">
+                <div className="aspect-[3/2] bg-[#F4EFE8]">
                   {apartment.coverUrl ? <img src={apartment.coverUrl} alt="" className="h-full w-full object-cover" /> : null}
                 </div>
-                <div className="space-y-3 p-4">
+                <div className="flex flex-1 flex-col gap-2 p-4">
                   <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <h2 className="font-serif text-lg text-[#191816]">{apartment.name}</h2>
-                      <p className="text-xs text-[#7A7267]">{typeLabel(apartment)}</p>
+                    <div className="min-w-0">
+                      <h2 className="truncate text-sm font-medium text-[#191816]">{apartment.name}</h2>
+                      <p className="truncate text-xs text-[#7A7267]">{typeLabel(apartment)}</p>
                     </div>
-                    <strong className="text-sm text-[#71382D]">{formatNaira(apartment.basePriceMinorUnits)}<span className="block text-[10px] font-normal text-[#7A7267]">{t('perNight')}</span></strong>
+                    <p className="shrink-0 text-end text-sm font-medium tabular-nums text-[#191816]">
+                      {formatNaira(apartment.basePriceMinorUnits)}
+                      <span className="block text-[11px] font-normal text-[#7A7267]">{t('perNight')}</span>
+                    </p>
                   </div>
-                  <p className="flex items-start gap-1.5 text-xs text-[#5C564D]"><MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" />{apartment.location || t('propertyAddress')}</p>
-                  <div className="flex flex-wrap gap-3 text-[11px] text-[#5C564D]">
-                    <span className="inline-flex items-center gap-1"><BedDouble className="h-3.5 w-3.5" />{t('bedroomsShort', { count: apartment.bedrooms })}</span>
-                    <span className="inline-flex items-center gap-1"><Bath className="h-3.5 w-3.5" />{t('bathroomsShort', { count: apartment.bathrooms })}</span>
-                    <span>{apartment.bedConfiguration}</span>
-                    <span className="inline-flex items-center gap-1"><Users className="h-3.5 w-3.5" />{t('guestsShort', { count: apartment.maxGuests })}</span>
+                  <p className="flex items-start gap-1.5 text-xs text-[#5C564D]"><MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" /><span className="line-clamp-1">{apartment.location || t('propertyAddress')}</span></p>
+                  <p className="truncate text-xs text-[#5C564D]">
+                    {t('bedroomsShort', { count: apartment.bedrooms })}
+                    <span className="px-1.5 text-[#C4B8A5]">·</span>
+                    {t('bathroomsShort', { count: apartment.bathrooms })}
+                    <span className="px-1.5 text-[#C4B8A5]">·</span>
+                    {t('guestsShort', { count: apartment.maxGuests })}
+                  </p>
+                  <div>
+                    <StatusBadge status={statusToken}>{t(statusKey)}</StatusBadge>
                   </div>
-                  <div className="flex flex-wrap gap-2 text-[11px]">
-                    <span className="rounded bg-[#FAF7F2] px-2 py-1">{t('status')}: {apartment.archivedAt ? t('archivedBadge') : t(apartment.boardStatus === 'needs_cleaning' ? 'needsCleaning' : apartment.boardStatus === 'maintenance' || apartment.boardStatus === 'blocked' ? 'unavailable' : apartment.boardStatus)}</span>
-                    <span className="rounded bg-[#FAF7F2] px-2 py-1">{t('availability')}: {apartment.availability}</span>
-                  </div>
-                  {apartment.amenities?.length ? (
-                    <div className="flex flex-wrap gap-1.5">
-                      {apartment.amenities.slice(0, 6).map((amenity) => (
-                        <span key={amenity} className="rounded border border-[#F0ECE4] bg-[#FAF7F2] px-2 py-0.5 text-[11px] text-[#5C564D]">{amenity}</span>
-                      ))}
-                    </div>
-                  ) : null}
-                  <div className="flex flex-wrap gap-2">
+                  <p className="line-clamp-1 min-h-5 text-xs text-[#7A7267]">
+                    {apartment.amenities?.slice(0, 3).join(' · ') || ' '}
+                  </p>
+                  <div className="mt-auto flex gap-2 pt-1">
                     <Button type="button" variant="outline" className="min-h-11 flex-1" onClick={() => setViewing(apartment)}>{t('view')}</Button>
-                    {canEdit ? <Button type="button" className="min-h-11 flex-1" onClick={() => { setDraft(toDraft(apartment)); setError(''); setOpen(true); }}>{t('edit')}</Button> : null}
+                    {canEdit ? <Button type="button" variant="secondary" className="min-h-11 flex-1" onClick={() => { setDraft(toDraft(apartment)); setError(''); setOpen(true); }}>{t('edit')}</Button> : null}
                     {canEdit && apartment.archivedAt ? (
                       <Button type="button" variant="outline" className="min-h-11" disabled={removing} onClick={() => restore(apartment)}>{t('restore')}</Button>
                     ) : null}
                     {canEdit && !apartment.archivedAt ? (
-                      <Button type="button" variant="outline" className="min-h-11" onClick={() => setMenuApartment(apartment)}>{t('more')}</Button>
+                      <Button type="button" variant="ghost" className="min-h-11" onClick={() => setMenuApartment(apartment)}>{t('more')}</Button>
                     ) : null}
                   </div>
                 </div>
               </article>
-            ))}
+            );})}
           </div>
         )}
       </main>

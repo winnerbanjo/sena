@@ -177,7 +177,7 @@ function SidebarNavItems({ onNavigate }: { onNavigate?: () => void }) {
         {/* Property Switcher */}
         <button
           onClick={onNavigate}
-          className="w-full flex items-center justify-between p-2.5 rounded border border-[#E8E2DA] bg-[#FAFAFA] text-left hover:border-[#B85C3E]/50 hover:bg-white transition-colors mb-6 shadow-none"
+          className="mb-5 flex w-full items-center justify-between rounded border border-[#E8E2DA] bg-[#FAFAF8] p-2 text-start hover:bg-white"
         >
           <div className="flex items-center gap-2.5 min-w-0">
             <span className="w-7 h-7 rounded bg-[#71382D] text-white flex items-center justify-center text-xs font-semibold flex-shrink-0">
@@ -200,7 +200,7 @@ function SidebarNavItems({ onNavigate }: { onNavigate?: () => void }) {
           {visibleNavSections.map((section, idx) => (
             <div key={idx}>
               {section.titleKey && (
-                <div className="text-[10px] font-medium tracking-widest uppercase text-[#7A7267]/70 px-2 mb-1.5">
+                <div className="mb-1 px-2 text-[10px] font-medium uppercase tracking-wide text-[#7A7267]">
                   {tNav(section.titleKey)}
                 </div>
               )}
@@ -218,10 +218,10 @@ function SidebarNavItems({ onNavigate }: { onNavigate?: () => void }) {
                       href={item.href}
                       prefetch={false}
                       onClick={onNavigate}
-                      className={`flex items-center justify-between px-2.5 py-1.5 rounded text-[13px] font-medium transition-colors ${
+                      className={`flex items-center justify-between rounded px-2.5 py-2 text-[13px] font-medium transition-colors ${
                         isActive
-                          ? 'bg-[#F9F7F5] text-[#191816] font-semibold border border-[#E8E2DA]'
-                          : 'text-[#191816]/75 hover:text-[#191816] hover:bg-[#FAFAFA]'
+                          ? 'bg-[#F6F1EA] text-[#191816]'
+                          : 'text-[#3F3A34] hover:bg-[#FAF8F6] hover:text-[#191816]'
                       }`}
                     >
                       <div className="flex items-center gap-2.5">
@@ -256,16 +256,13 @@ function SidebarNavItems({ onNavigate }: { onNavigate?: () => void }) {
                   openInstallGuide();
                 }
               }}
-              className="w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-xs font-semibold text-[#71382D] bg-[#FAF8F5] hover:bg-[#F5EFE9] border border-[#E8E2DA] transition-all hover:border-[#B85C3E]/50 group shadow-2xs cursor-pointer"
+              className="flex w-full cursor-pointer items-center gap-2.5 rounded px-2.5 py-2 text-[13px] font-medium text-[#3F3A34] hover:bg-[#FAF8F6]"
               title={tCommon('installAppTitle')}
             >
               <div className="flex items-center gap-2.5">
-                <Download className="w-3.5 h-3.5 text-[#B85C3E] group-hover:scale-110 transition-transform flex-shrink-0" />
-                <span className="font-semibold text-xs tracking-tight">{tCommon('installApp')}</span>
+                <Download className="h-4 w-4 flex-shrink-0 text-[#7A7267]" />
+                <span>{tCommon('installApp')}</span>
               </div>
-              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#FAF2EB] text-[#B85C3E] border border-[#F0D5C3]">
-                PWA
-              </span>
             </button>
           </div>
         </nav>
@@ -329,7 +326,7 @@ export function Sidebar() {
           />
 
           {/* Drawer Panel */}
-          <aside className="fixed inset-y-0 start-0 w-72 max-w-[85vw] bg-white border-e border-[#E8E2DA] flex flex-col justify-between h-full overflow-y-auto z-50 shadow-2xl">
+          <aside className="fixed inset-y-0 start-0 z-50 flex h-full w-72 max-w-[85vw] flex-col justify-between overflow-y-auto border-e border-[#E8E2DA] bg-white">
             <div className="absolute top-4 end-4 z-10">
               <button
                 onClick={closeMobileNav}

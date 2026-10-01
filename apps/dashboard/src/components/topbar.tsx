@@ -81,18 +81,17 @@ export function Topbar({ title, onOpenNewReservation, onOpenSearch }: TopbarProp
   }, [handleOpenNewRes, handleOpenSearch]);
 
   return (
-    <header className="h-16 border-b border-[#E8E2DA] bg-white px-4 sm:px-6 lg:px-8 flex items-center justify-between sticky top-0 z-30 flex-shrink-0">
-      <div className="flex items-center gap-2.5 sm:gap-4 min-w-0">
-        {/* Mobile Hamburger Menu Toggle */}
+    <header className="sticky top-0 z-30 flex h-14 flex-shrink-0 items-center justify-between border-b border-[#E8E2DA] bg-white px-4 sm:px-6 lg:px-8">
+      <div className="flex min-w-0 items-center gap-2">
         <button
           onClick={openMobileNav}
-          className="p-1.5 -ms-1 rounded-md text-[#191816] hover:bg-[#FAFAFA] lg:hidden flex-shrink-0 transition-colors"
+          className="inline-flex h-11 w-11 flex-shrink-0 items-center justify-center rounded text-[#191816] hover:bg-[#F6F1EA] lg:hidden"
           aria-label={t('openNavigation')}
         >
-          <Menu className="w-5 h-5" />
+          <Menu className="h-5 w-5" />
         </button>
 
-        <h1 className="font-serif text-lg sm:text-2xl font-normal text-[#191816] tracking-tight truncate">
+        <h1 className="truncate text-base font-medium tracking-tight text-[#191816]">
           {heading}
         </h1>
       </div>
@@ -102,11 +101,11 @@ export function Topbar({ title, onOpenNewReservation, onOpenSearch }: TopbarProp
         <button
           type="button"
           onClick={handleOpenSearch}
-          className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded border border-[#E8E2DA] bg-white text-xs text-[#7A7267] hover:border-[#B85C3E]/50 hover:bg-[#FAF9F7] transition-all w-40 lg:w-56 justify-between cursor-pointer group"
+          className="hidden h-9 w-44 cursor-pointer items-center justify-between gap-2 rounded border border-[#E8E2DA] bg-white px-3 text-xs text-[#7A7267] hover:bg-[#FAF8F6] md:flex lg:w-56"
           title={t('searchHint')}
         >
           <div className="flex items-center gap-2 truncate">
-            <Search className="w-3.5 h-3.5 flex-shrink-0 text-[#7A7267] group-hover:text-[#B85C3E] transition-colors" />
+            <Search className="h-3.5 w-3.5 flex-shrink-0 text-[#7A7267]" />
             <span className="truncate">{t('searchSena')}</span>
           </div>
           <div className="flex items-center gap-1">
@@ -120,7 +119,7 @@ export function Topbar({ title, onOpenNewReservation, onOpenSearch }: TopbarProp
         <button
           type="button"
           onClick={handleOpenSearch}
-          className="md:hidden w-8 h-8 rounded border border-[#E8E2DA] bg-white flex items-center justify-center text-[#7A7267] hover:bg-[#FAFAFA] transition-colors cursor-pointer"
+          className="inline-flex h-11 w-11 items-center justify-center rounded border border-[#E8E2DA] bg-white text-[#7A7267] hover:bg-[#FAF8F6] md:hidden"
           aria-label={t('search')}
           title={t('search')}
         >
@@ -130,7 +129,7 @@ export function Topbar({ title, onOpenNewReservation, onOpenSearch }: TopbarProp
         {/* Global Primary Action */}
         <Button
           onClick={handleOpenNewRes}
-          className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 text-xs"
+          className="px-2.5 text-xs sm:px-3"
         >
           <Plus className="w-4 h-4 flex-shrink-0" />
           <span className="hidden sm:inline">{t('newReservation')}</span>
@@ -144,7 +143,7 @@ export function Topbar({ title, onOpenNewReservation, onOpenSearch }: TopbarProp
         <button
           type="button"
           onClick={toggleNotifications}
-          className="min-h-11 min-w-11 rounded border border-[#E8E2DA] bg-white flex items-center justify-center text-[#191816] hover:bg-[#F9F9F9] relative flex-shrink-0"
+          className="relative inline-flex h-11 w-11 flex-shrink-0 items-center justify-center rounded border border-[#E8E2DA] bg-white text-[#191816] hover:bg-[#FAF8F6]"
           aria-label={unread > 0 ? t('notificationsUnread', { count: unread }) : t('notifications')}
           title={t('notifications')}
         >

@@ -1,4 +1,5 @@
 'use client';
+import { pageMain } from '../../components/design';
 import { useTranslations } from 'next-intl';
 
 import * as React from 'react';
@@ -216,11 +217,11 @@ export default function StaffPage() {
       />
 
       <Dialog open={Boolean(removeTarget)} onOpenChange={(open) => {if (!open && !removing) setRemoveTarget(null);}}><DialogContent><DialogHeader><DialogTitle>Remove property access?</DialogTitle><DialogDescription>{removeTarget?.name} will no longer be able to access this property. Existing operational records will be kept.</DialogDescription></DialogHeader><DialogFooter><Button variant="outline" disabled={removing} onClick={() => setRemoveTarget(null)}>Cancel</Button><Button disabled={removing} onClick={removeAccess}>{removing ? 'Removing…' : 'Remove access'}</Button></DialogFooter></DialogContent></Dialog>
-      <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6 bg-white">
+      <main className={pageMain}>
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#E8E2DA] pb-4">
           <div>
-            <h2 className="text-xl sm:text-2xl font-serif font-normal text-[#191816]">
+            <h2 className="text-base font-medium text-[#191816]">
               Team &amp; Staff Roster
             </h2>
             <p className="text-xs text-[#7A7267] mt-1">

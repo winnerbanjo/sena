@@ -114,7 +114,7 @@ export function OccupancyChart({
   const weeklyTotalRev = days.reduce((sum, d) => sum + d.revenueMinorUnits, 0);
 
   return (
-    <div className="bg-[#FAF8F5] border border-[#E8DACB] rounded-2xl p-6 space-y-6 shadow-xs occupancy-chart" dir="ltr" data-chart="true">
+    <div className="occupancy-chart space-y-4 rounded-md border border-[#E8E2DA] bg-white p-4" dir="ltr" data-chart="true">
       {/* Top Header & Dynamic Controls */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#E8DACB] pb-4">
         <div>
@@ -302,21 +302,21 @@ export function OccupancyChart({
                       height: `${Math.max(heightPercent, 3)}%`,
                       transitionDelay: `${idx * 40}ms`,
                     }}
-                    className={`w-full rounded-t-[4px] transition-all duration-500 ease-out ${
+                    className={`w-full rounded-t-[4px] transition-colors ${
                       activeTab === 'occupancy'
                         ? heightPercent > 0
                           ? d.isToday
-                            ? 'bg-gradient-to-t from-[#B85C3E] to-[#D47A5B] shadow-xs'
+                            ? 'bg-[#B85C3E]'
                             : isSelected || isHovered
-                            ? 'bg-gradient-to-t from-[#71382D] to-[#964E3F]'
-                            : 'bg-gradient-to-t from-[#C46849] to-[#D9876C]'
-                          : 'bg-[#E5DACD]'
+                            ? 'bg-[#71382D]'
+                            : 'bg-[#C4896E]'
+                          : 'bg-[#E8E2DA]'
                         : heightPercent > 0
                         ? d.isToday
-                          ? 'bg-gradient-to-t from-[#2E6B4F] to-[#439670] shadow-xs'
+                          ? 'bg-[#2E6B4F]'
                           : isSelected || isHovered
-                          ? 'bg-gradient-to-t from-[#1F4936] to-[#2E6B4F]'
-                          : 'bg-gradient-to-t from-[#367D5C] to-[#4EA97D]'
+                          ? 'bg-[#1F4936]'
+                          : 'bg-[#6A9A80]'
                         : 'bg-[#E5DACD]'
                     }`}
                   />

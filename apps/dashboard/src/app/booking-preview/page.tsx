@@ -1,4 +1,5 @@
 'use client';
+import { pageMain } from '../../components/design';
 import * as React from 'react';
 import Link from 'next/link';
 import { Topbar } from '../../components/topbar';
@@ -23,7 +24,7 @@ export default function BookingPreviewPage() {
   return (
     <div className="flex-1 flex flex-col min-w-0 h-screen">
       <Topbar title={t('title')} />
-      <main className="p-4 sm:p-6 space-y-5 overflow-y-auto">
+      <main className={pageMain}>
         <h2 className="text-2xl font-serif">{t('heading')}</h2>
         <p className="text-sm text-[#7A7267]">{t('subtitle')}</p>
         {url ? (

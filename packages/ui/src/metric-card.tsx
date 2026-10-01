@@ -23,23 +23,21 @@ export function MetricCard({
     <div
       onClick={onClick}
       className={cn(
-        'bg-white border border-[#E8E2DA] p-5 rounded-md flex flex-col justify-between transition-all shadow-none',
-        onClick && 'cursor-pointer hover:border-[#B85C3E]/60 hover:bg-[#FAFAFA]',
+        'flex flex-col justify-between rounded-md border border-[#E8E2DA] bg-white p-4',
+        onClick && 'cursor-pointer hover:border-[#CDB9A4]',
         className
       )}
       {...props}
     >
       <div className="flex items-center justify-between mb-2">
-        <span className="text-[11px] font-medium tracking-wider uppercase text-[#7A7267]">
-          {label}
-        </span>
+        <span className="text-xs font-medium text-[#7A7267]">{label}</span>
         {subValue && (
           <span className="text-xs text-[#7A7267] font-medium">{subValue}</span>
         )}
       </div>
 
       <div className="my-1">
-        <strong className="text-3xl font-serif font-normal text-[#191816] tracking-tight block">
+        <strong className="block text-2xl font-medium tabular-nums tracking-tight text-[#191816]">
           {value}
         </strong>
       </div>

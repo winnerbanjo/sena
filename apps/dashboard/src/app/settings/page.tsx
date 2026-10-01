@@ -1,4 +1,5 @@
 'use client';
+import { pageMain } from '../../components/design';
 import * as React from 'react';
 import Link from 'next/link';
 import { Topbar } from '../../components/topbar';
@@ -64,7 +65,7 @@ export default function SettingsPage() {
   function field(key: Exclude<keyof Profile, 'directBookingPayAtProperty' | 'directBookingBankTransfer'>, label: string, type = 'text') {
     return <div key={key} className="space-y-1.5"><label htmlFor={`setting-${key}`} className="block text-sm font-medium">{label}</label><input id={`setting-${key}`} name={key} type={type} value={profile?.[key] || ''} onChange={event => { setProfile(current => current ? { ...current, [key]: event.target.value } : current); setDirty(true); setFeedback(''); }} aria-invalid={!!fields[key]} aria-describedby={fields[key] ? `error-${key}` : undefined} className="min-h-11 w-full rounded border border-[#E5D4BC] bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B85C3E]" />{fields[key] && <p id={`error-${key}`} className="text-sm text-[#9E382A]">{fields[key][0]}</p>}</div>;
   }
-  return <div className="flex-1 flex flex-col h-screen overflow-hidden"><Topbar title={t('title')} /><main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6">
+  return <div className="flex-1 flex flex-col h-screen overflow-hidden"><Topbar title={t('title')} /><main className={pageMain}>
     <div className="flex flex-wrap justify-between items-center gap-4 border-b border-[#E8E2DA] pb-4"><div><h2 className="text-2xl font-serif">{t('propertySettings')}</h2><p className="text-sm text-[#7A7267]">{t('propertySettingsSubtitle')}</p></div>{['general', 'policies', 'payments'].includes(tab) && <Button form="property-settings" type="submit" disabled={!profile || saving || !dirty}>{saving ? tCommon('saving') : t('saveChanges')}</Button>}</div>
     <nav aria-label={t('settingsSections')} className="flex gap-4 overflow-x-auto border-b border-[#E8E2DA]">{[['general', t('tabGeneral')],['language', t('tabLanguage')],['policies', t('tabPolicies')],['payments', t('tabPayments')],['notifications', t('tabNotifications')],['subscription', t('tabBilling')]].map(([id,label]) => <button key={id} onClick={() => setTab(id)} aria-current={tab === id ? 'page' : undefined} className={`min-h-11 shrink-0 border-b-2 px-1 text-sm ${tab === id ? 'border-[#B85C3E] text-[#71382D]' : 'border-transparent text-[#7A7267]'}`}>{label}</button>)}</nav>
     {feedback && <p role={failed ? 'alert' : 'status'} className={failed ? 'text-[#9E382A]' : 'text-[#2E6B4F]'}>{feedback}</p>}

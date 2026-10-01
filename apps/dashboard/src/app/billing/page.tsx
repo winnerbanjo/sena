@@ -1,4 +1,5 @@
 'use client';
+import { pageMain } from '../../components/design';
 import { useTranslations } from 'next-intl';
 
 import * as React from 'react';
@@ -121,14 +122,14 @@ export default function BillingPage() {
         onOpenNewReservation={() => setNewResOpen(true)}
       />
 
-      <main className="flex-1 overflow-y-auto p-6 sm:p-10 space-y-10 max-w-5xl w-full mx-auto">
+      <main className={pageMain}>
         {/* Editorial Page Header */}
         <div className="border-b border-[#E8E1D5] pb-6 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
           <div>
             <span className="text-[11px] font-mono tracking-widest uppercase text-[#B85C3E] block mb-1">
               Account Infrastructure
             </span>
-            <h1 className="text-2xl sm:text-3xl font-serif font-normal text-[#71382D]">
+            <h1 className="text-base font-medium text-[#191816]">
               Billing &amp; Subscription
             </h1>
             <p className="text-xs text-[#7A7267] mt-1">

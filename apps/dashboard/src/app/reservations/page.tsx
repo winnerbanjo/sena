@@ -1,4 +1,5 @@
 'use client';
+import { pageMain } from '../../components/design';
 import { formatAssignedRoom, mapReservationItem } from '../../components/reservation-room';
 import { CheckInRoomDialog, type RoomAssignmentMode } from '../../components/check-in-room-dialog';
 import { DeskPaymentBadge } from '../../components/check-in-payment-status';
@@ -92,14 +93,11 @@ function ReservationsContent() {
         onOpenNewReservation={() => setNewResOpen(true)}
       />
 
-      <main className="flex-1 overflow-y-auto p-6 sm:p-10 space-y-8 max-w-7xl w-full mx-auto">
+      <main className={pageMain}>
         {/* Editorial Ledger Header */}
         <div className="border-b border-[#E8E1D5] pb-6 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
           <div>
-            <span className="text-[11px] font-mono tracking-widest uppercase text-[#8C8275] block mb-1">
-              {t('eyebrow')}
-            </span>
-            <h1 className="text-2xl sm:text-3xl font-serif font-normal text-[#71382D]">
+            <h1 className="text-base font-medium text-[#191816]">
               {t('heading')}
             </h1>
             <p className="text-xs text-[#7A7267] mt-1">

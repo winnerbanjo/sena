@@ -3,19 +3,19 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from './utils';
 
 const badgeVariants = cva(
-  'inline-flex items-center rounded-sm px-2 py-0.5 text-[11px] font-medium tracking-wider uppercase transition-colors',
+  'inline-flex items-center rounded border px-1.5 py-0.5 text-[11px] font-medium leading-4',
   {
     variants: {
       variant: {
-        default: 'bg-[#FAFAFA] text-[#71382D] border border-[#E8E2DA]',
-        paid: 'bg-[#EBF5ED] text-[#2E6B4F] border border-[#C6E4CC]',
-        pending: 'bg-[#FAF0E4] text-[#C47C2B] border border-[#F2DAC0]',
-        danger: 'bg-[#FDF0ED] text-[#9E382A] border border-[#F5CBC5]',
-        clean: 'bg-[#EBF5ED] text-[#2E6B4F] border border-[#C6E4CC]',
-        dirty: 'bg-[#FAF0E4] text-[#C47C2B] border border-[#F2DAC0]',
-        cleaning: 'bg-[#F0F4FA] text-[#3B6699] border border-[#D0DEF2]',
-        occupied: 'bg-[#71382D] text-white',
-        available: 'bg-[#FAFAFA] text-[#191816] border border-[#E8E2DA]',
+        default: 'bg-[#FAFAF8] text-[#5C564D] border-[#E8E2DA]',
+        paid: 'bg-[#EBF5ED] text-[#1F5C40] border-[#C6E4CC]',
+        pending: 'bg-[#FAF6EE] text-[#7A4E10] border-[#E7D3B0]',
+        danger: 'bg-[#FDF0ED] text-[#8C2F24] border-[#F0C9C2]',
+        clean: 'bg-[#EBF5ED] text-[#1F5C40] border-[#C6E4CC]',
+        dirty: 'bg-[#FAF6EE] text-[#7A4E10] border-[#E7D3B0]',
+        cleaning: 'bg-[#F4F7FB] text-[#2C4A6E] border-[#D5E0EE]',
+        occupied: 'bg-[#F7F1E8] text-[#71382D] border-[#E5D4BC]',
+        available: 'bg-[#EBF5ED] text-[#1F5C40] border-[#C6E4CC]',
       },
     },
     defaultVariants: {
