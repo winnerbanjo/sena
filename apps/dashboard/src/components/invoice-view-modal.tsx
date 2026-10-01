@@ -6,7 +6,7 @@ import { useTranslations } from 'next-intl';
 import { manualPaymentBody } from '@/lib/payment-receipt-file';
 import { PaymentReceiptField, usePaymentReceipt } from './payment-receipt-field';
 import { useDialogA11y } from './use-dialog-a11y';
-import { Badge, Button } from '@sena/ui';
+import { Button } from '@sena/ui';
 import {
   X,
   Printer,
@@ -14,53 +14,16 @@ import {
   CreditCard,
   Copy,
   Check,
-  Building2,
-  Calendar,
-  AlertCircle,
   Loader2,
   ExternalLink,
+  Pencil,
 } from 'lucide-react';
+import { BrandedInvoiceDocument, type InvoiceDocumentLabels } from './branded-invoice-document';
+import { InvoiceEditForm, type InvoiceEditLabels } from './invoice-edit-form';
+import type { InvoiceDocumentPayment, InvoiceDocumentProperty, InvoiceDocumentReservation } from '@/lib/invoice-document';
+import type { PropertyInvoice } from './invoice-types';
 
-export interface PropertyInvoice {
-  publicToken?: string;
-  id: string;
-  invoiceNumber: string;
-  invoiceType: string;
-  status: string;
-  recipientName: string;
-  recipientEmail?: string | null;
-  recipientPhone?: string | null;
-  recipientAddress?: string | null;
-  companyTin?: string | null;
-  issueDate: string;
-  dueDate: string;
-  currency: string;
-  subtotalMinorUnits: number;
-  taxVatMinorUnits: number;
-  taxConsumptionMinorUnits: number;
-  serviceChargeMinorUnits: number;
-  discountMinorUnits: number;
-  totalAmountMinorUnits: number;
-  paidAmountMinorUnits: number;
-  items: Array<{
-    id: string;
-    description: string;
-    category: string;
-    quantity: number;
-    unitPriceMinorUnits: number;
-    totalMinorUnits: number;
-  }>;
-  bankDetails?: {
-    bankName: string;
-    accountName: string;
-    accountNumber: string;
-    sortCode?: string;
-    currency?: string;
-  } | null;
-  paymentTerms?: string | null;
-  notes?: string | null;
-  createdAt: string;
-}
+export type { PropertyInvoice } from './invoice-types';
 
 interface InvoiceViewModalProps {
   invoice: PropertyInvoice | null;
@@ -71,17 +34,19 @@ interface InvoiceViewModalProps {
   propertyPhone?: string;
   propertyEmail?: string;
   onPaymentSuccess?: () => void;
+  onUpdated?: (invoice: PropertyInvoice) => void;
 }
 
 export function InvoiceViewModal({
   invoice,
   isOpen,
   onClose,
-  propertyName = 'Sena Grand Hotel',
-  propertyAddress = 'Victoria Island, Lagos, Nigeria',
-  propertyPhone = '+234 1 234 5678',
-  propertyEmail = 'reservations@sena.ng',
+  propertyName = '',
+  propertyAddress = '',
+  propertyPhone = '',
+  propertyEmail = '',
   onPaymentSuccess,
+  onUpdated,
 }: InvoiceViewModalProps) {
   const [recordPaymentOpen, setRecordPaymentOpen] = React.useState(false);
   const [payAmount, setPayAmount] = React.useState('');
@@ -103,6 +68,31 @@ export function InvoiceViewModal({
     invoiceUrl: string | null;
   } | null>(null);
   const [zohoBusy, setZohoBusy] = React.useState(false);
+  const [editing, setEditing] = React.useState(false);
+  const [documentProperty, setDocumentProperty] = React.useState<InvoiceDocumentProperty | null>(null);
+  const [documentReservation, setDocumentReservation] = React.useState<InvoiceDocumentReservation | null>(null);
+  const [documentPayments, setDocumentPayments] = React.useState<InvoiceDocumentPayment[]>([]);
+
+  React.useEffect(() => {
+    setEditing(false);
+    if (!isOpen || !invoice?.id) {
+      setDocumentProperty(null);
+      setDocumentReservation(null);
+      setDocumentPayments([]);
+      return;
+    }
+    let cancelled = false;
+    void fetch(`/api/invoices/${invoice.id}`)
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => {
+        if (cancelled || !data?.document) return;
+        setDocumentProperty(data.document.property || null);
+        setDocumentReservation(data.document.reservation || null);
+        setDocumentPayments(Array.isArray(data.document.payments) ? data.document.payments : []);
+      })
+      .catch(() => undefined);
+    return () => { cancelled = true; };
+  }, [isOpen, invoice?.id, invoice?.totalAmountMinorUnits, invoice?.paidAmountMinorUnits, invoice?.recipientName]);
 
   React.useEffect(() => {
     if (!isOpen || !invoice?.id) {
@@ -152,6 +142,82 @@ export function InvoiceViewModal({
 
   const balanceMinorUnits = Math.max(0, invoice.totalAmountMinorUnits - invoice.paidAmountMinorUnits);
   const isPaid = invoice.status === 'paid' || balanceMinorUnits === 0;
+
+  const documentLabels: InvoiceDocumentLabels = {
+    documentTitle: t('documentTitle'),
+    billTo: t('billTo'),
+    issueDate: t('issueDate'),
+    dueDate: t('dueDate'),
+    status: t('status'),
+    description: t('description'),
+    quantity: t('quantity'),
+    rate: t('rate'),
+    amount: t('amount'),
+    subtotal: t('subtotal'),
+    discount: t('discount'),
+    vat: t('vat'),
+    consumptionTax: t('consumptionTax'),
+    serviceCharge: t('serviceCharge'),
+    total: t('total'),
+    amountPaid: t('amountPaid'),
+    balanceDue: t('balanceDue'),
+    invoiceNotes: t('invoiceNotes'),
+    paymentTerms: t('paymentTerms'),
+    poweredBy: t('poweredBy'),
+    reservation: t('reservation'),
+    guest: t('guest'),
+    accommodation: t('accommodation'),
+    checkIn: t('checkIn'),
+    checkOut: t('checkOut'),
+    reference: t('reference'),
+    paymentHistory: t('paymentHistory'),
+    paymentDate: t('paymentDate'),
+    paymentMethod: t('paymentMethod'),
+    paymentReference: t('paymentReference'),
+    viewReceipt: t('viewReceipt'),
+    downloadReceipt: t('downloadReceipt'),
+    bankTransfer: t('bankTransfer'),
+    bank: t('bank'),
+    accountName: t('accountName'),
+    accountNumber: t('accountNumber'),
+    statusDraft: t('statusDraft'),
+    statusIssued: t('statusIssued'),
+    statusPartiallyPaid: t('statusPartiallyPaid'),
+    statusPaid: t('statusPaid'),
+    statusOverdue: t('statusOverdue'),
+    statusVoid: t('statusVoid'),
+  };
+  const editLabels: InvoiceEditLabels = {
+    editTitle: t('editTitle'),
+    saveChanges: t('saveChanges'),
+    cancel: t('cancelEdit'),
+    financialLock: t('financialLock'),
+    belowPaid: t('belowPaid'),
+    closedInvoice: t('closedInvoice'),
+    customerName: t('customerName'),
+    email: t('email'),
+    phone: t('phone'),
+    address: t('address'),
+    tin: t('tin'),
+    issueDate: t('issueDate'),
+    dueDate: t('dueDate'),
+    lineItems: t('lineItems'),
+    description: t('description'),
+    quantity: t('quantity'),
+    rate: t('rate'),
+    addLine: t('addLine'),
+    removeLine: t('removeLine'),
+    discount: t('discount'),
+    applyVat: t('applyVat'),
+    applyConsumption: t('applyConsumption'),
+    applyService: t('applyService'),
+    invoiceNotes: t('invoiceNotes'),
+    paymentTerms: t('paymentTerms'),
+    bank: t('bank'),
+    accountName: t('accountName'),
+    accountNumber: t('accountNumber'),
+  };
+
 
   async function handleRecordPayment(e: React.FormEvent) {
     e.preventDefault();
@@ -342,6 +408,16 @@ export function InvoiceViewModal({
             <Button
               variant="secondary"
               size="sm"
+              onClick={() => setEditing(true)}
+              className="min-h-11 text-sm bg-white hover:bg-stone-50 border-[#E8E2DA] text-[#191816]"
+            >
+              <Pencil className="w-3.5 h-3.5 mr-1" />
+              {t('edit')}
+            </Button>
+
+            <Button
+              variant="secondary"
+              size="sm"
               onClick={handlePrint}
               className="min-h-11 text-sm bg-white hover:bg-stone-50 border-[#E8E2DA] text-[#191816]"
             >
@@ -414,244 +490,34 @@ export function InvoiceViewModal({
           </div>
         )}
 
-        {/* Printable Folio Document Area */}
-        <div id="printable-folio" className="p-6 sm:p-10 overflow-y-auto bg-white flex-1 space-y-8 text-[#191816]">
-          {/* Header & Watermark Stamp */}
-          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-6 pb-6 border-b border-[#E8E2DA] relative">
-            <div>
-              <span className="text-[11px] font-mono tracking-widest text-[#B85C3E] uppercase font-bold block mb-1">
-                Official Hotel Folio & Tax Invoice
-              </span>
-              <h1 className="text-2xl sm:text-3xl font-medium text-[#191816] tracking-tight">
-                {propertyName}
-              </h1>
-              <p className="text-xs text-[#7A7267] mt-1 max-w-sm leading-relaxed">
-                {propertyAddress}
-                <br />
-                Tel: {propertyPhone} · Email: {propertyEmail}
-              </p>
-            </div>
-
-            <div className="flex flex-col sm:items-end">
-              {/* Visual Stamp */}
-              <div
-                className={`inline-block px-4 py-1.5 rounded border text-xs font-mono font-bold tracking-widest uppercase mb-3 ${
-                  isPaid
-                    ? 'border-emerald-600 text-emerald-700 bg-emerald-50/60 ring-2 ring-emerald-600/20'
-                    : invoice.status === 'overdue'
-                    ? 'border-red-600 text-red-700 bg-red-50/60 ring-2 ring-red-600/20'
-                    : 'border-[#B85C3E] text-[#B85C3E] bg-[#B85C3E]/10 ring-2 ring-[#B85C3E]/20'
-                }`}
-              >
-                {isPaid ? 'PAID IN FULL' : invoice.status === 'overdue' ? 'OVERDUE' : 'PAYMENT DUE'}
-              </div>
-
-              <div className="text-xs font-mono space-y-0.5 text-right">
-                <div>
-                  <span className="text-[#7A7267]">Invoice Ref: </span>
-                  <strong className="text-[#191816]">{invoice.invoiceNumber}</strong>
-                </div>
-                <div>
-                  <span className="text-[#7A7267]">Issue Date: </span>
-                  <span className="text-[#191816]">{invoice.issueDate}</span>
-                </div>
-                <div>
-                  <span className="text-[#7A7267]">Due Date: </span>
-                  <span className="text-[#191816] font-medium">{invoice.dueDate}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Billed To / Recipient Info */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 bg-[#FAF7F2] p-5 rounded-lg border border-[#E8E2DA]">
-            <div>
-              <span className="text-[10px] font-mono tracking-wider uppercase text-[#7A7267] font-semibold block mb-1">
-                Billed To / Guest Details
-              </span>
-              <strong className="text-base text-[#191816] block font-semibold">
-                {invoice.recipientName}
-              </strong>
-              {invoice.recipientAddress && (
-                <p className="text-xs text-[#7A7267] mt-0.5">{invoice.recipientAddress}</p>
-              )}
-              <div className="text-xs text-[#7A7267] mt-2 space-y-0.5">
-                {invoice.recipientEmail && <div>Email: {invoice.recipientEmail}</div>}
-                {invoice.recipientPhone && <div>Phone: {invoice.recipientPhone}</div>}
-              </div>
-            </div>
-
-            <div>
-              <span className="text-[10px] font-mono tracking-wider uppercase text-[#7A7267] font-semibold block mb-1">
-                Tax & Corporate Information
-              </span>
-              <div className="text-xs space-y-1 text-[#191816]">
-                {invoice.companyTin ? (
-                  <div>
-                    <span className="text-[#7A7267]">Corporate TIN: </span>
-                    <strong className="font-mono text-emerald-800">{invoice.companyTin}</strong>
-                  </div>
-                ) : (
-                  <div className="text-[#7A7267]">Individual / Non-Corporate Billing</div>
-                )}
-                <div>
-                  <span className="text-[#7A7267]">Payment Terms: </span>
-                  <span>{invoice.paymentTerms || 'Due on Receipt'}</span>
-                </div>
-                <div>
-                  <span className="text-[#7A7267]">Invoice Type: </span>
-                  <span className="capitalize">{invoice.invoiceType.replace('_', ' ')}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Itemized Charges Table */}
-          <div>
-            <h3 className="text-xs font-mono uppercase tracking-wider text-[#7A7267] font-bold mb-2">
-              Itemized Folio Breakdown
-            </h3>
-            <div className="border border-[#E8E2DA] rounded-lg overflow-hidden">
-              <table className="w-full text-left text-xs">
-                <thead>
-                  <tr className="bg-[#FAF7F2] text-[#7A7267] border-b border-[#E8E2DA] font-mono uppercase tracking-wider text-[10px]">
-                    <th className="py-2.5 px-4 font-semibold">Description</th>
-                    <th className="py-2.5 px-4 font-semibold">Category</th>
-                    <th className="py-2.5 px-4 font-semibold text-center">Qty</th>
-                    <th className="py-2.5 px-4 font-semibold text-right">Unit Rate</th>
-                    <th className="py-2.5 px-4 font-semibold text-right">Amount (NGN)</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#E8E2DA]">
-                  {invoice.items.map((item, idx) => (
-                    <tr key={idx} className="hover:bg-stone-50/50">
-                      <td className="py-3 px-4 font-medium text-[#191816]">{item.description}</td>
-                      <td className="py-3 px-4 capitalize text-[#7A7267]">
-                        <span className="inline-block px-2 py-0.5 rounded bg-stone-100 text-[10px]">
-                          {item.category}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 text-center text-[#7A7267]">{item.quantity}</td>
-                      <td className="py-3 px-4 text-right font-mono text-[#7A7267]">
-                        {formatNaira(item.unitPriceMinorUnits)}
-                      </td>
-                      <td className="py-3 px-4 text-right font-mono font-medium text-[#191816]">
-                        {formatNaira(item.totalMinorUnits)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* Totals & Tax Computation */}
-          <div className="flex flex-col sm:flex-row justify-between items-start gap-8 pt-2">
-            {invoice.bankDetails?.accountNumber ? (
-            <div className="w-full sm:max-w-xs p-4 rounded-lg bg-[#FAF7F2] border border-[#E8E2DA] text-xs space-y-2">
-              <div className="flex items-center gap-1.5 text-[#71382D] font-bold text-sm">
-                <Building2 className="w-4 h-4" />
-                <span>Pay by bank transfer</span>
-              </div>
-              <p className="text-[11px] text-[#7A7267]">
-                Please reference <strong className="font-mono text-[#191816]">{invoice.invoiceNumber}</strong> on bank transfers.
-              </p>
-              <div className="pt-2 border-t border-[#E8E2DA] space-y-1 font-mono text-[11px]">
-                <div>
-                  <span className="text-[#7A7267]">Bank: </span>
-                  <strong className="text-[#191816]">{invoice.bankDetails.bankName}</strong>
-                </div>
-                <div>
-                  <span className="text-[#7A7267]">Account Name: </span>
-                  <span className="text-[#191816]">{invoice.bankDetails.accountName}</span>
-                </div>
-                <div>
-                  <span className="text-[#7A7267]">Account No: </span>
-                  <strong className="text-emerald-800 text-xs font-bold tracking-wider">
-                    {invoice.bankDetails.accountNumber}
-                  </strong>
-                </div>
-                {invoice.bankDetails.currency && (
-                  <div>
-                    <span className="text-[#7A7267]">Currency: </span>
-                    <span className="text-[#191816]">{invoice.bankDetails.currency}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-            ) : (
-              <div className="w-full sm:max-w-xs text-xs text-[#7A7267]">Bank transfer instructions appear after the property configures a bank account.</div>
-            )}
-
-            {/* Subtotal, VAT, Consumption, Service Charge, Total */}
-            <div className="w-full sm:w-72 space-y-2 text-xs">
-              <div className="flex justify-between py-1 border-b border-[#E8E2DA] text-[#7A7267]">
-                <span>Subtotal:</span>
-                <span className="font-mono text-[#191816]">{formatNaira(invoice.subtotalMinorUnits)}</span>
-              </div>
-
-              {invoice.taxVatMinorUnits > 0 && (
-                <div className="flex justify-between py-1 border-b border-[#E8E2DA] text-[#7A7267]">
-                  <span>VAT (7.5%):</span>
-                  <span className="font-mono text-[#191816]">{formatNaira(invoice.taxVatMinorUnits)}</span>
-                </div>
-              )}
-
-              {invoice.taxConsumptionMinorUnits > 0 && (
-                <div className="flex justify-between py-1 border-b border-[#E8E2DA] text-[#7A7267]">
-                  <span>Consumption Tax (5%):</span>
-                  <span className="font-mono text-[#191816]">{formatNaira(invoice.taxConsumptionMinorUnits)}</span>
-                </div>
-              )}
-
-              {invoice.serviceChargeMinorUnits > 0 && (
-                <div className="flex justify-between py-1 border-b border-[#E8E2DA] text-[#7A7267]">
-                  <span>Service Charge (10%):</span>
-                  <span className="font-mono text-[#191816]">{formatNaira(invoice.serviceChargeMinorUnits)}</span>
-                </div>
-              )}
-
-              {invoice.discountMinorUnits > 0 && (
-                <div className="flex justify-between py-1 border-b border-[#E8E2DA] text-emerald-700">
-                  <span>Discount:</span>
-                  <span className="font-mono">-{formatNaira(invoice.discountMinorUnits)}</span>
-                </div>
-              )}
-
-              <div className="flex justify-between py-2 border-b-2 border-[#191816] text-sm font-bold text-[#191816]">
-                <span>Total Amount:</span>
-                <span className="font-mono">{formatNaira(invoice.totalAmountMinorUnits)}</span>
-              </div>
-
-              <div className="flex justify-between py-1 text-xs text-emerald-700 font-medium">
-                <span>Paid to Date:</span>
-                <span className="font-mono">-{formatNaira(invoice.paidAmountMinorUnits)}</span>
-              </div>
-
-              <div className="flex justify-between py-2 bg-[#FAF7F2] px-3 rounded border border-[#E8E2DA] text-xs font-bold">
-                <span className={balanceMinorUnits > 0 ? 'text-[#B85C3E]' : 'text-emerald-700'}>
-                  Balance Due:
-                </span>
-                <span className="font-mono text-sm text-[#191816]">
-                  {formatNaira(balanceMinorUnits)}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Notes & Terms */}
-          {invoice.notes && (
-            <div className="pt-4 border-t border-[#E8E2DA] text-xs text-[#7A7267]">
-              <span className="font-medium text-[#191816] block mb-0.5">Special Notes & Remarks:</span>
-              <p className="whitespace-pre-wrap leading-relaxed">{invoice.notes}</p>
-            </div>
+        <div className="overflow-y-auto bg-white flex-1">
+          {editing ? (
+            <InvoiceEditForm
+              invoice={invoice}
+              labels={editLabels}
+              onCancel={() => setEditing(false)}
+              onSaved={(next) => {
+                setEditing(false);
+                onUpdated?.(next);
+                onPaymentSuccess?.();
+              }}
+            />
+          ) : (
+            <BrandedInvoiceDocument
+              invoice={invoice}
+              property={documentProperty || {
+                name: propertyName,
+                address: propertyAddress,
+                phone: propertyPhone,
+                email: propertyEmail,
+                logoUrl: null,
+              }}
+              reservation={documentReservation}
+              payments={documentPayments}
+              showReceiptLinks
+              labels={documentLabels}
+            />
           )}
-
-          {/* Signoff & Regulatory Footer */}
-          <div className="pt-6 border-t border-[#E8E2DA] flex flex-col sm:flex-row items-center justify-between text-[10px] text-[#7A7267] font-mono gap-2">
-            <span>Generated electronically by Sena Hospitality PMS · sena.ng</span>
-            <span>All guest folios are subject to hotel audit and local hospitality regulations.</span>
-          </div>
         </div>
 
         {/* Record Payment Submodal */}

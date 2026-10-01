@@ -92,3 +92,57 @@ html[dir="rtl"] .font-mono {
 ::-webkit-scrollbar-thumb:hover {
   background: #B85C3E;
 }
+
+@media print {
+  @page {
+    size: A4;
+    margin: 12mm;
+  }
+
+  html,
+  body {
+    background: #fff !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  body:has(.sena-invoice-sheet) * {
+    visibility: hidden;
+  }
+
+  body:has(.sena-invoice-sheet) .sena-invoice-sheet,
+  body:has(.sena-invoice-sheet) .sena-invoice-sheet * {
+    visibility: visible;
+  }
+
+  body:has(.sena-invoice-sheet) .sena-invoice-sheet {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    background: #fff;
+  }
+
+  body:has(.sena-invoice-sheet) .overflow-y-auto,
+  body:has(.sena-invoice-sheet) .overflow-hidden,
+  body:has(.sena-invoice-sheet) .h-screen {
+    overflow: visible !important;
+    max-height: none !important;
+    height: auto !important;
+  }
+
+  body:has(.sena-invoice-sheet) .print\:hidden,
+  body:has(.sena-invoice-sheet) .print\:hidden * {
+    display: none !important;
+    visibility: hidden !important;
+  }
+
+  .invoice-keep,
+  .invoice-totals,
+  .sena-invoice-sheet tr,
+  .sena-invoice-sheet thead,
+  .sena-invoice-sheet header,
+  .sena-invoice-sheet footer {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+}

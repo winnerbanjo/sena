@@ -20,6 +20,7 @@ export interface ReservationItem {
   totalAmountMinorUnits: number;
   paidAmountMinorUnits: number;
   pendingTransferProof?: boolean;
+  noteCount?: number;
   timeline: { time: string; text: string; actor: string }[];
 }
 

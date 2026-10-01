@@ -21,6 +21,7 @@ import { formatAssignedRoom, isPhysicalRoomAssigned } from './reservation-room';
 import { deskPaymentStatus, folioBalance } from '../lib/financial-status';
 import { RecordPaymentDialog } from './record-payment-dialog';
 import { CheckInPaymentStatus } from './check-in-payment-status';
+import { ReservationNotes } from './reservation-notes';
 import { Calendar, CheckCircle2, Mail, Phone } from 'lucide-react';
 
 interface ReservationDrawerProps {
@@ -31,6 +32,7 @@ interface ReservationDrawerProps {
   onAssignRoom?: (id: string) => void;
   onCheckOut?: (id: string) => void;
   onPaymentRecorded?: () => void;
+  onNotesChanged?: () => void;
 }
 
 export function ReservationDrawer({
@@ -41,6 +43,7 @@ export function ReservationDrawer({
   onAssignRoom,
   onCheckOut,
   onPaymentRecorded,
+  onNotesChanged,
 }: ReservationDrawerProps) {
   const t = useTranslations('payments');
   const [payOpen, setPayOpen] = React.useState(false);
@@ -186,6 +189,7 @@ export function ReservationDrawer({
                   </strong>
                 </div>
               </div>
+              <ReservationNotes reservationId={reservation.id} onChanged={onNotesChanged} />
             </TabsContent>
 
             {/* GUEST TAB */}
@@ -215,15 +219,6 @@ export function ReservationDrawer({
                     <span>{reservation.guestPhone}</span>
                   </div>
                 </div>
-              </div>
-
-              <div className="p-4 rounded border border-[#E8E2DA] bg-[#FAFAFA]">
-                <span className="text-[11px] text-[#7A7267] uppercase tracking-wider font-medium block mb-1">
-                  Preferences & Notes
-                </span>
-                <p className="text-xs text-[#191816]">
-                  Prefers upper floor and extra quiet room.
-                </p>
               </div>
             </TabsContent>
 

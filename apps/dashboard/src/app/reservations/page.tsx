@@ -12,6 +12,7 @@ import { Search } from 'lucide-react';
 import { type ReservationItem } from '../../components/mock-data';
 import { NewReservationDialog } from '../../components/new-reservation-dialog';
 import { ReservationDrawer } from '../../components/reservation-drawer';
+import { NoteCount } from '../../components/reservation-notes';
 import { Topbar } from '../../components/topbar';
 import { useToast } from '../../components/toast-notification';
 import { ReservationSuccessModal } from '../../components/reservation-success-modal';
@@ -212,6 +213,7 @@ function ReservationsContent() {
                           <strong className="block text-sm text-[#191816] group-hover:text-[#B85C3E] transition-colors font-semibold">
                             {res.guestName}
                           </strong>
+                          <NoteCount count={res.noteCount} />
                           <span className="text-[11px] text-[#8C8275]">{res.guestPhone || res.guestEmail}</span>
                         </td>
                         <td className="py-4 px-5">
@@ -298,6 +300,7 @@ function ReservationsContent() {
           }
         }}
         onPaymentRecorded={() => fetchReservations()}
+        onNotesChanged={() => fetchReservations()}
       />
 
       <CheckInRoomDialog

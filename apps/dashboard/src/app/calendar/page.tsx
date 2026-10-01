@@ -9,6 +9,7 @@ import { CalendarMonthYearPicker } from '../../components/calendar-month-year-pi
 import { type ReservationItem } from '../../components/mock-data';
 import { NewReservationDialog } from '../../components/new-reservation-dialog';
 import { ReservationDrawer } from '../../components/reservation-drawer';
+import { NoteCount } from '../../components/reservation-notes';
 import { Topbar } from '../../components/topbar';
 
 function generateDates(baseDate = new Date(), numDays = 7) {
@@ -101,6 +102,7 @@ export default function CalendarPage() {
             source: r.source || 'direct',
             status: r.status,
             paymentStatus: r.paymentStatus,
+            noteCount: r.noteCount || 0,
             totalAmountMinorUnits: 0,
             paidAmountMinorUnits: 0,
             timeline: [],
@@ -279,6 +281,7 @@ export default function CalendarPage() {
                                   <span className="opacity-75 text-[10px] font-semibold">
                                     · {res.nights} {res.nights === 1 ? 'night' : 'nights'}
                                   </span>
+                                  <NoteCount count={res.noteCount} className="inline-flex items-center gap-0.5 text-[10px] text-white/90" />
                                 </div>
                                 <span className="text-[9px] uppercase tracking-wider font-mono px-1.5 py-0.5 rounded bg-black/25 text-white/90">
                                   {res.paymentStatus === 'paid' ? 'Settled' : 'Unpaid'}
@@ -327,6 +330,7 @@ export default function CalendarPage() {
         reservation={selectedRes}
         open={drawerOpen}
         onOpenChange={setDrawerOpen}
+        onNotesChanged={() => fetchCalendar()}
       />
 
       <NewReservationDialog

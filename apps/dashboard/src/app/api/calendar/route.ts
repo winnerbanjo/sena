@@ -6,6 +6,7 @@ import { auth } from '@/auth';
 import { db, properties, rooms, roomTypes, apartments, reservations, guests , propertyMembers, organizationMembers } from '@sena/database';
 import { eq, and, gte, lte, or, isNull } from 'drizzle-orm';
 
+import { noteCountsByReservation } from '@/lib/reservation-notes';
 import { resolveTenantForRequest } from '@/lib/tenant';
 
 export const dynamic = 'force-dynamic';
@@ -97,9 +98,13 @@ async function handleGET(req: NextRequest) {
         )
       );
 
+    const noteCounts = await noteCountsByReservation(propertyId, resList.map((reservation) => reservation.id));
     const payload = {
       rooms: calendarRows,
-      reservations: resList,
+      reservations: resList.map((reservation) => ({
+        ...reservation,
+        noteCount: noteCounts.get(reservation.id) || 0,
+      })),
       dateRange: { startDate, endDate },
     };
 

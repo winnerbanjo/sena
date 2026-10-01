@@ -1,5 +1,6 @@
 import { apiError } from '@/lib/api-error';
 import { getMerchantRequest, withMerchant } from '@/lib/merchant-route';
+import { noteCountsByReservation } from '@/lib/reservation-notes';
 import { eq, desc, inArray, and } from 'drizzle-orm';
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
@@ -77,8 +78,10 @@ async function handleGET(req: NextRequest) {
       eventsByReservation.set(event.reservationId, events);
     }
     const pendingProofIds = new Set(pendingProofRows.map((row) => row.reservationId).filter(Boolean));
+    const noteCounts = await noteCountsByReservation(propertyId, reservationIds);
     const reservationsWithTimeline = resList.map(reservation => ({
       ...reservation,
+      noteCount: noteCounts.get(reservation.id) || 0,
       pendingTransferProof: pendingProofIds.has(reservation.id),
       timeline: eventsByReservation.get(reservation.id) || [],
     }));

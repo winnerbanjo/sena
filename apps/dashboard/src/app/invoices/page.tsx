@@ -512,7 +512,6 @@ export default function InvoicesPage() {
         propertyEmail={propertyMeta.propertyEmail}
         onPaymentSuccess={() => {
           fetchInvoices();
-          // Reload the updated invoice
           if (selectedInvoice) {
             fetch(`/api/invoices/${selectedInvoice.id}`)
               .then((r) => r.json())
@@ -520,6 +519,10 @@ export default function InvoicesPage() {
                 if (data.invoice) setSelectedInvoice(data.invoice);
               });
           }
+        }}
+        onUpdated={(next) => {
+          setSelectedInvoice(next);
+          fetchInvoices();
         }}
       />
 

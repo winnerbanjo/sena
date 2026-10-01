@@ -19,6 +19,7 @@ import {
 } from '@sena/ui';
 import { type ReservationItem } from '../../components/mock-data';
 import { ReservationDrawer } from '../../components/reservation-drawer';
+import { NoteCount } from '../../components/reservation-notes';
 import { NewReservationDialog } from '../../components/new-reservation-dialog';
 import { ReservationSuccessModal } from '../../components/reservation-success-modal';
 import { Topbar } from '../../components/topbar';
@@ -264,6 +265,7 @@ export default function FrontDeskPage() {
                           <strong className="block text-sm text-[#191816] group-hover:text-[#B85C3E] transition-colors font-semibold">
                             {res.guestName}
                           </strong>
+                          <NoteCount count={res.noteCount} />
                           <span className="text-[11px] font-mono text-[#8C8275]"><Ltr>{res.reference}</Ltr></span>
                         </td>
                         <td className="py-4 px-5">
@@ -369,6 +371,7 @@ export default function FrontDeskPage() {
           if (selectedRes) initiateCheckOut(selectedRes);
         }}
         onPaymentRecorded={() => fetchReservations()}
+        onNotesChanged={() => fetchReservations()}
       />
 
       <CheckInRoomDialog
