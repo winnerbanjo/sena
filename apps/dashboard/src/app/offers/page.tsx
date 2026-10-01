@@ -1,4 +1,5 @@
 'use client';
+import { pageMain } from '../../components/design';
 import Link from 'next/link';
 import { Topbar } from '../../components/topbar';
 import { useTranslations } from 'next-intl';
@@ -7,7 +8,7 @@ export default function OffersPage() {
   return (
     <div className="flex-1 flex flex-col h-screen overflow-hidden">
       <Topbar title={t('title')} />
-      <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+      <main className={pageMain}>
         <section className="max-w-2xl rounded-lg border border-[#E8E2DA] bg-white p-6 space-y-4">
           <h2 className="text-2xl font-serif text-[#191816]">{t('heading')}</h2>
           <p className="text-sm text-[#7A7267]">{t('body')}</p>

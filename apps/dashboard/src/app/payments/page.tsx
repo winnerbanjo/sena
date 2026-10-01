@@ -1,4 +1,5 @@
 'use client';
+import { pageMain } from '../../components/design';
 import { useTranslations } from 'next-intl';
 
 import { PageLoadState, readJsonResponse } from '../../components/page-load-state';
@@ -149,10 +150,10 @@ export default function PaymentsPage() {
     <div className="flex-1 flex flex-col h-screen overflow-hidden">
       <Topbar title={t('title')} />
 
-      <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6">
+      <main className={pageMain}>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#E8E2DA] pb-4">
           <div>
-            <h2 className="text-xl sm:text-2xl font-serif font-normal text-[#191816]">
+            <h2 className="text-base font-medium text-[#191816]">
               Financials & Transactions
             </h2>
             <p className="text-xs text-[#7A7267] mt-1">
@@ -174,12 +175,12 @@ export default function PaymentsPage() {
 
         {/* Financial Statement Overview */}
         <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-          <div className="md:col-span-6 p-6 rounded-lg bg-[#FAF9F6] border border-[#E8E2DA] flex flex-col justify-between space-y-4">
+          <div className="md:col-span-6 flex flex-col justify-between space-y-3 rounded-md border border-[#E8E2DA] bg-white p-4">
             <div>
-              <span className="text-[10px] font-mono uppercase tracking-wider text-[#7A7267] block mb-1">
-                Settled Revenue · Realtime
+              <span className="mb-1 block text-xs text-[#7A7267]">
+                Settled revenue
               </span>
-              <strong className="text-3xl sm:text-4xl font-serif font-normal text-[#191816] tracking-tight">
+              <strong className="text-2xl font-medium tabular-nums tracking-tight text-[#191816]">
                 {formatNaira(totalCollectedMinorUnits)}
               </strong>
             </div>
@@ -194,7 +195,7 @@ export default function PaymentsPage() {
               <span className="text-[10px] font-mono uppercase tracking-wider text-[#7A7267] block mb-1">
                 Pending Folios
               </span>
-              <strong className="text-2xl font-serif font-normal text-[#B85C3E]">
+              <strong className="text-2xl font-medium tabular-nums text-[#191816]">
                 {formatNaira(pendingFoliosMinorUnits)}
               </strong>
             </div>
@@ -208,7 +209,7 @@ export default function PaymentsPage() {
               <span className="text-[10px] font-mono uppercase tracking-wider text-[#7A7267] block mb-1">
                 Direct Booking Share
               </span>
-              <strong className="text-2xl font-serif font-normal text-[#71382D]">
+              <strong className="text-2xl font-medium tabular-nums text-[#191816]">
                 {directBookingShare}%
               </strong>
             </div>

@@ -1,4 +1,5 @@
 'use client';
+import { pageMain } from '../../components/design';
 import { useTranslations } from 'next-intl';
 
 import { PageLoadState, readJsonResponse } from '../../components/page-load-state';
@@ -456,7 +457,7 @@ export default function RoomsPage() {
     <div className="flex-1 flex flex-col h-screen overflow-hidden bg-white">
       <Topbar title={t('title')} />
 
-      <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6">
+      <main className={pageMain}>
         {/* Toast Notification */}
         {toastMessage && (
           <div className="p-3 bg-[#EBF5ED] border border-[#C6E4CC] text-[#2E6B4F] rounded text-xs flex items-center justify-between animate-in fade-in">
@@ -476,7 +477,7 @@ export default function RoomsPage() {
         {/* Header with Title and Primary Actions */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#E8E2DA] pb-4">
           <div>
-            <h2 className="text-xl sm:text-2xl font-serif font-normal text-[#191816]">
+            <h2 className="text-base font-medium text-[#191816]">
               Rooms & Categories
             </h2>
             <p className="text-xs text-[#7A7267] mt-1">
@@ -679,11 +680,11 @@ export default function RoomsPage() {
                               }`}
                             >
                               {room.imageUrl && (
-                                <div className="h-28 -mx-4 -mt-4 mb-1 overflow-hidden relative bg-[#FAF9F6]">
+                                <div className="relative -mx-4 -mt-4 mb-1 aspect-[3/2] overflow-hidden bg-[#F4EFE8]">
                                   <img
                                     src={room.imageUrl}
                                     alt={`Room ${room.number}`}
-                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                    className="h-full w-full object-cover"
                                   />
                                 </div>
                               )}
@@ -716,7 +717,7 @@ export default function RoomsPage() {
                                     type="button"
                                     onClick={() => handleDeleteRoom(room.id, room.number)}
                                     title="Delete room"
-                                    className="p-1 text-[#7A7267] hover:text-[#B85C3E] rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                                    className="inline-flex h-11 w-11 items-center justify-center rounded text-[#7A7267] hover:text-[#9E382A]"
                                   >
                                     <Trash2 className="w-3.5 h-3.5" />
                                   </button>
@@ -825,32 +826,24 @@ export default function RoomsPage() {
                 return (
                   <div
                     key={category.id}
-                    className="bg-white border border-[#E8E2DA] rounded-md p-5 flex flex-col justify-between space-y-4 hover:border-[#B85C3E]/50 transition-all shadow-none group overflow-hidden"
+                    className="flex h-full flex-col overflow-hidden rounded-md border border-[#E8E2DA] bg-white"
                   >
-                    {category.imageUrl && (
-                      <div className="h-32 -mx-5 -mt-5 mb-2 overflow-hidden relative bg-[#FAF9F6]">
-                        <img
-                          src={category.imageUrl}
-                          alt={category.name}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                        />
-                      </div>
-                    )}
-                    <div className="space-y-3">
+                    <div className="aspect-[3/2] bg-[#F4EFE8]">
+                      {category.imageUrl ? (
+                        <img src={category.imageUrl} alt="" className="h-full w-full object-cover" />
+                      ) : null}
+                    </div>
+                    <div className="flex flex-1 flex-col gap-3 p-4">
                       <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <h3 className="font-serif text-lg font-normal text-[#191816]">
-                              {category.name}
-                            </h3>
-                            <span className="px-1.5 py-0.5 rounded bg-[#FAF9F7] border border-[#E8E2DA] text-[10px] font-mono text-[#7A7267]">
-                              {category.code}
-                            </span>
-                          </div>
-                          <span className="text-sm font-serif font-bold text-[#B85C3E] block mt-1">
+                        <div className="min-w-0">
+                          <h3 className="truncate text-sm font-medium text-[#191816]">
+                            {category.name}
+                          </h3>
+                          <p className="truncate text-xs text-[#7A7267]">{category.code}</p>
+                          <p className="mt-1 text-sm font-medium tabular-nums text-[#191816]">
                             {formatNaira(category.baseRateMinorUnits)}
                             <span className="text-xs font-normal text-[#7A7267]"> / night</span>
-                          </span>
+                          </p>
                         </div>
 
                         <div className="flex flex-col items-end gap-1">
@@ -864,13 +857,13 @@ export default function RoomsPage() {
                           >
                             {t('editCategory')}
                           </button>
-                          <Badge variant="clean">
+                          <span className="text-xs text-[#7A7267]">
                             {roomCount} {roomCount === 1 ? 'room' : 'rooms'}
-                          </Badge>
+                          </span>
                         </div>
                       </div>
 
-                      <p className="text-xs text-[#7A7267] leading-relaxed line-clamp-2">
+                      <p className="line-clamp-2 min-h-10 text-xs leading-5 text-[#7A7267]">
                         {category.description}
                       </p>
 
@@ -886,24 +879,13 @@ export default function RoomsPage() {
                       </div>
 
                       {/* Amenities chips */}
-                      <div className="flex flex-wrap gap-1 pt-1">
-                        {category.amenities.slice(0, 4).map((amenity, i) => (
-                          <span
-                            key={i}
-                            className="px-2 py-0.5 rounded bg-[#FAFAFA] border border-[#E8E2DA] text-[10px] text-[#7A7267]"
-                          >
-                            {amenity}
-                          </span>
-                        ))}
-                        {category.amenities.length > 4 && (
-                          <span className="px-1.5 py-0.5 rounded bg-[#FAFAFA] text-[10px] text-[#7A7267]">
-                            +{category.amenities.length - 4} more
-                          </span>
-                        )}
-                      </div>
+                      <p className="line-clamp-1 min-h-5 text-xs text-[#7A7267]">
+                        {category.amenities.slice(0, 3).join(' · ')}
+                        {category.amenities.length > 3 ? ` · +${category.amenities.length - 3}` : ''}
+                      </p>
                     </div>
 
-                    <div className="pt-3 border-t border-[#E8E2DA] flex items-center justify-between gap-2">
+                    <div className="mt-auto flex items-center justify-between gap-2 border-t border-[#E8E2DA] px-4 py-3">
                       <Button
                         size="sm"
                         variant="secondary"
@@ -920,7 +902,7 @@ export default function RoomsPage() {
                       <button
                         type="button"
                         onClick={() => handleDeleteCategory(category.id, category.name)}
-                        className="p-2 text-[#7A7267] hover:text-[#B85C3E] rounded border border-[#E8E2DA] hover:border-[#B85C3E]/50 transition-colors"
+                        className="inline-flex h-11 w-11 items-center justify-center rounded border border-[#E8E2DA] text-[#7A7267] hover:text-[#9E382A]"
                         title="Delete category"
                       >
                         <Trash2 className="w-3.5 h-3.5" />

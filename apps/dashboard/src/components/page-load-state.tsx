@@ -1,7 +1,9 @@
 'use client';
 import { Topbar } from './topbar';
+import { Button, Skeleton } from '@sena/ui';
 import { useTranslations } from 'next-intl';
 import { HttpLoadError, type LoadFailureKind } from '../lib/page-load';
+import { pageMain, pageStack } from './design';
 
 export async function readJsonResponse(response: Response) {
   if (!response.ok) throw new HttpLoadError(response.status);
@@ -22,29 +24,30 @@ export function PageLoadState({
   const t = useTranslations('setup');
   const offline = failed && failureKind === 'offline';
   return (
-    <div className="flex-1 flex flex-col min-w-0">
+    <div className={pageStack}>
       <Topbar title={title} />
-      <main className="p-4 sm:p-6 lg:p-8 space-y-5" aria-live="polite">
+      <main className={pageMain} aria-live="polite">
         {failed ? (
-          <>
-            <h2 className="text-xl font-serif">
+          <div className="max-w-lg space-y-2">
+            <h2 className="text-base font-medium text-[#191816]">
               {offline ? t('pageLoadOfflineTitle') : t('pageLoadFailed', { title: title.toLowerCase() })}
             </h2>
             <p className="text-sm text-[#7A7267]">
               {offline ? t('pageLoadOfflineHint') : t('pageLoadServerHint')}
             </p>
-            <button
-              onClick={retry || (() => window.location.reload())}
-              className="min-h-11 rounded bg-[#71382D] px-4 text-sm text-white"
-            >
-              {t('retryConnection')}
-            </button>
-          </>
+            <Button onClick={retry || (() => window.location.reload())}>{t('retryConnection')}</Button>
+          </div>
         ) : (
           <>
             <span className="sr-only">{t('loadingPage', { title: title.toLowerCase() })}</span>
-            <div className="h-24 rounded-lg bg-[#F7F1E8] animate-pulse" />
-            <div className="h-80 rounded-lg bg-[#F7F1E8] animate-pulse" />
+            <Skeleton className="h-8 w-48" />
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+              <Skeleton className="h-20" />
+              <Skeleton className="h-20" />
+              <Skeleton className="h-20" />
+              <Skeleton className="h-20" />
+            </div>
+            <Skeleton className="h-72" />
           </>
         )}
       </main>

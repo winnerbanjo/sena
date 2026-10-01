@@ -1,4 +1,5 @@
 'use client';
+import { pageMain } from '../components/design';
 import { useTranslations } from 'next-intl';
 import { formatAssignedRoom, mapReservationItem } from '../components/reservation-room';
 import { CheckInRoomDialog, type RoomAssignmentMode } from '../components/check-in-room-dialog';
@@ -9,28 +10,8 @@ import { PageLoadState } from '../components/page-load-state';
 import { classifyLoadFailure, type LoadFailureKind } from '../lib/page-load';
 import * as React from 'react';
 import Link from 'next/link';
-import { formatStayDates, formatNaira } from '@sena/config';
-import {
-  BedDouble,
-  KeyRound,
-  LogOut,
-  Brush,
-  TrendingUp,
-  Plus,
-  Globe,
-  Calendar,
-  ArrowRight,
-  ExternalLink,
-  CheckCircle2,
-  Clock,
-  Building2,
-  FileText,
-  CreditCard,
-  DoorOpen,
-  ShieldCheck,
-  ArrowUpRight,
-  Zap,
-} from 'lucide-react';
+import { formatStayDates } from '@sena/config';
+import { Brush, ArrowRight, ArrowUpRight } from 'lucide-react';
 import {
   type ReservationItem,
 } from '../components/mock-data';
@@ -60,7 +41,6 @@ export default function OverviewPage() {
   const [newResOpen, setNewResOpen] = React.useState(false);
   const [successReservation, setSuccessReservation] = React.useState<ReservationItem | null>(null);
   const [currentDateStr, setCurrentDateStr] = React.useState('');
-  const [userName, setUserName] = React.useState('');
   const [propertyName, setPropertyName] = React.useState('');
   const [propertySlug, setPropertySlug] = React.useState('');
   const [assignment, setAssignment] = React.useState<{
@@ -70,7 +50,6 @@ export default function OverviewPage() {
 
   React.useEffect(() => {
     if (!workspace) return;
-    setUserName(workspace.user.name);
     setPropertyName(workspace.property.name);
     setPropertySlug(workspace.property.slug || '');
     setTimezone(workspace.property.timezone);
@@ -161,8 +140,6 @@ export default function OverviewPage() {
   const occupiedCount = rooms.filter((r) => r.operational === 'occupied' || r.operationalStatus === 'occupied').length;
   const totalRoomsCount = rooms.length || 1;
   const occupancyRate = rooms.length > 0 ? Math.round((occupiedCount / totalRoomsCount) * 100) : 0;
-  const monthRevenueMinorUnits = reservations.reduce((acc, curr) => acc + (curr.paidAmountMinorUnits || 0), 0);
-
   const directWebsiteUrl = propertySlug ? `https://${propertySlug}.sena.ng` : '/website';
   const arrivalsText = arrivals.length === 1 ? '1 arrival today' : `${arrivals.length} arrivals today`;
   const departuresText = departures.length === 1 ? '1 departure' : `${departures.length} departures`;
@@ -177,88 +154,61 @@ export default function OverviewPage() {
         onOpenNewReservation={() => setNewResOpen(true)}
       />
 
-      <main className="flex-1 overflow-y-auto p-4 sm:p-8 lg:p-10 space-y-8 max-w-7xl w-full mx-auto">
+      <main className={pageMain}>
         {/* Warm Executive Hospitality Briefing Banner */}
-        <section
-          aria-label="Overview briefing"
-          className="relative overflow-hidden rounded-xl border border-[#E5D4BC] bg-[#F7F1E8] p-5 sm:p-6 lg:py-6 lg:px-7 shadow-2xs"
-        >
-          {/* Subtle Terracotta accent line */}
-          <div className="absolute top-0 left-0 right-0 h-[2px] bg-[#B85C3E]" />
-
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5 sm:gap-6">
-            <div className="space-y-1 sm:space-y-1.5">
-              <div className="flex flex-wrap items-center gap-2 text-xs">
-                <span className="font-mono text-[11px] uppercase tracking-wider text-[#8C8275]">
-                  {currentDateStr || 'Today'}
-                </span>
-                <span className="text-[#C4B8A5]">·</span>
-                <span className="font-medium text-[#71382D] truncate max-w-[240px] sm:max-w-none">
-                  {propertyName}
-                </span>
-              </div>
-
-              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-serif text-[#191816] tracking-tight">
-                Good day, {userName ? userName.split(' ')[0] : 'there'}
-              </h1>
-
-              <p className="text-xs sm:text-sm text-[#5C564D] leading-relaxed">
-                {arrivalsText}
-                <span className="mx-1.5 text-[#C4B8A5]">·</span>
-                {departuresText}
-                <span className="mx-1.5 text-[#C4B8A5]">·</span>
-                {roomsAttentionText}
-              </p>
-            </div>
-
-            <div className="flex items-center gap-2.5 sm:gap-3 flex-wrap sm:flex-nowrap pt-1 lg:pt-0">
-              <a
-                href={directWebsiteUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 px-3 py-2 sm:px-3.5 sm:py-2.5 rounded-lg border border-[#E5D4BC] bg-white/80 hover:bg-white text-[#71382D] hover:text-[#5E2B21] text-xs sm:text-sm font-medium transition-all shadow-2xs hover:border-[#D5C2A5] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#71382D]"
-              >
-                <span>View website</span>
-                <ArrowUpRight className="w-3.5 h-3.5 text-[#B85C3E]" />
-              </a>
-
-              <button
-                type="button"
-                onClick={() => setNewResOpen(true)}
-                className="inline-flex items-center gap-1.5 px-4 py-2 sm:px-4.5 sm:py-2.5 rounded-lg bg-[#B85C3E] hover:bg-[#A34E32] active:bg-[#8F432B] text-white text-xs sm:text-sm font-medium transition-all shadow-xs cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B85C3E] focus-visible:ring-offset-2"
-              >
-                <Plus className="w-4 h-4" />
-                <span>New reservation</span>
-              </button>
-            </div>
+        <section aria-label="Overview briefing" className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div className="min-w-0 space-y-1">
+            <p className="text-xs text-[#7A7267]">
+              {currentDateStr || 'Today'}
+              <span className="px-1.5 text-[#C4B8A5]">·</span>
+              <span className="text-[#191816]">{propertyName}</span>
+            </p>
+            <h2 className="text-base font-medium text-[#191816]">
+              {arrivalsText}
+              <span className="px-1.5 font-normal text-[#C4B8A5]">·</span>
+              <span className="font-normal">{departuresText}</span>
+              <span className="px-1.5 font-normal text-[#C4B8A5]">·</span>
+              <span className="font-normal">{roomsAttentionText}</span>
+            </h2>
+          </div>
+          <div className="flex items-center gap-2">
+            <a
+              href={directWebsiteUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex h-11 items-center gap-1.5 rounded border border-[#E8E2DA] bg-white px-3 text-[13px] font-medium text-[#191816] hover:bg-[#FAF8F6] sm:h-9"
+            >
+              View website
+              <ArrowUpRight className="h-3.5 w-3.5" />
+            </a>
           </div>
         </section>
 
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-8 border-y border-[#E8E2DA] py-6">
-          <Link href="/rooms" className="space-y-1">
-            <p className="text-sm text-[#7A7267]">Occupancy</p>
-            <p className="font-serif text-3xl">{occupancyRate}%</p>
-            <p className="text-sm text-[#5C564D]">{occupiedCount} of {rooms.length} rooms</p>
+        <div className="grid grid-cols-2 gap-px overflow-hidden rounded-md border border-[#E8E2DA] bg-[#E8E2DA] sm:grid-cols-3 lg:grid-cols-5">
+          <Link href="/front-desk" className="space-y-1 bg-white p-4">
+            <p className="text-xs text-[#7A7267]">Arrivals</p>
+            <p className="text-2xl font-medium tabular-nums">{arrivals.length}</p>
+            <p className="text-xs text-[#5C564D]">Today</p>
           </Link>
-          <Link href="/front-desk" className="space-y-1">
-            <p className="text-sm text-[#7A7267]">Arrivals</p>
-            <p className="font-serif text-3xl">{arrivals.length}</p>
-            <p className="text-sm text-[#5C564D]">Today</p>
+          <Link href="/front-desk" className="space-y-1 bg-white p-4">
+            <p className="text-xs text-[#7A7267]">In house</p>
+            <p className="text-2xl font-medium tabular-nums">{inHouse.length}</p>
+            <p className="text-xs text-[#5C564D]">Checked in</p>
           </Link>
-          <Link href="/front-desk" className="space-y-1">
-            <p className="text-sm text-[#7A7267]">Departures</p>
-            <p className="font-serif text-3xl">{departures.length}</p>
-            <p className="text-sm text-[#5C564D]">Today</p>
+          <Link href="/front-desk" className="space-y-1 bg-white p-4">
+            <p className="text-xs text-[#7A7267]">Departures</p>
+            <p className="text-2xl font-medium tabular-nums">{departures.length}</p>
+            <p className="text-xs text-[#5C564D]">Today</p>
           </Link>
-          <Link href="/housekeeping" className="space-y-1">
-            <p className="text-sm text-[#7A7267]">Housekeeping</p>
-            <p className="font-serif text-3xl">{dirtyRooms.length}</p>
-            <p className="text-sm text-[#5C564D]">{dirtyRooms.length === 0 ? 'No rooms waiting' : 'Rooms waiting'}</p>
+          <Link href="/housekeeping" className="space-y-1 bg-white p-4">
+            <p className="text-xs text-[#7A7267]">Needs cleaning</p>
+            <p className="text-2xl font-medium tabular-nums">{dirtyRooms.length}</p>
+            <p className="text-xs text-[#5C564D]">{readyRooms.length} ready</p>
           </Link>
-          <Link href="/payments" className="space-y-1">
-            <p className="text-sm text-[#7A7267]">Payments</p>
-            <p className="font-serif text-3xl">{formatNaira(monthRevenueMinorUnits)}</p>
-            <p className="text-sm text-[#5C564D]">Recorded</p>
+          <Link href="/rooms" className="col-span-2 space-y-1 bg-white p-4 sm:col-span-1">
+            <p className="text-xs text-[#7A7267]">Occupancy</p>
+            <p className="text-2xl font-medium tabular-nums">{occupancyRate}%</p>
+            <p className="text-xs text-[#5C564D]">{occupiedCount} of {rooms.length}</p>
           </Link>
         </div>
 
@@ -315,26 +265,17 @@ export default function OverviewPage() {
             </div>
 
             {arrivals.length === 0 ? (
-              <div className="py-12 px-6 rounded-2xl border border-[#E8DACB] text-center space-y-3 bg-gradient-to-br from-[#FFFDF9] to-[#FAF4ED] shadow-xs">
-                <div className="w-12 h-12 rounded-full bg-[#FAF0E6] text-[#71382D] mx-auto flex items-center justify-center border border-[#E8D5C2]">
-                  <CheckCircle2 className="w-6 h-6 text-[#2E6B4F]" />
-                </div>
-                <h4 className="text-base font-serif text-[#191816]">Front Desk is Clear</h4>
-                <p className="text-xs text-[#7A7267] max-w-sm mx-auto leading-relaxed">
-                  All expected guest stays for today are either checked in or awaiting direct booking engine reservations.
+              <div className="rounded-md border border-dashed border-[#E8E2DA] px-6 py-10 text-center">
+                <p className="text-sm font-medium text-[#191816]">No arrivals left today</p>
+                <p className="mx-auto mt-1 max-w-sm text-sm text-[#7A7267]">
+                  Expected stays are checked in, or none are due.
                 </p>
-                <div className="pt-2 flex items-center justify-center gap-3">
-                  <Link
-                    href="/front-desk"
-                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-white border border-[#D5CFC7] text-xs font-medium text-[#191816] hover:bg-stone-50 transition-colors shadow-2xs"
-                  >
-                    <span>View Front desk</span>
-                    <ArrowRight className="w-3.5 h-3.5 text-[#B85C3E]" />
-                  </Link>
-                </div>
+                <Link href="/front-desk" className="mt-4 inline-flex h-11 items-center text-sm font-medium text-[#71382D] underline-offset-4 hover:underline sm:h-9">
+                  Open front desk
+                </Link>
               </div>
             ) : (
-              <div className="border border-[#E8DACB] rounded-2xl overflow-hidden divide-y divide-[#E8DACB] bg-[#FAF8F5] shadow-xs">
+              <div className="divide-y divide-[#E8E2DA] overflow-hidden rounded-md border border-[#E8E2DA] bg-white">
                 {arrivals.map((res) => {
                   return (
                     <div
@@ -404,7 +345,7 @@ export default function OverviewPage() {
           {/* Operational Side Column (4 Cols) */}
           <div className="lg:col-span-4 space-y-6">
             {/* Quick Turnaround Desk */}
-            <div className="bg-[#FAF8F5] rounded-2xl border border-[#E8DACB] p-6 space-y-4 shadow-xs">
+            <div className="space-y-4 rounded-md border border-[#E8E2DA] bg-white p-4">
               <div className="flex items-center justify-between border-b border-[#E8DACB]/80 pb-3">
                 <span className="text-[11px] font-mono uppercase tracking-wider text-[#71382D] font-semibold flex items-center gap-1.5">
                   <Brush className="w-3.5 h-3.5 text-[#B85C3E]" />
@@ -456,37 +397,25 @@ export default function OverviewPage() {
             </div>
 
             {/* Direct Booking Engine Highlight */}
-            <div className="rounded-2xl border border-[#E8DACB] p-6 space-y-3.5 bg-gradient-to-br from-[#FFFDF9] via-[#FAF5EE] to-[#F7EFE4] shadow-xs relative overflow-hidden">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-mono uppercase tracking-wider text-[#A8583B] font-semibold flex items-center gap-1.5">
-                  <Globe className="w-3.5 h-3.5 text-[#B85C3E]" />
-                  Direct Booking Engine
-                </span>
-                <span className="text-[10px] font-mono text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                  Zero Commission
-                </span>
-              </div>
-              <h3 className="text-base font-serif text-[#191816]">
-                Share {propertySlug}.sena.ng
+            <div className="space-y-3 rounded-md border border-[#E8E2DA] bg-white p-4">
+              <p className="text-xs text-[#7A7267]">Direct booking</p>
+              <h3 className="truncate text-sm font-medium text-[#191816]">
+                {propertySlug ? `${propertySlug}.sena.ng` : 'Website'}
               </h3>
-              <p className="text-xs text-[#7A7267] leading-relaxed">
-                Add your direct link to your Instagram bio, WhatsApp business auto-responder, and Google Business Profile to capture guests with instant confirmation.
+              <p className="text-sm text-[#7A7267]">
+                Share the property link so guests can book without a commission.
               </p>
-              <div className="pt-2 flex items-center gap-2">
+              <div className="flex items-center gap-2">
                 <a
                   href={directWebsiteUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex-1 text-center py-2 px-3 rounded-xl bg-[#71382D] hover:bg-[#5A2C23] text-white text-xs font-semibold shadow-xs transition-colors inline-flex items-center justify-center gap-1.5"
+                  className="inline-flex h-11 items-center rounded bg-[#B85C3E] px-3 text-[13px] font-medium text-white hover:bg-[#A34F33] sm:h-9"
                 >
-                  <span>Open Website</span>
-                  <ExternalLink className="w-3 h-3 text-[#E8DACB]" />
+                  Open website
                 </a>
-                <Link
-                  href="/website"
-                  className="py-2 px-3 rounded-xl bg-white hover:bg-stone-50 border border-[#D5CFC7] text-xs font-medium text-[#191816] transition-colors shadow-2xs"
-                >
-                  Edit CMS
+                <Link href="/website" className="inline-flex h-11 items-center rounded border border-[#E8E2DA] px-3 text-[13px] font-medium text-[#191816] hover:bg-[#FAF8F6] sm:h-9">
+                  Edit
                 </Link>
               </div>
             </div>

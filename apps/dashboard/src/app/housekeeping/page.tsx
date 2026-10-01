@@ -1,4 +1,5 @@
 'use client';
+import { pageMain } from '../../components/design';
 import { useTranslations } from 'next-intl';
 
 import { PageLoadState } from '../../components/page-load-state';
@@ -114,10 +115,10 @@ export default function HousekeepingPage() {
     <div className="flex-1 flex flex-col h-screen overflow-hidden bg-white">
       <Topbar title={t('title')} />
 
-      <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6 max-w-4xl mx-auto w-full">
+      <main className={pageMain}>
         <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-4 border-b border-[#E8E2DA] pb-4">
           <div>
-            <h2 className="text-xl sm:text-2xl font-serif font-normal text-[#191816]">
+            <h2 className="text-base font-medium text-[#191816]">
               Room Readiness & Turnover
             </h2>
             <p className="text-xs text-[#7A7267] mt-1">

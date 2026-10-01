@@ -1,4 +1,5 @@
 'use client';
+import { pageMain } from '../../components/design';
 
 import * as React from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -210,10 +211,9 @@ function ConnectedAppsCatalog() {
   return (
     <div className="flex h-screen flex-1 flex-col overflow-hidden">
       <Topbar title={t('title')} />
-      <main className="flex-1 space-y-8 overflow-y-auto overflow-x-hidden p-4 sm:p-6 lg:p-8">
+      <main className={pageMain}>
         <header className="max-w-3xl">
-          <h1 className="font-serif text-3xl tracking-tight text-[#191816] sm:text-[2rem]">{t('title')}</h1>
-          <p className="mt-2 max-w-xl text-sm leading-relaxed text-[#7A7267] sm:text-[15px]">{t('subtitle')}</p>
+          <p className="max-w-xl text-sm text-[#7A7267]">{t('subtitle')}</p>
         </header>
 
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -225,10 +225,10 @@ function ConnectedAppsCatalog() {
                 role="tab"
                 aria-selected={category === entry.id}
                 onClick={() => setCategory(entry.id)}
-                className={`min-h-10 shrink-0 rounded-full border px-3.5 text-xs font-medium transition-colors ${
+                className={`min-h-10 shrink-0 border-b-2 px-3 text-[13px] font-medium ${
                   category === entry.id
-                    ? 'border-[#71382D] bg-[#F5EEE9] text-[#71382D]'
-                    : 'border-[#E8E2DA] bg-white text-[#7A7267] hover:border-[#D9CFC2]'
+                    ? 'border-[#71382D] text-[#191816]'
+                    : 'border-transparent text-[#7A7267] hover:text-[#191816]'
                 }`}
               >
                 {t(entry.labelKey)}
@@ -398,7 +398,7 @@ function ConnectedAppsFallback() {
   return (
     <div className="flex h-screen flex-1 flex-col overflow-hidden">
       <Topbar title={t('title')} />
-      <main className="flex-1 space-y-8 overflow-y-auto overflow-x-hidden p-4 sm:p-6 lg:p-8">
+      <main className={pageMain}>
         <div className="max-w-3xl space-y-3">
           <div className="h-8 w-56 animate-pulse rounded bg-[#F5EEE9]" />
           <div className="h-4 w-80 max-w-full animate-pulse rounded bg-[#F5EEE9]" />

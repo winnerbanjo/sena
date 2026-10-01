@@ -8,7 +8,7 @@ export function Table({
   return (
     <div className="relative w-full overflow-auto">
       <table
-        className={cn('w-full caption-bottom text-sm text-left border-collapse', className)}
+        className={cn('w-full caption-bottom border-collapse text-start text-sm', className)}
         {...props}
       />
     </div>
@@ -21,7 +21,7 @@ export function TableHeader({
 }: React.HTMLAttributes<HTMLTableSectionElement>) {
   return (
     <thead
-      className={cn('border-b border-[#E8E2DA] bg-[#FAFAFA] text-[11px] font-medium tracking-wider text-[#7A7267] uppercase', className)}
+      className={cn('border-b border-[#E8E2DA] bg-[#FAFAF8] text-[11px] font-medium text-[#7A7267]', className)}
       {...props}
     />
   );
@@ -46,7 +46,7 @@ export function TableRow({
   return (
     <tr
       className={cn(
-        'transition-colors hover:bg-[#FAFAFA] data-[state=selected]:bg-[#F9F7F5]',
+        'transition-colors hover:bg-[#FAFAF8] data-[state=selected]:bg-[#F7F1E8]',
         className
       )}
       {...props}
@@ -60,7 +60,7 @@ export function TableHead({
 }: React.ThHTMLAttributes<HTMLTableCellElement>) {
   return (
     <th
-      className={cn('h-10 px-4 text-left align-middle font-medium text-[#7A7267]', className)}
+      className={cn('h-10 px-4 text-start align-middle font-medium text-[#7A7267]', className)}
       {...props}
     />
   );
@@ -72,7 +72,7 @@ export function TableCell({
 }: React.TdHTMLAttributes<HTMLTableCellElement>) {
   return (
     <td
-      className={cn('p-4 align-middle text-sm text-[#191816]', className)}
+      className={cn('px-4 py-3 align-middle text-sm text-[#191816]', className)}
       {...props}
     />
   );
