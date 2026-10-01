@@ -111,11 +111,11 @@ export default function GuestsPage() {
           <Table className="min-w-[750px]">
             <TableHeader>
               <TableRow className="bg-[#FAF9F6] border-b border-[#E8E2DA]">
-                <TableHead className="font-serif font-normal text-[#7A7267] text-xs">Guest</TableHead>
-                <TableHead className="font-serif font-normal text-[#7A7267] text-xs">Contact</TableHead>
-                <TableHead className="font-serif font-normal text-[#7A7267] text-xs">History</TableHead>
-                <TableHead className="font-serif font-normal text-[#7A7267] text-xs">Preferences</TableHead>
-                <TableHead className="font-serif font-normal text-[#7A7267] text-xs text-right">Lifetime Folio</TableHead>
+                <TableHead className="font-semibold text-[#7A7267] text-xs">Guest</TableHead>
+                <TableHead className="font-semibold text-[#7A7267] text-xs">Contact</TableHead>
+                <TableHead className="font-semibold text-[#7A7267] text-xs">History</TableHead>
+                <TableHead className="font-semibold text-[#7A7267] text-xs">Preferences</TableHead>
+                <TableHead className="font-semibold text-[#7A7267] text-xs text-right">Lifetime Folio</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody className="divide-y divide-[#E8E2DA]">
@@ -123,7 +123,7 @@ export default function GuestsPage() {
                 <TableRow>
                   <TableCell colSpan={5} className="py-16 text-center">
                     <div className="max-w-sm mx-auto space-y-2">
-                      <p className="font-serif text-sm text-[#191816]">
+                      <p className="text-sm text-[#191816] font-semibold">
                         {loading
                           ? 'Accessing guest directory...'
                           : search
@@ -147,7 +147,7 @@ export default function GuestsPage() {
                   >
                     <TableCell className="py-3.5">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-[#FAF0E4] text-[#71382D] flex items-center justify-center font-serif text-xs font-medium border border-[#E5D4BC]">
+                        <div className="w-8 h-8 rounded-full bg-[#FAF0E4] text-[#71382D] flex items-center justify-center text-xs font-medium border border-[#E5D4BC]">
                           {guest.name
                             .split(' ')
                             .map((n) => n[0])
@@ -155,7 +155,7 @@ export default function GuestsPage() {
                             .join('')}
                         </div>
                         <div>
-                          <strong className="text-sm font-serif font-normal text-[#191816] block">
+                          <strong className="text-sm font-semibold text-[#191816] block">
                             {guest.name}
                           </strong>
                           {guest.stays > 1 ? (
@@ -194,7 +194,7 @@ export default function GuestsPage() {
                         )}
                       </div>
                     </TableCell>
-                    <TableCell className="py-3.5 text-right font-serif text-sm text-[#191816]">
+                    <TableCell className="py-3.5 text-right text-sm text-[#191816] font-semibold">
                       {formatNaira(guest.lifetimeValueMinorUnits)}
                     </TableCell>
                   </TableRow>
@@ -216,7 +216,7 @@ export default function GuestsPage() {
               <span className="text-[10px] font-mono uppercase tracking-wider text-[#B85C3E] block mb-1">
                 Guest Profile
               </span>
-              <DrawerTitle className="text-2xl font-serif text-[#191816]">
+              <DrawerTitle className="text-2xl text-[#191816] font-semibold">
                 {selectedGuest.name}
               </DrawerTitle>
               <div className="flex items-center gap-2 mt-2">
@@ -230,15 +230,15 @@ export default function GuestsPage() {
             <div className="grid grid-cols-3 gap-3">
               <div className="p-3 rounded border border-[#E8E2DA] bg-[#FAFAFA] text-center">
                 <span className="text-[10px] uppercase text-[#7A7267] block">Stays</span>
-                <strong className="text-lg font-serif text-[#191816]">{selectedGuest.stays}</strong>
+                <strong className="text-lg text-[#191816] font-semibold">{selectedGuest.stays}</strong>
               </div>
               <div className="p-3 rounded border border-[#E8E2DA] bg-[#FAFAFA] text-center">
                 <span className="text-[10px] uppercase text-[#7A7267] block">Nights</span>
-                <strong className="text-lg font-serif text-[#191816]">{selectedGuest.nights}</strong>
+                <strong className="text-lg text-[#191816] font-semibold">{selectedGuest.nights}</strong>
               </div>
               <div className="p-3 rounded border border-[#E8E2DA] bg-[#FAFAFA] text-center">
                 <span className="text-[10px] uppercase text-[#7A7267] block">Total Spent</span>
-                <strong className="text-sm font-serif text-[#191816] block mt-1">
+                <strong className="text-sm text-[#191816] block mt-1 font-semibold">
                   {formatNaira(selectedGuest.lifetimeValueMinorUnits)}
                 </strong>
               </div>

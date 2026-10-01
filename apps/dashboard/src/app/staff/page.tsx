@@ -272,19 +272,19 @@ export default function StaffPage() {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           <div className="p-3 sm:p-4 rounded-lg border border-[#E8E2DA] bg-white">
             <span className="text-[10px] sm:text-[11px] text-[#7A7267] uppercase font-semibold">Total Staff</span>
-            <div className="text-xl sm:text-2xl font-serif text-[#191816] mt-1">{staff.length}</div>
+            <div className="text-xl sm:text-2xl text-[#191816] mt-1 font-semibold">{staff.length}</div>
             <p className="text-[10px] sm:text-[11px] text-[#7A7267] mt-1">Active team</p>
           </div>
 
           <div className="p-3 sm:p-4 rounded-lg border border-[#E8E2DA] bg-white">
             <span className="text-[10px] sm:text-[11px] text-[#7A7267] uppercase font-semibold">Active Members</span>
-            <div className="text-xl sm:text-2xl font-serif text-[#191816] mt-1">{onDutyCount}</div>
+            <div className="text-xl sm:text-2xl text-[#191816] mt-1 font-semibold">{onDutyCount}</div>
             <p className="text-[10px] sm:text-[11px] text-emerald-700 mt-1 font-medium">Access enabled</p>
           </div>
 
           <div className="p-4 rounded-lg border border-[#E8E2DA] bg-white">
             <span className="text-[11px] text-[#7A7267] uppercase font-semibold">Front Desk Team</span>
-            <div className="text-2xl font-serif text-[#191816] mt-1">
+            <div className="text-2xl text-[#191816] mt-1 font-semibold">
               {staff.filter((s) => s.department === 'Front Office').length}
             </div>
             <p className="text-[11px] text-[#7A7267] mt-1">Check-in &amp; Guest arrivals</p>
@@ -292,7 +292,7 @@ export default function StaffPage() {
 
           <div className="p-4 rounded-lg border border-[#E8E2DA] bg-white">
             <span className="text-[11px] text-[#7A7267] uppercase font-semibold">Housekeeping</span>
-            <div className="text-2xl font-serif text-[#191816] mt-1">
+            <div className="text-2xl text-[#191816] mt-1 font-semibold">
               {staff.filter((s) => s.department === 'Housekeeping').length}
             </div>
             <p className="text-[11px] text-[#7A7267] mt-1">Room turnovers &amp; inspections</p>
@@ -517,7 +517,7 @@ export default function StaffPage() {
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-xl border border-[#E8E2DA] shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150">
             <div className="px-6 py-4 border-b border-[#E8E2DA] flex items-center justify-between">
-              <h3 className="text-base font-serif font-normal text-[#191816]">
+              <h3 className="text-base font-semibold text-[#191816]">
                 Invite Team Member
               </h3>
               <button

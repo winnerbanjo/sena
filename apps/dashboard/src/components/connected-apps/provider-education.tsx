@@ -25,7 +25,7 @@ export function ProviderEducationSections({
   return (
     <div className="max-w-3xl space-y-8">
       <section className="space-y-2">
-        <h2 className="font-serif text-xl text-[#191816]">{t('whatItDoes', { name: brandName })}</h2>
+        <h2 className="text-xl text-[#191816] font-semibold">{t('whatItDoes', { name: brandName })}</h2>
         <p className="text-sm leading-relaxed text-[#5C564C]">{t(overviewKey as 'googleCalendarOverview')}</p>
       </section>
 

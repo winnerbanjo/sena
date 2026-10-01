@@ -533,7 +533,7 @@ export function ConnectedAppDetailPanel({
               <ConnectedAppLogo provider={provider} name={displayName} size="lg" />
               <div className="min-w-0 flex-1">
                 <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-[#7A7267]">{displayCategory}</p>
-                <h1 className="mt-1 font-serif text-3xl tracking-tight text-[#191816] sm:text-[2.15rem]">{displayName}</h1>
+                <h1 className="mt-1 text-3xl tracking-tight text-[#191816] sm:text-[2.15rem] font-semibold">{displayName}</h1>
                 <p className="mt-2 max-w-xl text-sm leading-relaxed text-[#5C564C]">{displayDescription}</p>
                 <div className="mt-3 flex flex-wrap gap-2">
                   <StatusPill

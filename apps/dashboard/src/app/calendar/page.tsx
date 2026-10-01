@@ -186,7 +186,7 @@ export default function CalendarPage() {
           <table className="w-full border-collapse min-w-[800px]">
             <thead>
               <tr className="border-b border-[#E8E2DA] bg-[#FAFAFA] text-xs">
-                <th className="p-3 text-left font-serif font-normal text-[#7A7267] w-48 border-r border-[#E8E2DA]">
+                <th className="p-3 text-left font-semibold text-[#7A7267] w-48 border-r border-[#E8E2DA]">
                   ROOM / CATEGORY
                 </th>
                 {calendarDates.map((d) => (
@@ -197,7 +197,7 @@ export default function CalendarPage() {
                     }`}
                   >
                     <span className="text-[10px] block font-mono">{d.day}</span>
-                    <strong className="text-sm font-serif block">{d.date}</strong>
+                    <strong className="text-sm block font-medium">{d.date}</strong>
                   </th>
                 ))}
               </tr>
@@ -229,7 +229,7 @@ export default function CalendarPage() {
                     <tr className="hover:bg-[#FAF7F2]/40 transition-colors">
                       <td className="p-3 border-r border-[#E8E2DA] bg-[#FAF9F6]">
                         <div className="flex items-baseline justify-between">
-                          <strong className="text-sm font-serif text-[#191816]">
+                          <strong className="text-sm text-[#191816] font-semibold">
                             {room.kind === 'apartment' ? room.roomNumber : `Room ${room.roomNumber}`}
                           </strong>
                           {room.kind === 'apartment' ? null : (
@@ -273,10 +273,10 @@ export default function CalendarPage() {
                               >
                                 <div className="truncate flex items-center gap-2">
                                   <span className="w-1.5 h-1.5 rounded-full bg-white/70" />
-                                  <strong className="font-serif tracking-tight font-normal text-xs">
+                                  <strong className="tracking-tight font-medium text-xs">
                                     {res.guestName}
                                   </strong>
-                                  <span className="opacity-75 text-[10px] font-sans">
+                                  <span className="opacity-75 text-[10px] font-semibold">
                                     · {res.nights} {res.nights === 1 ? 'night' : 'nights'}
                                   </span>
                                 </div>

@@ -34,7 +34,7 @@ function WorkspaceError({ noProperty }: { noProperty: boolean }) {
   return (
     <main className="min-h-screen flex items-center justify-center bg-[#F7F1E8] p-6">
       <section className="w-full max-w-md rounded-xl border border-[#E5D4BC] bg-white p-6 space-y-4" aria-live="polite">
-        <h1 className="text-xl font-serif">{noProperty ? t('workspaceTitle') : t('workspaceErrorTitle')}</h1>
+        <h1 className="text-xl font-semibold">{noProperty ? t('workspaceTitle') : t('workspaceErrorTitle')}</h1>
         <p className="text-sm text-[#7A7267]">{noProperty ? t('workspaceBody') : t('workspaceErrorBody')}</p>
         {noProperty ? (
           <Link className="inline-flex min-h-11 items-center px-4 rounded bg-[#71382D] text-white" href="/onboarding">{t('setUpProperty')}</Link>

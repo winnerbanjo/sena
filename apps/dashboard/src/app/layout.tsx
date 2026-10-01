@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import { headers, cookies } from 'next/headers';
-import { Noto_Sans, Noto_Sans_Arabic } from 'next/font/google';
+import { Noto_Sans, Noto_Sans_Arabic, Poppins } from 'next/font/google';
 import './globals.css';
 import { DashboardShell } from '../components/dashboard-shell';
 import { PostHogProvider } from '../components/posthog-provider';
@@ -23,6 +23,14 @@ const notoArabic = Noto_Sans_Arabic({
   weight: ['400', '500', '600', '700'],
   variable: '--font-noto-arabic',
   display: 'swap',
+});
+
+const poppins = Poppins({
+  subsets: ['latin', 'latin-ext'],
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-poppins',
+  display: 'swap',
+  preload: false,
 });
 
 export const metadata: Metadata = {
@@ -95,6 +103,7 @@ export default async function RootLayout({
   const timeZone =
     workspaceResult?.state === 'ready' ? workspaceResult.workspace.property.timezone : 'Africa/Lagos';
   const messages = isPublicSite ? null : await loadLocaleMessages(locale);
+  const isSignedInApp = !isPublicSite && !isPublicOrAuthPath;
 
   const content = isPublicSite ? (
     <div className="min-h-screen bg-white text-[#191816] w-full">{children}</div>
@@ -106,7 +115,7 @@ export default async function RootLayout({
     <html
       lang={isPublicSite ? 'en' : LOCALE_META[locale].htmlLang}
       dir={dir}
-      className={`${notoSans.variable} ${notoArabic.variable}`}
+      className={`${notoSans.variable} ${notoArabic.variable}${isSignedInApp ? ` ${poppins.variable}` : ''}`}
     >
       <head>
         {!isPublicSite && (
@@ -121,7 +130,7 @@ export default async function RootLayout({
           </>
         )}
       </head>
-      <body className="bg-white text-[#191816] antialiased">
+      <body className={`${isSignedInApp ? 'sena-app ' : ''}bg-white text-[#191816] antialiased`}>
         <PostHogProvider enabled={isPublicSite || !isPublicOrAuthPath}>
           {messages ? (
             <I18nRoot locale={locale} messages={messages} timeZone={timeZone}>

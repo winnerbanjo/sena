@@ -168,7 +168,7 @@ function ReservationsContent() {
                         <span className="text-[11px] font-mono uppercase tracking-widest text-[#8C8275] block">
                           Reservation Folio Ledger
                         </span>
-                        <h3 className="font-serif text-lg text-[#71382D]">
+                        <h3 className="text-lg text-[#71382D] font-semibold">
                           {reservations.length === 0 ? t('emptyTitle') : t('emptyFilteredTitle')}
                         </h3>
                         <p className="text-xs text-[#7A7267] leading-relaxed">
@@ -209,7 +209,7 @@ function ReservationsContent() {
                           <span className="ltr-isolate" dir="ltr">{res.reference}</span>
                         </td>
                         <td className="py-4 px-5">
-                          <strong className="block font-serif text-sm text-[#191816] group-hover:text-[#B85C3E] transition-colors">
+                          <strong className="block text-sm text-[#191816] group-hover:text-[#B85C3E] transition-colors font-semibold">
                             {res.guestName}
                           </strong>
                           <span className="text-[11px] text-[#8C8275]">{res.guestPhone || res.guestEmail}</span>

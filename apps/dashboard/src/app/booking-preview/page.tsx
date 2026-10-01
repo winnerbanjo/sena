@@ -25,7 +25,7 @@ export default function BookingPreviewPage() {
     <div className="flex-1 flex flex-col min-w-0 h-screen">
       <Topbar title={t('title')} />
       <main className={pageMain}>
-        <h2 className="text-2xl font-serif">{t('heading')}</h2>
+        <h2 className="text-2xl font-semibold">{t('heading')}</h2>
         <p className="text-sm text-[#7A7267]">{t('subtitle')}</p>
         {url ? (
           <>

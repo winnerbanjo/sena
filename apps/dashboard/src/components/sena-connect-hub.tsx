@@ -268,7 +268,7 @@ export function SenaConnectHub({
               </span>
               <span className="text-xs text-[#7A7267]">Interoperability Suite</span>
             </div>
-            <h2 className="text-xl font-serif text-[#191816] mt-2">
+            <h2 className="text-xl text-[#191816] mt-2 font-semibold">
               Connect Your Existing Hotel Website
             </h2>
             <p className="text-xs text-[#7A7267] mt-1 max-w-2xl leading-relaxed">
@@ -425,7 +425,7 @@ export function SenaConnectHub({
         <div className="space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <h3 className="text-base font-serif text-[#191816]">Developer API Keys</h3>
+              <h3 className="text-base text-[#191816] font-semibold">Developer API Keys</h3>
               <p className="text-xs text-[#7A7267] mt-0.5">
                 Keys allow external applications to interact with Sena's inventory and reservation engine.
               </p>
@@ -557,7 +557,7 @@ export function SenaConnectHub({
                 ) : (
                   <form onSubmit={handleCreateKey} className="space-y-4">
                     <div>
-                      <h4 className="text-base font-serif text-[#191816]">Create API Key</h4>
+                      <h4 className="text-base text-[#191816] font-semibold">Create API Key</h4>
                       <p className="text-xs text-[#7A7267] mt-0.5">Select the key purpose and assign a descriptive identifier.</p>
                     </div>
 
@@ -615,7 +615,7 @@ export function SenaConnectHub({
         <div className="space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <h3 className="text-base font-serif text-[#191816]">Webhooks Platform</h3>
+              <h3 className="text-base text-[#191816] font-semibold">Webhooks Platform</h3>
               <p className="text-xs text-[#7A7267] mt-0.5">
                 Receive instant HTTP notifications signed with HMAC SHA-256 when reservations are created or confirmed.
               </p>
@@ -729,7 +729,7 @@ export function SenaConnectHub({
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
               <form onSubmit={handleCreateWebhook} className="bg-white rounded-xl border border-[#E8E2DA] max-w-md w-full p-6 space-y-4 shadow-xl">
                 <div>
-                  <h4 className="text-base font-serif text-[#191816]">Add Webhook Endpoint</h4>
+                  <h4 className="text-base text-[#191816] font-semibold">Add Webhook Endpoint</h4>
                   <p className="text-xs text-[#7A7267] mt-0.5">Provide a public HTTPS destination URL to receive event payloads.</p>
                 </div>
 
@@ -768,7 +768,7 @@ export function SenaConnectHub({
       {activeTab === 'quickstart' && (
         <div className="space-y-6">
           <div className="bg-white border border-[#E8E2DA] rounded-lg p-5 space-y-4">
-            <h3 className="text-base font-serif text-[#191816]">Next.js App Router Integration</h3>
+            <h3 className="text-base text-[#191816] font-semibold">Next.js App Router Integration</h3>
             <p className="text-xs text-[#7A7267] leading-relaxed">
               If your hotel website is built with Next.js, connect securely in your Route Handler using your secret key (`sk_live_...`):
             </p>
@@ -843,7 +843,7 @@ export async function POST(req: Request) {
         <div className="space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <h3 className="text-base font-serif text-[#191816]">Real-time API Traffic</h3>
+              <h3 className="text-base text-[#191816] font-semibold">Real-time API Traffic</h3>
               <p className="text-xs text-[#7A7267] mt-0.5">
                 Inspect incoming API and widget requests, response latencies, and HTTP status codes.
               </p>

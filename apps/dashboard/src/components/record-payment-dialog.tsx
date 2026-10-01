@@ -105,7 +105,7 @@ export function RecordPaymentDialog({
       aria-labelledby="settle-payment-title"
       className={embedded ? 'space-y-4 max-h-[85vh] overflow-y-auto' : 'w-full max-w-md max-h-[90vh] overflow-y-auto bg-white rounded-lg p-5 space-y-4'}
     >
-      <h2 id="settle-payment-title" className="font-serif text-xl">
+      <h2 id="settle-payment-title" className="text-xl font-semibold">
         {title}
       </h2>
       <p className="text-sm text-[#7A7267]">

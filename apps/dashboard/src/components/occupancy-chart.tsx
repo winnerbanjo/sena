@@ -92,7 +92,7 @@ export function OccupancyChart({
         <span className="text-[11px] font-mono uppercase tracking-widest text-[#8C8275] block">
           Reservations this week
         </span>
-        <h3 className="font-serif text-lg text-[#71382D]">
+        <h3 className="text-lg text-[#71382D] font-semibold">
           No reservations to show yet
         </h3>
         <p className="text-xs text-[#7A7267] max-w-md mx-auto leading-relaxed">
@@ -183,7 +183,7 @@ export function OccupancyChart({
             {activeTab === 'occupancy' ? "Today's booked occupancy" : "Today's Revenue"}
           </span>
           <div className="flex items-baseline gap-2">
-            <span className="text-xl sm:text-2xl font-serif text-[#191816] font-medium">
+            <span className="text-xl sm:text-2xl text-[#191816] font-medium">
               {activeTab === 'occupancy' ? `${todayDay.occupancy}%` : formatNaira(todayDay.revenueMinorUnits)}
             </span>
             {todayDay.occupancy > 0 && activeTab === 'occupancy' && (
@@ -200,7 +200,7 @@ export function OccupancyChart({
             {activeTab === 'occupancy' ? 'Weekly Average' : 'Total Week Gross'}
           </span>
           <div className="flex items-baseline gap-2">
-            <span className="text-xl sm:text-2xl font-serif text-[#191816] font-medium">
+            <span className="text-xl sm:text-2xl text-[#191816] font-medium">
               {activeTab === 'occupancy' ? `${weeklyAvgOcc}%` : formatShortNaira(weeklyTotalRev)}
             </span>
           </div>
@@ -215,7 +215,7 @@ export function OccupancyChart({
             Peak Demand Day
           </span>
           <div className="flex items-baseline gap-2">
-            <span className="text-xl sm:text-2xl font-serif text-[#191816] font-medium">
+            <span className="text-xl sm:text-2xl text-[#191816] font-medium">
               {peakDay.occupancy === 0 && activeTab === "occupancy" || peakDay.revenueMinorUnits === 0 && activeTab === "revenue" ? "No bookings" : peakDay.dayName}
             </span>
           </div>
@@ -229,7 +229,7 @@ export function OccupancyChart({
             Available Tonight
           </span>
           <div className="flex items-baseline gap-2">
-            <span className="text-xl sm:text-2xl font-serif text-[#2E6B4F] font-medium">
+            <span className="text-xl sm:text-2xl text-[#2E6B4F] font-medium">
               {rooms.length - todayDay.roomsBooked} Rooms
             </span>
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />

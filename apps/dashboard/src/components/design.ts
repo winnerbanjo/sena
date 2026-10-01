@@ -7,7 +7,7 @@ export const pageMain =
 export const pageToolbar =
   'flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between';
 
-export const sectionTitle = 'text-sm font-medium text-[#191816]';
+export const sectionTitle = 'text-sm font-semibold text-[#191816]';
 
 export const sectionMeta = 'text-[13px] leading-5 text-[#7A7267]';
 

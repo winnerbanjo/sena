@@ -322,7 +322,7 @@ export function CheckInRoomDialog({
     >
       <DialogContent className="max-w-md bg-white border border-[#E8E1D5]">
         <DialogHeader>
-          <DialogTitle className="font-serif text-lg text-[#71382D]">{title}</DialogTitle>
+          <DialogTitle className="text-lg text-[#71382D] font-semibold">{title}</DialogTitle>
           <DialogDescription className="text-xs text-[#7A7267]">
             {reservation.guestName} · {reservation.reference}
           </DialogDescription>
@@ -343,7 +343,7 @@ export function CheckInRoomDialog({
           />
         ) : confirmOutstanding ? (
           <div className="space-y-3 py-2 text-xs">
-            <p className="font-serif text-base text-[#71382D]">{t('continueWithoutPaymentQuestion')}</p>
+            <p className="text-base text-[#71382D] font-semibold">{t('continueWithoutPaymentQuestion')}</p>
             <p className="text-sm text-[#191816]">{t('willRemainDue', { amount: isolateLtr(formatNaira(due)) })}</p>
             <p className="text-[#7A7267]">{t('guestWillStillOwe', { amount: isolateLtr(formatNaira(due)) })}</p>
             <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-2">

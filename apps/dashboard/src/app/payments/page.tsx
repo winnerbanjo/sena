@@ -222,7 +222,7 @@ export default function PaymentsPage() {
         {/* Transactions Table */}
         <div className="bg-white border border-[#E8E2DA] rounded-lg overflow-x-auto">
           <div className="p-4 border-b border-[#E8E2DA] bg-[#FAF9F6] flex items-center justify-between">
-            <strong className="text-sm font-serif font-normal text-[#191816]">
+            <strong className="text-sm font-semibold text-[#191816]">
               Settlement Ledger
             </strong>
             <span className="text-xs text-[#7A7267]">
@@ -234,7 +234,7 @@ export default function PaymentsPage() {
             {payments.map((pay) => (
               <div key={pay.id} className="p-4 space-y-1">
                 <p className="font-medium">{pay.guestName}</p>
-                <p className="font-serif text-lg">{formatNaira(pay.amountMinorUnits)}</p>
+                <p className="text-lg font-semibold">{formatNaira(pay.amountMinorUnits)}</p>
                 <p className="text-sm text-[#5C564D]">{pay.provider === 'paystack' ? 'Paystack' : 'Manual'} · {pay.provider === 'paystack' ? 'Online' : pay.method === 'bank_transfer' ? 'Bank transfer' : pay.method === 'pos' ? 'POS' : 'Cash'} · {pay.status}</p>
                 <p className="text-sm text-[#7A7267]">{pay.reference} · {pay.date}</p>
                 {pay.hasReceipt && (
@@ -249,13 +249,13 @@ export default function PaymentsPage() {
           <Table className="hidden sm:table min-w-[700px]">
             <TableHeader>
               <TableRow className="bg-[#FAF9F6] border-b border-[#E8E2DA]">
-                <TableHead className="font-serif font-normal text-[#7A7267] text-xs">Reference</TableHead>
-                <TableHead className="font-serif font-normal text-[#7A7267] text-xs">Guest</TableHead>
-                <TableHead className="font-serif font-normal text-[#7A7267] text-xs">Amount</TableHead>
-                <TableHead className="font-serif font-normal text-[#7A7267] text-xs">Provider</TableHead>
-                <TableHead className="font-serif font-normal text-[#7A7267] text-xs">Method</TableHead>
-                <TableHead className="font-serif font-normal text-[#7A7267] text-xs">Status</TableHead>
-                <TableHead className="font-serif font-normal text-[#7A7267] text-xs text-right">Date & Time</TableHead>
+                <TableHead className="font-semibold text-[#7A7267] text-xs">Reference</TableHead>
+                <TableHead className="font-semibold text-[#7A7267] text-xs">Guest</TableHead>
+                <TableHead className="font-semibold text-[#7A7267] text-xs">Amount</TableHead>
+                <TableHead className="font-semibold text-[#7A7267] text-xs">Provider</TableHead>
+                <TableHead className="font-semibold text-[#7A7267] text-xs">Method</TableHead>
+                <TableHead className="font-semibold text-[#7A7267] text-xs">Status</TableHead>
+                <TableHead className="font-semibold text-[#7A7267] text-xs text-right">Date & Time</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody className="divide-y divide-[#E8E2DA]">
@@ -263,7 +263,7 @@ export default function PaymentsPage() {
                 <TableRow>
                   <TableCell colSpan={7} className="py-14 text-center">
                     <div className="max-w-sm mx-auto space-y-2">
-                      <p className="font-serif text-sm text-[#191816]">
+                      <p className="text-sm text-[#191816] font-semibold">
                         {loading ? 'Reconciling transaction ledger...' : 'No transactions recorded yet'}
                       </p>
                       <p className="text-xs text-[#7A7267] leading-relaxed">
@@ -278,7 +278,7 @@ export default function PaymentsPage() {
                     <TableCell className="font-mono text-xs font-semibold text-[#B85C3E]">
                       <div>{pay.reference}</div>
                       {pay.hasReceipt && (
-                        <div className="mt-1 flex flex-wrap gap-x-3 font-sans font-normal">
+                        <div className="mt-1 flex flex-wrap gap-x-3 font-medium">
                           <a className="text-[#71382D] underline" href={`/api/payments/${pay.id}/receipt`} target="_blank" rel="noopener noreferrer">{t('viewReceipt')}</a>
                           <a className="text-[#71382D] underline" href={`/api/payments/${pay.id}/receipt?download=1`} target="_blank" rel="noopener noreferrer">{t('downloadReceipt')}</a>
                         </div>
@@ -287,7 +287,7 @@ export default function PaymentsPage() {
                   <TableCell className="font-medium text-sm text-[#191816]">
                     {pay.guestName}
                   </TableCell>
-                  <TableCell className="font-serif font-medium text-sm text-[#191816]">
+                  <TableCell className="font-medium text-sm text-[#191816]">
                     {formatNaira(pay.amountMinorUnits)}
                   </TableCell>
                   <TableCell className="text-xs text-[#7A7267]">
@@ -310,7 +310,7 @@ export default function PaymentsPage() {
 
         <div className="bg-white border border-[#E8E2DA] rounded-lg overflow-x-auto">
           <div className="p-4 border-b border-[#E8E2DA] bg-[#FAF9F6]">
-            <strong className="text-sm font-serif font-normal text-[#191816]">Outstanding guest balances</strong>
+            <strong className="text-sm font-semibold text-[#191816]">Outstanding guest balances</strong>
             <p className="text-xs text-[#7A7267]">Who still owes the hotel, including checked-out receivables.</p>
           </div>
           {receivables.length === 0 ? (
@@ -336,7 +336,7 @@ export default function PaymentsPage() {
 
         <div className="bg-white border border-[#E8E2DA] rounded-lg overflow-x-auto">
           <div className="p-4 border-b border-[#E8E2DA] bg-[#FAF9F6]">
-            <strong className="text-sm font-serif font-normal text-[#191816]">Transfer proofs</strong>
+            <strong className="text-sm font-semibold text-[#191816]">Transfer proofs</strong>
             <p className="text-xs text-[#7A7267]">Guest-submitted proofs are not payments until verified.</p>
           </div>
           {proofs.length === 0 ? (
@@ -374,7 +374,7 @@ export default function PaymentsPage() {
       {recordOpen && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-end sm:items-center justify-center p-3">
           <form ref={recordDialogRef} onSubmit={submitRecordPayment} role="dialog" aria-modal="true" aria-labelledby="record-payment-title" className="w-full max-w-md max-h-[90vh] overflow-y-auto bg-white rounded-lg p-5 space-y-4">
-            <h2 id="record-payment-title" className="font-serif text-xl">Record payment</h2>
+            <h2 id="record-payment-title" className="text-xl font-semibold">Record payment</h2>
             <label htmlFor="record-reservation" className="block text-sm">Reservation
               <select id="record-reservation" required value={recordForm.reservationId} onChange={(event) => setRecordForm({ ...recordForm, reservationId: event.target.value })} className="mt-1 w-full min-h-11 border border-[#E8E2DA] rounded px-3 py-2">
                 <option value="">Select a stay</option>

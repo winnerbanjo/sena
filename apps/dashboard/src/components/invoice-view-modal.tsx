@@ -422,7 +422,7 @@ export function InvoiceViewModal({
               <span className="text-[11px] font-mono tracking-widest text-[#B85C3E] uppercase font-bold block mb-1">
                 Official Hotel Folio & Tax Invoice
               </span>
-              <h1 className="text-2xl sm:text-3xl font-serif font-medium text-[#191816] tracking-tight">
+              <h1 className="text-2xl sm:text-3xl font-medium text-[#191816] tracking-tight">
                 {propertyName}
               </h1>
               <p className="text-xs text-[#7A7267] mt-1 max-w-sm leading-relaxed">
@@ -469,7 +469,7 @@ export function InvoiceViewModal({
               <span className="text-[10px] font-mono tracking-wider uppercase text-[#7A7267] font-semibold block mb-1">
                 Billed To / Guest Details
               </span>
-              <strong className="text-base font-serif text-[#191816] block">
+              <strong className="text-base text-[#191816] block font-semibold">
                 {invoice.recipientName}
               </strong>
               {invoice.recipientAddress && (
@@ -549,7 +549,7 @@ export function InvoiceViewModal({
           <div className="flex flex-col sm:flex-row justify-between items-start gap-8 pt-2">
             {invoice.bankDetails?.accountNumber ? (
             <div className="w-full sm:max-w-xs p-4 rounded-lg bg-[#FAF7F2] border border-[#E8E2DA] text-xs space-y-2">
-              <div className="flex items-center gap-1.5 text-[#71382D] font-serif font-bold text-sm">
+              <div className="flex items-center gap-1.5 text-[#71382D] font-bold text-sm">
                 <Building2 className="w-4 h-4" />
                 <span>Pay by bank transfer</span>
               </div>
@@ -618,7 +618,7 @@ export function InvoiceViewModal({
                 </div>
               )}
 
-              <div className="flex justify-between py-2 border-b-2 border-[#191816] text-sm font-serif font-bold text-[#191816]">
+              <div className="flex justify-between py-2 border-b-2 border-[#191816] text-sm font-bold text-[#191816]">
                 <span>Total Amount:</span>
                 <span className="font-mono">{formatNaira(invoice.totalAmountMinorUnits)}</span>
               </div>
@@ -659,7 +659,7 @@ export function InvoiceViewModal({
           <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in">
             <div className="bg-white rounded-xl shadow-2xl border border-[#E8E2DA] w-full max-w-md max-h-[90vh] overflow-y-auto p-4 sm:p-6 space-y-4">
               <div className="flex items-center justify-between pb-3 border-b border-[#E8E2DA]">
-                <h3 className="font-serif text-lg font-medium text-[#191816]">
+                <h3 className="text-lg font-medium text-[#191816]">
                   Record Settlement Payment
                 </h3>
                 <button onClick={() => setRecordPaymentOpen(false)} className="text-[#7A7267] hover:text-[#191816]">

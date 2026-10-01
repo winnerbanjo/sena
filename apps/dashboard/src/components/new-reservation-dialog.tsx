@@ -430,7 +430,7 @@ export function NewReservationDialog({
               <span className="text-[#7A7267]">
                 {t('nights', { count: nights })}:
               </span>
-              <strong className="text-base font-serif text-[#191816]">
+              <strong className="text-base text-[#191816] font-semibold">
                 {formatNaira(totalAmountMinorUnits)}
               </strong>
             </div>

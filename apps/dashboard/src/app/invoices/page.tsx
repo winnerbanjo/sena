@@ -414,7 +414,7 @@ export default function InvoicesPage() {
             ) : invoices.length === 0 ? (
               <div className="text-center py-16 space-y-2">
                 <FileText className="w-8 h-8 text-[#7A7267] mx-auto opacity-50" />
-                <p className="text-sm font-serif text-[#191816]">No invoices found</p>
+                <p className="text-sm text-[#191816] font-semibold">No invoices found</p>
                 <p className="text-xs text-[#7A7267] max-w-sm mx-auto">
                   Generate your first guest stay folio or corporate invoice using the &quot;Create New Invoice&quot; button above.
                 </p>
@@ -529,7 +529,7 @@ export default function InvoicesPage() {
           <div className="relative w-full max-w-3xl bg-white rounded-xl shadow-2xl border border-[#E8E2DA] my-auto overflow-hidden flex flex-col max-h-[92vh]">
             <div className="flex items-center justify-between px-6 py-4 bg-[#FAF7F2] border-b border-[#E8E2DA]">
               <div>
-                <h3 className="text-lg font-serif font-medium text-[#191816]">
+                <h3 className="text-lg font-medium text-[#191816]">
                   Create Official Invoice / Guest Folio
                 </h3>
                 <p className="text-xs text-[#7A7267] mt-0.5">
