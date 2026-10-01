@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db, roomTypes, apartments, properties } from '@sena/database';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, isNull } from 'drizzle-orm';
 import { checkApartmentAvailability, checkAvailability } from '@sena/inventory';
 import { calculateNights } from '@sena/config';
 import { authenticateApiRequest, logApiRequest } from '@/lib/api-auth';
@@ -154,7 +154,7 @@ export async function GET(
     const apartmentRows = await db
       .select()
       .from(apartments)
-      .where(and(eq(apartments.propertyId, id), eq(apartments.bookingVisibility, true)));
+      .where(and(eq(apartments.propertyId, id), isNull(apartments.archivedAt), eq(apartments.bookingVisibility, true)));
 
     const apartmentResults = await Promise.all(
       apartmentRows

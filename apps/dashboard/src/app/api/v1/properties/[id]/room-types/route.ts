@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db, roomTypes, apartments, roomImages, and, asc, eq } from '@sena/database';
+import { db, roomTypes, apartments, roomImages, and, asc, eq, isNull } from '@sena/database';
 import { authenticateApiRequest, logApiRequest } from '@/lib/api-auth';
 
 export async function GET(
@@ -33,7 +33,7 @@ export async function GET(
     const units = await db
       .select()
       .from(apartments)
-      .where(and(eq(apartments.propertyId, id), eq(apartments.websiteVisibility, true), eq(apartments.bookingVisibility, true)));
+      .where(and(eq(apartments.propertyId, id), isNull(apartments.archivedAt), eq(apartments.websiteVisibility, true), eq(apartments.bookingVisibility, true)));
     const photos = units.length
       ? await db.select().from(roomImages).where(eq(roomImages.propertyId, id)).orderBy(asc(roomImages.sortOrder))
       : [];

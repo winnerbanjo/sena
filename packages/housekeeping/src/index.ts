@@ -1,6 +1,6 @@
 import { activityLogs, apartments, db, housekeepingTasks, properties, propertyMembers, rooms, users } from '@sena/database';
 import type { HousekeepingStatus } from '@sena/types';
-import { and, desc, eq, inArray } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNull } from 'drizzle-orm';
 
 const OPEN_TASK_STATUSES = ['dirty', 'cleaning'] as const;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -318,7 +318,7 @@ export class HousekeepingService {
         updatedAt: apartments.updatedAt,
       })
       .from(apartments)
-      .where(eq(apartments.propertyId, propertyId))
+      .where(and(eq(apartments.propertyId, propertyId), isNull(apartments.archivedAt)))
       .orderBy(apartments.name);
 
     return { rooms: roomList, apartments: apartmentList, tasks, staff: eligibleStaff };

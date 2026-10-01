@@ -231,6 +231,7 @@ export class ReservationService {
         .limit(1)
         .for('update');
       if (!apartment) throw new Error('Apartment not found');
+      if (apartment.archivedAt) throw new Error('This apartment is archived and cannot take new reservations.');
       if (apartment.operationalStatus === 'blocked' || apartment.operationalStatus === 'maintenance') {
         throw new Error('This apartment is out of service.');
       }

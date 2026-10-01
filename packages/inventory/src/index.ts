@@ -5,6 +5,18 @@ export {
   deriveApartmentBoardStatus,
   type ApartmentBoardStatus,
 } from './apartments';
+export {
+  APARTMENT_REMOVAL_MESSAGES,
+  apartmentOwnedStorageKey,
+  classifyApartmentRemoval,
+  removeApartment,
+  restoreApartment,
+  roleMayEditApartmentInventory,
+  type ApartmentRemovalCode,
+  type ApartmentRemovalDecision,
+  type ApartmentRemovalFacts,
+  type ApartmentRemovalResult,
+} from './apartment-removal';
 import { getDatesBetween } from '@sena/config';
 import { db, inventory, roomTypes, bookingHolds } from '@sena/database';
 import { and, eq, inArray, sql, gt } from 'drizzle-orm';

@@ -1,4 +1,4 @@
-import { db, properties, websiteConfigs, roomTypes, apartments, roomImages, reviews, and, asc, eq, desc } from '@sena/database';
+import { db, properties, websiteConfigs, roomTypes, apartments, roomImages, reviews, and, asc, eq, desc, isNull } from '@sena/database';
 
 export interface WebsiteData {
   property: {
@@ -144,6 +144,7 @@ export async function getWebsiteData(slug: string, isPreview = false): Promise<W
       .where(
         and(
           eq(apartments.propertyId, property.id),
+          isNull(apartments.archivedAt),
           eq(apartments.websiteVisibility, true),
           eq(apartments.bookingVisibility, true)
         )
