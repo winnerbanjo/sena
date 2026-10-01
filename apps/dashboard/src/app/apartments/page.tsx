@@ -7,7 +7,7 @@ import { Button } from '@sena/ui';
 import { Bath, BedDouble, MapPin, Plus, Users } from 'lucide-react';
 import { Topbar } from '../../components/topbar';
 import { PageLoadState } from '../../components/page-load-state';
-import { AddApartmentDialog, APARTMENT_TYPE_KEYS, emptyApartmentDraft, type ApartmentDraft } from '../../components/add-apartment-dialog';
+import { AddApartmentDialog, APARTMENT_TYPE_KEYS, emptyApartmentDraft, type AddApartmentDialogHandle, type ApartmentDraft } from '../../components/add-apartment-dialog';
 import type { EditablePhoto } from '../../components/room-gallery-editor';
 
 type BoardStatus = 'available' | 'occupied' | 'reserved' | 'needs_cleaning' | 'blocked' | 'maintenance';
@@ -66,6 +66,7 @@ export default function ApartmentsPage() {
   const [draft, setDraft] = React.useState<ApartmentDraft>(emptyApartmentDraft());
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState('');
+  const apartmentDialogRef = React.useRef<AddApartmentDialogHandle>(null);
 
   const load = React.useCallback(async () => {
     try {
@@ -108,6 +109,7 @@ export default function ApartmentsPage() {
       setError(t('invalid'));
       return;
     }
+    if (apartmentDialogRef.current?.isBusy()) return;
     setSaving(true);
     setError('');
     try {
@@ -139,13 +141,12 @@ export default function ApartmentsPage() {
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || t('invalid'));
       const apartmentId = data.apartment?.id || draft.id;
-      const pending = draft.gallery.filter((photo) => photo.file);
-      if (apartmentId && pending.length > 0) {
-        const form = new FormData();
-        form.append('apartmentId', apartmentId);
-        pending.forEach((photo) => photo.file && form.append('files', photo.file));
-        await fetch('/api/rooms/gallery', { method: 'POST', body: form });
+      if (apartmentId) setDraft((current) => ({ ...current, id: apartmentId }));
+      if (apartmentId && apartmentDialogRef.current?.hasPending()) {
+        const outcome = await apartmentDialogRef.current.uploadPending({ apartmentId });
+        if (outcome.failed > 0) return;
       }
+      if (apartmentDialogRef.current?.failedCount()) return;
       setOpen(false);
       await load();
     } catch (saveError: any) {
@@ -241,10 +242,14 @@ export default function ApartmentsPage() {
       </main>
 
       <AddApartmentDialog
+        ref={apartmentDialogRef}
         open={open}
-        onOpenChange={setOpen}
+        onOpenChange={(next) => {
+          setOpen(next);
+          if (!next) void load();
+        }}
         draft={draft}
-        onChange={setDraft}
+        onChange={(next) => setDraft((current) => ({ ...next, id: current.id || next.id }))}
         onSubmit={save}
         saving={saving}
         error={error}

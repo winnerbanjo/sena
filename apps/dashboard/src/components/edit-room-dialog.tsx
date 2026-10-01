@@ -13,7 +13,8 @@ import {
 } from '@sena/ui';
 import { useTranslations } from 'next-intl';
 import type { RoomCategory, RoomItem } from './mock-data';
-import { RoomGalleryEditor } from './room-gallery-editor';
+import { GalleryCloseWarning, RoomGalleryEditor, type RoomGalleryEditorHandle } from './room-gallery-editor';
+import { closeNeedsUploadWarning, saveBlockedWhileUploading } from '@/lib/gallery-upload-queue';
 import type { GalleryPhoto } from '@/lib/room-gallery';
 
 const FLOORS = ['Floor 1', 'Floor 2', 'Floor 3', 'Floor 4', 'Ground Floor', 'Penthouse'];
@@ -41,6 +42,16 @@ export function EditRoomDialog({
   const [photos, setPhotos] = React.useState<GalleryPhoto[]>([]);
   const [error, setError] = React.useState('');
   const [saving, setSaving] = React.useState(false);
+  const [activity, setActivity] = React.useState({ busy: false, failed: 0 });
+  const [confirmClose, setConfirmClose] = React.useState(false);
+  const editorRef = React.useRef<RoomGalleryEditorHandle>(null);
+  function requestClose(next: boolean) {
+    if (!next && closeNeedsUploadWarning(activity.busy)) {
+      setConfirmClose(true);
+      return;
+    }
+    onOpenChange(next);
+  }
 
   React.useEffect(() => {
     if (!open || !room) return;
@@ -58,6 +69,7 @@ export function EditRoomDialog({
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     if (!room) return;
+    if (saveBlockedWhileUploading(activity.busy)) return;
     if (!number.trim()) {
       setError(t('roomNumberRequired'));
       return;
@@ -85,13 +97,14 @@ export function EditRoomDialog({
       setError(result.error || t('roomUpdateFailed'));
       return;
     }
+    if (editorRef.current?.failedCount()) return;
     onOpenChange(false);
   }
 
   const floorOptions = FLOORS.includes(floor) ? FLOORS : [floor, ...FLOORS];
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={requestClose}>
       <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="font-serif text-xl text-[#191816]">{t('editRoom')}</DialogTitle>
@@ -171,19 +184,32 @@ export function EditRoomDialog({
             />
           </div>
           {room && (
+            <>
             <RoomGalleryEditor
+              ref={editorRef}
               photos={photos}
               onChange={setPhotos}
+              onActivityChange={setActivity}
               roomId={room.id}
               label={t('roomPhotos')}
               help={t('roomGalleryHelp')}
             />
+            <GalleryCloseWarning
+              open={confirmClose}
+              onKeep={() => setConfirmClose(false)}
+              onClose={() => {
+                editorRef.current?.cancelActiveUploads();
+                setConfirmClose(false);
+                onOpenChange(false);
+              }}
+            />
+            </>
           )}
           <DialogFooter>
-            <Button type="button" variant="secondary" onClick={() => onOpenChange(false)} className="min-h-11 text-xs">
+            <Button type="button" variant="secondary" onClick={() => requestClose(false)} className="min-h-11 text-xs">
               {t('cancel')}
             </Button>
-            <Button type="submit" disabled={saving} className="min-h-11 text-xs">
+            <Button type="submit" disabled={saving || saveBlockedWhileUploading(activity.busy)} className="min-h-11 text-xs">
               {saving ? t('saving') : t('saveChanges')}
             </Button>
           </DialogFooter>

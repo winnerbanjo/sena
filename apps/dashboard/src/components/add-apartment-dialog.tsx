@@ -3,7 +3,8 @@
 import * as React from 'react';
 import { useTranslations } from 'next-intl';
 import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input } from '@sena/ui';
-import { RoomGalleryEditor, type EditablePhoto } from './room-gallery-editor';
+import { GalleryCloseWarning, RoomGalleryEditor, type EditablePhoto, type RoomGalleryEditorHandle } from './room-gallery-editor';
+import { closeNeedsUploadWarning, saveBlockedWhileUploading } from '@/lib/gallery-upload-queue';
 
 const AMENITIES = [
   'High-speed Wi-Fi',
@@ -71,16 +72,9 @@ export const emptyApartmentDraft = (): ApartmentDraft => ({
   gallery: [],
 });
 
-export function AddApartmentDialog({
-  open,
-  onOpenChange,
-  draft,
-  onChange,
-  onSubmit,
-  saving,
-  error,
-  propertyAddress,
-}: {
+export type AddApartmentDialogHandle = RoomGalleryEditorHandle;
+
+export const AddApartmentDialog = React.forwardRef<AddApartmentDialogHandle, {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   draft: ApartmentDraft;
@@ -89,15 +83,41 @@ export function AddApartmentDialog({
   saving: boolean;
   error: string;
   propertyAddress: string;
-}) {
+}>(function AddApartmentDialog({
+  open,
+  onOpenChange,
+  draft,
+  onChange,
+  onSubmit,
+  saving,
+  error,
+  propertyAddress,
+}, ref) {
   const t = useTranslations('apartments');
   const editing = Boolean(draft.id);
+  const editorRef = React.useRef<RoomGalleryEditorHandle>(null);
+  const [activity, setActivity] = React.useState({ busy: false, failed: 0 });
+  const [confirmClose, setConfirmClose] = React.useState(false);
+  React.useImperativeHandle(ref, () => ({
+    uploadPending: (target) => editorRef.current?.uploadPending(target) ?? Promise.resolve({ uploaded: 0, failed: 0 }),
+    hasPending: () => editorRef.current?.hasPending() ?? false,
+    failedCount: () => editorRef.current?.failedCount() ?? 0,
+    isBusy: () => editorRef.current?.isBusy() ?? false,
+    cancelActiveUploads: () => editorRef.current?.cancelActiveUploads(),
+  }));
+  function requestClose(next: boolean) {
+    if (!next && closeNeedsUploadWarning(activity.busy)) {
+      setConfirmClose(true);
+      return;
+    }
+    onOpenChange(next);
+  }
   function set<K extends keyof ApartmentDraft>(key: K, value: ApartmentDraft[K]) {
     onChange({ ...draft, [key]: value });
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={requestClose}>
       <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>{editing ? t('editTitle') : t('createTitle')}</DialogTitle>
@@ -190,20 +210,31 @@ export function AddApartmentDialog({
           </div>
           <div className="sm:col-span-2">
             <RoomGalleryEditor
+              ref={editorRef}
               photos={draft.gallery}
               onChange={(gallery) => set('gallery', gallery)}
               apartmentId={draft.id}
               label={t('photos')}
               help={t('photosHelp')}
+              onActivityChange={setActivity}
+            />
+            <GalleryCloseWarning
+              open={confirmClose}
+              onKeep={() => setConfirmClose(false)}
+              onClose={() => {
+                editorRef.current?.cancelActiveUploads();
+                setConfirmClose(false);
+                onOpenChange(false);
+              }}
             />
           </div>
         </div>
         {error ? <p className="text-xs text-red-700" role="alert">{error}</p> : null}
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>{t('cancel')}</Button>
-          <Button type="button" disabled={saving} onClick={onSubmit}>{saving ? t('saving') : t('save')}</Button>
+          <Button type="button" variant="outline" onClick={() => requestClose(false)}>{t('cancel')}</Button>
+          <Button type="button" disabled={saving || saveBlockedWhileUploading(activity.busy)} onClick={onSubmit}>{saving ? t('saving') : t('save')}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
   );
-}
+});

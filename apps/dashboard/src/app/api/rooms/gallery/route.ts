@@ -12,6 +12,7 @@ import {
   type GalleryPhoto,
 } from '@/lib/room-gallery';
 import { deleteMediaFromSpaces, uploadMediaToSpaces } from '@sena/integrations';
+import { abortGalleryUpload, finishGalleryUpload, saveGalleryPart, storePersistedGalleryFile } from '@/lib/gallery-upload-store';
 import { and, asc, eq, apartments, roomImages, roomTypes, rooms, db } from '@sena/database';
 import { NextRequest, NextResponse } from 'next/server';
 import { randomUUID } from 'crypto';
@@ -37,7 +38,7 @@ async function loadTargetGallery(propertyId: string, target: { roomTypeId?: stri
   return rows;
 }
 
-async function syncLegacyImages(propertyId: string, target: { roomTypeId?: string | null; roomId?: string | null }) {
+async function syncLegacyImages(propertyId: string, target: { roomTypeId?: string | null; roomId?: string | null; apartmentId?: string | null }) {
   const rows = await loadTargetGallery(propertyId, target);
   const urls = galleryDisplayUrls(rows.map(photo));
   if (target.roomTypeId) {
@@ -83,6 +84,14 @@ async function ownedTarget(propertyId: string, roomTypeId?: string | null, roomI
   return { pending: true as const };
 }
 
+async function persistedOwner(target: { apartmentId?: string; roomId?: string; roomTypeId?: string; pending?: boolean }) {
+  return {
+    apartmentId: 'apartmentId' in target ? target.apartmentId || null : null,
+    roomId: 'roomId' in target ? target.roomId || null : null,
+    roomTypeId: 'roomTypeId' in target ? target.roomTypeId || null : null,
+  };
+}
+
 async function handlePOST(req: NextRequest) {
   try {
     const merchant = getMerchantRequest(req);
@@ -96,6 +105,23 @@ async function handlePOST(req: NextRequest) {
     const target = await ownedTarget(propertyId, roomTypeId, roomId, apartmentId);
     if (!target) return NextResponse.json({ error: 'That room could not be found for this property.' }, { status: 404 });
 
+    const phase = String(form.get('phase') || '');
+    if (phase === 'part' || phase === 'finish' || phase === 'abort') {
+      if ('pending' in target) return NextResponse.json({ error: 'Save the room before uploading photos.' }, { status: 400 });
+      const owner = await persistedOwner(target);
+      const result =
+        phase === 'part'
+          ? await saveGalleryPart({ propertyId, owner, form })
+          : phase === 'abort'
+            ? await abortGalleryUpload({ propertyId, owner, form })
+            : await finishGalleryUpload({ propertyId, userId: merchant?.tenant.userId, owner, form });
+      if (phase === 'finish' && result.status === 200) {
+        const gallery = await syncLegacyImages(propertyId, owner);
+        return NextResponse.json({ ...result.body, gallery: orderedGallery(gallery) }, { status: 200 });
+      }
+      return NextResponse.json(result.body, { status: result.status });
+    }
+
     const files = form.getAll('files').filter((entry): entry is File => entry instanceof File && entry.size > 0);
     if (files.length === 0) return NextResponse.json({ error: 'Choose at least one photo.' }, { status: 400 });
 
@@ -105,67 +131,69 @@ async function handlePOST(req: NextRequest) {
     const errors: { filename: string; error: string }[] = [];
 
     for (const file of files) {
-      const bytes = new Uint8Array(await file.arrayBuffer());
-      const decision = inspectRoomImage({
-        filename: file.name || 'photo.jpg',
-        mimeType: file.type,
-        byteSize: bytes.byteLength,
-        bytes,
-      });
-      if (!decision.ok || !decision.contentType || !decision.extension) {
-        errors.push({ filename: file.name || 'photo', error: decision.error || 'This file is not a valid photo.' });
-        continue;
-      }
-      const imageId = randomUUID();
-      const storageKey = storageKeyForRoomImage({
-        propertyId,
-        roomTypeId: 'roomTypeId' in target ? target.roomTypeId : null,
-        roomId: 'roomId' in target ? target.roomId : null,
-        apartmentId: 'apartmentId' in target ? target.apartmentId : null,
-        imageId,
-        extension: decision.extension,
-      });
-      const stored = await uploadMediaToSpaces({
-        key: storageKey,
-        body: bytes,
-        contentType: decision.contentType,
-        acl: 'public-read',
-      });
-      if ('pending' in target) {
-        uploaded.push({
-          id: imageId,
-          url: stored.url,
-          storageKey,
-          isCover: existing.length + uploaded.length === 0,
-          sortOrder,
-        });
-        sortOrder += 1;
-        continue;
-      }
-      const [row] = await db
-        .insert(roomImages)
-        .values({
-          id: imageId,
-          propertyId,
-          roomTypeId: 'roomTypeId' in target ? target.roomTypeId : null,
-          roomId: 'roomId' in target ? target.roomId : null,
-          apartmentId: 'apartmentId' in target ? target.apartmentId : null,
-          storageKey,
-          url: stored.url,
-          originalFilename: file.name.slice(0, 255),
-          contentType: decision.contentType,
+      const filename = file.name || 'photo.jpg';
+      try {
+        const bytes = new Uint8Array(await file.arrayBuffer());
+        const decision = inspectRoomImage({
+          filename,
+          mimeType: file.type,
           byteSize: bytes.byteLength,
-          sortOrder,
-          isCover: existing.length + uploaded.length === 0,
-          uploadedByUserId: merchant?.tenant.userId,
-        })
-        .returning();
-      uploaded.push(photo(row));
-      sortOrder += 1;
+          bytes,
+        });
+        if (!decision.ok || !decision.contentType || !decision.extension) {
+          errors.push({ filename, error: decision.error || 'This file is not a valid photo.' });
+          continue;
+        }
+        const imageId = randomUUID();
+        if ('pending' in target) {
+          const storageKey = storageKeyForRoomImage({
+            propertyId,
+            imageId,
+            extension: decision.extension,
+          });
+          const stored = await uploadMediaToSpaces({
+            key: storageKey,
+            body: bytes,
+            contentType: decision.contentType,
+            acl: 'public-read',
+          });
+          uploaded.push({
+            id: imageId,
+            url: stored.url,
+            storageKey,
+            isCover: existing.length + uploaded.length === 0,
+            sortOrder,
+          });
+          sortOrder += 1;
+          continue;
+        }
+        const stored = await storePersistedGalleryFile({
+          propertyId,
+          userId: merchant?.tenant.userId,
+          owner: await persistedOwner(target),
+          filename,
+          bytes,
+          contentType: decision.contentType,
+          extension: decision.extension,
+          imageId,
+        });
+        if (!stored.ok) {
+          errors.push({ filename, error: stored.error });
+          continue;
+        }
+        uploaded.push(stored.photo);
+      } catch (fileError) {
+        console.error('Gallery file upload failed:', fileError);
+        errors.push({ filename, error: 'Could not store that photo.' });
+      }
     }
 
-    const gallery = 'pending' in target ? [...existing.map(photo), ...uploaded] : await syncLegacyImages(propertyId, target);
-    return NextResponse.json({ gallery: orderedGallery(gallery), uploaded, errors });
+    const gallery = 'pending' in target ? [...existing.map(photo), ...uploaded] : await syncLegacyImages(propertyId, await persistedOwner(target));
+    const status = uploaded.length === 0 && errors.length > 0 ? 422 : 200;
+    return NextResponse.json(
+      { gallery: orderedGallery(gallery), uploaded, errors, error: errors[0]?.error },
+      { status }
+    );
   } catch (error: any) {
     console.error('Error uploading room photos:', error);
     return NextResponse.json({ error: apiError(error) }, { status: 500 });

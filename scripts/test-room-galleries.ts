@@ -108,7 +108,9 @@ const roomDialog = readFileSync('apps/dashboard/src/components/add-room-dialog.t
 const editor = readFileSync('apps/dashboard/src/components/room-gallery-editor.tsx', 'utf8');
 const roomsPage = readFileSync('apps/dashboard/src/app/rooms/page.tsx', 'utf8');
 assert.match(editor, /multiple/);
-assert.match(editor, /overflow-x-auto/);
+assert.match(editor, /grid-cols-2/);
+assert.doesNotMatch(editor, /photosUploading/);
+assert.doesNotMatch(editor, /overflow-x-auto/);
 assert.match(editor, /min-h-11/);
 assert.match(categoryDialog, /editCategory/);
 assert.match(roomsPage, /editCategory/);

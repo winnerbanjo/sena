@@ -14,13 +14,14 @@ import {
 import { Check, Plus } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import type { RoomCategory } from './mock-data';
-import { coverFirstUrls, RoomGalleryEditor } from './room-gallery-editor';
+import { coverFirstUrls, GalleryCloseWarning, RoomGalleryEditor, type RoomGalleryEditorHandle } from './room-gallery-editor';
+import { closeNeedsUploadWarning, saveBlockedWhileUploading } from '@/lib/gallery-upload-queue';
 import type { GalleryPhoto } from '@/lib/room-gallery';
 
 interface AddCategoryDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onAddCategory: (category: RoomCategory) => void | Promise<{ ok: boolean; error?: string } | void>;
+  onAddCategory: (category: RoomCategory) => void | Promise<{ ok: boolean; id?: string; error?: string } | void>;
   category?: RoomCategory | null;
 }
 
@@ -61,6 +62,17 @@ export function AddCategoryDialog({
   ]);
   const [error, setError] = React.useState('');
   const [saving, setSaving] = React.useState(false);
+  const [activity, setActivity] = React.useState({ busy: false, failed: 0 });
+  const [confirmClose, setConfirmClose] = React.useState(false);
+  const editorRef = React.useRef<RoomGalleryEditorHandle>(null);
+  function requestClose(next: boolean) {
+    if (!next && closeNeedsUploadWarning(activity.busy)) {
+      setConfirmClose(true);
+      return;
+    }
+    onOpenChange(next);
+  }
+
 
   React.useEffect(() => {
     if (!open) return;
@@ -143,18 +155,27 @@ export function AddCategoryDialog({
       bedType: bedType.trim() || '1 King Bed',
       description: description.trim() || 'Comfortable and elegantly appointed room.',
       amenities: selectedAmenities,
-      imageUrl: coverFirstUrls(photos)[0],
-      images: coverFirstUrls(photos),
+      imageUrl: coverFirstUrls(photos.filter((photo) => !photo.url.startsWith('blob:') && !photo.id.startsWith('local-')) )[0],
+      images: coverFirstUrls(photos.filter((photo) => !photo.url.startsWith('blob:') && !photo.id.startsWith('local-'))),
       gallery: photos,
     };
 
     setSaving(true);
     const result = await onAddCategory(newCategory);
-    setSaving(false);
     if (result && result.ok === false) {
+      setSaving(false);
       setError(result.error || 'Could not save this category.');
       return;
     }
+    const categoryId = (result && 'id' in result && result.id) || (category?.id && /^[0-9a-f-]{36}$/i.test(category.id) ? category.id : undefined);
+    if (categoryId && editorRef.current?.hasPending()) {
+      const outcome = await editorRef.current.uploadPending({ roomTypeId: categoryId });
+      setSaving(false);
+      if (outcome.failed > 0) return;
+    } else {
+      setSaving(false);
+    }
+    if (editorRef.current?.failedCount()) return;
     onOpenChange(false);
 
     // Reset form
@@ -167,7 +188,7 @@ export function AddCategoryDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={requestClose}>
       <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="font-serif text-xl sm:text-2xl text-[#191816]">
@@ -271,11 +292,22 @@ export function AddCategoryDialog({
           </div>
 
           <RoomGalleryEditor
+            ref={editorRef}
             photos={photos}
             onChange={setPhotos}
+            onActivityChange={setActivity}
             roomTypeId={category?.id && /^[0-9a-f-]{36}$/i.test(category.id) ? category.id : undefined}
             label={t('roomPhotos')}
             help={t('categoryGalleryHelp')}
+          />
+          <GalleryCloseWarning
+            open={confirmClose}
+            onKeep={() => setConfirmClose(false)}
+            onClose={() => {
+              editorRef.current?.cancelActiveUploads();
+              setConfirmClose(false);
+              onOpenChange(false);
+            }}
           />
 
           {/* Amenities Selection */}
@@ -309,12 +341,12 @@ export function AddCategoryDialog({
             <Button
               type="button"
               variant="secondary"
-              onClick={() => onOpenChange(false)}
+              onClick={() => requestClose(false)}
               className="text-xs"
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={saving} className="text-xs min-h-11">
+            <Button type="submit" disabled={saving || saveBlockedWhileUploading(activity.busy)} className="text-xs min-h-11">
               <Plus className="w-3.5 h-3.5 mr-1" />
               {editing ? t('saveChanges') : 'Save Category'}
             </Button>
