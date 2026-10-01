@@ -191,7 +191,7 @@ export function AddCategoryDialog({
     <Dialog open={open} onOpenChange={requestClose}>
       <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="font-serif text-xl sm:text-2xl text-[#191816]">
+          <DialogTitle className="text-xl sm:text-2xl text-[#191816] font-semibold">
             {editing ? t('editCategory') : 'Add Room Category'}
           </DialogTitle>
           <DialogDescription className="text-xs text-[#7A7267]">

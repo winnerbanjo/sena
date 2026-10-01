@@ -207,7 +207,7 @@ export function AddRoomDialog({
     <Dialog open={open} onOpenChange={requestClose}>
       <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="font-serif text-xl sm:text-2xl text-[#191816]">
+          <DialogTitle className="text-xl sm:text-2xl text-[#191816] font-semibold">
             {creationMode === 'single' ? 'Add New Room' : 'Add Multiple Rooms to Category'}
           </DialogTitle>
           <DialogDescription className="text-xs text-[#7A7267]">

@@ -164,7 +164,7 @@ export default function AnalyticsPage() {
           {/* Booking Sources */}
           <div className="bg-white border border-[#E8E2DA] p-6 rounded-md space-y-4">
             <div>
-              <strong className="text-base font-serif text-[#191816] block">
+              <strong className="text-base text-[#191816] block font-semibold">
                 Booking Sources
               </strong>
               <p className="text-xs text-[#7A7267]">
@@ -175,7 +175,7 @@ export default function AnalyticsPage() {
             {reservations.length === 0 ? (
               <div className="p-8 text-center border border-dashed border-[#E8E2DA] rounded-lg bg-[#FAF9F6] space-y-2">
                 <Globe className="w-5 h-5 mx-auto text-[#7A7267]" />
-                <p className="text-xs font-serif text-[#191816]">No booking sources recorded yet</p>
+                <p className="text-xs text-[#191816] font-semibold">No booking sources recorded yet</p>
                 <p className="text-[11px] text-[#7A7267] max-w-xs mx-auto">
                   Acquisition channels will automatically be attributed as guests book online or walk in.
                 </p>
@@ -203,7 +203,7 @@ export default function AnalyticsPage() {
           {/* Room Category Performance */}
           <div className="bg-white border border-[#E8E2DA] p-6 rounded-md space-y-4">
             <div>
-              <strong className="text-base font-serif text-[#191816] block">
+              <strong className="text-base text-[#191816] block font-semibold">
                 Room Category Utilization
               </strong>
               <p className="text-xs text-[#7A7267]">
@@ -214,7 +214,7 @@ export default function AnalyticsPage() {
             {categoryStats.length === 0 ? (
               <div className="p-8 text-center border border-dashed border-[#E8E2DA] rounded-lg bg-[#FAF9F6] space-y-3">
                 <Bed className="w-5 h-5 mx-auto text-[#7A7267]" />
-                <p className="text-xs font-serif text-[#191816]">No room categories configured</p>
+                <p className="text-xs text-[#191816] font-semibold">No room categories configured</p>
                 <p className="text-[11px] text-[#7A7267] max-w-xs mx-auto">
                   Add room categories in Room Management to track occupancy and revenue per category.
                 </p>
@@ -232,14 +232,14 @@ export default function AnalyticsPage() {
                     className="p-3.5 rounded border border-[#E8E2DA] bg-[#FAFAFA] flex items-center justify-between"
                   >
                     <div>
-                      <strong className="text-xs font-serif text-[#191816] block">
+                      <strong className="text-xs text-[#191816] block font-semibold">
                         {cat.name} ({cat.roomCount} {cat.roomCount === 1 ? 'room' : 'rooms'})
                       </strong>
                       <span className="text-[11px] text-[#7A7267]">
                         {cat.occupancy}% Current Occupancy
                       </span>
                     </div>
-                    <strong className="text-sm font-serif text-[#B85C3E]">
+                    <strong className="text-sm text-[#B85C3E] font-semibold">
                       {formatNaira(cat.revenueMinorUnits)}
                     </strong>
                   </div>

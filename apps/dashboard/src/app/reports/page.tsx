@@ -212,7 +212,7 @@ export default function ReportsPage() {
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
               <div className="p-3 sm:p-4 rounded-lg border border-[#E8E2DA] bg-white">
                 <span className="text-[10px] sm:text-[11px] text-[#7A7267] uppercase font-semibold">Gross Booking Value</span>
-                <div className="text-xl sm:text-2xl font-serif text-[#191816] mt-1">
+                <div className="text-xl sm:text-2xl text-[#191816] mt-1 font-semibold">
                   {formatNaira(grossBookingValueMinorUnits)}
                 </div>
                 <p className="text-[10px] sm:text-[11px] text-[#7A7267] mt-1">
@@ -222,7 +222,7 @@ export default function ReportsPage() {
 
               <div className="p-3 sm:p-4 rounded-lg border border-[#E8E2DA] bg-white">
                 <span className="text-[11px] text-[#7A7267] uppercase font-semibold">Net Accommodation</span>
-                <div className="text-2xl font-serif text-[#191816] mt-1">
+                <div className="text-2xl text-[#191816] mt-1 font-semibold">
                   {formatNaira(netAccommodationMinorUnits)}
                 </div>
                 <p className="text-[11px] text-[#7A7267] mt-1">Room rate revenue</p>
@@ -230,7 +230,7 @@ export default function ReportsPage() {
 
               <div className="p-4 rounded-lg border border-[#E8E2DA] bg-white">
                 <span className="text-[11px] text-[#7A7267] uppercase font-semibold">Ancillary & Services</span>
-                <div className="text-2xl font-serif text-[#191816] mt-1">
+                <div className="text-2xl text-[#191816] mt-1 font-semibold">
                   {formatNaira(ancillaryMinorUnits)}
                 </div>
                 <p className="text-[11px] text-[#7A7267] mt-1">Laundry, kitchen, add-ons</p>
@@ -238,7 +238,7 @@ export default function ReportsPage() {
 
               <div className="p-4 rounded-lg border border-[#E8E2DA] bg-white">
                 <span className="text-[11px] text-[#7A7267] uppercase font-semibold">Direct Commission Saved</span>
-                <div className="text-2xl font-serif text-[#191816] mt-1">
+                <div className="text-2xl text-[#191816] mt-1 font-semibold">
                   {formatNaira(commissionSavedMinorUnits)}
                 </div>
                 <p className="text-[11px] text-emerald-700 mt-1 font-medium">15% saved vs OTAs</p>
@@ -260,7 +260,7 @@ export default function ReportsPage() {
               {payments.length === 0 ? (
                 <div className="p-12 text-center space-y-2 bg-[#FAF9F6]">
                   <CreditCard className="w-6 h-6 mx-auto text-[#7A7267]" />
-                  <p className="font-serif text-sm text-[#191816]">No transactions recorded for this period</p>
+                  <p className="text-sm text-[#191816] font-semibold">No transactions recorded for this period</p>
                   <p className="text-xs text-[#7A7267] max-w-sm mx-auto">
                     Confirmed payments and bank transfers will automatically reconcile in this ledger.
                   </p>
@@ -307,7 +307,7 @@ export default function ReportsPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="p-4 rounded-lg border border-[#E8E2DA] bg-white">
                 <span className="text-[11px] text-[#7A7267] uppercase font-semibold">Average Occupancy</span>
-                <div className="text-2xl font-serif text-[#191816] mt-1">{avgOccupancy}%</div>
+                <div className="text-2xl text-[#191816] mt-1 font-semibold">{avgOccupancy}%</div>
                 <p className="text-[11px] text-[#7A7267] mt-1">
                   {rooms.length > 0 ? `${totalNightsSold} nights sold / ${totalAvailableRoomNights} room capacity` : 'No rooms configured'}
                 </p>
@@ -315,19 +315,19 @@ export default function ReportsPage() {
 
               <div className="p-4 rounded-lg border border-[#E8E2DA] bg-white">
                 <span className="text-[11px] text-[#7A7267] uppercase font-semibold">ADR (Average Daily Rate)</span>
-                <div className="text-2xl font-serif text-[#191816] mt-1">{formatNaira(adrMinorUnits)}</div>
+                <div className="text-2xl text-[#191816] mt-1 font-semibold">{formatNaira(adrMinorUnits)}</div>
                 <p className="text-[11px] text-[#7A7267] mt-1">Average earned per occupied room</p>
               </div>
 
               <div className="p-4 rounded-lg border border-[#E8E2DA] bg-white">
                 <span className="text-[11px] text-[#7A7267] uppercase font-semibold">RevPAR</span>
-                <div className="text-2xl font-serif text-[#191816] mt-1">{formatNaira(revParMinorUnits)}</div>
+                <div className="text-2xl text-[#191816] mt-1 font-semibold">{formatNaira(revParMinorUnits)}</div>
                 <p className="text-[11px] text-[#7A7267] mt-1">Revenue per available room</p>
               </div>
 
               <div className="p-4 rounded-lg border border-[#E8E2DA] bg-white">
                 <span className="text-[11px] text-[#7A7267] uppercase font-semibold">Average Stay Length</span>
-                <div className="text-2xl font-serif text-[#191816] mt-1">{avgStayLength} nights</div>
+                <div className="text-2xl text-[#191816] mt-1 font-semibold">{avgStayLength} nights</div>
                 <p className="text-[11px] text-[#7A7267] mt-1">Across all confirmed guests</p>
               </div>
             </div>
@@ -338,7 +338,7 @@ export default function ReportsPage() {
               </div>
               {roomTypes.length === 0 ? (
                 <div className="p-12 text-center space-y-2 bg-[#FAF9F6]">
-                  <p className="font-serif text-sm text-[#191816]">No room categories configured</p>
+                  <p className="text-sm text-[#191816] font-semibold">No room categories configured</p>
                   <p className="text-xs text-[#7A7267]">Add room categories to audit individual tier ADR and occupancy.</p>
                 </div>
               ) : (
@@ -382,19 +382,19 @@ export default function ReportsPage() {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="p-4 rounded-lg border border-[#E8E2DA] bg-white">
                 <span className="text-[11px] text-[#7A7267] uppercase font-semibold">Clean & Ready Units</span>
-                <div className="text-2xl font-serif text-[#191816] mt-1">{cleanRoomsCount} rooms</div>
+                <div className="text-2xl text-[#191816] mt-1 font-semibold">{cleanRoomsCount} rooms</div>
                 <p className="text-[11px] text-[#7A7267] mt-1">Inspected and available for check-in</p>
               </div>
 
               <div className="p-4 rounded-lg border border-[#E8E2DA] bg-white">
                 <span className="text-[11px] text-[#7A7267] uppercase font-semibold">Awaiting Turnover</span>
-                <div className="text-2xl font-serif text-[#191816] mt-1">{dirtyRoomsCount} rooms</div>
+                <div className="text-2xl text-[#191816] mt-1 font-semibold">{dirtyRoomsCount} rooms</div>
                 <p className="text-[11px] text-[#B85C3E] mt-1 font-medium">Pending housekeeping attention</p>
               </div>
 
               <div className="p-4 rounded-lg border border-[#E8E2DA] bg-white">
                 <span className="text-[11px] text-[#7A7267] uppercase font-semibold">Service in Progress</span>
-                <div className="text-2xl font-serif text-[#191816] mt-1">{cleaningRoomsCount} rooms</div>
+                <div className="text-2xl text-[#191816] mt-1 font-semibold">{cleaningRoomsCount} rooms</div>
                 <p className="text-[11px] text-[#2E6B4F] mt-1 font-medium">Currently being serviced</p>
               </div>
             </div>
@@ -407,7 +407,7 @@ export default function ReportsPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               <div className="p-4 rounded-lg border border-[#E8E2DA] bg-white">
                 <span className="text-[11px] text-[#7A7267] uppercase font-semibold">Federal VAT (7.5%)</span>
-                <div className="text-2xl font-serif text-[#191816] mt-1">
+                <div className="text-2xl text-[#191816] mt-1 font-semibold">
                   {formatNaira(vatMinorUnits)}
                 </div>
                 <p className="text-[11px] text-[#7A7267] mt-1">FIRS statutory remittance calculation</p>
@@ -415,7 +415,7 @@ export default function ReportsPage() {
 
               <div className="p-4 rounded-lg border border-[#E8E2DA] bg-white">
                 <span className="text-[11px] text-[#7A7267] uppercase font-semibold">Hotel Consumption Tax (5%)</span>
-                <div className="text-2xl font-serif text-[#191816] mt-1">
+                <div className="text-2xl text-[#191816] mt-1 font-semibold">
                   {formatNaira(consumptionTaxMinorUnits)}
                 </div>
                 <p className="text-[11px] text-[#7A7267] mt-1">State consumption tax levy</p>
@@ -423,7 +423,7 @@ export default function ReportsPage() {
 
               <div className="p-4 rounded-lg border border-[#E8E2DA] bg-white">
                 <span className="text-[11px] text-[#7A7267] uppercase font-semibold">Total Tax Provision</span>
-                <div className="text-2xl font-serif text-[#191816] mt-1">
+                <div className="text-2xl text-[#191816] mt-1 font-semibold">
                   {formatNaira(totalTaxMinorUnits)}
                 </div>
                 <p className="text-[11px] text-[#7A7267] mt-1">Provision from collected folio payments</p>

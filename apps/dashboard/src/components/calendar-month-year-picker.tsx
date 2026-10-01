@@ -56,7 +56,7 @@ export function CalendarMonthYearPicker({ month, year, onSelect, className }: Pr
         aria-expanded={open}
         aria-label={t('pickMonthYear')}
         onClick={() => setOpen((v) => !v)}
-        className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-left text-xl font-serif text-[#191816] transition-colors hover:bg-[#FAF7F2] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B85C3E]/40"
+        className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-left text-xl text-[#191816] transition-colors hover:bg-[#FAF7F2] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B85C3E]/40 font-semibold"
       >
         <span className="capitalize">{label}</span>
         <ChevronDown

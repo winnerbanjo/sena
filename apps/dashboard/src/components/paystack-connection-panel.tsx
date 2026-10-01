@@ -150,7 +150,7 @@ export function PaystackConnectionPanel({ onBack }: { onBack?: () => void }) {
           <div className="flex items-start gap-3.5">
             <ConnectedAppLogo provider="paystack" name={t('paystack')} size="lg" />
             <div className="min-w-0">
-              <h1 className="text-2xl font-serif text-[#191816]">{t('paystack')}</h1>
+              <h1 className="text-2xl text-[#191816] font-semibold">{t('paystack')}</h1>
               <p className="mt-1 text-sm text-[#7A7267]">{t('paystackManageSubtitle')}</p>
             </div>
           </div>
@@ -188,7 +188,7 @@ export function PaystackConnectionPanel({ onBack }: { onBack?: () => void }) {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                   <div className="flex items-center gap-2.5">
-                    <h2 className="font-serif text-xl sm:text-2xl text-[#191816]">Paystack</h2>
+                    <h2 className="text-xl sm:text-2xl text-[#191816] font-semibold">Paystack</h2>
                     <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#EBF5EF] text-[#2E6B4F] border border-[#C5E3D0]">
                       <span className="w-1.5 h-1.5 rounded-full bg-[#2E6B4F]" />
                       Connected

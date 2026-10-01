@@ -7,7 +7,6 @@ import * as React from 'react';
 import Link from 'next/link';
 import { formatNaira } from '@sena/config';
 import {
-  Badge,
   Button,
   Dialog,
   DialogContent,
@@ -15,11 +14,13 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  StatusBadge,
 } from '@sena/ui';
 import {
   Bed,
   CheckCircle2,
   FolderPlus,
+  Images,
   Layers,
   Plus,
   Search,
@@ -67,6 +68,8 @@ export default function RoomsPage() {
   const [assigningId, setAssigningId] = React.useState<string | null>(null);
   const [assignError, setAssignError] = React.useState<string | null>(null);
   const [sendingHousekeepingId, setSendingHousekeepingId] = React.useState<string | null>(null);
+  const [menuRoom, setMenuRoom] = React.useState<RoomItem | null>(null);
+  const [viewingRoom, setViewingRoom] = React.useState<RoomItem | null>(null);
 
   // Persistent Rooms & Categories state from PostgreSQL
   const [rooms, setRooms] = React.useState<RoomItem[]>([]);
@@ -451,6 +454,30 @@ export default function RoomsPage() {
     return true;
   });
 
+  function categoryFor(room: RoomItem) {
+    return categories.find((category) => category.id === room.roomTypeId) || categories.find((category) => category.name === room.type);
+  }
+
+  function roomCardStatus(room: RoomItem): { token: string; label: string; note?: string } {
+    if (room.operational === 'maintenance') return { token: 'maintenance', label: t('statusMaintenance') };
+    if (room.operational === 'blocked') return { token: 'blocked', label: t('statusBlocked') };
+    if (room.operational === 'occupied') {
+      const note =
+        room.housekeeping === 'dirty'
+          ? t('needsCleaning')
+          : room.housekeeping === 'cleaning'
+            ? t('statusCleaning')
+            : room.housekeeping === 'inspection'
+              ? t('statusInspection')
+              : undefined;
+      return { token: 'occupied', label: t('statusOccupied'), note };
+    }
+    if (room.housekeeping === 'dirty') return { token: 'needs_cleaning', label: t('needsCleaning') };
+    if (room.housekeeping === 'cleaning') return { token: 'cleaning', label: t('statusCleaning') };
+    if (room.housekeeping === 'inspection') return { token: 'inspected', label: t('statusInspection') };
+    return { token: 'available', label: t('cleanReady') };
+  }
+
   if (loading || loadError) return <PageLoadState title={t('title')} failed={loadError} />;
 
   return (
@@ -474,168 +501,128 @@ export default function RoomsPage() {
           </div>
         )}
 
-        {/* Header with Title and Primary Actions */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#E8E2DA] pb-4">
-          <div>
-            <h2 className="text-base font-medium text-[#191816]">
-              Rooms & Categories
-            </h2>
-            <p className="text-xs text-[#7A7267] mt-1">
-              Configure room inventory, room types, pricing tiers, and real-time readiness.
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2.5">
+        <div className="flex flex-col gap-3 border-b border-[#E8E2DA] pb-4 sm:flex-row sm:items-center sm:justify-between">
+          <p className="max-w-xl text-sm text-[#7A7267]">
+            Configure room inventory, room types, pricing tiers, and real-time readiness.
+          </p>
+          <div className="flex flex-wrap items-center gap-2">
             <Button
               variant="secondary"
-              size="sm"
               onClick={() => setAddCategoryOpen(true)}
-              className="flex items-center gap-1.5 text-xs"
+              className="min-h-11"
             >
-              <FolderPlus className="w-3.5 h-3.5" />
-              <span>Add category</span>
+              <FolderPlus className="h-4 w-4" />
+              <span>{t('addCategory')}</span>
             </Button>
-
             <Button
-              size="sm"
               onClick={() => {
                 setPreselectedCategory(undefined);
                 setAddRoomOpen(true);
               }}
-              className="flex items-center gap-1.5 text-xs"
+              className="min-h-11"
             >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Add room</span>
+              <Plus className="h-4 w-4" />
+              <span>{t('addRoom')}</span>
             </Button>
           </div>
         </div>
 
-        {/* View Switcher: All Rooms vs Categories */}
-        <div className="flex items-center justify-between gap-4 border-b border-[#E8E2DA] pb-3 flex-wrap">
-          <div className="flex items-center gap-2 bg-[#FAFAFA] p-1 rounded-md border border-[#E8E2DA]">
+        <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div className="flex min-w-0 gap-1 overflow-x-auto border-b border-[#E8E2DA]">
             <button
+              type="button"
               onClick={() => setActiveTab('rooms')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium transition-colors ${
+              className={`shrink-0 border-b-2 px-3 py-2 text-[13px] ${
                 activeTab === 'rooms'
-                  ? 'bg-white text-[#191816] shadow-sm font-semibold'
-                  : 'text-[#7A7267] hover:text-[#191816]'
+                  ? 'border-[#71382D] font-medium text-[#191816]'
+                  : 'border-transparent text-[#7A7267] hover:text-[#191816]'
               }`}
             >
-              <Bed className="w-3.5 h-3.5" />
-              <span>All Rooms ({rooms.length})</span>
+              {t('allRooms')} ({rooms.length})
             </button>
-
             <button
+              type="button"
               onClick={() => setActiveTab('categories')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium transition-colors ${
+              className={`shrink-0 border-b-2 px-3 py-2 text-[13px] ${
                 activeTab === 'categories'
-                  ? 'bg-white text-[#191816] shadow-sm font-semibold'
-                  : 'text-[#7A7267] hover:text-[#191816]'
+                  ? 'border-[#71382D] font-medium text-[#191816]'
+                  : 'border-transparent text-[#7A7267] hover:text-[#191816]'
               }`}
             >
-              <Tag className="w-3.5 h-3.5" />
-              <span>Room Categories ({categories.length})</span>
+              {t('roomCategories')} ({categories.length})
             </button>
           </div>
-
-          {activeTab === 'rooms' && (
-            <div className="relative w-full sm:w-60">
-              <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-[#7A7267]" />
+          {activeTab === 'rooms' ? (
+            <div className="relative w-full sm:w-72">
+              <Search className="pointer-events-none absolute start-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#7A7267]" />
               <input
                 type="text"
-                placeholder="Filter room #, type, floor..."
+                placeholder={t('searchRooms')}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-8 pr-3 py-1.5 rounded border border-[#E8E2DA] bg-white text-xs text-[#191816] w-full focus:outline-none focus:ring-1 focus:ring-[#B85C3E]"
+                className="w-full rounded border border-[#E8E2DA] bg-white py-2 pe-3 ps-9 text-[13px] text-[#191816] focus:outline-none focus:ring-1 focus:ring-[#B85C3E]"
               />
             </div>
-          )}
+          ) : null}
         </div>
 
-        {/* TAB 1: ALL ROOMS */}
         {activeTab === 'rooms' && (
-          <div className="space-y-6">
-            {/* Editorial Inventory Status Bar */}
-            <div className="flex flex-wrap items-center gap-2 sm:gap-6 py-2.5 px-4 rounded-lg bg-[#FAF9F6] border border-[#E8E2DA] text-xs">
-              <span className="text-[10px] font-mono uppercase tracking-wider text-[#7A7267] hidden sm:inline">
-                Inventory Pulse:
-              </span>
-              <button
-                onClick={() => setFilter('all')}
-                className={`transition-colors ${filter === 'all' ? 'text-[#191816] font-semibold underline underline-offset-4 decoration-[#B85C3E]' : 'text-[#7A7267] hover:text-[#191816]'}`}
-              >
-                All ({rooms.length})
-              </button>
-              <span className="text-[#E8E2DA]">·</span>
-              <button
-                onClick={() => setFilter('available')}
-                className={`inline-flex items-center gap-1.5 transition-colors ${filter === 'available' ? 'text-[#191816] font-semibold underline underline-offset-4 decoration-[#2E6B4F]' : 'text-[#7A7267] hover:text-[#191816]'}`}
-              >
-                <span className="w-1.5 h-1.5 rounded-full bg-[#2E6B4F]" />
-                Ready ({rooms.filter((r) => r.operational === 'available').length})
-              </button>
-              <span className="text-[#E8E2DA]">·</span>
-              <button
-                onClick={() => setFilter('occupied')}
-                className={`inline-flex items-center gap-1.5 transition-colors ${filter === 'occupied' ? 'text-[#191816] font-semibold underline underline-offset-4 decoration-[#71382D]' : 'text-[#7A7267] hover:text-[#191816]'}`}
-              >
-                <span className="w-1.5 h-1.5 rounded-full bg-[#71382D]" />
-                Occupied ({rooms.filter((r) => r.operational === 'occupied').length})
-              </button>
-              <span className="text-[#E8E2DA]">·</span>
-              <button
-                onClick={() => setFilter('dirty')}
-                className={`inline-flex items-center gap-1.5 transition-colors ${filter === 'dirty' ? 'text-[#191816] font-semibold underline underline-offset-4 decoration-[#B85C3E]' : 'text-[#7A7267] hover:text-[#191816]'}`}
-              >
-                <span className="w-1.5 h-1.5 rounded-full bg-[#B85C3E]" />
-                Turnover ({rooms.filter((r) => r.housekeeping === 'dirty' || r.housekeeping === 'cleaning').length})
-              </button>
-              <span className="text-[#E8E2DA]">·</span>
-              <button
-                onClick={() => setFilter('maintenance')}
-                className={`inline-flex items-center gap-1.5 transition-colors ${filter === 'maintenance' ? 'text-[#191816] font-semibold underline underline-offset-4 decoration-[#7A7267]' : 'text-[#7A7267] hover:text-[#191816]'}`}
-              >
-                <span className="w-1.5 h-1.5 rounded-full bg-[#7A7267]" />
-                Service ({rooms.filter((r) => r.operational === 'maintenance').length})
-              </button>
+          <div className="space-y-5">
+            <div className="flex min-w-0 gap-1 overflow-x-auto border-b border-[#E8E2DA]">
+              {[
+                { id: 'all', label: t('pulseAll'), count: rooms.length },
+                { id: 'available', label: t('pulseReady'), count: rooms.filter((room) => room.operational === 'available').length },
+                { id: 'occupied', label: t('pulseOccupied'), count: rooms.filter((room) => room.operational === 'occupied').length },
+                { id: 'dirty', label: t('pulseTurnover'), count: rooms.filter((room) => room.housekeeping === 'dirty' || room.housekeeping === 'cleaning').length },
+                { id: 'maintenance', label: t('pulseService'), count: rooms.filter((room) => room.operational === 'maintenance').length },
+              ].map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => setFilter(item.id)}
+                  className={`shrink-0 border-b-2 px-3 py-2 text-[13px] ${
+                    filter === item.id
+                      ? 'border-[#71382D] font-medium text-[#191816]'
+                      : 'border-transparent text-[#7A7267] hover:text-[#191816]'
+                  }`}
+                >
+                  {item.label} ({item.count})
+                </button>
+              ))}
             </div>
 
-            {/* Room Matrix Grouped by Floor */}
             {filteredRooms.length === 0 ? (
               rooms.length === 0 ? (
-                <div className="p-12 text-center border border-dashed border-[#E8E2DA] rounded-lg bg-[#FAF9F6] space-y-3 max-w-md mx-auto my-6">
-                  <Bed className="w-8 h-8 mx-auto text-[#B85C3E]" />
-                  <p className="text-base font-serif text-[#191816]">No rooms added to inventory yet</p>
-                  <p className="text-xs text-[#7A7267] leading-relaxed">
+                <div className="mx-auto my-6 max-w-md space-y-3 rounded-md border border-dashed border-[#E8E2DA] p-10 text-center">
+                  <Bed className="mx-auto h-8 w-8 text-[#B85C3E]" />
+                  <p className="text-sm font-semibold text-[#191816]">No rooms added to inventory yet</p>
+                  <p className="text-xs leading-relaxed text-[#7A7267]">
                     Add your physical room numbers (e.g. 101, 102) and assign them to categories to begin taking reservations and managing housekeeping.
                   </p>
                   <Button
-                    size="sm"
                     onClick={() => {
                       setFilter('all');
                       setSearchQuery('');
                       setAddRoomOpen(true);
                     }}
-                    className="text-xs mt-1"
+                    className="mt-1"
                   >
-                    <Plus className="w-3.5 h-3.5 mr-1" />
+                    <Plus className="h-4 w-4" />
                     Add your first room
                   </Button>
                 </div>
               ) : (
-                <div className="p-12 text-center border border-dashed border-[#E8E2DA] rounded-lg bg-[#FAF9F6] space-y-3">
-                  <p className="text-sm font-serif text-[#191816]">No matching rooms found</p>
+                <div className="space-y-3 rounded-md border border-dashed border-[#E8E2DA] p-10 text-center">
+                  <p className="text-sm font-semibold text-[#191816]">No matching rooms found</p>
                   <p className="text-xs text-[#7A7267]">
                     Try clearing your search or filter to view other rooms.
                   </p>
                   <Button
-                    size="sm"
                     variant="secondary"
                     onClick={() => {
                       setFilter('all');
                       setSearchQuery('');
                     }}
-                    className="text-xs"
                   >
                     Reset filters
                   </Button>
@@ -643,152 +630,79 @@ export default function RoomsPage() {
               )
             ) : (
               <div className="space-y-8">
-                {Array.from(new Set(filteredRooms.map((r) => r.floor || 'Ground Floor'))).map((floorName) => {
-                  const floorRooms = filteredRooms.filter((r) => (r.floor || 'Ground Floor') === floorName);
+                {Array.from(new Set(filteredRooms.map((room) => room.floor || 'Ground Floor'))).map((floorName) => {
+                  const floorRooms = filteredRooms.filter((room) => (room.floor || 'Ground Floor') === floorName);
+                  const availableOnFloor = floorRooms.filter((room) => room.operational === 'available').length;
                   return (
-                    <div key={floorName} className="space-y-3">
-                      <div className="flex items-baseline justify-between border-b border-[#E8E2DA] pb-2">
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-serif text-base text-[#191816] font-normal">
-                            {floorName}
-                          </h3>
-                          <span className="text-[11px] font-mono text-[#7A7267]">
-                            · {floorRooms.length} {floorRooms.length === 1 ? 'room' : 'rooms'}
-                          </span>
+                    <div key={floorName} className="min-w-0 space-y-3">
+                      <div className="flex items-baseline justify-between gap-3">
+                        <div className="flex min-w-0 items-baseline gap-2">
+                          <h3 className="truncate text-sm font-semibold text-[#191816]">{floorName}</h3>
+                          <span className="shrink-0 text-xs text-[#7A7267]">{t('roomCount', { count: floorRooms.length })}</span>
                         </div>
-                        <span className="text-[10px] uppercase font-mono text-[#7A7267]">
-                          {floorRooms.filter(r => r.operational === 'available').length} Available
-                        </span>
+                        <span className="shrink-0 text-xs text-[#7A7267]">{t('availableCount', { count: availableOnFloor })}</span>
                       </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3.5">
+                      <div className="grid min-w-0 grid-cols-1 items-stretch gap-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                         {floorRooms.map((room) => {
-                          const isOccupied = room.operational === 'occupied';
-                          const isDirty = room.housekeeping === 'dirty';
-                          const isCleaning = room.housekeeping === 'cleaning';
-                          const isMaintenance = room.operational === 'maintenance';
-
+                          const category = categoryFor(room);
+                          const status = roomCardStatus(room);
+                          const photoCount = galleryDisplayUrls((room.gallery || []) as GalleryPhoto[]).length;
                           return (
-                            <div
+                            <article
                               key={room.id}
-                              className={`bg-white border rounded-lg p-4 transition-all hover:shadow-xs group relative flex flex-col justify-between space-y-3 overflow-hidden ${
-                                isOccupied
-                                  ? 'border-[#E8E2DA] bg-[#FAF9F6]/50'
-                                  : isDirty
-                                  ? 'border-[#E5D4BC]'
-                                  : 'border-[#E8E2DA]'
-                              }`}
+                              className="flex h-full min-w-0 flex-col overflow-hidden rounded-md border border-[#E8E2DA] bg-white motion-safe:transition-colors hover:border-[#C4B8A5] focus-within:border-[#C4B8A5]"
                             >
-                              {room.imageUrl && (
-                                <div className="relative -mx-4 -mt-4 mb-1 aspect-[3/2] overflow-hidden bg-[#F4EFE8]">
-                                  <img
-                                    src={room.imageUrl}
-                                    alt={`Room ${room.number}`}
-                                    className="h-full w-full object-cover"
-                                  />
-                                </div>
-                              )}
-                              <div>
-                                <div className="flex items-center justify-between mb-1">
-                                  <div className="flex items-center gap-2">
-                                    <span
-                                      className={`w-2 h-2 rounded-full ${
-                                        isOccupied
-                                          ? 'bg-[#71382D]'
-                                          : isMaintenance
-                                          ? 'bg-[#7A7267]'
-                                          : isDirty
-                                          ? 'bg-[#B85C3E]'
-                                          : 'bg-[#2E6B4F]'
-                                      }`}
-                                    />
-                                    <strong className="text-base font-serif font-normal text-[#191816]">
-                                      Room {room.number}
-                                    </strong>
-                                  </div>
-                                  <button
-                                    type="button"
-                                    onClick={() => setPhotoRoom(room)}
-                                    className="min-h-11 px-2 text-[11px] text-[#71382D]"
-                                  >
-                                    {t('roomPhotos')}
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleDeleteRoom(room.id, room.number)}
-                                    title="Delete room"
-                                    className="inline-flex h-11 w-11 items-center justify-center rounded text-[#7A7267] hover:text-[#9E382A]"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </button>
-                                </div>
-                                <span className="text-xs text-[#7A7267] block">
-                                  {room.type}
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={() => setEditingRoom(room)}
-                                  className="mt-2 min-h-11 w-full rounded border border-[#71382D] px-3 text-xs font-medium text-[#71382D]"
-                                >
-                                  {t('editRoom')}
-                                </button>
-                              </div>
-
-                              <div className="pt-2 border-t border-[#E8E2DA] flex items-center justify-between text-[11px]">
-                                <span className="font-mono text-[#7A7267]">
-                                  {isOccupied
-                                    ? 'In-house'
-                                    : isDirty
-                                      ? room.housekeepingAssignee
-                                        ? `Turnover · ${room.housekeepingAssignee}`
-                                        : 'Turnover'
-                                      : isCleaning
-                                        ? room.housekeepingAssignee
-                                          ? `Cleaning · ${room.housekeepingAssignee}`
-                                          : 'Cleaning'
-                                        : isMaintenance
-                                          ? 'Out of service'
-                                          : 'Clean & Ready'}
-                                </span>
-                                <span className="flex items-center gap-2">
-                                  {isDirty || isCleaning ? (
-                                    <Link
-                                      href="/housekeeping"
-                                      className="text-[#B85C3E] hover:underline font-medium"
-                                    >
-                                      Housekeeping →
-                                    </Link>
-                                  ) : isOccupied ? (
-                                    <Link
-                                      href={`/reservations?search=${room.number}`}
-                                      className="text-[#71382D] hover:underline font-medium"
-                                    >
-                                      Folio →
-                                    </Link>
-                                  ) : (
+                              <button
+                                type="button"
+                                onClick={() => setPhotoRoom(room)}
+                                className="relative aspect-[3/2] w-full shrink-0 bg-[#F4EFE8] text-start"
+                                aria-label={t('viewPhotos')}
+                              >
+                                {room.imageUrl ? (
+                                  <img src={room.imageUrl} alt="" className="h-full w-full object-cover" />
+                                ) : null}
+                                {photoCount > 1 ? (
+                                  <span className="absolute bottom-2 end-2 inline-flex items-center gap-1 rounded border border-[#E8E2DA] bg-white px-1.5 py-0.5 text-[11px] font-medium text-[#5C564D]">
+                                    <Images className="h-3 w-3" aria-hidden />
+                                    {photoCount}
+                                  </span>
+                                ) : null}
+                              </button>
+                              <div className="flex min-w-0 flex-1 flex-col gap-1.5 p-3">
+                                <h3 className="truncate text-sm font-medium text-[#191816]">
+                                  {t('roomLabel', { number: room.number })}
+                                </h3>
+                                <p className="truncate text-xs text-[#7A7267]">{room.type}</p>
+                                {category ? (
+                                  <p className="text-sm font-medium tabular-nums text-[#191816]">
+                                    {formatNaira(category.baseRateMinorUnits)}
+                                    <span className="block text-[11px] font-normal text-[#7A7267]">{t('perNight')}</span>
+                                  </p>
+                                ) : (
+                                  <p className="text-sm text-transparent" aria-hidden="true">&nbsp;</p>
+                                )}
+                                <p className="truncate text-xs text-[#5C564D]">
+                                  {room.floor}
+                                  {category ? (
                                     <>
-                                      <button
-                                        type="button"
-                                        onClick={() => setAssignRoom(room)}
-                                        className="text-[#71382D] hover:underline font-medium"
-                                      >
-                                        Assign Guest
-                                      </button>
-                                      {!isMaintenance && (
-                                        <button
-                                          type="button"
-                                          disabled={sendingHousekeepingId === room.id}
-                                          onClick={() => handleSendToHousekeeping(room)}
-                                          className="text-[#7A7267] hover:text-[#191816] hover:underline disabled:opacity-50"
-                                        >
-                                          Send to Housekeeping
-                                        </button>
-                                      )}
+                                      <span className="px-1.5 text-[#C4B8A5]">·</span>
+                                      {t('upToGuests', { count: category.maxGuests })}
                                     </>
-                                  )}
-                                </span>
+                                  ) : null}
+                                </p>
+                                <div>
+                                  <StatusBadge status={status.token}>{status.label}</StatusBadge>
+                                </div>
+                                <p className={`min-h-4 truncate text-xs ${status.note ? 'text-[#7A7267]' : 'text-transparent'}`}>
+                                  {status.note || '\u00a0'}
+                                </p>
+                                <div className="mt-auto flex gap-1.5 pt-1">
+                                  <Button type="button" variant="outline" className="min-h-11 min-w-0 flex-1 px-2" onClick={() => setViewingRoom(room)}>{t('view')}</Button>
+                                  <Button type="button" variant="secondary" className="min-h-11 min-w-0 flex-1 px-2" onClick={() => setEditingRoom(room)}>{t('edit')}</Button>
+                                  <Button type="button" variant="ghost" className="min-h-11 shrink-0 px-2" onClick={() => setMenuRoom(room)}>{t('more')}</Button>
+                                </div>
                               </div>
-                            </div>
+                            </article>
                           );
                         })}
                       </div>
@@ -800,122 +714,195 @@ export default function RoomsPage() {
           </div>
         )}
 
-        {/* TAB 2: ROOM CATEGORIES */}
         {activeTab === 'categories' && (
           <div className="space-y-4">
             {categories.length === 0 ? (
-              <div className="p-12 text-center border border-dashed border-[#E8E2DA] rounded-lg bg-[#FAF9F6] space-y-3 max-w-md mx-auto my-6">
-                <Layers className="w-8 h-8 mx-auto text-[#B85C3E]" />
-                <p className="text-base font-serif text-[#191816]">No room categories defined yet</p>
-                <p className="text-xs text-[#7A7267] leading-relaxed">
+              <div className="mx-auto my-6 max-w-md space-y-3 rounded-md border border-dashed border-[#E8E2DA] p-10 text-center">
+                <Layers className="mx-auto h-8 w-8 text-[#B85C3E]" />
+                <p className="text-sm font-semibold text-[#191816]">No room categories defined yet</p>
+                <p className="text-xs leading-relaxed text-[#7A7267]">
                   Create room categories (like Executive Suite or Deluxe Studio) to configure nightly rates, maximum guest capacity, bed types, and assign room numbers.
                 </p>
-                <Button
-                  size="sm"
-                  onClick={() => setAddCategoryOpen(true)}
-                  className="text-xs mt-1"
-                >
-                  <Plus className="w-3.5 h-3.5 mr-1" />
+                <Button onClick={() => setAddCategoryOpen(true)} className="mt-1">
+                  <Plus className="h-4 w-4" />
                   Create room category
                 </Button>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {categories.map((category) => {
                   const roomCount = rooms.filter((r) => r.type === category.name).length;
-                return (
-                  <div
-                    key={category.id}
-                    className="flex h-full flex-col overflow-hidden rounded-md border border-[#E8E2DA] bg-white"
-                  >
-                    <div className="aspect-[3/2] bg-[#F4EFE8]">
-                      {category.imageUrl ? (
-                        <img src={category.imageUrl} alt="" className="h-full w-full object-cover" />
-                      ) : null}
-                    </div>
-                    <div className="flex flex-1 flex-col gap-3 p-4">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <h3 className="truncate text-sm font-medium text-[#191816]">
-                            {category.name}
-                          </h3>
-                          <p className="truncate text-xs text-[#7A7267]">{category.code}</p>
-                          <p className="mt-1 text-sm font-medium tabular-nums text-[#191816]">
-                            {formatNaira(category.baseRateMinorUnits)}
-                            <span className="text-xs font-normal text-[#7A7267]"> / night</span>
-                          </p>
-                        </div>
-
-                        <div className="flex flex-col items-end gap-1">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setEditingCategory(category);
-                              setAddCategoryOpen(true);
-                            }}
-                            className="min-h-11 px-2 text-xs text-[#71382D]"
-                          >
-                            {t('editCategory')}
-                          </button>
-                          <span className="text-xs text-[#7A7267]">
-                            {roomCount} {roomCount === 1 ? 'room' : 'rooms'}
-                          </span>
-                        </div>
+                  return (
+                    <div
+                      key={category.id}
+                      className="flex h-full min-w-0 flex-col overflow-hidden rounded-md border border-[#E8E2DA] bg-white"
+                    >
+                      <div className="aspect-[3/2] bg-[#F4EFE8]">
+                        {category.imageUrl ? (
+                          <img src={category.imageUrl} alt="" className="h-full w-full object-cover" />
+                        ) : null}
                       </div>
-
-                      <p className="line-clamp-2 min-h-10 text-xs leading-5 text-[#7A7267]">
-                        {category.description}
-                      </p>
-
-                      <div className="flex items-center gap-4 text-xs text-[#191816] pt-1">
-                        <div className="flex items-center gap-1.5 text-[#7A7267]">
-                          <Bed className="w-3.5 h-3.5 text-[#B85C3E]" />
-                          <span>{category.bedType}</span>
+                      <div className="flex flex-1 flex-col gap-3 p-4">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <h3 className="truncate text-sm font-medium text-[#191816]">{category.name}</h3>
+                            <p className="truncate text-xs text-[#7A7267]">{category.code}</p>
+                            <p className="mt-1 text-sm font-medium tabular-nums text-[#191816]">
+                              {formatNaira(category.baseRateMinorUnits)}
+                              <span className="text-xs font-normal text-[#7A7267]"> {t('perNight')}</span>
+                            </p>
+                          </div>
+                          <div className="flex flex-col items-end gap-1">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingCategory(category);
+                                setAddCategoryOpen(true);
+                              }}
+                              className="min-h-11 px-2 text-xs font-medium text-[#71382D]"
+                            >
+                              {t('editCategory')}
+                            </button>
+                            <span className="text-xs text-[#7A7267]">
+                              {roomCount} {roomCount === 1 ? 'room' : 'rooms'}
+                            </span>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-1.5 text-[#7A7267]">
-                          <Users className="w-3.5 h-3.5 text-[#B85C3E]" />
-                          <span>Up to {category.maxGuests} guests</span>
-                        </div>
+                        <p className="line-clamp-2 min-h-10 text-xs leading-5 text-[#7A7267]">{category.description}</p>
+                        <p className="truncate text-xs text-[#7A7267]">
+                          {category.bedType}
+                          <span className="px-1.5 text-[#C4B8A5]">·</span>
+                          {t('upToGuests', { count: category.maxGuests })}
+                        </p>
+                        <p className="line-clamp-1 min-h-5 text-xs text-[#7A7267]">
+                          {category.amenities.slice(0, 3).join(' · ')}
+                          {category.amenities.length > 3 ? ` · +${category.amenities.length - 3}` : ''}
+                        </p>
                       </div>
-
-                      {/* Amenities chips */}
-                      <p className="line-clamp-1 min-h-5 text-xs text-[#7A7267]">
-                        {category.amenities.slice(0, 3).join(' · ')}
-                        {category.amenities.length > 3 ? ` · +${category.amenities.length - 3}` : ''}
-                      </p>
+                      <div className="mt-auto flex items-center justify-between gap-2 border-t border-[#E8E2DA] px-4 py-3">
+                        <Button
+                          variant="secondary"
+                          onClick={() => {
+                            setPreselectedCategory(category.name);
+                            setAddRoomOpen(true);
+                          }}
+                          className="min-h-11 flex-1"
+                        >
+                          <Plus className="h-4 w-4" />
+                          <span>Add Room to Tier</span>
+                        </Button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteCategory(category.id, category.name)}
+                          className="inline-flex h-11 w-11 items-center justify-center rounded border border-[#E8E2DA] text-[#7A7267] hover:text-[#9E382A]"
+                          title="Delete category"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
                     </div>
-
-                    <div className="mt-auto flex items-center justify-between gap-2 border-t border-[#E8E2DA] px-4 py-3">
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        onClick={() => {
-                          setPreselectedCategory(category.name);
-                          setAddRoomOpen(true);
-                        }}
-                        className="text-xs flex items-center gap-1 flex-1 justify-center"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                        <span>Add Room to Tier</span>
-                      </Button>
-
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteCategory(category.id, category.name)}
-                        className="inline-flex h-11 w-11 items-center justify-center rounded border border-[#E8E2DA] text-[#7A7267] hover:text-[#9E382A]"
-                        title="Delete category"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                  </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
               </div>
             )}
           </div>
         )}
       </main>
+
+      <Dialog open={!!viewingRoom} onOpenChange={(open) => { if (!open) setViewingRoom(null); }}>
+        <DialogContent className="bg-white">
+          <DialogHeader>
+            <DialogTitle>{viewingRoom ? t('roomLabel', { number: viewingRoom.number }) : t('view')}</DialogTitle>
+            <DialogDescription>{viewingRoom?.type}</DialogDescription>
+          </DialogHeader>
+          {viewingRoom ? (
+            <div className="space-y-2 text-sm text-[#191816]">
+              <StatusBadge status={roomCardStatus(viewingRoom).token}>{roomCardStatus(viewingRoom).label}</StatusBadge>
+              <p className="text-[#5C564D]">
+                {viewingRoom.floor}
+                {categoryFor(viewingRoom) ? (
+                  <>
+                    <span className="px-1.5 text-[#C4B8A5]">·</span>
+                    {t('upToGuests', { count: categoryFor(viewingRoom)!.maxGuests })}
+                  </>
+                ) : null}
+              </p>
+              {categoryFor(viewingRoom) ? (
+                <p className="font-medium tabular-nums">
+                  {formatNaira(categoryFor(viewingRoom)!.baseRateMinorUnits)}
+                  <span className="text-xs font-normal text-[#7A7267]"> {t('perNight')}</span>
+                </p>
+              ) : null}
+              {viewingRoom.description ? <p className="text-[#5C564D]">{viewingRoom.description}</p> : null}
+            </div>
+          ) : null}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setViewingRoom(null)}>{t('close')}</Button>
+            <Button
+              type="button"
+              onClick={() => {
+                if (!viewingRoom) return;
+                setEditingRoom(viewingRoom);
+                setViewingRoom(null);
+              }}
+            >
+              {t('edit')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!menuRoom} onOpenChange={(open) => { if (!open) setMenuRoom(null); }}>
+        <DialogContent className="bg-white">
+          <DialogHeader>
+            <DialogTitle>{menuRoom ? t('roomLabel', { number: menuRoom.number }) : t('more')}</DialogTitle>
+            <DialogDescription>{menuRoom?.type}</DialogDescription>
+          </DialogHeader>
+          {menuRoom ? (
+            <div className="flex flex-col gap-2">
+              <Button type="button" variant="outline" onClick={() => { const room = menuRoom; setMenuRoom(null); setPhotoRoom(room); }}>{t('viewPhotos')}</Button>
+              {menuRoom.housekeeping === 'dirty' || menuRoom.housekeeping === 'cleaning' ? (
+                <Button variant="outline" asChild>
+                  <Link href="/housekeeping">{t('openHousekeeping')}</Link>
+                </Button>
+              ) : menuRoom.operational === 'occupied' ? (
+                <Button variant="outline" asChild>
+                  <Link href={`/reservations?search=${encodeURIComponent(menuRoom.number)}`}>{t('openFolio')}</Link>
+                </Button>
+              ) : (
+                <>
+                  <Button type="button" variant="outline" onClick={() => { const room = menuRoom; setMenuRoom(null); setAssignRoom(room); }}>{t('assignGuest')}</Button>
+                  {menuRoom.operational !== 'maintenance' ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={sendingHousekeepingId === menuRoom.id}
+                      onClick={() => {
+                        const room = menuRoom;
+                        setMenuRoom(null);
+                        handleSendToHousekeeping(room);
+                      }}
+                    >
+                      {t('sendToHousekeeping')}
+                    </Button>
+                  ) : null}
+                </>
+              )}
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={() => {
+                  const room = menuRoom;
+                  setMenuRoom(null);
+                  handleDeleteRoom(room.id, room.number);
+                }}
+              >
+                {t('deleteRoom')}
+              </Button>
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
 
       {/* Add Room Dialog */}
       <AddRoomDialog
@@ -966,7 +953,7 @@ export default function RoomsPage() {
       }}>
         <DialogContent className="max-h-[90vh] overflow-y-auto bg-white">
           <DialogHeader>
-            <DialogTitle className="font-serif text-lg text-[#191816]">{t('roomPhotos')}</DialogTitle>
+            <DialogTitle className="text-lg text-[#191816] font-semibold">{t('roomPhotos')}</DialogTitle>
             <DialogDescription className="text-xs text-[#7A7267]">{t('roomGalleryHelp')}</DialogDescription>
           </DialogHeader>
           {photoRoom && (
@@ -997,7 +984,7 @@ export default function RoomsPage() {
       <Dialog open={!!assignRoom} onOpenChange={(open) => { if (!open) setAssignRoom(null); }}>
         <DialogContent className="max-w-md bg-white border border-[#E8E1D5]">
           <DialogHeader>
-            <DialogTitle className="font-serif text-lg text-[#71382D]">
+            <DialogTitle className="text-lg text-[#71382D] font-semibold">
               Assign Room {assignRoom?.number}
             </DialogTitle>
             <DialogDescription className="text-xs text-[#7A7267]">

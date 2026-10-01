@@ -107,7 +107,7 @@ export function EditRoomDialog({
     <Dialog open={open} onOpenChange={requestClose}>
       <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="font-serif text-xl text-[#191816]">{t('editRoom')}</DialogTitle>
+          <DialogTitle className="text-xl text-[#191816] font-semibold">{t('editRoom')}</DialogTitle>
           <DialogDescription className="text-xs text-[#7A7267]">{t('editRoomHelp')}</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 py-2 text-xs">

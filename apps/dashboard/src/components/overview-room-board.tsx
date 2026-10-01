@@ -81,7 +81,7 @@ export function OverviewRoomBoard({
     <section aria-labelledby="overview-room-board-heading" className="space-y-3">
       <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-2">
         <div className="min-w-0 space-y-0.5">
-          <h2 id="overview-room-board-heading" className="font-serif text-xl text-[#191816]">
+          <h2 id="overview-room-board-heading" className="text-xl text-[#191816] font-semibold">
             {tRooms('title')}
           </h2>
           <p className="text-xs text-[#7A7267]">
@@ -118,7 +118,7 @@ export function OverviewRoomBoard({
                 aria-label={t('roomCardAria', { number, category, status: label })}
               >
                 <div className="flex items-start justify-between gap-2">
-                  <span className="font-serif text-[15px] leading-tight tracking-tight text-[#191816] ltr-isolate">
+                  <span className="text-[15px] leading-tight tracking-tight text-[#191816] ltr-isolate font-semibold">
                     {number}
                   </span>
                   <span className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${treatment.dot}`} aria-hidden />

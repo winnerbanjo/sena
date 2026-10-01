@@ -30,8 +30,18 @@ body {
 }
 
 html[lang="ar"] body,
-html[lang="ar"] .font-serif {
+html[lang="ar"] .font-serif:not(.theme-font-sample) {
   font-family: var(--font-noto-arabic), "Noto Sans Arabic", Inter, sans-serif;
+}
+
+/* Signed-in dashboard only. Public hotel sites stay outside .sena-app. */
+.sena-app {
+  font-family: var(--font-poppins), var(--font-noto-sans), "Noto Sans", sans-serif;
+  font-weight: 400;
+}
+
+.sena-app .font-serif:not(.theme-font-sample) {
+  font-family: inherit;
 }
 
 .ltr-isolate {

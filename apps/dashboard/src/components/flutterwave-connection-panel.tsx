@@ -197,7 +197,7 @@ export function FlutterwaveConnectionPanel({ onBack }: { onBack?: () => void }) 
           <div className="flex items-start gap-3.5">
             <ConnectedAppLogo provider="flutterwave" name={t('flutterwave')} size="lg" />
             <div className="min-w-0">
-              <h1 className="text-2xl font-serif text-[#191816]">{t('flutterwave')}</h1>
+              <h1 className="text-2xl text-[#191816] font-semibold">{t('flutterwave')}</h1>
               <p className="mt-1 text-sm text-[#7A7267]">{t('flutterwaveManageSubtitle')}</p>
             </div>
           </div>
@@ -235,7 +235,7 @@ export function FlutterwaveConnectionPanel({ onBack }: { onBack?: () => void }) 
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2.5">
-                    <h2 className="font-serif text-xl sm:text-2xl text-[#191816]">{t('flutterwave')}</h2>
+                    <h2 className="text-xl sm:text-2xl text-[#191816] font-semibold">{t('flutterwave')}</h2>
                     <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#EBF5EF] text-[#2E6B4F] border border-[#C5E3D0]">
                       <span className="w-1.5 h-1.5 rounded-full bg-[#2E6B4F]" />
                       {t('connected')}

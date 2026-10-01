@@ -66,7 +66,7 @@ export default function SettingsPage() {
     return <div key={key} className="space-y-1.5"><label htmlFor={`setting-${key}`} className="block text-sm font-medium">{label}</label><input id={`setting-${key}`} name={key} type={type} value={profile?.[key] || ''} onChange={event => { setProfile(current => current ? { ...current, [key]: event.target.value } : current); setDirty(true); setFeedback(''); }} aria-invalid={!!fields[key]} aria-describedby={fields[key] ? `error-${key}` : undefined} className="min-h-11 w-full rounded border border-[#E5D4BC] bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B85C3E]" />{fields[key] && <p id={`error-${key}`} className="text-sm text-[#9E382A]">{fields[key][0]}</p>}</div>;
   }
   return <div className="flex-1 flex flex-col h-screen overflow-hidden"><Topbar title={t('title')} /><main className={pageMain}>
-    <div className="flex flex-wrap justify-between items-center gap-4 border-b border-[#E8E2DA] pb-4"><div><h2 className="text-2xl font-serif">{t('propertySettings')}</h2><p className="text-sm text-[#7A7267]">{t('propertySettingsSubtitle')}</p></div>{['general', 'policies', 'payments'].includes(tab) && <Button form="property-settings" type="submit" disabled={!profile || saving || !dirty}>{saving ? tCommon('saving') : t('saveChanges')}</Button>}</div>
+    <div className="flex flex-wrap justify-between items-center gap-4 border-b border-[#E8E2DA] pb-4"><div><h2 className="text-2xl font-semibold">{t('propertySettings')}</h2><p className="text-sm text-[#7A7267]">{t('propertySettingsSubtitle')}</p></div>{['general', 'policies', 'payments'].includes(tab) && <Button form="property-settings" type="submit" disabled={!profile || saving || !dirty}>{saving ? tCommon('saving') : t('saveChanges')}</Button>}</div>
     <nav aria-label={t('settingsSections')} className="flex gap-4 overflow-x-auto border-b border-[#E8E2DA]">{[['general', t('tabGeneral')],['language', t('tabLanguage')],['policies', t('tabPolicies')],['payments', t('tabPayments')],['notifications', t('tabNotifications')],['subscription', t('tabBilling')]].map(([id,label]) => <button key={id} onClick={() => setTab(id)} aria-current={tab === id ? 'page' : undefined} className={`min-h-11 shrink-0 border-b-2 px-1 text-sm ${tab === id ? 'border-[#B85C3E] text-[#71382D]' : 'border-transparent text-[#7A7267]'}`}>{label}</button>)}</nav>
     {feedback && <p role={failed ? 'alert' : 'status'} className={failed ? 'text-[#9E382A]' : 'text-[#2E6B4F]'}>{feedback}</p>}
     {!profile ? failed ? <Button onClick={load}>{tCommon('tryAgain')}</Button> : <div aria-label={tCommon('loading')} className="max-w-3xl h-80 rounded bg-[#F7F1E8] animate-pulse" /> : <form id="property-settings" onSubmit={save} className="max-w-3xl space-y-6">
@@ -74,7 +74,7 @@ export default function SettingsPage() {
         <div className="space-y-6">
           <div className="space-y-4 rounded-lg border border-[#E8E2DA] bg-[#FAF7F2]/40 p-5">
             <div>
-              <h3 className="font-serif text-lg text-[#71382D]">{t('languageHeading')}</h3>
+              <h3 className="text-lg text-[#71382D] font-semibold">{t('languageHeading')}</h3>
               <p className="text-sm text-[#7A7267] mt-1">{t('languageSubtitle')}</p>
             </div>
             <div className="space-y-1.5">
@@ -87,7 +87,7 @@ export default function SettingsPage() {
           </div>
           <div className="space-y-4 rounded-lg border border-[#E8E2DA] p-5">
             <div>
-              <h3 className="font-serif text-lg text-[#71382D]">{t('regionHeading')}</h3>
+              <h3 className="text-lg text-[#71382D] font-semibold">{t('regionHeading')}</h3>
               <p className="text-sm text-[#7A7267] mt-1">{t('regionSubtitle')}</p>
             </div>
             <dl className="grid sm:grid-cols-2 gap-4 text-sm">
@@ -116,23 +116,23 @@ export default function SettingsPage() {
       {tab === 'policies' && <div className="space-y-5 rounded-lg border border-[#E8E2DA] p-5"><div className="grid sm:grid-cols-2 gap-5">{field('checkInTime', t('checkInFrom'),'time')}{field('checkOutTime', t('checkOutBy'),'time')}</div><p className="text-sm text-[#7A7267]">{t('policiesNote')}</p><Link href="/website" className="text-[#71382D] underline">{t('openWebsiteEditor')}</Link></div>}
       {tab === 'payments' && <div className="space-y-6">
         <div className="space-y-3 rounded-lg border border-[#E8E2DA] p-5">
-          <h3 className="font-serif text-lg">{t('checkInPaymentPolicy')}</h3>
+          <h3 className="text-lg font-semibold">{t('checkInPaymentPolicy')}</h3>
           <label className="flex items-start gap-3 text-sm"><input type="radio" name="check-in-policy" checked={profile.checkInPaymentPolicy !== 'require_full'} onChange={() => { setProfile({ ...profile, checkInPaymentPolicy: 'allow_outstanding' }); setDirty(true); }} /><span>{t('allowOutstandingCheckIn')}</span></label>
           <label className="flex items-start gap-3 text-sm"><input type="radio" name="check-in-policy" checked={profile.checkInPaymentPolicy === 'require_full'} onChange={() => { setProfile({ ...profile, checkInPaymentPolicy: 'require_full' }); setDirty(true); }} /><span>{t('requireFullCheckIn')}</span></label>
         </div>
         <div className="space-y-3 rounded-lg border border-[#E8E2DA] p-5">
-          <h3 className="font-serif text-lg">{t('checkOutPaymentPolicy')}</h3>
+          <h3 className="text-lg font-semibold">{t('checkOutPaymentPolicy')}</h3>
           <label className="flex items-start gap-3 text-sm"><input type="radio" name="check-out-policy" checked={profile.checkOutPaymentPolicy !== 'require_settlement'} onChange={() => { setProfile({ ...profile, checkOutPaymentPolicy: 'allow_outstanding' }); setDirty(true); }} /><span>{t('allowOutstandingCheckOut')}</span></label>
           <label className="flex items-start gap-3 text-sm"><input type="radio" name="check-out-policy" checked={profile.checkOutPaymentPolicy === 'require_settlement'} onChange={() => { setProfile({ ...profile, checkOutPaymentPolicy: 'require_settlement' }); setDirty(true); }} /><span>{t('requireSettlementCheckOut')}</span></label>
         </div>
         <div className="space-y-3 rounded-lg border border-[#E8E2DA] p-5">
-          <h3 className="font-serif text-lg">{t('directBookingMethods')}</h3>
+          <h3 className="text-lg font-semibold">{t('directBookingMethods')}</h3>
           <label className="flex items-start gap-3 text-sm"><input type="checkbox" checked={profile.directBookingPayAtProperty !== false} onChange={(event) => { setProfile({ ...profile, directBookingPayAtProperty: event.target.checked }); setDirty(true); }} /><span>{t('payAtProperty')}</span></label>
           <label className="flex items-start gap-3 text-sm"><input type="checkbox" checked={profile.directBookingBankTransfer !== false} onChange={(event) => { setProfile({ ...profile, directBookingBankTransfer: event.target.checked }); setDirty(true); }} /><span>{t('bankTransferShown')}</span></label>
           <p className="text-sm text-[#7A7267]">{t('payOnlineNote')}</p>
         </div>
         <div className="space-y-3 rounded-lg border border-[#E8E2DA] p-5">
-          <h3 className="font-serif text-lg">{t('bankAccounts')}</h3>
+          <h3 className="text-lg font-semibold">{t('bankAccounts')}</h3>
           <p className="text-sm text-[#7A7267]">{t('bankAccountsNote')}</p>
           {bankAccounts.map((account) => (
             <div key={account.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border border-[#E8E2DA] rounded p-3 text-sm">
@@ -165,8 +165,8 @@ export default function SettingsPage() {
           <Link className="text-[#71382D] underline block" href="/payments">{t('viewPayments')}</Link>
         </div>
       </div>}
-      {tab === 'notifications' && <div className="space-y-3 rounded-lg border border-[#E8E2DA] p-5"><h3 className="font-serif text-lg">{t('notificationsComing')}</h3><p className="text-sm text-[#7A7267]">{t('notificationsBody')}</p></div>}
-      {tab === 'subscription' && <div className="space-y-3 rounded-lg border border-[#E8E2DA] p-5"><h3 className="font-serif text-lg">{t('tabBilling')}</h3><p className="text-sm text-[#7A7267]">{t('billingBody')}</p><Link className="text-[#71382D] underline" href="/billing">{t('openBilling')}</Link></div>}
+      {tab === 'notifications' && <div className="space-y-3 rounded-lg border border-[#E8E2DA] p-5"><h3 className="text-lg font-semibold">{t('notificationsComing')}</h3><p className="text-sm text-[#7A7267]">{t('notificationsBody')}</p></div>}
+      {tab === 'subscription' && <div className="space-y-3 rounded-lg border border-[#E8E2DA] p-5"><h3 className="text-lg font-semibold">{t('tabBilling')}</h3><p className="text-sm text-[#7A7267]">{t('billingBody')}</p><Link className="text-[#71382D] underline" href="/billing">{t('openBilling')}</Link></div>}
     </form>}
   </main></div>;
 }

@@ -382,7 +382,7 @@ export default function ApartmentsPage() {
       {menuApartment ? (
         <div className={APARTMENT_ACTION_SHEET_CLASS} role="dialog" aria-modal="true" data-apartment-removal-sheet="">
           <div className={APARTMENT_ACTION_PANEL_CLASS}>
-            <h2 className="font-serif text-xl text-[#191816]">{menuApartment.name}</h2>
+            <h2 className="text-xl text-[#191816] font-semibold">{menuApartment.name}</h2>
             <p className="mt-1 text-sm text-[#7A7267]">{t('more')}</p>
             <div className="mt-4 border-t border-[#E8E2DA] pt-4">
               <Button
@@ -404,7 +404,7 @@ export default function ApartmentsPage() {
       {confirm ? (
         <div className={APARTMENT_ACTION_SHEET_CLASS} role="dialog" aria-modal="true" data-apartment-removal-confirm="">
           <div className={APARTMENT_ACTION_PANEL_CLASS}>
-            <h2 className="font-serif text-xl text-[#191816]">
+            <h2 className="text-xl text-[#191816] font-semibold">
               {confirm.kind === 'delete' ? t('deleteTitle') : confirm.kind === 'archive' ? t('archiveTitle') : t('deleteApartment')}
             </h2>
             <p className="mt-3 text-sm text-[#191816]">{confirm.apartment.name}</p>
@@ -445,7 +445,7 @@ export default function ApartmentsPage() {
       {viewing ? (
         <div className={APARTMENT_ACTION_SHEET_CLASS} role="dialog" aria-modal="true">
           <div className={APARTMENT_ACTION_PANEL_CLASS}>
-            <h2 className="font-serif text-xl text-[#191816]">{viewing.name}</h2>
+            <h2 className="text-xl text-[#191816] font-semibold">{viewing.name}</h2>
             <p className="mt-1 text-sm text-[#7A7267]">{typeLabel(viewing)} · {viewing.location}</p>
             <p className="mt-3 text-sm text-[#5C564D]">{viewing.description}</p>
             <p className="mt-3 text-sm">{formatNaira(viewing.basePriceMinorUnits)} {t('perNight')}</p>

@@ -1082,7 +1082,7 @@ function WebsiteContent() {
                   >
                     <div>
                       <div className="flex items-center justify-between">
-                        <strong className="font-serif text-base text-[#191816]">{th.name}</strong>
+                        <strong className="text-base text-[#191816] font-semibold">{th.name}</strong>
                         {theme === th.id && (
                           <span className="w-2 h-2 rounded-full bg-[#71382D]" />
                         )}
@@ -1281,7 +1281,7 @@ function WebsiteContent() {
                         : 'border-[#E8E2DA] text-[#5C564D]'
                     }`}
                   >
-                    <span className="font-serif text-base block font-normal">Editorial Serif</span>
+                    <span className="theme-font-sample font-serif text-base block font-normal">Editorial Serif</span>
                     <span className="text-[10px] text-[#7A7267]">Warm, sophisticated hospitality</span>
                   </button>
 
@@ -1987,7 +1987,7 @@ function WebsiteContent() {
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl border border-[#E8E2DA] max-w-md w-full p-6 space-y-4 shadow-xl">
             <div className="border-b border-[#E8E2DA] pb-3">
-              <h3 className="font-serif text-lg text-[#191816]">Import External Testimonial</h3>
+              <h3 className="text-lg text-[#191816] font-semibold">Import External Testimonial</h3>
               <p className="text-[11px] text-[#7A7267]">
                 Import existing reviews from Google, Booking.com, or direct feedback.
               </p>
@@ -2070,7 +2070,7 @@ function WebsiteContent() {
           <div className="bg-white rounded-2xl border border-[#E8E2DA] max-w-lg w-full p-6 space-y-4 shadow-xl max-h-[90vh] overflow-y-auto">
             <div className="border-b border-[#E8E2DA] pb-3 flex items-center justify-between">
               <div>
-                <h3 className="font-serif text-lg text-[#191816]">
+                <h3 className="text-lg text-[#191816] font-semibold">
                   {editingGalleryIdx !== null ? 'Edit Gallery Photo' : 'Add Photo to Visual Tour'}
                 </h3>
                 <p className="text-[11px] text-[#7A7267]">
@@ -2276,7 +2276,7 @@ function WebsiteContent() {
           <div className="bg-white rounded-2xl border border-[#E8E2DA] max-w-2xl w-full p-6 space-y-4 shadow-xl max-h-[90vh] overflow-y-auto">
             <div className="border-b border-[#E8E2DA] pb-3 flex items-center justify-between">
               <div>
-                <h3 className="font-serif text-lg text-[#191816]">Curated Hospitality Photography</h3>
+                <h3 className="text-lg text-[#191816] font-semibold">Curated Hospitality Photography</h3>
                 <p className="text-[11px] text-[#7A7267]">
                   Select pre-curated 4K photography to instantly enrich your Visual Tour gallery.
                 </p>

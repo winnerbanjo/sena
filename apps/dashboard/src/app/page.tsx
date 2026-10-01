@@ -224,7 +224,7 @@ export default function OverviewPage() {
           <div className="fixed inset-0 z-40 flex justify-end bg-black/20">
             <button className="flex-1" aria-label="Close room" onClick={() => setSelectedRoom(null)} />
             <div ref={roomDialogRef} role="dialog" aria-modal="true" aria-labelledby="room-dialog-title" className="w-full max-w-sm bg-white h-full p-6 space-y-3 overflow-y-auto">
-              <h2 id="room-dialog-title" className="font-serif text-2xl">Room {selectedRoom.roomNumber || selectedRoom.number}</h2>
+              <h2 id="room-dialog-title" className="text-2xl font-semibold">Room {selectedRoom.roomNumber || selectedRoom.number}</h2>
               <p>{selectedRoom.roomType?.name || selectedRoom.roomTypeName || 'Room'}</p>
               <p className="text-sm text-[#5C564D]">Housekeeping: {selectedRoom.housekeepingStatus || selectedRoom.housekeeping || 'Unknown'}</p>
               <button type="button" className="min-h-11 text-sm underline" onClick={() => setSelectedRoom(null)}>Close</button>
@@ -252,7 +252,7 @@ export default function OverviewPage() {
           <div className="lg:col-span-8 space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-lg font-serif text-[#191816]">
+                <h2 className="text-lg text-[#191816] font-semibold">
                   Expected Guest Arrivals
                 </h2>
                 <p className="text-xs text-[#7A7267] mt-0.5">
@@ -287,12 +287,12 @@ export default function OverviewPage() {
                       className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-white transition-colors cursor-pointer group"
                     >
                       <div className="flex items-center gap-3.5 min-w-0">
-                        <div className="w-10 h-10 rounded-full bg-[#FAF0E6] text-[#71382D] border border-[#E8D5C2] flex items-center justify-center font-serif text-sm font-semibold flex-shrink-0 shadow-2xs">
+                        <div className="w-10 h-10 rounded-full bg-[#FAF0E6] text-[#71382D] border border-[#E8D5C2] flex items-center justify-center text-sm font-semibold flex-shrink-0 shadow-2xs">
                           {res.guestName.split(' ').map((n) => n[0]).slice(0, 2).join('')}
                         </div>
                         <div className="min-w-0">
                           <div className="flex items-center gap-2">
-                            <span className="font-serif text-base text-[#191816] group-hover:text-[#B85C3E] transition-colors truncate font-medium">
+                            <span className="text-base text-[#191816] group-hover:text-[#B85C3E] transition-colors truncate font-medium">
                               {res.guestName}
                             </span>
                             <span className="text-[11px] font-mono text-[#8C8275] bg-stone-100 px-2 py-0.5 rounded">

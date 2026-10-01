@@ -91,7 +91,7 @@ export function Topbar({ title, onOpenNewReservation, onOpenSearch }: TopbarProp
           <Menu className="h-5 w-5" />
         </button>
 
-        <h1 className="truncate text-base font-medium tracking-tight text-[#191816]">
+        <h1 className="truncate text-base font-semibold tracking-tight text-[#191816]">
           {heading}
         </h1>
       </div>

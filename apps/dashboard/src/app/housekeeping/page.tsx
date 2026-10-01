@@ -179,7 +179,7 @@ export default function HousekeepingPage() {
                   <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                     <div className="space-y-1 min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
-                        <strong className="text-lg font-serif font-normal text-[#191816]">{room.kind === 'apartment' ? room.number : `Room ${room.number}`}</strong>
+                        <strong className="text-lg font-semibold text-[#191816]">{room.kind === 'apartment' ? room.number : `Room ${room.number}`}</strong>
                         <span className="text-xs text-[#7A7267]">{room.type}</span>
                       </div>
                       <p className={`text-xs font-medium ${isDirty ? 'text-[#B85C3E]' : isCleaning ? 'text-[#3B6699]' : 'text-[#2E6B4F]'}`}>

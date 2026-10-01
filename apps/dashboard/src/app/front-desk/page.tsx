@@ -223,7 +223,7 @@ export default function FrontDeskPage() {
                         <span className="text-[11px] font-mono uppercase tracking-widest text-[#8C8275] block">
                           {t('roster')}
                         </span>
-                        <h3 className="font-serif text-lg text-[#71382D]">
+                        <h3 className="text-lg text-[#71382D] font-semibold">
                           {activeTab === 'arriving'
                             ? t('emptyArrivingTitle')
                             : activeTab === 'in_house'
@@ -261,7 +261,7 @@ export default function FrontDeskPage() {
                         className="hover:bg-[#FAF7F2]/60 transition-colors cursor-pointer group"
                       >
                         <td className="py-4 px-5">
-                          <strong className="block font-serif text-sm text-[#191816] group-hover:text-[#B85C3E] transition-colors">
+                          <strong className="block text-sm text-[#191816] group-hover:text-[#B85C3E] transition-colors font-semibold">
                             {res.guestName}
                           </strong>
                           <span className="text-[11px] font-mono text-[#8C8275]"><Ltr>{res.reference}</Ltr></span>
@@ -325,7 +325,7 @@ export default function FrontDeskPage() {
         <Dialog open={true} onOpenChange={() => setCheckoutWarning(null)}>
           <DialogContent className="max-w-md bg-white border border-[#E8E1D5]">
             <DialogHeader>
-              <DialogTitle className="font-serif text-lg text-[#71382D]">
+              <DialogTitle className="text-lg text-[#71382D] font-semibold">
                 {t('outstandingTitle')}
               </DialogTitle>
               <DialogDescription className="text-xs text-[#7A7267] pt-1 leading-relaxed">

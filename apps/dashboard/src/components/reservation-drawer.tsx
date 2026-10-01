@@ -90,7 +90,7 @@ export function ReservationDrawer({
               {reservation.status.replace('_', ' ')}
             </Badge>
           </div>
-          <DrawerTitle className="text-2xl font-serif text-[#191816]">
+          <DrawerTitle className="text-2xl text-[#191816] font-semibold">
             {reservation.guestName}
           </DrawerTitle>
           <p className="text-xs text-[#7A7267] mt-1">
@@ -160,7 +160,7 @@ export function ReservationDrawer({
                   <Calendar className="w-4 h-4 text-[#B85C3E]" />
                   <span>DATES & DURATION</span>
                 </div>
-                <div className="text-base font-serif text-[#191816] font-medium">
+                <div className="text-base text-[#191816] font-medium">
                   {formatStayDates(reservation.checkInDate, reservation.checkOutDate)}
                 </div>
                 <div className="text-xs text-[#7A7267] mt-1">
@@ -192,11 +192,11 @@ export function ReservationDrawer({
             <TabsContent value="guest" className="space-y-4 pt-2">
               <div className="p-4 rounded border border-[#E8E2DA] bg-white space-y-3">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-[#E5D4BC] text-[#71382D] flex items-center justify-center font-serif font-bold text-sm">
+                  <div className="w-10 h-10 rounded-full bg-[#E5D4BC] text-[#71382D] flex items-center justify-center font-bold text-sm">
                     {reservation.guestName.split(' ').map(n => n[0]).join('')}
                   </div>
                   <div>
-                    <strong className="text-base font-serif text-[#191816] block">
+                    <strong className="text-base text-[#191816] block font-semibold">
                       {reservation.guestName}
                     </strong>
                     <span className="text-xs text-[#7A7267]">
@@ -243,7 +243,7 @@ export function ReservationDrawer({
                     {payment.label}
                   </Badge>
                 </div>
-                <strong className="text-2xl font-serif text-[#191816] block">
+                <strong className="text-2xl text-[#191816] block font-semibold">
                   {formatNaira(reservation.totalAmountMinorUnits)}
                 </strong>
                 <div className="flex items-center justify-between text-xs text-[#7A7267] pt-2 border-t border-[#E8E2DA]">

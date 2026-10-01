@@ -182,7 +182,7 @@ export default function BillingPage() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#E8E1D5] pb-6">
             <div>
               <div className="flex items-center gap-2.5">
-                <h2 className="text-xl font-serif text-[#191816] capitalize">
+                <h2 className="text-xl text-[#191816] capitalize font-semibold">
                   {currentPlan} Tier
                 </h2>
                 {isExpired ? (
@@ -210,13 +210,13 @@ export default function BillingPage() {
 
             <div className="flex flex-col sm:items-end gap-2">
               <div className="text-left sm:text-right">
-                <span className="text-2xl font-serif text-[#71382D] block">
+                <span className="text-2xl text-[#71382D] block font-semibold">
                   {currentPlan === 'essential'
                     ? '₦25,000'
                     : currentPlan === 'pro'
                     ? '₦100,000'
                     : '₦50,000'}
-                  <span className="text-xs font-sans text-[#7A7267] font-normal"> / month</span>
+                  <span className="text-xs text-[#7A7267] font-semibold"> / month</span>
                 </span>
                 <span className="text-[11px] text-[#8C8275]">
                   {isTrialing ? 'No charge during trial period' : 'Auto-renews via Paystack'}
@@ -244,7 +244,7 @@ export default function BillingPage() {
               <span className="text-[11px] font-mono uppercase tracking-wider text-[#8C8275] block">
                 Room Inventory Usage
               </span>
-              <div className="text-lg font-serif text-[#191816] mt-1">
+              <div className="text-lg text-[#191816] mt-1 font-semibold">
                 {roomCount} of {roomLimit} Rooms
               </div>
               <div className="w-full bg-[#EAE3D9] h-1.5 rounded-full overflow-hidden mt-2">
@@ -262,7 +262,7 @@ export default function BillingPage() {
               <span className="text-[11px] font-mono uppercase tracking-wider text-[#8C8275] block">
                 Direct Booking Commission
               </span>
-              <div className="text-lg font-serif text-[#2E6B4F] mt-1">
+              <div className="text-lg text-[#2E6B4F] mt-1 font-semibold">
                 ₦0 (0% Commission)
               </div>
               <span className="text-[11px] text-[#7A7267] mt-2 block">
@@ -274,7 +274,7 @@ export default function BillingPage() {
               <span className="text-[11px] font-mono uppercase tracking-wider text-[#8C8275] block">
                 Payment Channel
               </span>
-              <div className="text-lg font-serif text-[#191816] mt-1 flex items-center gap-1.5">
+              <div className="text-lg text-[#191816] mt-1 flex items-center gap-1.5 font-semibold">
                 <ShieldCheck className="w-4 h-4 text-emerald-600" />
                 <span>Paystack Direct</span>
               </div>
@@ -289,7 +289,7 @@ export default function BillingPage() {
         <div className="space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <h2 className="text-lg font-serif text-[#191816]">
+              <h2 className="text-lg text-[#191816] font-semibold">
                 Available Operating Tiers
               </h2>
               <p className="text-xs text-[#7A7267] mt-0.5">
@@ -327,11 +327,11 @@ export default function BillingPage() {
             }`}>
               <div className="space-y-2">
                 <span className="text-[10px] font-mono uppercase tracking-wider text-[#8C8275]">Boutique Foundations</span>
-                <h3 className="text-lg font-serif text-[#191816]">Essential</h3>
+                <h3 className="text-lg text-[#191816] font-semibold">Essential</h3>
                 <p className="text-xs text-[#7A7267]">Up to 10 rooms. Single property operations.</p>
-                <div className="pt-2 text-xl font-serif text-[#191816]">
+                <div className="pt-2 text-xl text-[#191816] font-semibold">
                   {billingCycle === 'monthly' ? '₦25,000' : '₦250,000'}
-                  <span className="text-xs font-sans text-[#7A7267] font-normal"> / {billingCycle === 'monthly' ? 'mo' : 'yr'}</span>
+                  <span className="text-xs text-[#7A7267] font-semibold"> / {billingCycle === 'monthly' ? 'mo' : 'yr'}</span>
                 </div>
               </div>
 
@@ -358,11 +358,11 @@ export default function BillingPage() {
             }`}>
               <div className="space-y-2">
                 <span className="text-[10px] font-mono uppercase tracking-wider text-[#B85C3E]">Most Selected</span>
-                <h3 className="text-lg font-serif text-[#71382D]">Growth</h3>
+                <h3 className="text-lg text-[#71382D] font-semibold">Growth</h3>
                 <p className="text-xs text-[#7A7267]">Up to 30 rooms. Multi-rate yield rules &amp; housekeeping.</p>
-                <div className="pt-2 text-xl font-serif text-[#191816]">
+                <div className="pt-2 text-xl text-[#191816] font-semibold">
                   {billingCycle === 'monthly' ? '₦50,000' : '₦500,000'}
-                  <span className="text-xs font-sans text-[#7A7267] font-normal"> / {billingCycle === 'monthly' ? 'mo' : 'yr'}</span>
+                  <span className="text-xs text-[#7A7267] font-semibold"> / {billingCycle === 'monthly' ? 'mo' : 'yr'}</span>
                 </div>
               </div>
 
@@ -389,11 +389,11 @@ export default function BillingPage() {
             }`}>
               <div className="space-y-2">
                 <span className="text-[10px] font-mono uppercase tracking-wider text-[#8C8275]">Hospitality Scale</span>
-                <h3 className="text-lg font-serif text-[#191816]">Pro</h3>
+                <h3 className="text-lg text-[#191816] font-semibold">Pro</h3>
                 <p className="text-xs text-[#7A7267]">Up to 100 rooms. Multi-property ready, API &amp; audits.</p>
-                <div className="pt-2 text-xl font-serif text-[#191816]">
+                <div className="pt-2 text-xl text-[#191816] font-semibold">
                   {billingCycle === 'monthly' ? '₦100,000' : '₦1,000,000'}
-                  <span className="text-xs font-sans text-[#7A7267] font-normal"> / {billingCycle === 'monthly' ? 'mo' : 'yr'}</span>
+                  <span className="text-xs text-[#7A7267] font-semibold"> / {billingCycle === 'monthly' ? 'mo' : 'yr'}</span>
                 </div>
               </div>
 
@@ -418,7 +418,7 @@ export default function BillingPage() {
 
         {/* Invoices & Statements */}
         <div className="space-y-4 pt-4 border-t border-[#E8E1D5]">
-          <h2 className="text-base font-serif text-[#191816]">
+          <h2 className="text-base text-[#191816] font-semibold">
             Invoice History
           </h2>
 
