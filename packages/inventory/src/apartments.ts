@@ -1,4 +1,4 @@
-import { getDatesBetween } from '@sena/config';
+import { getDatesBetween, stayNightsOverlap } from '@sena/config';
 import { apartments, bookingHolds, db, reservations } from '@sena/database';
 import { and, eq, gt, inArray, sql } from 'drizzle-orm';
 
@@ -27,7 +27,7 @@ export function deriveApartmentBoardStatus(input: {
 }
 
 function datesOverlap(checkIn: string, checkOut: string, otherIn: string, otherOut: string) {
-  return checkIn < otherOut && checkOut > otherIn;
+  return stayNightsOverlap(otherIn, otherOut, checkIn, checkOut);
 }
 
 async function overlappingStays(

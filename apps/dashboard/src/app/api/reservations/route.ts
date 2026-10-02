@@ -42,6 +42,7 @@ async function handleGET(req: NextRequest) {
         guestPhone: guests.phone,
         roomId: reservations.roomId,
         roomNumber: rooms.roomNumber,
+        bookingGroupId: reservations.bookingGroupId,
         roomTypeId: reservations.roomTypeId,
         roomTypeName: roomTypes.name,
         apartmentId: reservations.apartmentId,

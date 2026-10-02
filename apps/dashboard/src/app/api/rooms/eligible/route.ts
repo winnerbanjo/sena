@@ -18,8 +18,18 @@ async function handleGET(req: NextRequest) {
     const checkOutDate = req.nextUrl.searchParams.get('checkOutDate') || '';
     const forCheckIn = req.nextUrl.searchParams.get('forCheckIn') === '1';
     const excludeReservationId = req.nextUrl.searchParams.get('excludeReservationId') || undefined;
+    const allRooms = req.nextUrl.searchParams.get('all') === '1';
 
-    if (!roomTypeId || !/^\d{4}-\d{2}-\d{2}$/.test(checkInDate) || !/^\d{4}-\d{2}-\d{2}$/.test(checkOutDate) || checkOutDate <= checkInDate) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(checkInDate) || !/^\d{4}-\d{2}-\d{2}$/.test(checkOutDate) || checkOutDate <= checkInDate) {
+      return NextResponse.json({ error: 'Choose a room category and valid stay dates.' }, { status: 400 });
+    }
+
+    if (allRooms) {
+      const rooms = await ReservationService.stayEligibleRooms(tenant.propertyId, checkInDate, checkOutDate, excludeReservationId);
+      return NextResponse.json({ rooms });
+    }
+
+    if (!roomTypeId) {
       return NextResponse.json({ error: 'Choose a room category and valid stay dates.' }, { status: 400 });
     }
 

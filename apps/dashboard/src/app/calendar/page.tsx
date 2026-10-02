@@ -331,6 +331,10 @@ export default function CalendarPage() {
         open={drawerOpen}
         onOpenChange={setDrawerOpen}
         onNotesChanged={() => fetchCalendar()}
+        onUpdated={(updated) => {
+          setSelectedRes(updated);
+          fetchCalendar();
+        }}
       />
 
       <NewReservationDialog

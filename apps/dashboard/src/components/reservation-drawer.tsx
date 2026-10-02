@@ -22,6 +22,7 @@ import { deskPaymentStatus, folioBalance } from '../lib/financial-status';
 import { RecordPaymentDialog } from './record-payment-dialog';
 import { CheckInPaymentStatus } from './check-in-payment-status';
 import { ReservationNotes } from './reservation-notes';
+import { EditReservationDialog } from './edit-reservation-dialog';
 import { Calendar, CheckCircle2, Mail, Phone } from 'lucide-react';
 
 interface ReservationDrawerProps {
@@ -33,6 +34,7 @@ interface ReservationDrawerProps {
   onCheckOut?: (id: string) => void;
   onPaymentRecorded?: () => void;
   onNotesChanged?: () => void;
+  onUpdated?: (reservation: ReservationItem) => void;
 }
 
 export function ReservationDrawer({
@@ -44,9 +46,12 @@ export function ReservationDrawer({
   onCheckOut,
   onPaymentRecorded,
   onNotesChanged,
+  onUpdated,
 }: ReservationDrawerProps) {
   const t = useTranslations('payments');
   const [payOpen, setPayOpen] = React.useState(false);
+  const [editOpen, setEditOpen] = React.useState(false);
+  const [groupRooms, setGroupRooms] = React.useState<Array<{ id: string; reference: string; roomNumber: string | null; status: string }>>([]);
   const [history, setHistory] = React.useState<any[]>([]);
   const [historyVersion, setHistoryVersion] = React.useState(0);
 
@@ -57,6 +62,17 @@ export function ReservationDrawer({
       .then((data) => setHistory(Array.isArray(data.payments) ? data.payments : []))
       .catch(() => setHistory([]));
   }, [open, reservation, historyVersion]);
+
+  React.useEffect(() => {
+    if (!open || !reservation?.bookingGroupId) {
+      setGroupRooms([]);
+      return;
+    }
+    fetch(`/api/booking-groups/${reservation.bookingGroupId}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => setGroupRooms(Array.isArray(data?.bookingGroup?.reservations) ? data.bookingGroup.reservations : []))
+      .catch(() => setGroupRooms([]));
+  }, [open, reservation?.bookingGroupId]);
 
   if (!reservation) return null;
 
@@ -114,6 +130,11 @@ export function ReservationDrawer({
                 Check in
               </Button>
             )}
+            {(isConfirmed || isCheckedIn) && (
+              <Button size="sm" variant="secondary" onClick={() => setEditOpen(true)}>
+                Edit stay
+              </Button>
+            )}
             {isConfirmed && !reservation.apartmentId && (
               <Button
                 size="sm"
@@ -169,6 +190,17 @@ export function ReservationDrawer({
                 <div className="text-xs text-[#7A7267] mt-1">
                   {reservation.nights} nights · {reservation.numGuests} guests
                 </div>
+                {groupRooms.length > 1 ? (
+                  <div className="mt-3 space-y-1">
+                    <span className="text-[11px] uppercase tracking-wider text-[#7A7267]">Rooms in this booking</span>
+                    {groupRooms.map((stay) => (
+                      <div key={stay.id} className="flex items-center justify-between text-xs text-[#191816]">
+                        <span>Room {stay.roomNumber || 'Unassigned'} · {stay.reference}</span>
+                        <span className="text-[#7A7267]">{stay.status.replace('_', ' ')}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -305,6 +337,15 @@ export function ReservationDrawer({
             </TabsContent>
           </Tabs>
         </div>
+        <EditReservationDialog
+          reservation={reservation}
+          open={editOpen}
+          onOpenChange={setEditOpen}
+          onSaved={(updated) => {
+            onUpdated?.(updated);
+            onNotesChanged?.();
+          }}
+        />
         <RecordPaymentDialog
           open={payOpen}
           onClose={() => setPayOpen(false)}

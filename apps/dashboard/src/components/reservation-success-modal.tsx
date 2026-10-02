@@ -38,7 +38,7 @@ export function ReservationSuccessModal({
           </div>
 
           <h3 className="text-xl font-semibold text-[#191816]">
-            Reservation Confirmed
+            {reservation.groupRooms && reservation.groupRooms.length > 1 ? 'Booking created' : 'Reservation Confirmed'}
           </h3>
           <p className="text-sm text-[#7D7571] mt-1">
             The booking has been successfully recorded in the roster.
@@ -72,7 +72,11 @@ export function ReservationSuccessModal({
             <div className="flex items-center justify-between text-xs text-[#7D7571]">
               <div className="flex items-center gap-2">
                 <BedDouble className="w-4 h-4 text-[#A89F91]" />
-                <span className="text-[#191816] font-medium">{reservation.roomType}</span>
+                <span className="text-[#191816] font-medium">
+                  {reservation.groupRooms && reservation.groupRooms.length > 1
+                    ? reservation.groupRooms.map((room) => room.roomNumber).join(', ')
+                    : reservation.roomType}
+                </span>
               </div>
               <span>{reservation.nights} night{reservation.nights > 1 ? 's' : ''}</span>
             </div>

@@ -35,6 +35,7 @@ export function mapReservationItem(r: {
   paidAmountMinorUnits: number;
   pendingTransferProof?: boolean;
   noteCount?: number;
+  bookingGroupId?: string | null;
   timeline?: ReservationItem['timeline'];
 }): ReservationItem {
   return {
@@ -60,6 +61,7 @@ export function mapReservationItem(r: {
     paidAmountMinorUnits: r.paidAmountMinorUnits,
     pendingTransferProof: Boolean(r.pendingTransferProof),
     noteCount: r.noteCount || 0,
+    bookingGroupId: r.bookingGroupId || null,
     timeline: r.timeline || [],
   };
 }

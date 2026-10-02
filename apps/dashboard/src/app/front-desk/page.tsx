@@ -353,6 +353,10 @@ export default function FrontDeskPage() {
         }}
         onPaymentRecorded={() => fetchReservations()}
         onNotesChanged={() => fetchReservations()}
+        onUpdated={(updated) => {
+          setSelectedRes(updated);
+          fetchReservations();
+        }}
       />
 
       <CheckInRoomDialog

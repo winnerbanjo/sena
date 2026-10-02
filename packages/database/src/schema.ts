@@ -350,6 +350,25 @@ export const guests = pgTable(
   ]
 );
 
+// 9b. Booking groups — one guest intent spanning several one-room reservations.
+export const bookingGroups = pgTable(
+  'booking_groups',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    propertyId: uuid('property_id')
+      .references(() => properties.id, { onDelete: 'cascade' })
+      .notNull(),
+    guestId: uuid('guest_id')
+      .references(() => guests.id, { onDelete: 'cascade' })
+      .notNull(),
+    reference: varchar('reference', { length: 50 }).notNull().unique(),
+    checkInDate: varchar('check_in_date', { length: 10 }).notNull(),
+    checkOutDate: varchar('check_out_date', { length: 10 }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [index('booking_groups_property_idx').on(t.propertyId)]
+);
+
 // 10. Reservations
 export const reservations = pgTable(
   'reservations',
@@ -365,6 +384,7 @@ export const reservations = pgTable(
     roomTypeId: uuid('room_type_id').references(() => roomTypes.id, { onDelete: 'cascade' }),
     apartmentId: uuid('apartment_id').references(() => apartments.id, { onDelete: 'restrict' }),
     roomId: uuid('room_id').references(() => rooms.id, { onDelete: 'set null' }),
+    bookingGroupId: uuid('booking_group_id').references(() => bookingGroups.id, { onDelete: 'set null' }),
     checkInDate: varchar('check_in_date', { length: 10 }).notNull(), // YYYY-MM-DD
     checkOutDate: varchar('check_out_date', { length: 10 }).notNull(), // YYYY-MM-DD
     nights: integer('nights').notNull(),
@@ -385,6 +405,7 @@ export const reservations = pgTable(
     index('res_prop_dates_idx').on(t.propertyId, t.checkInDate, t.checkOutDate),
     index('res_guest_idx').on(t.guestId),
     index('res_apartment_dates_idx').on(t.apartmentId, t.checkInDate, t.checkOutDate),
+    index('res_booking_group_idx').on(t.bookingGroupId),
   ]
 );
 

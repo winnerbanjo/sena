@@ -303,6 +303,10 @@ function ReservationsContent() {
         }}
         onPaymentRecorded={() => fetchReservations()}
         onNotesChanged={() => fetchReservations()}
+        onUpdated={(updated) => {
+          setSelectedRes(updated);
+          fetchReservations();
+        }}
       />
 
       <CheckInRoomDialog

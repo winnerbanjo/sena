@@ -3,11 +3,11 @@ import type { Role, Permission } from '@sena/types';
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { resolveTenantForRequest } from './tenant';
-import { db, reservations, rooms, roomTypes, apartments, guests, propertyInvoices, reviews, apiKeys, webhookEndpoints, housekeepingTasks, propertyMembers, propertyBankAccounts, transferProofs, eq, and } from '@sena/database';
+import { db, reservations, rooms, roomTypes, apartments, guests, propertyInvoices, reviews, apiKeys, webhookEndpoints, housekeepingTasks, propertyMembers, propertyBankAccounts, transferProofs, bookingGroups, eq, and } from '@sena/database';
 
 type Handler = (req: NextRequest, context: any) => Promise<Response>;
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const tables = { reservationId: reservations, roomId: rooms, roomTypeId: roomTypes, apartmentId: apartments, guestId: guests, invoiceId: propertyInvoices, reviewId: reviews, keyId: apiKeys, webhookId: webhookEndpoints, taskId: housekeepingTasks, memberId: propertyMembers, bankAccountId: propertyBankAccounts, proofId: transferProofs };
+const tables = { reservationId: reservations, bookingGroupId: bookingGroups, roomId: rooms, roomTypeId: roomTypes, apartmentId: apartments, guestId: guests, invoiceId: propertyInvoices, reviewId: reviews, keyId: apiKeys, webhookId: webhookEndpoints, taskId: housekeepingTasks, memberId: propertyMembers, bankAccountId: propertyBankAccounts, proofId: transferProofs };
 
 type MerchantRequestContext = {
   session: { user?: { id?: string } | null } | null;
@@ -50,7 +50,8 @@ export function withMerchant(handler: Handler, scope: string): Handler {
       const params = context?.params ? await context.params : {};
       const id = params.id || req.nextUrl.searchParams.get('id') || body.id;
       if (id) {
-        const key = scope === 'reservations' ? 'reservationId' : scope === 'invoices' ? 'invoiceId' : scope === 'reviews' ? 'reviewId'
+        const key = req.nextUrl.pathname.includes('/booking-groups') ? 'bookingGroupId'
+          : scope === 'reservations' ? 'reservationId' : scope === 'invoices' ? 'invoiceId' : scope === 'reviews' ? 'reviewId'
           : scope === 'apartments' ? 'apartmentId'
           : scope === 'rooms' ? (req.nextUrl.searchParams.get('type') === 'category' ? 'roomTypeId' : 'roomId')
           : req.nextUrl.pathname.includes('/keys') ? 'keyId'

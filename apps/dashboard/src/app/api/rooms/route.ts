@@ -422,11 +422,14 @@ async function handlePOST(req: NextRequest) {
       }
 
       // Update room type total inventory
-      const count = await db.select().from(rooms).where(eq(rooms.roomTypeId, targetRoomTypeId));
+      const count = await db
+        .select({ id: rooms.id })
+        .from(rooms)
+        .where(and(eq(rooms.roomTypeId, targetRoomTypeId), eq(rooms.propertyId, propertyId)));
       await db
         .update(roomTypes)
         .set({ totalInventory: count.length })
-        .where(eq(roomTypes.id, targetRoomTypeId));
+        .where(and(eq(roomTypes.id, targetRoomTypeId), eq(roomTypes.propertyId, propertyId)));
 
       return NextResponse.json({
         success: true,
@@ -463,10 +466,27 @@ async function handleDELETE(req: NextRequest) {
         return NextResponse.json({ success: true, deleted });
       }
       await tx.select({ id: rooms.id }).from(rooms).where(eq(rooms.id, id)).for('update');
+      const [existingRoom] = await tx
+        .select({ id: rooms.id, roomTypeId: rooms.roomTypeId, propertyId: rooms.propertyId })
+        .from(rooms)
+        .where(eq(rooms.id, id))
+        .limit(1);
+      if (!existingRoom) return NextResponse.json({ error: 'This room is not in your property.' }, { status: 404 });
       const [booking] = await tx.select({ id: reservations.id }).from(reservations).where(eq(reservations.roomId, id)).limit(1);
       const [task] = await tx.select({ id: housekeepingTasks.id }).from(housekeepingTasks).where(eq(housekeepingTasks.roomId, id)).limit(1);
       if (booking || task) return NextResponse.json({ error: 'This room has operational history. Mark it out of service instead to preserve your records.' }, { status: 409 });
       const [deleted] = await tx.delete(rooms).where(eq(rooms.id, id)).returning();
+      // Keep the declared compatibility figure aligned with physical reality.
+      if (deleted?.roomTypeId) {
+        const remaining = await tx
+          .select({ id: rooms.id })
+          .from(rooms)
+          .where(and(eq(rooms.roomTypeId, deleted.roomTypeId), eq(rooms.propertyId, existingRoom.propertyId)));
+        await tx
+          .update(roomTypes)
+          .set({ totalInventory: remaining.length })
+          .where(and(eq(roomTypes.id, deleted.roomTypeId), eq(roomTypes.propertyId, existingRoom.propertyId)));
+      }
       return NextResponse.json({ success: true, deleted });
     });
   } catch (error: any) {

@@ -58,7 +58,7 @@ export function NewReservationDialog({
   const [accommodationQuery, setAccommodationQuery] = React.useState('');
   const [loadingRooms, setLoadingRooms] = React.useState(false);
   const [selectedRoomId, setSelectedRoomId] = React.useState<string>('');
-  const [physicalRoomId, setPhysicalRoomId] = React.useState<string>('');
+  const [selectedRoomIds, setSelectedRoomIds] = React.useState<string[]>([]);
   const [eligibleRooms, setEligibleRooms] = React.useState<EligiblePhysicalRoom[]>([]);
   const [loadingEligible, setLoadingEligible] = React.useState(false);
   const [guestName, setGuestName] = React.useState('');
@@ -74,7 +74,7 @@ export function NewReservationDialog({
     if (open) {
       setCheckIn(getTodayStr());
       setCheckOut(getTomorrowStr());
-      setPhysicalRoomId('');
+      setSelectedRoomIds([]);
       setEligibleRooms([]);
       setLoadingRooms(true);
 
@@ -117,7 +117,7 @@ export function NewReservationDialog({
     const selectedKind = roomOptions.find((option) => option.id === selectedRoomId)?.kind;
     if (!open || selectedKind === 'apartment' || !selectedRoomId || !checkIn || !checkOut || checkOut <= checkIn) {
       setEligibleRooms([]);
-      setPhysicalRoomId('');
+      setSelectedRoomIds([]);
       return;
     }
 
@@ -128,12 +128,12 @@ export function NewReservationDialog({
       .then((data) => {
         const nextRooms: EligiblePhysicalRoom[] = Array.isArray(data?.rooms) ? data.rooms : [];
         setEligibleRooms(nextRooms);
-        setPhysicalRoomId((current) => (nextRooms.some((room) => room.id === current && room.eligible) ? current : ''));
+        setSelectedRoomIds((current) => current.filter((id) => nextRooms.some((room) => room.id === id && room.eligible)));
       })
       .catch(() => {
         if (!controller.signal.aborted) {
           setEligibleRooms([]);
-          setPhysicalRoomId('');
+          setSelectedRoomIds([]);
         }
       })
       .finally(() => {
@@ -153,7 +153,18 @@ export function NewReservationDialog({
     return !query || option.name.toLowerCase().includes(query);
   });
   const selectedRoomObj = roomOptions.find((r) => r.id === selectedRoomId) || null;
-  const totalAmountMinorUnits = selectedRoomObj ? selectedRoomObj.price * nights : 0;
+  const selectedPhysicalRooms = eligibleRooms.filter((room) => selectedRoomIds.includes(room.id) && room.eligible);
+  const nightlyRate = selectedRoomObj?.price || 0;
+  const roomLines = selectedPhysicalRooms.map((room) => ({
+    id: room.id,
+    roomNumber: room.roomNumber,
+    total: nightlyRate * nights,
+  }));
+  const totalAmountMinorUnits = selectedRoomObj?.kind === 'apartment'
+    ? nightlyRate * nights
+    : selectedPhysicalRooms.length > 0
+      ? roomLines.reduce((sum, line) => sum + line.total, 0)
+      : nightlyRate * nights;
 
 
   async function handleSubmit(e: React.FormEvent) {
@@ -167,6 +178,67 @@ export function NewReservationDialog({
     setErrorMsg(null);
 
     try {
+      if (selectedRoomObj?.kind !== 'apartment' && selectedPhysicalRooms.length > 1) {
+        const res = await fetch('/api/reservations/group', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Idempotency-Key': requestKey.current },
+          body: JSON.stringify({
+            roomIds: selectedPhysicalRooms.map((room) => room.id),
+            checkInDate: checkIn,
+            checkOutDate: checkOut,
+            numGuests: 2,
+            source,
+            guest: {
+              fullName: guestName.trim(),
+              email: guestEmail.trim().toLowerCase(),
+              phone: guestPhone.trim(),
+            },
+          }),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.error || 'Failed to create booking');
+        }
+        const data = await res.json();
+        const stays = Array.isArray(data.reservations) ? data.reservations : [];
+        const group = data.bookingGroup;
+        onCreateReservation({
+          id: stays[0]?.id || group.id,
+          reference: group.reference,
+          guestName,
+          guestEmail: guestEmail || '',
+          guestPhone: guestPhone || '',
+          roomType: `${stays.length} rooms`,
+          roomId: stays[0]?.roomId || null,
+          roomNumber: stays.map((stay: { roomNumber: string }) => stay.roomNumber).join(', '),
+          checkInDate: checkIn,
+          checkOutDate: checkOut,
+          nights,
+          numGuests: 2,
+          source,
+          status: 'confirmed',
+          paymentStatus: 'pay_later',
+          totalAmountMinorUnits: data.combinedTotalMinorUnits || totalAmountMinorUnits,
+          paidAmountMinorUnits: 0,
+          bookingGroupId: group.id,
+          groupReference: group.reference,
+          groupRooms: stays.map((stay: { roomNumber: string; reference: string; totalAmountMinorUnits: number }) => ({
+            roomNumber: stay.roomNumber,
+            reference: stay.reference,
+            totalAmountMinorUnits: stay.totalAmountMinorUnits,
+          })),
+          timeline: [],
+        });
+        setGuestName('');
+        setGuestPhone('');
+        setGuestEmail('');
+        setSelectedRoomIds([]);
+        requestKey.current = null;
+        onOpenChange(false);
+        return;
+      }
+
+      const physicalRoomId = selectedPhysicalRooms[0]?.id;
       const res = await fetch('/api/reservations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Idempotency-Key': requestKey.current },
@@ -351,27 +423,32 @@ export function NewReservationDialog({
               <div className="flex flex-wrap gap-2 mb-2">
                 <button
                   type="button"
-                  onClick={() => setPhysicalRoomId('')}
-                  aria-pressed={!physicalRoomId}
+                  onClick={() => setSelectedRoomIds([])}
+                  aria-pressed={selectedRoomIds.length === 0}
                   className={`px-2.5 py-1.5 rounded border text-xs ${
-                    !physicalRoomId
+                    selectedRoomIds.length === 0
                       ? 'border-[#B85C3E] bg-[#FAFAFA] text-[#71382D]'
                       : 'border-[#E8E2DA] bg-white text-[#191816] hover:border-[#7A7267]'
                   }`}
                 >
                   Assign later
                 </button>
+                {selectedPhysicalRooms.length > 0 ? (
+                  <span className="px-2.5 py-1.5 text-xs text-[#71382D]">{selectedPhysicalRooms.length} room{selectedPhysicalRooms.length === 1 ? '' : 's'} selected</span>
+                ) : null}
               </div>
               <PhysicalRoomSelect
                 rooms={eligibleRooms}
-                value={physicalRoomId}
-                onChange={setPhysicalRoomId}
+                value={selectedRoomIds[0] || ''}
+                selectedIds={selectedRoomIds}
+                multiple
+                onChange={(roomId) => setSelectedRoomIds((current) => current.includes(roomId) ? current.filter((id) => id !== roomId) : [...current, roomId])}
                 loading={loadingEligible}
                 labelledBy="assign-room-label"
                 emptyLabel="No physical rooms in this category yet. Inventory will still be reserved."
               />
               <p className="text-[11px] text-[#8C8275] mt-1.5">
-                Optional. You can reserve the room type now and assign a specific room at check-in.
+                Select one room, several rooms for the same stay, or assign a room later.
               </p>
             </div>}
 
@@ -426,13 +503,25 @@ export function NewReservationDialog({
             </div>
 
             {/* Cost summary */}
-            <div className="p-3 bg-[#FAFAFA] rounded border border-[#E8E2DA] flex items-center justify-between text-xs">
-              <span className="text-[#7A7267]">
-                {t('nights', { count: nights })}:
-              </span>
-              <strong className="text-base text-[#191816] font-semibold">
-                {formatNaira(totalAmountMinorUnits)}
-              </strong>
+            <div className="p-3 bg-[#FAFAFA] rounded border border-[#E8E2DA] space-y-2 text-xs">
+              {roomLines.length > 1 ? (
+                <div className="space-y-1">
+                  {roomLines.map((line) => (
+                    <div key={line.id} className="flex items-center justify-between text-[#7A7267]">
+                      <span>Room {line.roomNumber}</span>
+                      <span>{formatNaira(line.total)}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+              <div className="flex items-center justify-between">
+                <span className="text-[#7A7267]">
+                  {selectedPhysicalRooms.length > 1 ? `${selectedPhysicalRooms.length} rooms · ` : ''}{t('nights', { count: nights })}:
+                </span>
+                <strong className="text-base text-[#191816] font-semibold">
+                  {formatNaira(totalAmountMinorUnits)}
+                </strong>
+              </div>
             </div>
           </div>
 

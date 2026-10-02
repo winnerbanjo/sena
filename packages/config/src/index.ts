@@ -133,6 +133,16 @@ export function calculateNights(checkInDate: string, checkOutDate: string): numb
   return nights;
 }
 
+/** Checkout morning is free for the next arrival: existing checkout must be after the requested check-in. */
+export function stayNightsOverlap(
+  existingCheckIn: string,
+  existingCheckOut: string,
+  requestedCheckIn: string,
+  requestedCheckOut: string,
+): boolean {
+  return existingCheckIn < requestedCheckOut && existingCheckOut > requestedCheckIn;
+}
+
 export function getDatesBetween(startDate: string, endDate: string): string[] {
   if (!isValidCalendarDate(startDate) || !isValidCalendarDate(endDate) || endDate < startDate) throw new Error('Invalid calendar date range.');
   const dates: string[] = [];
