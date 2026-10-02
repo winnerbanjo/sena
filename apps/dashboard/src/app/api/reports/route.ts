@@ -50,6 +50,7 @@ async function handleGET(req: NextRequest) {
           and(
             eq(reservations.propertyId, propertyId),
             ne(reservations.status, 'cancelled'),
+            ne(reservations.status, 'voided'),
             lte(reservations.checkInDate, bounds.endIso),
             gt(reservations.checkOutDate, bounds.startIso)
           )

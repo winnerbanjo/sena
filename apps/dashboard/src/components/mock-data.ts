@@ -15,7 +15,7 @@ export interface ReservationItem {
   nights: number;
   numGuests: number;
   source: 'direct' | 'walk_in' | 'booking_com' | 'airbnb' | 'phone' | 'whatsapp';
-  status: 'pending' | 'confirmed' | 'checked_in' | 'checked_out' | 'cancelled';
+  status: 'pending' | 'confirmed' | 'checked_in' | 'checked_out' | 'cancelled' | 'voided';
   paymentStatus: 'paid' | 'part_payment' | 'pay_later';
   totalAmountMinorUnits: number;
   paidAmountMinorUnits: number;

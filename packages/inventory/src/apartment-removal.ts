@@ -21,7 +21,7 @@ import {
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ACTIVE_HOUSEKEEPING = ['dirty', 'cleaning', 'inspection'] as const;
-const HISTORY_NEUTRAL_STATUSES = ['cancelled', 'no_show', 'checked_out'] as const;
+const HISTORY_NEUTRAL_STATUSES = ['cancelled', 'no_show', 'checked_out', 'voided'] as const;
 
 const ROLE_ALIASES: Record<string, Role> = {
   'general manager': 'manager',

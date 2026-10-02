@@ -30,6 +30,21 @@ import { createBookingGroup as createGroupRecords, getBookingGroup as loadBookin
 import { updateStay as editReservationStay, type StayEditInput } from './edit';
 export { updateStay } from './edit';
 export { createBookingGroup, getBookingGroup } from './booking-group';
+export {
+  RESERVATION_REMOVAL_MESSAGES,
+  RESERVATION_REMOVAL_REASONS,
+  classifyReservationRemoval,
+  normalizeRemovalReason,
+  previewReservationRemoval,
+  removeReservation,
+  roleMayDeleteReservations,
+  type ReservationRemovalCode,
+  type ReservationRemovalDecision,
+  type ReservationRemovalFacts,
+  type ReservationRemovalReason,
+  type ReservationRemovalPreview,
+  type ReservationRemovalResult,
+} from './removal';
 
 function generateReference(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -559,6 +574,49 @@ export class ReservationService {
       });
 
       return { roomId: assignedRoom.id, roomNumber: assignedRoom.roomNumber };
+    });
+  }
+
+  /**
+   * Mark a confirmed stay as a no-show. The unit is released immediately, exactly
+   * as on cancellation, because the guest never arrived.
+   */
+  static async markNoShow(
+    reservationId: string,
+    actor = { id: '', name: 'Receptionist' }
+  ): Promise<void> {
+    await db.transaction(async (tx) => {
+      const resList = await tx
+        .select()
+        .from(reservations)
+        .where(eq(reservations.id, reservationId))
+        .limit(1).for('update');
+
+      if (resList.length === 0) throw new Error('Reservation not found');
+      const res = resList[0];
+      if (res.status === 'no_show') return;
+      if (res.status !== 'confirmed') throw new Error('Only confirmed reservations can be marked as no-show.');
+
+      if (res.roomTypeId) {
+        await releaseInventoryInTransaction(tx, res.propertyId, res.roomTypeId, getDatesBetween(res.checkInDate, res.checkOutDate), 1);
+      }
+
+      await tx.update(reservations).set({ status: 'no_show', updatedAt: new Date() }).where(eq(reservations.id, reservationId));
+
+      if (res.roomId) {
+        await tx
+          .update(rooms)
+          .set({ operationalStatus: 'available', updatedAt: new Date() })
+          .where(and(eq(rooms.id, res.roomId), eq(rooms.propertyId, res.propertyId)));
+      }
+
+      await tx.insert(reservationEvents).values({
+        reservationId,
+        actorId: actor.id || undefined,
+        actorName: actor.name,
+        eventType: 'no_show',
+        description: `Marked as no-show by ${actor.name}. Inventory released.`,
+      });
     });
   }
 

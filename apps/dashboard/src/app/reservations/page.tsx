@@ -74,6 +74,9 @@ function ReservationsContent() {
     if (activeTab === 'in_house' && r.status !== 'checked_in') return false;
     if (activeTab === 'completed' && r.status !== 'checked_out') return false;
     if (activeTab === 'cancelled' && r.status !== 'cancelled') return false;
+    // Voided stays out of every operational view unless it is explicitly asked for.
+    if (activeTab !== 'voided' && r.status === 'voided') return false;
+    if (activeTab === 'voided' && r.status !== 'voided') return false;
 
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
@@ -117,6 +120,7 @@ function ReservationsContent() {
             { id: 'in_house', label: t('currentlyInHouse') },
             { id: 'completed', label: t('departed') },
             { id: 'cancelled', label: t('cancelled') },
+            { id: 'voided', label: t('voided') },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -303,6 +307,13 @@ function ReservationsContent() {
         }}
         onPaymentRecorded={() => fetchReservations()}
         onNotesChanged={() => fetchReservations()}
+        onCancelled={() => fetchReservations()}
+        onMarkedNoShow={() => fetchReservations()}
+        onRemoved={() => {
+          setSelectedRes(null);
+          setDrawerOpen(false);
+          fetchReservations();
+        }}
         onUpdated={(updated) => {
           setSelectedRes(updated);
           fetchReservations();

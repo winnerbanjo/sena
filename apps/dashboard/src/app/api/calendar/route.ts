@@ -4,7 +4,7 @@ import { withMerchant } from '@/lib/merchant-route';
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { db, properties, rooms, roomTypes, apartments, reservations, guests , propertyMembers, organizationMembers } from '@sena/database';
-import { eq, and, gte, lte, or, isNull } from 'drizzle-orm';
+import { eq, and, gte, lte, ne, or, isNull } from 'drizzle-orm';
 
 import { noteCountsByReservation } from '@/lib/reservation-notes';
 import { resolveTenantForRequest } from '@/lib/tenant';
@@ -93,6 +93,7 @@ async function handleGET(req: NextRequest) {
       .where(
         and(
           eq(reservations.propertyId, propertyId),
+          ne(reservations.status, 'voided'),
           lte(reservations.checkInDate, endDate),
           gte(reservations.checkOutDate, startDate)
         )

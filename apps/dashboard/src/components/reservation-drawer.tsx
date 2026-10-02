@@ -3,7 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
-import { formatNaira, formatStayDates } from '@sena/config';
+import { formatNaira, formatStayDates, roleMayDeleteReservations } from '@sena/config';
 import {
   Badge,
   Button,
@@ -23,7 +23,9 @@ import { RecordPaymentDialog } from './record-payment-dialog';
 import { CheckInPaymentStatus } from './check-in-payment-status';
 import { ReservationNotes } from './reservation-notes';
 import { EditReservationDialog } from './edit-reservation-dialog';
-import { Calendar, CheckCircle2, Mail, Phone } from 'lucide-react';
+import { ReservationRemoveDialog } from './reservation-remove-dialog';
+import { useWorkspace } from './workspace-access';
+import { Calendar, CheckCircle2, Mail, MoreHorizontal, Phone } from 'lucide-react';
 
 interface ReservationDrawerProps {
   reservation: ReservationItem | null;
@@ -35,6 +37,9 @@ interface ReservationDrawerProps {
   onPaymentRecorded?: () => void;
   onNotesChanged?: () => void;
   onUpdated?: (reservation: ReservationItem) => void;
+  onCancelled?: (id: string) => void;
+  onMarkedNoShow?: (id: string) => void;
+  onRemoved?: () => void;
 }
 
 export function ReservationDrawer({
@@ -47,10 +52,18 @@ export function ReservationDrawer({
   onPaymentRecorded,
   onNotesChanged,
   onUpdated,
+  onCancelled,
+  onMarkedNoShow,
+  onRemoved,
 }: ReservationDrawerProps) {
   const t = useTranslations('payments');
+  const workspace = useWorkspace();
   const [payOpen, setPayOpen] = React.useState(false);
   const [editOpen, setEditOpen] = React.useState(false);
+  const [moreOpen, setMoreOpen] = React.useState(false);
+  const [removeOpen, setRemoveOpen] = React.useState(false);
+  const [actionError, setActionError] = React.useState<string | null>(null);
+  const mayDelete = roleMayDeleteReservations(workspace?.user.role || '');
   const [groupRooms, setGroupRooms] = React.useState<Array<{ id: string; reference: string; roomNumber: string | null; status: string }>>([]);
   const [history, setHistory] = React.useState<any[]>([]);
   const [historyVersion, setHistoryVersion] = React.useState(0);
@@ -162,9 +175,80 @@ export function ReservationDrawer({
               <span className="text-xs font-medium text-[#2E6B4F]">Paid</span>
             )}
           </div>
-          <span className="text-xs text-[#7A7267]">
-            Source: <strong className="text-[#191816] capitalize">{reservation.source.replace('_', ' ')}</strong>
-          </span>
+          <div className="relative flex items-center gap-2">
+            {actionError && <span className="text-xs text-[#8C2F24]">{actionError}</span>}
+            <span className="text-xs text-[#7A7267]">
+              Source: <strong className="text-[#191816] capitalize">{reservation.source.replace('_', ' ')}</strong>
+            </span>
+            <button
+              type="button"
+              aria-label="More actions"
+              aria-expanded={moreOpen}
+              onClick={() => setMoreOpen((open) => !open)}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-[#E8E2DA] bg-white text-[#5C564D] transition-colors hover:bg-[#FAF8F6]"
+            >
+              <MoreHorizontal className="h-4 w-4" />
+            </button>
+            {moreOpen && (
+              <div className="absolute end-0 top-9 z-20 w-56 rounded-md border border-[#E8E2DA] bg-white py-1 shadow-lg">
+                {isConfirmed && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setMoreOpen(false);
+                        setActionError(null);
+                        try {
+                          const res = await fetch(`/api/reservations/${reservation.id}/no-show`, { method: 'POST' });
+                          const data = await res.json().catch(() => ({}));
+                          if (!res.ok) setActionError(data.error || 'Could not mark as no-show.');
+                          else onMarkedNoShow?.(reservation.id);
+                        } catch {
+                          setActionError('Could not mark as no-show.');
+                        }
+                      }}
+                      className="block w-full px-3 py-2 text-start text-sm text-[#191816] hover:bg-[#FAF8F6]"
+                    >
+                      Mark no-show
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setMoreOpen(false);
+                        setActionError(null);
+                        try {
+                          const res = await fetch(`/api/reservations/${reservation.id}/cancel`, { method: 'POST' });
+                          const data = await res.json().catch(() => ({}));
+                          if (!res.ok) setActionError(data.error || 'Could not cancel this reservation.');
+                          else onCancelled?.(reservation.id);
+                        } catch {
+                          setActionError('Could not cancel this reservation.');
+                        }
+                      }}
+                      className="block w-full px-3 py-2 text-start text-sm text-[#191816] hover:bg-[#FAF8F6]"
+                    >
+                      Cancel reservation
+                    </button>
+                  </>
+                )}
+                {mayDelete && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMoreOpen(false);
+                      setRemoveOpen(true);
+                    }}
+                    className="block w-full px-3 py-2 text-start text-sm text-[#8C2F24] hover:bg-[#FDF0ED]"
+                  >
+                    Delete reservation
+                  </button>
+                )}
+                {!isConfirmed && !mayDelete && (
+                  <p className="px-3 py-2 text-xs text-[#7A7267]">No further actions available.</p>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Tabbed details */}
@@ -344,6 +428,16 @@ export function ReservationDrawer({
           onSaved={(updated) => {
             onUpdated?.(updated);
             onNotesChanged?.();
+          }}
+        />
+        <ReservationRemoveDialog
+          open={removeOpen}
+          onOpenChange={setRemoveOpen}
+          reservationId={reservation.id}
+          reference={reservation.reference}
+          onRemoved={() => {
+            onRemoved?.();
+            onOpenChange(false);
           }}
         />
         <RecordPaymentDialog

@@ -223,7 +223,8 @@
     "internalOnly": "Note interne. Seul le personnel peut la voir.",
     "addNote": "Ajouter une note",
     "notePlaceholder": "Transfert aéroport, arrivée tardive, lit supplémentaire, solde à l’arrivée",
-    "noteEmpty": "Aucune note interne pour le moment."
+    "noteEmpty": "Aucune note interne pour le moment.",
+    "voided": "Annulées"
   },
   "calendar": {
     "title": "Calendrier",
@@ -1089,7 +1090,8 @@
       "checked_out": "Parti",
       "cancelled": "Annulée",
       "no_show": "No show",
-      "pending": "En attente"
+      "pending": "En attente",
+      "voided": "Annulée"
     },
     "housekeeping": {
       "clean": "Propre",

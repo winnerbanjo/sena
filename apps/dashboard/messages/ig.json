@@ -223,7 +223,8 @@
     "internalOnly": "Ndetu ime ụlọ. Naanị ndị ọrụ nwere ike ịhụ ya.",
     "addNote": "Tinye ndetu",
     "notePlaceholder": "Ịburu n’ọdụ ụgbọelu, mbata n’oge, ihe ndina ọzọ, ego fọdụrụ na mbata",
-    "noteEmpty": "Enweghị ndetu ime ụlọ ugbu a."
+    "noteEmpty": "Enweghị ndetu ime ụlọ ugbu a.",
+    "voided": "Ehuruola"
   },
   "calendar": {
     "title": "Kalenda",
@@ -1089,7 +1090,8 @@
       "checked_out": "Apụọla",
       "cancelled": "Akagburu",
       "no_show": "Abịaghị",
-      "pending": "Na-eche"
+      "pending": "Na-eche",
+      "voided": "Ehuruola"
     },
     "housekeeping": {
       "clean": "Dị ọcha",

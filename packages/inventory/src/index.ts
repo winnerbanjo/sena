@@ -3,7 +3,9 @@ export {
   checkApartmentAvailability,
   createApartmentHold,
   deriveApartmentBoardStatus,
+  listEligibleApartments,
   type ApartmentBoardStatus,
+  type EligibleApartment,
 } from './apartments';
 export {
   APARTMENT_REMOVAL_MESSAGES,
