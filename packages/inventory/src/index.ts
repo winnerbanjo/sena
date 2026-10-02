@@ -20,6 +20,19 @@ export {
 import { getDatesBetween } from '@sena/config';
 import { db, inventory, roomTypes, bookingHolds } from '@sena/database';
 import { and, eq, inArray, sql, gt } from 'drizzle-orm';
+import { categoryAvailability, categoryCapacity } from './room-availability';
+
+export {
+  BLOCKING_STAY_STATUSES,
+  NON_SELLABLE_OPERATIONAL_STATUSES,
+  categoryAvailability,
+  categoryCapacity,
+  sellableRoomFilter,
+  type CapacitySource,
+  type CategoryAvailability,
+  type CategoryCapacity,
+  type CategoryNight,
+} from './room-availability';
 
 export interface RoomTypeAvailability {
   roomTypeId: string;
@@ -39,75 +52,9 @@ export async function checkAvailability(
   checkInDate: string,
   checkOutDate: string
 ): Promise<{ isAvailable: boolean; minAvailable: number }> {
-  const stayDates = getDatesBetween(checkInDate, checkOutDate);
-  if (stayDates.length === 0) {
-    return { isAvailable: false, minAvailable: 0 };
-  }
-
-  // Fetch room type total inventory
-  const roomTypeResult = await db
-    .select({ totalInventory: roomTypes.totalInventory })
-    .from(roomTypes)
-    .where(and(eq(roomTypes.id, roomTypeId), eq(roomTypes.propertyId, propertyId)))
-    .limit(1);
-
-  if (roomTypeResult.length === 0) {
-    return { isAvailable: false, minAvailable: 0 };
-  }
-
-  const defaultTotal = roomTypeResult[0].totalInventory;
-
-  // Query inventory rows for each night
-  const records = await db
-    .select()
-    .from(inventory)
-    .where(
-      and(
-        eq(inventory.propertyId, propertyId),
-        eq(inventory.roomTypeId, roomTypeId),
-        inArray(inventory.date, stayDates)
-      )
-    );
-
-  // Query active unexpired 10-minute holds
-  const activeHolds = await db
-    .select()
-    .from(bookingHolds)
-    .where(
-      and(
-        eq(bookingHolds.propertyId, propertyId),
-        eq(bookingHolds.roomTypeId, roomTypeId),
-        eq(bookingHolds.status, 'active'),
-        gt(bookingHolds.expiresAt, new Date())
-      )
-    );
-
-  const inventoryByDate = new Map(records.map((r) => [r.date, r]));
-  let minAvailable = defaultTotal;
-
-  for (const date of stayDates) {
-    const record = inventoryByDate.get(date);
-    const total = record ? record.totalInventory : defaultTotal;
-    const reserved = record ? record.reservedInventory : 0;
-    const blocked = record ? record.blockedInventory : 0;
-
-    // Calculate active holds covering this night
-    const held = activeHolds
-      .filter((h) => date >= h.checkInDate && date < h.checkOutDate)
-      .reduce((sum, h) => sum + h.quantity, 0);
-
-    const available = total - reserved - blocked - held;
-
-    if (available < minAvailable) {
-      minAvailable = available;
-    }
-
-    if (available <= 0) {
-      return { isAvailable: false, minAvailable: 0 };
-    }
-  }
-
-  return { isAvailable: minAvailable > 0, minAvailable };
+  const availability = await categoryAvailability(db, { propertyId, roomTypeId, checkInDate, checkOutDate });
+  if (!availability) return { isAvailable: false, minAvailable: 0 };
+  return { isAvailable: availability.isAvailable, minAvailable: Math.max(0, availability.minAvailable) };
 }
 
 /**
@@ -129,76 +76,26 @@ export async function createHold(
   }
 
   return await db.transaction(async (tx) => {
-    // 1. Ensure inventory rows exist & lock room type
-    const roomTypeResult = await tx
+    // Locking the category row serialises concurrent holds and bookings for it.
+    const [roomType] = await tx
       .select({ totalInventory: roomTypes.totalInventory })
       .from(roomTypes)
       .where(and(eq(roomTypes.id, roomTypeId), eq(roomTypes.propertyId, propertyId)))
-      .limit(1).for('update');
+      .limit(1)
+      .for('update');
 
-    if (roomTypeResult.length === 0) {
+    if (!roomType) {
       throw new Error('Room type not found');
     }
 
-    const defaultTotal = roomTypeResult[0].totalInventory;
+    const availability = await categoryAvailability(tx, { propertyId, roomTypeId, checkInDate, checkOutDate });
+    if (!availability) throw new Error('Room type not found');
 
-    // Ensure inventory records exist for each night
-    for (const date of stayDates) {
-      await tx.execute(
-        sql`
-          INSERT INTO ${inventory} (id, property_id, room_type_id, date, total_inventory, reserved_inventory, blocked_inventory)
-          VALUES (gen_random_uuid(), ${propertyId}::uuid, ${roomTypeId}::uuid, ${date}, ${defaultTotal}, 0, 0)
-          ON CONFLICT (property_id, room_type_id, date) DO NOTHING;
-        `
-      );
+    const shortNight = availability.nights.find((night) => night.available < quantity);
+    if (shortNight) {
+      throw new Error(`Room is no longer available for date: ${shortNight.date}`);
     }
 
-    // 2. Lock inventory rows FOR UPDATE
-    const records = await tx
-      .select()
-      .from(inventory)
-      .where(
-        and(
-          eq(inventory.propertyId, propertyId),
-          eq(inventory.roomTypeId, roomTypeId),
-          inArray(inventory.date, stayDates)
-        )
-      );
-
-    // 3. Check active holds
-    const activeHolds = await tx
-      .select()
-      .from(bookingHolds)
-      .where(
-        and(
-          eq(bookingHolds.propertyId, propertyId),
-          eq(bookingHolds.roomTypeId, roomTypeId),
-          eq(bookingHolds.status, 'active'),
-          gt(bookingHolds.expiresAt, new Date())
-        )
-      );
-
-    const inventoryByDate = new Map(records.map((r: any) => [r.date, r]));
-    let minAvail = defaultTotal;
-
-    for (const date of stayDates) {
-      const record = inventoryByDate.get(date);
-      const total = record ? record.totalInventory : defaultTotal;
-      const reserved = record ? record.reservedInventory : 0;
-      const blocked = record ? record.blockedInventory : 0;
-      const held = activeHolds
-        .filter((h: any) => date >= h.checkInDate && date < h.checkOutDate)
-        .reduce((sum: number, h: any) => sum + h.quantity, 0);
-
-      const available = total - reserved - blocked - held;
-      if (available < minAvail) minAvail = available;
-
-      if (available < quantity) {
-        throw new Error(`Room is no longer available for date: ${date}`);
-      }
-    }
-
-    // 4. Create the 10-minute hold
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
     const [hold] = await tx
       .insert(bookingHolds)
@@ -218,7 +115,7 @@ export async function createHold(
     return {
       holdId: hold.id,
       expiresAt: hold.expiresAt,
-      minAvailable: minAvail - quantity,
+      minAvailable: availability.minAvailable - quantity,
     };
   });
 }
@@ -245,44 +142,55 @@ export async function reserveInventoryInTransaction(
   quantity = 1
 ): Promise<boolean> {
   if (!Number.isSafeInteger(quantity) || quantity < 1 || !stayDates.length) throw new Error('Invalid room allocation.');
-  await tx.select().from(roomTypes).where(and(eq(roomTypes.id, roomTypeId), eq(roomTypes.propertyId, propertyId))).for('update');
-  const heldRooms = await tx.select().from(bookingHolds).where(and(eq(bookingHolds.propertyId, propertyId), eq(bookingHolds.roomTypeId, roomTypeId), eq(bookingHolds.status, 'active'), gt(bookingHolds.expiresAt, new Date())));
+  const [roomType] = await tx
+    .select({ totalInventory: roomTypes.totalInventory })
+    .from(roomTypes)
+    .where(and(eq(roomTypes.id, roomTypeId), eq(roomTypes.propertyId, propertyId)))
+    .limit(1)
+    .for('update');
+  if (!roomType) throw new Error('Room type not found');
+
+  const capacity = await categoryCapacity(tx, propertyId, roomTypeId);
+  if (!capacity) throw new Error('Room type not found');
+
+  const checkInDate = stayDates[0];
+  const checkOutDate = stayDates[stayDates.length - 1];
+  // The availability engine reads live reservations, so a stay being written
+  // inside this same transaction is not counted twice.
+  const availability = await categoryAvailability(tx, {
+    propertyId,
+    roomTypeId,
+    checkInDate,
+    checkOutDate,
+  });
+  if (!availability) throw new Error('Room type not found');
+
+  const shortNight = availability.nights.find((night) => night.available < quantity);
+  if (shortNight) {
+    throw new Error(`Room is no longer available for date: ${shortNight.date}`);
+  }
+
+  // The ledger row is retained for compatibility and reporting, but its
+  // capacity column is refreshed from authoritative physical inventory instead
+  // of freezing whatever was declared the first time the date was touched.
   for (const date of stayDates) {
-    const held = heldRooms.filter((hold: any) => date >= hold.checkInDate && date < hold.checkOutDate).reduce((sum: number, hold: any) => sum + hold.quantity, 0);
-    // 1. Ensure inventory row exists or lock it with FOR UPDATE
     await tx.execute(
       sql`
         INSERT INTO ${inventory} (id, property_id, room_type_id, date, total_inventory, reserved_inventory, blocked_inventory)
-        SELECT 
-          gen_random_uuid(), 
-          ${propertyId}::uuid, 
-          ${roomTypeId}::uuid, 
-          ${date}, 
-          rt.total_inventory, 
-          0, 
-          0
-        FROM ${roomTypes} rt
-        WHERE rt.id = ${roomTypeId}::uuid AND rt.property_id = ${propertyId}::uuid
-        ON CONFLICT (property_id, room_type_id, date) DO NOTHING;
+        VALUES (gen_random_uuid(), ${propertyId}::uuid, ${roomTypeId}::uuid, ${date}, ${capacity.authoritativeCapacity}, 0, 0)
+        ON CONFLICT (property_id, room_type_id, date)
+        DO UPDATE SET total_inventory = ${capacity.authoritativeCapacity};
       `
     );
-
-    // 2. Lock row and verify available capacity: (total - reserved - blocked) >= quantity
-    const updated = await tx.execute(
+    await tx.execute(
       sql`
         UPDATE ${inventory}
         SET reserved_inventory = reserved_inventory + ${quantity}
         WHERE property_id = ${propertyId}::uuid
           AND room_type_id = ${roomTypeId}::uuid
-          AND date = ${date}
-          AND (total_inventory - reserved_inventory - blocked_inventory - ${held}) >= ${quantity}
-        RETURNING id;
+          AND date = ${date};
       `
     );
-
-    if (!updated || updated.length === 0) {
-      throw new Error(`Room is no longer available for date: ${date}`);
-    }
   }
 
   return true;

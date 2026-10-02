@@ -11,6 +11,8 @@ interface PhysicalRoomSelectProps {
   loading?: boolean;
   emptyLabel?: string;
   labelledBy?: string;
+  multiple?: boolean;
+  selectedIds?: string[];
 }
 
 export function PhysicalRoomSelect({
@@ -20,6 +22,8 @@ export function PhysicalRoomSelect({
   loading,
   emptyLabel = 'No rooms in this category.',
   labelledBy,
+  multiple = false,
+  selectedIds = [],
 }: PhysicalRoomSelectProps) {
   const [query, setQuery] = React.useState('');
   const showSearch = rooms.length > 8;
@@ -56,7 +60,7 @@ export function PhysicalRoomSelect({
         className="max-h-56 overflow-y-auto rounded border border-[#E8E2DA] divide-y divide-[#E8E2DA]"
       >
         {filtered.map((room) => {
-          const selected = value === room.id;
+          const selected = multiple ? selectedIds.includes(room.id) : value === room.id;
           return (
             <button
               key={room.id}

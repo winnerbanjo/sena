@@ -432,6 +432,10 @@ export default function OverviewPage() {
         onAssignRoom={(id) => openAssignment(id, selectedRes && selectedRes.roomId ? 'change' : 'assign')}
         onCheckOut={handleCheckOut}
         onPaymentRecorded={() => fetchData()}
+        onUpdated={(updated) => {
+          setSelectedRes(updated);
+          fetchData();
+        }}
       />
 
       <CheckInRoomDialog

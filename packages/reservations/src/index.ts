@@ -22,8 +22,14 @@ import type { CreateReservationInput } from '@sena/validation';
 import { and, desc, eq, gt, inArray, sql } from 'drizzle-orm';
 import { APARTMENT_BLOCKING_STATUSES } from '@sena/inventory';
 import { assertRoomEligible, listEligibleRooms, type AssignmentScope, type EligibleRoom } from './assignment';
+import { categoryNightsAvailable, categorySoldOutMessage, roomUnavailableForStay } from './category-availability';
 
-export { listEligibleRooms, type EligibleRoom, type AssignmentScope } from './assignment';
+export { listEligibleRooms, listStayEligibleRooms, type EligibleRoom, type AssignmentScope } from './assignment';
+import { listStayEligibleRooms } from './assignment';
+import { createBookingGroup as createGroupRecords, getBookingGroup as loadBookingGroup } from './booking-group';
+import { updateStay as editReservationStay, type StayEditInput } from './edit';
+export { updateStay } from './edit';
+export { createBookingGroup, getBookingGroup } from './booking-group';
 
 function generateReference(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -84,14 +90,51 @@ export class ReservationService {
         await tx.update(bookingHolds).set({ status: 'converted' }).where(eq(bookingHolds.id, holdId));
       }
 
-      // 2. Lock & Reserve Inventory for each night
-      await reserveInventoryInTransaction(
+      let assignedRoomNumber: string | null = null;
+      if (input.roomId) {
+        const assignedRoom = await assertRoomEligible(
+          tx,
+          {
+            propertyId: input.propertyId,
+            roomTypeId,
+            checkInDate: input.checkInDate,
+            checkOutDate: input.checkOutDate,
+            forCheckIn: false,
+          },
+          input.roomId
+        );
+        assignedRoomNumber = assignedRoom.roomNumber;
+      }
+
+      const category = await categoryNightsAvailable(
         tx,
         input.propertyId,
         roomTypeId,
-        stayDates,
-        1
+        input.checkInDate,
+        input.checkOutDate,
       );
+      if (category.minAvailable < 1) {
+        const detail = categorySoldOutMessage(category.blockers);
+        throw new Error(assignedRoomNumber ? roomUnavailableForStay(assignedRoomNumber, detail) : detail);
+      }
+
+      // 2. Lock & Reserve Inventory for each night
+      try {
+        await reserveInventoryInTransaction(
+          tx,
+          input.propertyId,
+          roomTypeId,
+          stayDates,
+          1
+        );
+      } catch (error) {
+        if (error instanceof Error && /no longer available for date/i.test(error.message)) {
+          const latest = await categoryNightsAvailable(tx, input.propertyId, roomTypeId, input.checkInDate, input.checkOutDate);
+          const detail = categorySoldOutMessage(latest.blockers);
+          throw new Error(assignedRoomNumber ? roomUnavailableForStay(assignedRoomNumber, detail) : detail);
+        }
+        throw error;
+      }
 
       // 3. Resolve Guest ID (find existing or create new)
       let resolvedGuestId = input.guestId;
@@ -147,19 +190,6 @@ export class ReservationService {
 
       const linkedGuest = await tx.query.guests.findFirst({ where: and(eq(guests.id, resolvedGuestId), eq(guests.propertyId, input.propertyId)) });
       if (!linkedGuest) throw new Error('Guest not found in this property.');
-      if (input.roomId) {
-        await assertRoomEligible(
-          tx,
-          {
-            propertyId: input.propertyId,
-            roomTypeId,
-            checkInDate: input.checkInDate,
-            checkOutDate: input.checkOutDate,
-            forCheckIn: false,
-          },
-          input.roomId
-        );
-      }
 
       // 4. Insert Reservation Record
       const reference = generateReference();
@@ -534,6 +564,32 @@ export class ReservationService {
 
   static async eligibleRooms(scope: AssignmentScope): Promise<EligibleRoom[]> {
     return listEligibleRooms(scope);
+  }
+
+  static async stayEligibleRooms(propertyId: string, checkInDate: string, checkOutDate: string, excludeReservationId?: string | null) {
+    return listStayEligibleRooms(propertyId, checkInDate, checkOutDate, excludeReservationId);
+  }
+
+  static async updateStay(
+    reservationId: string,
+    propertyId: string,
+    input: StayEditInput,
+    actor?: { id: string; name: string },
+    preview = false,
+  ) {
+    return editReservationStay(reservationId, propertyId, input, actor, preview);
+  }
+
+  static async createGroup(
+    input: Parameters<typeof createGroupRecords>[0],
+    actor?: { id: string; name: string },
+    requestKey?: string,
+  ) {
+    return createGroupRecords(input, actor, requestKey);
+  }
+
+  static async bookingGroup(propertyId: string, bookingGroupId: string) {
+    return loadBookingGroup(propertyId, bookingGroupId);
   }
 
   /**

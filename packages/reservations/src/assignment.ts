@@ -1,5 +1,7 @@
-import { db, reservations, rooms } from '@sena/database';
+import { stayNightsOverlap } from '@sena/config';
+import { db, reservations, rooms, roomTypes } from '@sena/database';
 import { and, eq, inArray, ne, sql } from 'drizzle-orm';
+import { categoryNightsAvailable, categorySoldOutMessage } from './category-availability';
 
 export const READY_HOUSEKEEPING = ['clean', 'inspected', 'inspection'] as const;
 export const BLOCKED_OPERATIONAL = ['blocked', 'maintenance'] as const;
@@ -15,6 +17,8 @@ export type EligibleRoom = {
   eligible: boolean;
   reason?: string;
   readinessLabel: string;
+  roomTypeName?: string;
+  nightlyRateMinorUnits?: number;
 };
 
 export type AssignmentScope = {
@@ -25,10 +29,6 @@ export type AssignmentScope = {
   excludeReservationId?: string | null;
   forCheckIn?: boolean;
 };
-
-function staysOverlap(leftIn: string, leftOut: string, rightIn: string, rightOut: string) {
-  return leftIn < rightOut && leftOut > rightIn;
-}
 
 export function readinessLabel(housekeepingStatus: string, operationalStatus: string) {
   if (BLOCKED_OPERATIONAL.includes(operationalStatus as (typeof BLOCKED_OPERATIONAL)[number])) {
@@ -73,6 +73,22 @@ export async function listEligibleRooms(scope: AssignmentScope): Promise<Eligibl
     .where(and(eq(rooms.propertyId, scope.propertyId), eq(rooms.roomTypeId, scope.roomTypeId)))
     .orderBy(rooms.roomNumber);
 
+  const [roomType] = await db
+    .select({ name: roomTypes.name, basePriceMinorUnits: roomTypes.basePriceMinorUnits })
+    .from(roomTypes)
+    .where(and(eq(roomTypes.id, scope.roomTypeId), eq(roomTypes.propertyId, scope.propertyId)))
+    .limit(1);
+
+  const category = await categoryNightsAvailable(
+    db,
+    scope.propertyId,
+    scope.roomTypeId,
+    scope.checkInDate,
+    scope.checkOutDate,
+    scope.excludeReservationId,
+  );
+  const categoryReason = category.minAvailable < 1 ? categorySoldOutMessage(category.blockers) : undefined;
+
   const assigned = await db
     .select({
       id: reservations.id,
@@ -94,16 +110,42 @@ export async function listEligibleRooms(scope: AssignmentScope): Promise<Eligibl
       (stay) =>
         stay.roomId === room.id &&
         stay.id !== scope.excludeReservationId &&
-        staysOverlap(stay.checkInDate, stay.checkOutDate, scope.checkInDate, scope.checkOutDate)
+        stayNightsOverlap(stay.checkInDate, stay.checkOutDate, scope.checkInDate, scope.checkOutDate)
     );
-    const reason = ineligibilityReason(room, conflicted, Boolean(scope.forCheckIn));
+    const reason = ineligibilityReason(room, conflicted, Boolean(scope.forCheckIn)) || categoryReason;
     return {
       ...room,
       eligible: !reason,
       reason,
       readinessLabel: readinessLabel(room.housekeepingStatus, room.operationalStatus),
+      roomTypeName: roomType?.name,
+      nightlyRateMinorUnits: roomType?.basePriceMinorUnits,
     };
   });
+}
+
+export async function listStayEligibleRooms(
+  propertyId: string,
+  checkInDate: string,
+  checkOutDate: string,
+  excludeReservationId?: string | null,
+): Promise<EligibleRoom[]> {
+  const types = await db
+    .select({ id: roomTypes.id })
+    .from(roomTypes)
+    .where(eq(roomTypes.propertyId, propertyId));
+  const lists = await Promise.all(
+    types.map((roomType) =>
+      listEligibleRooms({
+        propertyId,
+        roomTypeId: roomType.id,
+        checkInDate,
+        checkOutDate,
+        excludeReservationId,
+      }),
+    ),
+  );
+  return lists.flat().sort((left, right) => left.roomNumber.localeCompare(right.roomNumber, undefined, { numeric: true }));
 }
 
 export async function assertRoomEligible(

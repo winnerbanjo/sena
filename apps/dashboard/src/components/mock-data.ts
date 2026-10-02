@@ -21,6 +21,9 @@ export interface ReservationItem {
   paidAmountMinorUnits: number;
   pendingTransferProof?: boolean;
   noteCount?: number;
+  bookingGroupId?: string | null;
+  groupReference?: string | null;
+  groupRooms?: { roomNumber: string; reference: string; totalAmountMinorUnits: number }[];
   timeline: { time: string; text: string; actor: string }[];
 }
 
