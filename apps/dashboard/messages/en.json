@@ -223,7 +223,8 @@
     "internalOnly": "Internal note. Only staff can see this.",
     "addNote": "Add note",
     "notePlaceholder": "Airport pickup, late arrival, extra bed, balance at check-in",
-    "noteEmpty": "No internal notes yet."
+    "noteEmpty": "No internal notes yet.",
+    "voided": "Voided"
   },
   "calendar": {
     "title": "Calendar",
@@ -1089,7 +1090,8 @@
       "checked_out": "Checked out",
       "cancelled": "Cancelled",
       "no_show": "No show",
-      "pending": "Pending"
+      "pending": "Pending",
+      "voided": "Voided"
     },
     "housekeeping": {
       "clean": "Clean",

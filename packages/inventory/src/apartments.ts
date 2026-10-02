@@ -94,6 +94,83 @@ export async function checkApartmentAvailability(
   return held ? { isAvailable: false, minAvailable: 0 } : { isAvailable: true, minAvailable: 1 };
 }
 
+export type EligibleApartment = {
+  id: string;
+  name: string;
+  apartmentType: string;
+  maxGuests: number;
+  eligible: boolean;
+  reason?: string;
+};
+
+/**
+ * Apartments bookable for a date range, using the same availability rules as
+ * Direct Booking. The stay being edited is excluded from conflict detection so
+ * an operator can keep a reservation on the apartment it already holds.
+ */
+export async function listEligibleApartments(
+  executor: { select: typeof db.select },
+  propertyId: string,
+  checkInDate: string,
+  checkOutDate: string,
+  excludeReservationId?: string | null,
+): Promise<EligibleApartment[]> {
+  const units = await executor
+    .select({
+      id: apartments.id,
+      name: apartments.name,
+      apartmentType: apartments.apartmentType,
+      maxGuests: apartments.maxGuests,
+      operationalStatus: apartments.operationalStatus,
+      archivedAt: apartments.archivedAt,
+    })
+    .from(apartments)
+    .where(and(eq(apartments.propertyId, propertyId)))
+    .orderBy(apartments.name);
+
+  const stays = await executor
+    .select({ id: reservations.id, apartmentId: reservations.apartmentId, status: reservations.status, checkInDate: reservations.checkInDate, checkOutDate: reservations.checkOutDate })
+    .from(reservations)
+    .where(
+      and(
+        eq(reservations.propertyId, propertyId),
+        inArray(reservations.status, [...APARTMENT_BLOCKING_STATUSES]),
+        sql`${reservations.checkInDate} < ${checkOutDate}`,
+        sql`${reservations.checkOutDate} > ${checkInDate}`,
+      ),
+    );
+
+  const holds = await executor
+    .select({ apartmentId: bookingHolds.apartmentId, checkInDate: bookingHolds.checkInDate, checkOutDate: bookingHolds.checkOutDate })
+    .from(bookingHolds)
+    .where(
+      and(
+        eq(bookingHolds.propertyId, propertyId),
+        eq(bookingHolds.status, 'active'),
+        gt(bookingHolds.expiresAt, new Date()),
+      ),
+    );
+
+  return units.map((unit: any) => {
+    let reason: string | undefined;
+    if (unit.archivedAt) reason = 'This apartment is archived.';
+    else if (unit.operationalStatus === 'blocked' || unit.operationalStatus === 'maintenance') reason = 'Out of service.';
+    else if (stays.some((stay: any) => stay.apartmentId === unit.id && stay.id !== excludeReservationId)) {
+      reason = 'Booked for part of these dates.';
+    } else if (holds.some((hold: any) => hold.apartmentId === unit.id && datesOverlap(checkInDate, checkOutDate, hold.checkInDate, hold.checkOutDate))) {
+      reason = 'Currently held for these dates.';
+    }
+    return {
+      id: unit.id,
+      name: unit.name,
+      apartmentType: unit.apartmentType,
+      maxGuests: Number(unit.maxGuests),
+      eligible: !reason,
+      reason,
+    };
+  });
+}
+
 export async function createApartmentHold(
   propertyId: string,
   apartmentId: string,

@@ -6,6 +6,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.redis = exports.s3Client = exports.S3_BUCKET = void 0;
 exports.getSpacesPublicUrl = getSpacesPublicUrl;
 exports.uploadMediaToSpaces = uploadMediaToSpaces;
+exports.readPrivateMediaFromSpaces = readPrivateMediaFromSpaces;
+exports.deleteMediaFromSpaces = deleteMediaFromSpaces;
 exports.getCache = getCache;
 exports.setCache = setCache;
 const client_s3_1 = require("@aws-sdk/client-s3");
@@ -49,6 +51,21 @@ async function uploadMediaToSpaces(params) {
         success: true,
         url: getSpacesPublicUrl(params.key),
     };
+}
+async function readPrivateMediaFromSpaces(key) {
+    if (!exports.s3Client || !key || key.startsWith('http'))
+        return null;
+    const result = await exports.s3Client.send(new client_s3_1.GetObjectCommand({ Bucket: exports.S3_BUCKET, Key: key }));
+    if (!result.Body)
+        return null;
+    const body = await result.Body.transformToByteArray();
+    return { body, contentType: result.ContentType };
+}
+async function deleteMediaFromSpaces(key) {
+    if (!exports.s3Client || !key || key.startsWith('http'))
+        return { success: true, skipped: true };
+    await exports.s3Client.send(new client_s3_1.DeleteObjectCommand({ Bucket: exports.S3_BUCKET, Key: key }));
+    return { success: true };
 }
 // ==========================================
 // 2. DigitalOcean Valkey / Redis Cache

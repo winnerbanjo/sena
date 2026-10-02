@@ -223,7 +223,8 @@
     "internalOnly": "Bayanin ciki. Ma’aikata kaɗai ne za su iya gani.",
     "addNote": "Ƙara bayani",
     "notePlaceholder": "Ɗaukar filin jirgi, zuwa a makare, gado na ƙari, ragowar biya a lokacin shiga",
-    "noteEmpty": "Babu bayanan ciki tukuna."
+    "noteEmpty": "Babu bayanan ciki tukuna.",
+    "voided": "Anulled"
   },
   "calendar": {
     "title": "Kalanda",
@@ -1089,7 +1090,8 @@
       "checked_out": "Ya fita",
       "cancelled": "An soke",
       "no_show": "Bai zo ba",
-      "pending": "Ana jira"
+      "pending": "Ana jira",
+      "voided": "Anulled"
     },
     "housekeeping": {
       "clean": "Tsabta",

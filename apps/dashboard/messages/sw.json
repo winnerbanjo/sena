@@ -223,7 +223,8 @@
     "internalOnly": "Maelezo ya ndani. Wafanyakazi pekee wanaweza kuyaona.",
     "addNote": "Ongeza maelezo",
     "notePlaceholder": "Kuchukua uwanja wa ndege, kuchelewa, kitanda cha ziada, salio wakati wa kuingia",
-    "noteEmpty": "Bado hakuna maelezo ya ndani."
+    "noteEmpty": "Bado hakuna maelezo ya ndani.",
+    "voided": "Imfutwa"
   },
   "calendar": {
     "title": "Kalenda",
@@ -1089,7 +1090,8 @@
       "checked_out": "Ameondoka",
       "cancelled": "Imeghairiwa",
       "no_show": "Hakuja",
-      "pending": "Inasubiri"
+      "pending": "Inasubiri",
+      "voided": "Imfutwa"
     },
     "housekeeping": {
       "clean": "Safi",

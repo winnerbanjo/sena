@@ -48,6 +48,7 @@ export type Permission =
   | 'reservation.create'
   | 'reservation.edit'
   | 'reservation.cancel'
+  | 'reservation.delete'
   | 'guest.read'
   | 'guest.edit'
   | 'room.read'
@@ -164,7 +165,8 @@ export type ReservationStatus =
   | 'checked_in'
   | 'checked_out'
   | 'cancelled'
-  | 'no_show';
+  | 'no_show'
+  | 'voided';
 
 export type BookingSource =
   | 'direct'

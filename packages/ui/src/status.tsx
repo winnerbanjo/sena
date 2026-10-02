@@ -45,6 +45,7 @@ const STATUS_TONE: Record<string, StatusTone> = {
   cancelled: 'negative',
   canceled: 'negative',
   no_show: 'negative',
+  voided: 'neutral',
   failed: 'negative',
   overdue: 'negative',
   disconnected: 'negative',

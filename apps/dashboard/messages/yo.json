@@ -223,7 +223,8 @@
     "internalOnly": "Àkọsílẹ̀ inú ilé. Àwọn òṣìṣẹ́ nìkan ló lè rí i.",
     "addNote": "Fi àkọsílẹ̀ kún",
     "notePlaceholder": "Ìgbàwọlé pápákọ̀ òfuurufú, dé pẹ́, ibùsùn síi, owó tó kù ní ìwọlé",
-    "noteEmpty": "Kò sí àkọsílẹ̀ inú ilé síbẹ̀."
+    "noteEmpty": "Kò sí àkọsílẹ̀ inú ilé síbẹ̀.",
+    "voided": "Ofunni"
   },
   "calendar": {
     "title": "Kàlẹ́ńdà",
@@ -1089,7 +1090,8 @@
       "checked_out": "Ti jáde",
       "cancelled": "A fagilé",
       "no_show": "Kò wá",
-      "pending": "Ń dúró"
+      "pending": "Ń dúró",
+      "voided": "Ofunni"
     },
     "housekeeping": {
       "clean": "Ó mọ́",

@@ -28,6 +28,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     'reservation.create',
     'reservation.edit',
     'reservation.cancel',
+    'reservation.delete',
     'guest.read',
     'guest.edit',
     'room.read',
@@ -47,6 +48,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     'reservation.create',
     'reservation.edit',
     'reservation.cancel',
+    'reservation.delete',
     'guest.read',
     'guest.edit',
     'room.read',
@@ -174,4 +176,39 @@ export function formatStayDates(checkIn: string, checkOut: string): string {
   } catch {
     return `${checkIn} → ${checkOut}`;
   }
+}
+
+/**
+ * Role names as they appear on staff accounts, mapped onto the roles Sena
+ * actually grants permissions to.
+ */
+export const ROLE_ALIASES: Record<string, Role> = {
+  'general manager': 'manager',
+  'property manager': 'manager',
+  'front desk lead': 'front_desk',
+  'front desk': 'front_desk',
+  'front desk agent': 'front_desk',
+  receptionist: 'front_desk',
+  staff: 'front_desk',
+  housekeeper: 'housekeeping',
+  'housekeeping lead': 'housekeeping',
+  'housekeeping supervisor': 'housekeeping',
+  'room attendant': 'housekeeping',
+  finance: 'accountant',
+};
+
+/** Resolves a staff role name to the permissions it carries. */
+export function permissionsForRole(role: string): Permission[] {
+  const normalized = role.trim().toLowerCase();
+  const resolved = ROLE_ALIASES[normalized] || normalized;
+  return ROLE_PERMISSIONS[resolved as Role] || [];
+}
+
+/**
+ * Destructive removal of a reservation is management-only. This is pure
+ * permission logic with no database access, so the browser may ask the same
+ * question the server enforces.
+ */
+export function roleMayDeleteReservations(role: string) {
+  return permissionsForRole(role).includes('reservation.delete');
 }

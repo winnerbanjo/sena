@@ -20,27 +20,26 @@ exports.resend = resendApiKey ? new resend_1.Resend(resendApiKey) : null;
  */
 async function sendSenaEmail(type, params, options) {
     const recipient = Array.isArray(options.to) ? options.to[0] : options.to;
-    try {
-        // 1. Idempotency Check
-        if (options.idempotencyKey) {
-            try {
-                const existing = await database_1.db
-                    .select()
-                    .from(database_1.emailLogs)
-                    .where((0, database_1.eq)(database_1.emailLogs.idempotencyKey, options.idempotencyKey))
-                    .limit(1);
-                if (existing.length > 0 && existing[0].status === 'sent') {
-                    return {
-                        success: true,
-                        messageId: existing[0].resendMessageId || undefined,
-                        simulated: false,
-                    };
+    if (options.idempotencyKey) {
+        try {
+            return await database_1.db.transaction(async (tx) => {
+                await tx.execute((0, database_1.sql) `select pg_advisory_xact_lock(hashtext(${`sena-email:${options.idempotencyKey}`}))`);
+                const existing = await tx.select().from(database_1.emailLogs).where((0, database_1.eq)(database_1.emailLogs.idempotencyKey, options.idempotencyKey)).limit(1);
+                if (existing[0]?.status === 'sent') {
+                    return { success: true, messageId: existing[0].resendMessageId || undefined, simulated: false };
                 }
-            }
-            catch (idempErr) {
-                console.warn('[EMAIL] Failed to check idempotency in db:', idempErr);
-            }
+                return deliverSenaEmail(type, params, options, tx);
+            });
         }
+        catch (error) {
+            return { success: false, error: error?.message || 'Unknown email delivery failure' };
+        }
+    }
+    return deliverSenaEmail(type, params, options, database_1.db);
+}
+async function deliverSenaEmail(type, params, options, query) {
+    const recipient = Array.isArray(options.to) ? options.to[0] : options.to;
+    try {
         // 2. Preferences Check (for marketing or non-critical operational briefs)
         if (!options.skipPreferencesCheck) {
             try {
@@ -107,7 +106,7 @@ async function sendSenaEmail(type, params, options) {
         }
         // 6. Audit Log to Database
         try {
-            await database_1.db.insert(database_1.emailLogs).values({
+            await query.insert(database_1.emailLogs).values({
                 organizationId: options.organizationId || null,
                 propertyId: options.propertyId || null,
                 recipient,
@@ -134,7 +133,7 @@ async function sendSenaEmail(type, params, options) {
         console.error(`[EMAIL ERROR] Failed sending ${type} to ${recipient}:`, error);
         // Record failure in audit log if possible
         try {
-            await database_1.db.insert(database_1.emailLogs).values({
+            await query.insert(database_1.emailLogs).values({
                 organizationId: options.organizationId || null,
                 propertyId: options.propertyId || null,
                 recipient,
