@@ -1,10 +1,9 @@
 'use client';
 
 import * as React from 'react';
-import { formatNaira } from '@sena/config';
-import { ArrowUpRight, TrendingUp, DollarSign } from 'lucide-react';
 
-interface DayData {
+export interface VelocityDayData {
+  iso: string;
   day: string;
   dayName: string;
   dateNum: string;
@@ -18,386 +17,113 @@ interface DayData {
   isToday?: boolean;
 }
 
-
-function formatShortNaira(minorUnits: number) {
-  const naira = minorUnits / 100;
-  if (naira >= 1000000) return `₦${(naira / 1000000).toFixed(1)}m`;
-  return `₦${(naira / 1000).toFixed(0)}k`;
+interface OccupancyChartProps {
+  velocityDays: VelocityDayData[];
+  bookableInventory: number;
 }
 
 export function OccupancyChart({
-  reservations = [],
-  rooms = [],
-}: {
-  reservations?: any[];
-  rooms?: any[];
-}) {
-  const [activeTab, setActiveTab] = React.useState<'occupancy' | 'revenue'>('occupancy');
+  velocityDays = [],
+  bookableInventory = 13,
+}: OccupancyChartProps) {
+  const days = velocityDays;
+  const todayDay = days.find((d) => d.isToday) || days[days.length - 1] || days[0];
+  const [hoveredDay, setHoveredDay] = React.useState<VelocityDayData | null>(null);
 
-  const days: DayData[] = React.useMemo(() => {
-    const result: DayData[] = [];
-    const today = new Date();
-    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    const fullDayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const activeDay = hoveredDay || todayDay;
 
-    for (let i = -3; i <= 3; i++) {
-      const d = new Date(today);
-      d.setDate(today.getDate() + i);
-      const iso = d.toISOString().split('T')[0];
-      const isToday = i === 0;
-
-      const overlapping = reservations.filter(
-        (r) => iso >= r.checkInDate && iso < r.checkOutDate && ['confirmed', 'checked_in', 'checked_out'].includes(r.status)
-      );
-      const arrivalsOnDay = reservations.filter((r) => r.checkInDate === iso).length;
-      const departuresOnDay = reservations.filter((r) => r.checkOutDate === iso).length;
-      const dayRev = overlapping.reduce((sum, r) => sum + Math.round((r.totalAmountMinorUnits || 0) / Math.max(1, r.nights || 1)), 0);
-      const totalR = rooms.length || 1;
-      const occ = rooms.length > 0 ? Math.min(100, Math.round((overlapping.length / totalR) * 100)) : 0;
-
-      result.push({
-        day: dayNames[d.getDay()],
-        dayName: fullDayNames[d.getDay()],
-        dateNum: String(d.getDate()),
-        fullDate: `${fullDayNames[d.getDay()]}, ${d.getDate()} ${d.toLocaleString('en-GB', { month: 'short' })}${isToday ? ' (Today)' : ''}`,
-        occupancy: occ,
-        roomsBooked: overlapping.length,
-        totalRooms: rooms.length,
-        revenueMinorUnits: dayRev,
-        arrivals: arrivalsOnDay,
-        departures: departuresOnDay,
-        isToday,
-      });
-    }
-    return result;
-  }, [reservations, rooms]);
-
-  const [selectedDay, setSelectedDay] = React.useState<DayData>(() => days.find((d) => d.isToday) || days[3] || days[0]);
-  const [hoveredDay, setHoveredDay] = React.useState<DayData | null>(null);
-  const [isLoaded, setIsLoaded] = React.useState(false);
-
-  React.useEffect(() => {
-    const todayDay = days.find((d) => d.isToday);
-    if (todayDay) setSelectedDay(todayDay);
-  }, [days]);
-
-  React.useEffect(() => {
-    const timer = setTimeout(() => setIsLoaded(true), 50);
-    return () => clearTimeout(timer);
-  }, []);
-
-  if (days.every(day => day.roomsBooked === 0)) {
-    return (
-      <div className="bg-[#FAF7F2] rounded-xl border border-[#E8E1D5] p-8 sm:p-10 text-center space-y-3">
-        <span className="text-[11px] font-mono uppercase tracking-widest text-[#8C8275] block">
-          Reservations this week
-        </span>
-        <h3 className="text-lg text-[#71382D] font-semibold">
-          No reservations to show yet
-        </h3>
-        <p className="text-xs text-[#7A7267] max-w-md mx-auto leading-relaxed">
-          As guests book rooms via your direct website or walk in at the front desk, 7-day occupancy percentages and revenue yield trends will automatically generate here.
-        </p>
-      </div>
-    );
+  if (!days || days.length === 0) {
+    return null;
   }
 
-  const maxRevenue = Math.max(1000000, ...days.map((d) => d.revenueMinorUnits));
-  const currentInspectDay = hoveredDay || selectedDay || days[0];
-
-  const todayDay = days.find(d => d.isToday) || days[0];
-  const maxOccDay = [...days].sort((a, b) => b.occupancy - a.occupancy)[0] || todayDay;
-  const maxRevDay = [...days].sort((a, b) => b.revenueMinorUnits - a.revenueMinorUnits)[0] || todayDay;
-  const peakDay = activeTab === 'occupancy' ? maxOccDay : maxRevDay;
-  
-  const weeklyAvgOcc = Math.round(days.reduce((sum, d) => sum + d.occupancy, 0) / (days.length || 1));
-  const weeklyTotalRev = days.reduce((sum, d) => sum + d.revenueMinorUnits, 0);
-
   return (
-    <div className="occupancy-chart space-y-4 rounded-md border border-[#E8E2DA] bg-white p-4" dir="ltr" data-chart="true">
-      {/* Top Header & Dynamic Controls */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#E8DACB] pb-4">
-        <div>
-          <div className="flex items-center gap-2">
-            {activeTab === 'occupancy' ? (
-              <TrendingUp className="w-4 h-4 text-[#B85C3E]" />
-            ) : (
-              <DollarSign className="w-4 h-4 text-[#2E6B4F]" />
-            )}
-            <h3 className="text-base font-semibold text-[#191816]">
-              {activeTab === 'occupancy'
-                ? 'Weekly Booked Occupancy'
-                : 'Revenue Velocity'}
-            </h3>
-            <span
-              className={`inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full font-medium ${
-                activeTab === 'occupancy'
-                  ? 'text-[#2E6B4F] bg-[#EBF5ED]'
-                  : 'text-[#2E6B4F] bg-[#EBF5ED]'
-              }`}
-            >
-              <ArrowUpRight className="w-3 h-3" />
-              {activeTab === 'occupancy' ? 'Based on reservations' : 'Stay value, not cash received'}
-            </span>
-          </div>
-          <p className="text-xs text-[#7A7267] mt-1">
-            {activeTab === 'occupancy'
-              ? `Booked room nights across all ${rooms.length} rooms`
-              : 'Daily recorded & projected room revenue across direct and OTA bookings'}
-          </p>
-        </div>
-
-        {/* Dynamic Mode Switcher Pills */}
-        <div className="flex items-center gap-2">
-          <div className="flex bg-white p-1 rounded-md text-xs border border-[#E8DACB]">
-            <button
-              type="button"
-              onClick={() => setActiveTab('occupancy')}
-              className={`px-3.5 py-1.5 rounded-md font-medium transition-all duration-200 cursor-pointer ${
-                activeTab === 'occupancy'
-                  ? 'bg-[#FAF8F5] text-[#71382D] border border-[#E8DACB]/80 shadow-2xs font-semibold'
-                  : 'text-[#7A7267] hover:text-[#191816]'
-              }`}
-            >
-              Occupancy (%)
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('revenue')}
-              className={`px-3.5 py-1.5 rounded-md font-medium transition-all duration-200 cursor-pointer ${
-                activeTab === 'revenue'
-                  ? 'bg-[#FAF8F5] text-[#2E6B4F] border border-[#E8DACB]/80 shadow-2xs font-semibold'
-                  : 'text-[#7A7267] hover:text-[#191816]'
-              }`}
-            >
-              Revenue (₦)
-            </button>
-          </div>
-        </div>
+    <div className="rounded-lg border border-[#E8E2DA] bg-white p-4 space-y-3">
+      {/* Header */}
+      <div>
+        <h3 className="text-sm font-semibold text-[#191816]">Occupancy</h3>
+        <p className="text-xs text-[#7A7267] mt-0.5">Last 7 days</p>
       </div>
 
-      {/* Unified Executive Metrics Ledger Strip */}
-      <div className="bg-white border border-[#E8DACB] rounded-xl overflow-hidden grid grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-[#E8DACB] shadow-2xs">
-        <div className="p-4 space-y-1">
-          <span className="text-[10px] text-[#7A7267] font-mono uppercase tracking-wider block font-medium">
-            {activeTab === 'occupancy' ? "Today's booked occupancy" : "Today's Revenue"}
-          </span>
-          <div className="flex items-baseline gap-2">
-            <span className="text-xl sm:text-2xl text-[#191816] font-medium">
-              {activeTab === 'occupancy' ? `${todayDay.occupancy}%` : formatNaira(todayDay.revenueMinorUnits)}
-            </span>
-            {todayDay.occupancy > 0 && activeTab === 'occupancy' && (
-              <span className="w-1.5 h-1.5 rounded-full bg-[#B85C3E]" />
-            )}
-          </div>
-          <span className="text-[11px] text-[#7A7267] block">
-            {activeTab === 'occupancy' ? `${todayDay.roomsBooked} of ${rooms.length} rooms booked` : 'Booked nightly value'}
-          </span>
-        </div>
-
-        <div className="p-4 space-y-1">
-          <span className="text-[10px] text-[#7A7267] font-mono uppercase tracking-wider block font-medium">
-            {activeTab === 'occupancy' ? 'Weekly Average' : 'Total Week Gross'}
-          </span>
-          <div className="flex items-baseline gap-2">
-            <span className="text-xl sm:text-2xl text-[#191816] font-medium">
-              {activeTab === 'occupancy' ? `${weeklyAvgOcc}%` : formatShortNaira(weeklyTotalRev)}
-            </span>
-          </div>
-          <span className="text-[11px] text-[#2E6B4F] flex items-center font-medium">
-            <ArrowUpRight className="w-3.5 h-3.5 mr-0.5" />
-            {activeTab === 'occupancy' ? 'Across the displayed dates' : 'Booked nightly value'}
-          </span>
-        </div>
-
-        <div className="p-4 space-y-1">
-          <span className="text-[10px] text-[#7A7267] font-mono uppercase tracking-wider block font-medium">
-            Peak Demand Day
-          </span>
-          <div className="flex items-baseline gap-2">
-            <span className="text-xl sm:text-2xl text-[#191816] font-medium">
-              {peakDay.occupancy === 0 && activeTab === "occupancy" || peakDay.revenueMinorUnits === 0 && activeTab === "revenue" ? "No bookings" : peakDay.dayName}
-            </span>
-          </div>
-          <span className="text-[11px] text-[#7A7267] block">
-            {activeTab === 'occupancy' ? `${peakDay.occupancy}% peak occupancy` : `${formatShortNaira(peakDay.revenueMinorUnits)} projected`}
-          </span>
-        </div>
-
-        <div className="p-4 space-y-1">
-          <span className="text-[10px] text-[#7A7267] font-mono uppercase tracking-wider block font-medium">
-            Available Tonight
-          </span>
-          <div className="flex items-baseline gap-2">
-            <span className="text-xl sm:text-2xl text-[#2E6B4F] font-medium">
-              {rooms.length - todayDay.roomsBooked} Rooms
-            </span>
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-          </div>
-          <span className="text-[11px] text-[#7A7267] block">
-            Based on reservations; check room readiness
-          </span>
-        </div>
-      </div>
-
-      {/* Animated Clean Bar Chart Canvas */}
-      <div className="relative pt-2">
-        {/* Background Subtle Reference Lines */}
-        <div className="absolute inset-0 top-6 bottom-10 flex flex-col justify-between pointer-events-none opacity-40">
-          <div className="border-b border-dashed border-[#E8E2DA] w-full" />
+      {/* Clean 7-day bar chart */}
+      <div className="relative pt-3 pb-1">
+        {/* Subtle 50% / 100% reference line */}
+        <div className="absolute inset-x-0 top-6 bottom-10 flex flex-col justify-between pointer-events-none opacity-40">
           <div className="border-b border-dashed border-[#E8E2DA] w-full" />
           <div className="border-b border-dashed border-[#E8E2DA] w-full" />
         </div>
 
-        {/* 7 Interactive Bar Columns */}
-        <div className="grid grid-cols-7 gap-2 sm:gap-6 items-end h-52 pb-2 relative z-10">
-          {days.map((d, idx) => {
-            const targetPercent =
-              activeTab === 'occupancy'
-                ? d.occupancy
-                : Math.round((d.revenueMinorUnits / maxRevenue) * 100);
-
-            const heightPercent = isLoaded ? targetPercent : 0;
-            const isSelected = selectedDay.day === d.day;
-            const isHovered = hoveredDay?.day === d.day;
-
-            const displayLabel =
-              activeTab === 'occupancy'
-                ? `${d.occupancy}%`
-                : formatShortNaira(d.revenueMinorUnits);
+        {/* 7 Vertical Bars */}
+        <div className="grid grid-cols-7 gap-2 sm:gap-4 items-end h-36 relative z-10">
+          {days.map((d) => {
+            const isToday = d.isToday;
+            const isInspected = activeDay?.iso === d.iso;
 
             return (
               <div
-                key={d.day}
-                onClick={() => setSelectedDay(d)}
+                key={d.iso}
                 onMouseEnter={() => setHoveredDay(d)}
                 onMouseLeave={() => setHoveredDay(null)}
-                className="group flex flex-col items-center h-full justify-end cursor-pointer relative"
+                className="group flex flex-col items-center h-full justify-end cursor-pointer"
               >
-                {/* Value Label above Bar: always clearly visible */}
-                <div
-                  className={`text-[11px] font-mono font-medium mb-2 transition-all duration-200 text-center whitespace-nowrap ${
-                    d.isToday || isSelected || isHovered
-                      ? activeTab === 'occupancy'
-                        ? 'text-[#B85C3E] font-bold scale-105'
-                        : 'text-[#2E6B4F] font-bold scale-105'
+                {/* Percentage label above bar */}
+                <span
+                  className={`text-[11px] font-mono tabular-nums mb-1 transition-colors ${
+                    isToday
+                      ? 'font-semibold text-[#B85C3E]'
+                      : isInspected
+                      ? 'font-medium text-[#191816]'
                       : 'text-[#7A7267] group-hover:text-[#191816]'
                   }`}
                 >
-                  {displayLabel}
-                </div>
+                  {d.occupancy}%
+                </span>
 
-                {/* Bar Track & Animated Bar Fill */}
-                <div
-                  className={`w-full max-w-[48px] h-36 rounded-t-lg overflow-hidden flex flex-col justify-end p-1 transition-all duration-200 border-b-2 ${
-                    d.isToday
-                      ? 'border-[#B85C3E] bg-[#F7F2EB] ring-1 ring-[#B85C3E]/20 shadow-xs'
-                      : isSelected
-                      ? 'border-[#71382D] bg-[#F4EFEB] ring-1 ring-[#71382D]/20'
-                      : 'border-[#E5DACD] bg-[#F8F4EE]/80 group-hover:bg-[#F2ECE2]'
-                  }`}
-                >
+                {/* Vertical Bar */}
+                <div className="w-full max-w-[32px] h-24 flex flex-col justify-end">
                   <div
-                    style={{
-                      height: `${Math.max(heightPercent, 3)}%`,
-                      transitionDelay: `${idx * 40}ms`,
-                    }}
-                    className={`w-full rounded-t-[4px] transition-colors ${
-                      activeTab === 'occupancy'
-                        ? heightPercent > 0
-                          ? d.isToday
-                            ? 'bg-[#B85C3E]'
-                            : isSelected || isHovered
-                            ? 'bg-[#71382D]'
-                            : 'bg-[#C4896E]'
-                          : 'bg-[#E8E2DA]'
-                        : heightPercent > 0
-                        ? d.isToday
-                          ? 'bg-[#2E6B4F]'
-                          : isSelected || isHovered
-                          ? 'bg-[#1F4936]'
-                          : 'bg-[#6A9A80]'
-                        : 'bg-[#E5DACD]'
+                    style={{ height: `${Math.max(d.occupancy, 4)}%` }}
+                    className={`w-full rounded-t-sm transition-all duration-150 ${
+                      isToday
+                        ? 'bg-[#B85C3E]'
+                        : isInspected
+                        ? 'bg-[#71382D]'
+                        : 'bg-[#E5DACD] group-hover:bg-[#C4896E]'
                     }`}
                   />
                 </div>
 
-                {/* Day Labels below Bar */}
-                <div className="mt-2.5 text-center">
+                {/* Day label below bar */}
+                <div className="mt-1.5 text-center">
                   <span
-                    className={`block text-xs font-medium transition-colors ${
-                      d.isToday
-                        ? activeTab === 'occupancy'
-                          ? 'text-[#B85C3E] font-bold'
-                          : 'text-[#2E6B4F] font-bold'
-                        : isSelected || isHovered
-                        ? 'text-[#191816] font-semibold'
-                        : 'text-[#7A7267] group-hover:text-[#191816]'
+                    className={`block text-xs ${
+                      isToday
+                        ? 'font-semibold text-[#B85C3E]'
+                        : isInspected
+                        ? 'font-medium text-[#191816]'
+                        : 'text-[#7A7267]'
                     }`}
                   >
                     {d.day}
                   </span>
-                  <span className="block text-[10px] text-[#A39B90] font-mono">
+                  <span className="block text-[10px] text-[#A69E92] font-mono">
                     {d.dateNum}
                   </span>
                 </div>
-
-                {/* Live "Today" Indicator Pill */}
-                {d.isToday && (
-                  <span className="inline-flex items-center gap-1 text-[9px] font-semibold tracking-wider uppercase text-[#B85C3E] bg-[#FAEDE8] px-1.5 py-0.2 rounded mt-1 border border-[#F2DACF]">
-                    Today
-                  </span>
-                )}
               </div>
             );
           })}
         </div>
-
-        {/* Active Day Detail Inspector Strip */}
-        <div className="mt-4 pt-4 border-t border-[#E8E2DA] flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs bg-[#FAFAFA] p-3 rounded-md">
-          <div className="flex items-center gap-2">
-            <span
-              className={`w-2.5 h-2.5 rounded-full ${
-                activeTab === 'occupancy' ? 'bg-[#B85C3E]' : 'bg-[#2E6B4F]'
-              }`}
-            />
-            <strong className="text-[#191816] text-sm">
-              {currentInspectDay.fullDate}
-            </strong>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-5 text-xs text-[#7A7267]">
-            <div>
-              <span>Rooms booked: </span>
-              <strong className="text-[#191816]">
-                {currentInspectDay.roomsBooked} / {currentInspectDay.totalRooms}
-              </strong>
-            </div>
-
-            <div>
-              <span>Occupancy rate: </span>
-              <strong className="text-[#191816]">
-                {currentInspectDay.occupancy}%
-              </strong>
-            </div>
-
-            <div>
-              <span>Revenue: </span>
-              <strong className="text-[#B85C3E] font-semibold">
-                {formatNaira(currentInspectDay.revenueMinorUnits)}
-              </strong>
-            </div>
-
-            <div>
-              <span>Arrivals / Departures: </span>
-              <span className="font-medium text-[#191816]">
-                <span className="text-[#2E6B4F]">+{currentInspectDay.arrivals}</span> /{' '}
-                <span className="text-[#7A7267]">-{currentInspectDay.departures}</span>
-              </span>
-            </div>
-          </div>
-        </div>
       </div>
+
+      {/* Restrained hover detail line */}
+      {activeDay && (
+        <div className="pt-2 border-t border-[#F0ECE6] flex items-center justify-between text-xs text-[#7A7267]">
+          <span>{activeDay.fullDate}</span>
+          <span className="font-mono text-[#191816]">
+            {activeDay.roomsBooked} of {bookableInventory} units ({activeDay.occupancy}%)
+          </span>
+        </div>
+      )}
     </div>
   );
 }

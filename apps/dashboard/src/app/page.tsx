@@ -1,93 +1,141 @@
 'use client';
-import { pageMain } from '../components/design';
-import { useTranslations } from 'next-intl';
-import { formatAssignedRoom, mapReservationItem } from '../components/reservation-room';
-import { CheckInRoomDialog, type RoomAssignmentMode } from '../components/check-in-room-dialog';
-import { DeskPaymentBadge } from '../components/check-in-payment-status';
 
-import { useWorkspace } from '../components/workspace-access';
-import { PageLoadState } from '../components/page-load-state';
-import { classifyLoadFailure, type LoadFailureKind } from '../lib/page-load';
 import * as React from 'react';
 import Link from 'next/link';
-import { formatStayDates } from '@sena/config';
-import { Brush, ArrowRight, ArrowUpRight } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import { formatStayDates, formatNaira } from '@sena/config';
 import {
-  type ReservationItem,
-} from '../components/mock-data';
+  CheckCircle2,
+  ArrowRight,
+} from 'lucide-react';
+import { pageMain } from '../components/design';
+import { formatAssignedRoom } from '../components/reservation-room';
+import { CheckInRoomDialog, type RoomAssignmentMode } from '../components/check-in-room-dialog';
+import { PageLoadState } from '../components/page-load-state';
+import { classifyLoadFailure, type LoadFailureKind } from '../lib/page-load';
+import { type ReservationItem } from '../components/mock-data';
 import { NewReservationDialog } from '../components/new-reservation-dialog';
 import { useToast } from '../components/toast-notification';
 import { ReservationSuccessModal } from '../components/reservation-success-modal';
 import { OccupancyChart } from '../components/occupancy-chart';
 import { ReservationDrawer } from '../components/reservation-drawer';
 import { Topbar } from '../components/topbar';
-import { useDialogA11y } from '../components/use-dialog-a11y';
-import { OverviewRoomBoard } from '../components/overview-room-board';
+
+interface OverviewPayload {
+  property: {
+    id: string;
+    name: string;
+    slug: string;
+    address: string;
+    timezone: string;
+    currency: string;
+    checkInTime: string;
+    checkOutTime: string;
+  };
+  todayIso: string;
+  vitals: {
+    arrivals: {
+      total: number;
+      pending: number;
+      checkedIn: number;
+      items: ReservationItem[];
+    };
+    departures: {
+      total: number;
+      pending: number;
+      completed: number;
+      overdue: number;
+      items: ReservationItem[];
+      overdueItems: ReservationItem[];
+    };
+    inHouse: {
+      total: number;
+      onSchedule: number;
+      overdue: number;
+      items: ReservationItem[];
+    };
+    inventory: {
+      totalConfigured: number;
+      totalRooms: number;
+      totalApartments: number;
+      outOfService: number;
+      outOfServiceRooms: number;
+      outOfServiceApartments: number;
+      bookableInventory: number;
+      occupiedCount: number;
+      occupancyRate: number;
+    };
+    housekeeping: {
+      readyCount: number;
+      readyRooms: number;
+      readyApartments: number;
+      dirtyCount: number;
+      cleaningCount: number;
+      readinessRate: number;
+    };
+    deskFinancials: {
+      uncollectedMinorUnits: number;
+      unpaidStaysCount: number;
+      pendingProofsCount: number;
+      items: ReservationItem[];
+    };
+    attention: {
+      pendingArrivalsCount: number;
+      unassignedArrivalsCount: number;
+      unassignedArrivals: ReservationItem[];
+      pendingDeparturesCount: number;
+      overdueDeparturesCount: number;
+      dirtyRoomsWithArrivalsCount: number;
+      unpaidStaysCount: number;
+      pendingProofsCount: number;
+    };
+  };
+  sevenDayVelocity: {
+    windowStartIso: string;
+    windowEndIso: string;
+    days: any[];
+  };
+  rooms: any[];
+  apartments: any[];
+}
+
+interface OperationRow {
+  reservation: ReservationItem;
+  movementType: 'arrival' | 'departure';
+  isOverdue?: boolean;
+}
 
 export default function OverviewPage() {
   const t = useTranslations('overview');
   const toast = useToast();
-  const workspace = useWorkspace();
-  const [reservations, setReservations] = React.useState<ReservationItem[]>([]);
-  const [rooms, setRooms] = React.useState<any[]>([]);
+
+  const [data, setData] = React.useState<OverviewPayload | null>(null);
+  const [loading, setLoading] = React.useState(true);
   const [loadError, setLoadError] = React.useState(false);
   const [failureKind, setFailureKind] = React.useState<LoadFailureKind>('error');
-  const [timezone, setTimezone] = React.useState('Africa/Lagos');
-  const [loading, setLoading] = React.useState(true);
+
   const [selectedRes, setSelectedRes] = React.useState<ReservationItem | null>(null);
-  const [selectedRoom, setSelectedRoom] = React.useState<any>(null);
-  const roomDialogRef = useDialogA11y(Boolean(selectedRoom), () => setSelectedRoom(null));
   const [drawerOpen, setDrawerOpen] = React.useState(false);
   const [newResOpen, setNewResOpen] = React.useState(false);
   const [successReservation, setSuccessReservation] = React.useState<ReservationItem | null>(null);
-  const [currentDateStr, setCurrentDateStr] = React.useState('');
-  const [propertyName, setPropertyName] = React.useState('');
-  const [propertySlug, setPropertySlug] = React.useState('');
   const [assignment, setAssignment] = React.useState<{
     reservation: ReservationItem;
     mode: RoomAssignmentMode;
   } | null>(null);
 
-  React.useEffect(() => {
-    if (!workspace) return;
-    setPropertyName(workspace.property.name);
-    setPropertySlug(workspace.property.slug || '');
-    setTimezone(workspace.property.timezone);
-  }, [workspace]);
-
-  React.useEffect(() => {
-    const today = new Date();
-    setCurrentDateStr(
-      today.toLocaleDateString('en-GB', {
-        weekday: 'long',
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric',
-      })
-    );
-  }, []);
-
   const fetchData = React.useCallback(async () => {
     setLoadError(false);
     try {
-      const [resRes, roomRes] = await Promise.all([
-        fetch('/api/reservations'),
-        fetch('/api/rooms'),
-      ]);
-
-      if (!resRes.ok || !roomRes.ok) {
-        throw new Error(`Could not load overview (${!resRes.ok ? resRes.status : roomRes.status})`);
+      const res = await fetch('/api/overview');
+      if (!res.ok) {
+        throw new Error(`Could not load overview (${res.status})`);
       }
-      const data = await resRes.json();
-      if (data.reservations) {
-        const mapped: ReservationItem[] = data.reservations.map(mapReservationItem);
-        setReservations(mapped);
-      }
-
-      const roomData = await roomRes.json();
-      if (roomData.rooms) setRooms(roomData.rooms);
+      const json: OverviewPayload = await res.json();
+      setData(json);
     } catch (error) {
-      setFailureKind(classifyLoadFailure(error, typeof navigator === 'undefined' ? true : navigator.onLine));
+      setFailureKind(
+        classifyLoadFailure(error, typeof navigator === 'undefined' ? true : navigator.onLine)
+      );
       setLoadError(true);
     } finally {
       setLoading(false);
@@ -98,13 +146,10 @@ export default function OverviewPage() {
     fetchData();
   }, [fetchData]);
 
-  function openAssignment(id: string, mode: RoomAssignmentMode) {
-    const reservation = reservations.find((item) => item.id === id) || selectedRes;
-    if (!reservation) return;
-    setAssignment({ reservation, mode });
+  function openAssignment(res: ReservationItem, mode: RoomAssignmentMode) {
+    setAssignment({ reservation: res, mode });
   }
 
-  // Check Out handler
   async function handleCheckOut(id: string) {
     try {
       const res = await fetch(`/api/reservations/${id}/check-out`, {
@@ -116,7 +161,7 @@ export default function OverviewPage() {
         toast.success('Guest Checked Out', 'Reservation marked completed.');
         fetchData();
         if (selectedRes && selectedRes.id === id) {
-          setSelectedRes((prev) => prev ? { ...prev, status: 'checked_out' } : null);
+          setSelectedRes((prev) => (prev ? { ...prev, status: 'checked_out' } : null));
         }
       }
     } catch (e: any) {
@@ -125,302 +170,487 @@ export default function OverviewPage() {
   }
 
   function handleCreateReservation(newRes: ReservationItem) {
-    setReservations((prev) => [newRes, ...prev]);
     fetchData();
     setSuccessReservation(newRes);
   }
 
-  const todayIso = new Intl.DateTimeFormat('en-CA', { timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
-  const arrivals = reservations.filter((r) => r.status === 'confirmed' && r.checkInDate === todayIso);
-  const inHouse = reservations.filter((r) => r.status === 'checked_in');
-  const departures = inHouse.filter((r) => r.checkOutDate === todayIso);
-  const dirtyRooms = rooms.filter((r) => r.housekeeping === 'dirty' || r.housekeepingStatus === 'dirty');
-  const cleanRooms = rooms.filter((room) => ['clean', 'inspected'].includes(room.housekeepingStatus || room.housekeeping));
-  const readyRooms = cleanRooms.filter((room) => (room.operationalStatus || room.operational) === 'available');
-  const occupiedCount = rooms.filter((r) => r.operational === 'occupied' || r.operationalStatus === 'occupied').length;
-  const totalRoomsCount = rooms.length || 1;
-  const occupancyRate = rooms.length > 0 ? Math.round((occupiedCount / totalRoomsCount) * 100) : 0;
-  const directWebsiteUrl = propertySlug ? `https://${propertySlug}.sena.ng` : '/website';
-  const arrivalsText = arrivals.length === 1 ? '1 arrival today' : `${arrivals.length} arrivals today`;
-  const departuresText = departures.length === 1 ? '1 departure' : `${departures.length} departures`;
-  const roomsAttentionText = dirtyRooms.length === 0 ? 'No rooms need attention' : `${dirtyRooms.length} ${dirtyRooms.length === 1 ? 'room needs' : 'rooms need'} attention`;
+  if (loading || loadError || !data) {
+    return (
+      <PageLoadState
+        title={t('title')}
+        failed={loadError}
+        failureKind={failureKind}
+        retry={fetchData}
+      />
+    );
+  }
 
-  if (loading || loadError) return <PageLoadState title={t('title')} failed={loadError} failureKind={failureKind} retry={fetchData} />;
+  const { vitals, sevenDayVelocity, rooms } = data;
+
+  // Formatted operational date (e.g. Sunday, 4 October)
+  const operationalDateStr = new Date(data.todayIso + 'T12:00:00Z').toLocaleDateString('en-GB', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  });
+
+  // Combine today's guest movements into ONE coherent list
+  const operationalRows: OperationRow[] = [
+    // 1. Departures overdue
+    ...(vitals.departures.overdueItems || []).map((r) => ({
+      reservation: r,
+      movementType: 'departure' as const,
+      isOverdue: true,
+    })),
+    // 2. Departures scheduled today
+    ...(vitals.departures.items || []).map((r) => ({
+      reservation: r,
+      movementType: 'departure' as const,
+      isOverdue: false,
+    })),
+    // 3. Arrivals scheduled today
+    ...(vitals.arrivals.items || []).map((r) => ({
+      reservation: r,
+      movementType: 'arrival' as const,
+      isOverdue: false,
+    })),
+  ].filter((item, index, self) => self.findIndex((i) => i.reservation.id === item.reservation.id) === index);
+
+  // Filter prioritized attention items (max 3)
+  const overdueStays = vitals.departures.overdueItems || [];
+  const unassignedArrivals = vitals.attention.unassignedArrivals || [];
+  const dirtyArrivalRooms = rooms.filter((r) => {
+    if (r.housekeepingStatus !== 'dirty') return false;
+    return vitals.arrivals.items.some((a) => a.roomId === r.id && a.status === 'confirmed');
+  });
+  const unverifiedProofs = (vitals.deskFinancials.items || []).filter((r) => r.pendingTransferProof);
+
+  interface AttentionItem {
+    id: string;
+    text: string;
+    isUrgent?: boolean;
+    actionLabel: string;
+    onAction: () => void;
+  }
+
+  const attentionList: AttentionItem[] = [];
+
+  for (const stay of overdueStays) {
+    if (attentionList.length >= 3) break;
+    attentionList.push({
+      id: `overdue-${stay.id}`,
+      text: `Departure overdue: ${stay.guestName} (${formatAssignedRoom(stay.roomNumber)})`,
+      isUrgent: true,
+      actionLabel: 'Resolve',
+      onAction: () => {
+        setSelectedRes(stay);
+        setDrawerOpen(true);
+      },
+    });
+  }
+
+  for (const stay of unassignedArrivals) {
+    if (attentionList.length >= 3) break;
+    attentionList.push({
+      id: `unassigned-${stay.id}`,
+      text: `1 reservation has no room assigned (${stay.guestName})`,
+      actionLabel: 'Assign',
+      onAction: () => openAssignment(stay, 'assign'),
+    });
+  }
+
+  for (const room of dirtyArrivalRooms) {
+    if (attentionList.length >= 3) break;
+    attentionList.push({
+      id: `dirty-${room.id}`,
+      text: `Room ${room.roomNumber} needs cleaning before today's arrival`,
+      actionLabel: 'Housekeeping',
+      onAction: () => {
+        window.location.href = '/housekeeping';
+      },
+    });
+  }
+
+  for (const stay of unverifiedProofs) {
+    if (attentionList.length >= 3) break;
+    attentionList.push({
+      id: `proof-${stay.id}`,
+      text: `1 bank transfer awaiting verification (${stay.guestName})`,
+      actionLabel: 'Verify',
+      onAction: () => {
+        window.location.href = '/payments';
+      },
+    });
+  }
 
   return (
     <div className="flex h-screen flex-1 flex-col overflow-hidden bg-[#FAF8F6] text-[#191816]">
+      {/* 1. HEADER: Overview | Search | ONE New reservation button */}
       <Topbar
-        title={t('title')}
+        title="Overview"
         onOpenNewReservation={() => setNewResOpen(true)}
       />
 
-      <main className={pageMain}>
-        {/* Warm Executive Hospitality Briefing Banner */}
-        <section aria-label="Overview briefing" className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div className="min-w-0 space-y-1">
-            <p className="text-xs text-[#7A7267]">
-              {currentDateStr || 'Today'}
-              <span className="px-1.5 text-[#C4B8A5]">·</span>
-              <span className="text-[#191816]">{propertyName}</span>
-            </p>
-            <h2 className="text-base font-medium text-[#191816]">
-              {arrivalsText}
-              <span className="px-1.5 font-normal text-[#C4B8A5]">·</span>
-              <span className="font-normal">{departuresText}</span>
-              <span className="px-1.5 font-normal text-[#C4B8A5]">·</span>
-              <span className="font-normal">{roomsAttentionText}</span>
-            </h2>
-          </div>
-          <div className="flex items-center gap-2">
-            <a
-              href={directWebsiteUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex h-11 items-center gap-1.5 rounded border border-[#E8E2DA] bg-white px-3 text-[13px] font-medium text-[#191816] hover:bg-[#FAF8F6] sm:h-9"
-            >
-              View website
-              <ArrowUpRight className="h-3.5 w-3.5" />
-            </a>
+      <main className={`${pageMain} space-y-6 pb-12`}>
+        {/* 2. TODAY: Concise operational sentence */}
+        <section aria-label="Today summary" className="space-y-0.5">
+          <h2 className="text-sm font-semibold text-[#191816]">Today</h2>
+          <p className="text-xs text-[#7A7267] font-medium">
+            {operationalDateStr}
+          </p>
+          <p className="text-sm text-[#191816] pt-1">
+            <span>{vitals.arrivals.pending} {vitals.arrivals.pending === 1 ? 'arrival' : 'arrivals'}</span>
+            <span className="mx-2 text-[#D5CFC7]">·</span>
+            <span>{vitals.inHouse.total} in house</span>
+            <span className="mx-2 text-[#D5CFC7]">·</span>
+            <span>{vitals.departures.pending} {vitals.departures.pending === 1 ? 'departure' : 'departures'}</span>
+            <span className="mx-2 text-[#D5CFC7]">·</span>
+            <span>{vitals.housekeeping.dirtyCount} need cleaning</span>
+          </p>
+        </section>
+
+        {/* 3. CORE METRICS: Exactly four metrics in one quiet horizontal block */}
+        <section aria-label="Core metrics">
+          <div className="grid grid-cols-2 sm:grid-cols-4 rounded-lg border border-[#E8E2DA] bg-white divide-y sm:divide-y-0 sm:divide-x divide-[#E8E2DA] overflow-hidden">
+            {/* Arrivals */}
+            <div className="p-4 sm:p-5 space-y-0.5">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-[#8C8275] block">
+                Arrivals
+              </span>
+              <div className="text-2xl sm:text-3xl font-semibold tabular-nums text-[#191816] mt-1">
+                {vitals.arrivals.pending}
+              </div>
+              <span className="text-xs text-[#7A7267] block">Today</span>
+            </div>
+
+            {/* In house */}
+            <div className="p-4 sm:p-5 space-y-0.5">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-[#8C8275] block">
+                In house
+              </span>
+              <div className="text-2xl sm:text-3xl font-semibold tabular-nums text-[#191816] mt-1">
+                {vitals.inHouse.total}
+              </div>
+              <span className="text-xs text-[#7A7267] block">Checked in</span>
+            </div>
+
+            {/* Departures */}
+            <div className="p-4 sm:p-5 space-y-0.5">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-[#8C8275] block">
+                Departures
+              </span>
+              <div className="text-2xl sm:text-3xl font-semibold tabular-nums text-[#191816] mt-1">
+                {vitals.departures.pending}
+              </div>
+              <span className="text-xs text-[#7A7267] block">Today</span>
+            </div>
+
+            {/* Occupancy */}
+            <div className="p-4 sm:p-5 space-y-0.5">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-[#8C8275] block">
+                Occupancy
+              </span>
+              <div className="text-2xl sm:text-3xl font-semibold tabular-nums text-[#191816] mt-1">
+                {vitals.inventory.occupancyRate}%
+              </div>
+              <span className="text-xs text-[#7A7267] block">
+                {vitals.inventory.occupiedCount} of {vitals.inventory.bookableInventory} units
+              </span>
+            </div>
           </div>
         </section>
 
-        <div className="grid grid-cols-2 gap-px overflow-hidden rounded-md border border-[#E8E2DA] bg-[#E8E2DA] sm:grid-cols-3 lg:grid-cols-5">
-          <Link href="/front-desk" className="space-y-1 bg-white p-4">
-            <p className="text-xs text-[#7A7267]">Arrivals</p>
-            <p className="text-2xl font-medium tabular-nums">{arrivals.length}</p>
-            <p className="text-xs text-[#5C564D]">Today</p>
-          </Link>
-          <Link href="/front-desk" className="space-y-1 bg-white p-4">
-            <p className="text-xs text-[#7A7267]">In house</p>
-            <p className="text-2xl font-medium tabular-nums">{inHouse.length}</p>
-            <p className="text-xs text-[#5C564D]">Checked in</p>
-          </Link>
-          <Link href="/front-desk" className="space-y-1 bg-white p-4">
-            <p className="text-xs text-[#7A7267]">Departures</p>
-            <p className="text-2xl font-medium tabular-nums">{departures.length}</p>
-            <p className="text-xs text-[#5C564D]">Today</p>
-          </Link>
-          <Link href="/housekeeping" className="space-y-1 bg-white p-4">
-            <p className="text-xs text-[#7A7267]">Needs cleaning</p>
-            <p className="text-2xl font-medium tabular-nums">{dirtyRooms.length}</p>
-            <p className="text-xs text-[#5C564D]">{readyRooms.length} ready</p>
-          </Link>
-          <Link href="/rooms" className="col-span-2 space-y-1 bg-white p-4 sm:col-span-1">
-            <p className="text-xs text-[#7A7267]">Occupancy</p>
-            <p className="text-2xl font-medium tabular-nums">{occupancyRate}%</p>
-            <p className="text-xs text-[#5C564D]">{occupiedCount} of {rooms.length}</p>
-          </Link>
-        </div>
-
-        {rooms.length > 0 && (
-          <OverviewRoomBoard
-            rooms={rooms}
-            occupiedCount={occupiedCount}
-            attentionCount={dirtyRooms.length}
-            onSelectRoom={setSelectedRoom}
-          />
-        )}
-        {selectedRoom && (
-          <div className="fixed inset-0 z-40 flex justify-end bg-black/20">
-            <button className="flex-1" aria-label="Close room" onClick={() => setSelectedRoom(null)} />
-            <div ref={roomDialogRef} role="dialog" aria-modal="true" aria-labelledby="room-dialog-title" className="w-full max-w-sm bg-white h-full p-6 space-y-3 overflow-y-auto">
-              <h2 id="room-dialog-title" className="text-2xl font-semibold">Room {selectedRoom.roomNumber || selectedRoom.number}</h2>
-              <p>{selectedRoom.roomType?.name || selectedRoom.roomTypeName || 'Room'}</p>
-              <p className="text-sm text-[#5C564D]">Housekeeping: {selectedRoom.housekeepingStatus || selectedRoom.housekeeping || 'Unknown'}</p>
-              <button type="button" className="min-h-11 text-sm underline" onClick={() => setSelectedRoom(null)}>Close</button>
-            </div>
-          </div>
-        )}
-
-        {/* Occupancy Velocity Rhythm */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between text-xs px-1">
-            <span className="font-mono text-[11px] uppercase tracking-wider text-[#8C8275] font-semibold">
-              7-Day Booking Overview
+        {/* 4. TODAY'S OPERATIONS: Combined, clean operational table */}
+        <section aria-labelledby="operations-heading" className="rounded-lg border border-[#E8E2DA] bg-white overflow-hidden">
+          <div className="p-4 border-b border-[#E8E2DA] flex items-center justify-between">
+            <h3 id="operations-heading" className="text-sm font-semibold text-[#191816]">
+              Today's operations
+            </h3>
+            <span className="text-xs text-[#7A7267]">
+              {operationalRows.length} {operationalRows.length === 1 ? 'movement' : 'movements'}
             </span>
-            <Link href="/calendar" className="text-[#71382D] hover:text-[#B85C3E] font-medium transition-colors inline-flex items-center gap-1">
-              <span>Open 30-day calendar</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </Link>
           </div>
-          <OccupancyChart reservations={reservations} rooms={rooms} />
-        </div>
 
-        {/* Two-Column Editorial Rhythm: Arrivals Ledger & Operational Notes */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          {/* Main Arrivals Book (8 Cols) */}
-          <div className="lg:col-span-8 space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-lg text-[#191816] font-semibold">
-                  Expected Guest Arrivals
-                </h2>
-                <p className="text-xs text-[#7A7267] mt-0.5">
-                  Guest list for today. Select any stay to view preferences, notes, or settle balances.
-                </p>
-              </div>
-              <span className="text-xs font-mono text-[#8C8275]">
-                {arrivals.length} {arrivals.length === 1 ? 'stay' : 'stays'} scheduled
-              </span>
+          {operationalRows.length === 0 ? (
+            <div className="p-8 text-center text-xs text-[#7A7267]">
+              No guest movements scheduled for today.
             </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-start text-xs border-collapse">
+                <thead>
+                  <tr className="border-b border-[#E8E2DA] bg-[#FAF8F6] text-[#7A7267] text-[11px] font-medium">
+                    <th className="py-2.5 px-4 text-start font-medium">Guest</th>
+                    <th className="py-2.5 px-3 text-start font-medium">Movement</th>
+                    <th className="py-2.5 px-3 text-start font-medium">Accommodation</th>
+                    <th className="py-2.5 px-3 text-start font-medium">Stay</th>
+                    <th className="py-2.5 px-3 text-start font-medium">Payment</th>
+                    <th className="py-2.5 px-3 text-start font-medium">Status</th>
+                    <th className="py-2.5 px-4 text-end font-medium">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#F0ECE6]">
+                  {operationalRows.map(({ reservation: res, movementType, isOverdue }) => {
+                    const balance = Math.max(0, (res.totalAmountMinorUnits || 0) - (res.paidAmountMinorUnits || 0));
+                    const isFullyPaid = balance === 0;
 
-            {arrivals.length === 0 ? (
-              <div className="rounded-md border border-dashed border-[#E8E2DA] px-6 py-10 text-center">
-                <p className="text-sm font-medium text-[#191816]">No arrivals left today</p>
-                <p className="mx-auto mt-1 max-w-sm text-sm text-[#7A7267]">
-                  Expected stays are checked in, or none are due.
-                </p>
-                <Link href="/front-desk" className="mt-4 inline-flex h-11 items-center text-sm font-medium text-[#71382D] underline-offset-4 hover:underline sm:h-9">
-                  Open front desk
-                </Link>
+                    const hasRoom = Boolean(res.roomId || res.roomNumber);
+
+                    return (
+                      <tr
+                        key={`${movementType}-${res.id}`}
+                        onClick={() => {
+                          setSelectedRes(res);
+                          setDrawerOpen(true);
+                        }}
+                        className="hover:bg-[#FAF8F6] cursor-pointer transition-colors"
+                      >
+                        {/* Guest */}
+                        <td className="py-3 px-4 font-medium text-[#191816]">
+                          <span className="block truncate max-w-[160px] font-semibold">
+                            {res.guestName}
+                          </span>
+                          <span className="block text-[11px] text-[#8C8275] font-mono">
+                            {res.reference}
+                          </span>
+                        </td>
+
+                        {/* Movement */}
+                        <td className="py-3 px-3">
+                          <span
+                            className={`inline-block px-1.5 py-0.5 rounded text-[11px] font-medium ${
+                              movementType === 'arrival'
+                                ? 'bg-[#FAEDE8] text-[#B85C3E]'
+                                : 'bg-[#F2ECE4] text-[#71382D]'
+                            }`}
+                          >
+                            {movementType === 'arrival' ? 'Arrival' : 'Departure'}
+                          </span>
+                        </td>
+
+                        {/* Accommodation */}
+                        <td className="py-3 px-3">
+                          {hasRoom ? (
+                            <span className="font-medium text-[#191816]">
+                              {formatAssignedRoom(res.roomNumber)}
+                            </span>
+                          ) : (
+                            <span className="text-[#B85C3E] font-medium">
+                              Unassigned
+                            </span>
+                          )}
+                          <span className="block text-[11px] text-[#7A7267] truncate max-w-[140px]">
+                            {res.roomType || 'Accommodation'}
+                          </span>
+                        </td>
+
+                        {/* Stay */}
+                        <td className="py-3 px-3 font-mono text-[11px] text-[#5C564D] whitespace-nowrap">
+                          {formatStayDates(res.checkInDate, res.checkOutDate)}
+                        </td>
+
+                        {/* Payment */}
+                        <td className="py-3 px-3 whitespace-nowrap">
+                          {isFullyPaid ? (
+                            <span className="text-emerald-700 font-medium">Paid</span>
+                          ) : (
+                            <span className="text-[#71382D] font-medium font-mono">
+                              {formatNaira(balance)} due
+                            </span>
+                          )}
+                        </td>
+
+                        {/* Status */}
+                        <td className="py-3 px-3 whitespace-nowrap">
+                          {isOverdue ? (
+                            <span className="text-[#A83226] font-semibold">Overdue</span>
+                          ) : res.status === 'confirmed' ? (
+                            <span className="text-[#5C564D]">Confirmed</span>
+                          ) : res.status === 'checked_in' ? (
+                            <span className="text-emerald-700">Checked in</span>
+                          ) : (
+                            <span className="text-[#7A7267]">Completed</span>
+                          )}
+                        </td>
+
+                        {/* Action */}
+                        <td className="py-3 px-4 text-end whitespace-nowrap">
+                          {res.status === 'confirmed' ? (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openAssignment(res, 'check-in');
+                              }}
+                              className="h-7 px-2.5 rounded bg-[#B85C3E] hover:bg-[#A34F33] text-white text-xs font-medium transition-colors"
+                            >
+                              Check in
+                            </button>
+                          ) : isOverdue ? (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedRes(res);
+                                setDrawerOpen(true);
+                              }}
+                              className="h-7 px-2.5 rounded border border-[#E8E2DA] hover:bg-white text-[#A83226] text-xs font-medium transition-colors"
+                            >
+                              Resolve
+                            </button>
+                          ) : res.status === 'checked_in' && res.checkOutDate <= data.todayIso ? (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleCheckOut(res.id);
+                              }}
+                              className="h-7 px-2.5 rounded border border-[#E8E2DA] hover:bg-[#FAF8F6] text-[#191816] text-xs font-medium transition-colors"
+                            >
+                              Check out
+                            </button>
+                          ) : (
+                            <span className="text-xs text-[#71382D] font-medium">
+                              View
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+
+        {/* 5. SECONDARY GRID: Needs attention (left) & Room status (right) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 items-start">
+          {/* Needs attention (Max 3 concise items) */}
+          <section aria-labelledby="attention-heading" className="rounded-lg border border-[#E8E2DA] bg-white p-4 space-y-3">
+            <h3 id="attention-heading" className="text-sm font-semibold text-[#191816]">
+              Needs attention
+            </h3>
+
+            {attentionList.length === 0 ? (
+              <div className="py-3 text-xs text-[#7A7267] flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                <span>All clear — No operational issues need your attention.</span>
               </div>
             ) : (
-              <div className="divide-y divide-[#E8E2DA] overflow-hidden rounded-md border border-[#E8E2DA] bg-white">
-                {arrivals.map((res) => {
-                  return (
-                    <div
-                      key={res.id}
-                      onClick={() => {
-                        setSelectedRes(res);
-                        setDrawerOpen(true);
-                      }}
-                      className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-white transition-colors cursor-pointer group"
-                    >
-                      <div className="flex items-center gap-3.5 min-w-0">
-                        <div className="w-10 h-10 rounded-full bg-[#FAF0E6] text-[#71382D] border border-[#E8D5C2] flex items-center justify-center text-sm font-semibold flex-shrink-0 shadow-2xs">
-                          {res.guestName.split(' ').map((n) => n[0]).slice(0, 2).join('')}
-                        </div>
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="text-base text-[#191816] group-hover:text-[#B85C3E] transition-colors truncate font-medium">
-                              {res.guestName}
-                            </span>
-                            <span className="text-[11px] font-mono text-[#8C8275] bg-stone-100 px-2 py-0.5 rounded">
-                              {res.reference}
-                            </span>
-                          </div>
-                          <span className="text-xs text-[#7A7267] block truncate mt-0.5">
-                            {res.roomType} &middot; <strong className="text-[#71382D] font-medium">{formatAssignedRoom(res.roomNumber)}</strong>
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center justify-between sm:justify-end gap-5">
-                        <div className="text-left sm:text-right">
-                          <span className="text-xs text-[#191816] block font-mono">
-                            {formatStayDates(res.checkInDate, res.checkOutDate)}
-                          </span>
-                          <span className="text-[11px] text-[#8C8275] block">
-                            {res.nights} {res.nights === 1 ? 'night' : 'nights'}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center gap-3">
-                          <DeskPaymentBadge
-                            compact
-                            totalAmountMinorUnits={res.totalAmountMinorUnits}
-                            paidAmountMinorUnits={res.paidAmountMinorUnits}
-                            pendingTransferProof={res.pendingTransferProof}
-                          />
-
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openAssignment(res.id, 'check-in');
-                            }}
-                            className="px-3 py-1.5 rounded-lg bg-[#71382D] hover:bg-[#5A2C23] text-white text-xs font-semibold shadow-xs transition-colors"
-                          >
-                            Check in
-                          </button>
-                        </div>
-                      </div>
+              <div className="divide-y divide-[#F0ECE6]">
+                {attentionList.map((item) => (
+                  <div key={item.id} className="py-2.5 flex items-center justify-between gap-2 text-xs">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span
+                        className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                          item.isUrgent ? 'bg-[#A83226]' : 'bg-[#B85C3E]'
+                        }`}
+                      />
+                      <span className="text-[#191816] font-medium truncate">
+                        {item.text}
+                      </span>
                     </div>
-                  );
-                })}
+                    <button
+                      type="button"
+                      onClick={item.onAction}
+                      className="h-6 px-2 text-[11px] font-medium text-[#71382D] hover:bg-[#FAF8F6] rounded border border-[#E8E2DA] flex-shrink-0 transition-colors"
+                    >
+                      {item.actionLabel}
+                    </button>
+                  </div>
+                ))}
               </div>
             )}
-          </div>
+          </section>
 
-          {/* Operational Side Column (4 Cols) */}
-          <div className="lg:col-span-4 space-y-6">
-            {/* Quick Turnaround Desk */}
-            <div className="space-y-4 rounded-md border border-[#E8E2DA] bg-white p-4">
-              <div className="flex items-center justify-between border-b border-[#E8DACB]/80 pb-3">
-                <span className="text-[11px] font-mono uppercase tracking-wider text-[#71382D] font-semibold flex items-center gap-1.5">
-                  <Brush className="w-3.5 h-3.5 text-[#B85C3E]" />
-                  Housekeeping Status
-                </span>
-                <Link href="/housekeeping" className="text-xs text-[#71382D] hover:text-[#B85C3E] font-medium">
-                  Roster &rarr;
-                </Link>
-              </div>
-
-              {/* Segmented visual health bar */}
-              <div className="w-full bg-stone-100 h-2 rounded-full overflow-hidden flex gap-0.5">
-                <div
-                  className="bg-emerald-500 h-full rounded-l-full transition-all"
-                  style={{ width: `${Math.round(((cleanRooms.length) / (rooms.length || 1)) * 100)}%` }}
-                  title="Clean Rooms"
-                />
-                <div
-                  className="bg-rose-500 h-full rounded-r-full transition-all"
-                  style={{ width: `${Math.round((dirtyRooms.length / (rooms.length || 1)) * 100)}%` }}
-                  title="Dirty Rooms"
-                />
-              </div>
-
-              <div className="space-y-3 text-xs">
-                <div className="flex items-center justify-between py-1 border-b border-stone-100">
-                  <span className="text-[#5C564D] flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                    Clean &amp; Inspected Rooms
-                  </span>
-                  <strong className="font-mono text-emerald-800 font-semibold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                    {cleanRooms.length}
-                  </strong>
-                </div>
-                <div className="flex items-center justify-between py-1 border-b border-stone-100">
-                  <span className="text-[#5C564D] flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-rose-500" />
-                    Rooms Awaiting Clean
-                  </span>
-                  <strong className="font-mono text-rose-800 font-semibold bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
-                    {dirtyRooms.length}
-                  </strong>
-                </div>
-                <div className="flex items-center justify-between py-1">
-                  <span className="text-[#5C564D]">Expected Next Turnaround</span>
-                  <span className="text-[#7A7267] font-mono">{workspace?.property.checkInTime || '—'} Check-in</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Direct Booking Engine Highlight */}
-            <div className="space-y-3 rounded-md border border-[#E8E2DA] bg-white p-4">
-              <p className="text-xs text-[#7A7267]">Direct booking</p>
-              <h3 className="truncate text-sm font-medium text-[#191816]">
-                {propertySlug ? `${propertySlug}.sena.ng` : 'Website'}
+          {/* Room status (Compact summary) */}
+          <section aria-labelledby="room-status-heading" className="rounded-lg border border-[#E8E2DA] bg-white p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 id="room-status-heading" className="text-sm font-semibold text-[#191816]">
+                Room status
               </h3>
-              <p className="text-sm text-[#7A7267]">
-                Share the property link so guests can book without a commission.
-              </p>
-              <div className="flex items-center gap-2">
-                <a
-                  href={directWebsiteUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex h-11 items-center rounded bg-[#B85C3E] px-3 text-[13px] font-medium text-white hover:bg-[#A34F33] sm:h-9"
-                >
-                  Open website
-                </a>
-                <Link href="/website" className="inline-flex h-11 items-center rounded border border-[#E8E2DA] px-3 text-[13px] font-medium text-[#191816] hover:bg-[#FAF8F6] sm:h-9">
-                  Edit
-                </Link>
+              <Link
+                href="/rooms"
+                className="text-xs text-[#71382D] hover:text-[#5E2B21] font-medium inline-flex items-center gap-0.5 transition-colors"
+              >
+                <span>View rooms</span>
+                <ArrowRight className="w-3 h-3" />
+              </Link>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 text-xs pt-1">
+              <div>
+                <span className="text-lg font-semibold tabular-nums text-[#191816] block">
+                  {vitals.housekeeping.readyCount}
+                </span>
+                <span className="text-[#7A7267]">Ready</span>
+              </div>
+              <div>
+                <span className="text-lg font-semibold tabular-nums text-[#191816] block">
+                  {vitals.housekeeping.dirtyCount}
+                </span>
+                <span className="text-[#7A7267]">Need cleaning</span>
+              </div>
+              <div>
+                <span className="text-lg font-semibold tabular-nums text-[#191816] block">
+                  {vitals.inventory.occupiedCount}
+                </span>
+                <span className="text-[#7A7267]">Occupied</span>
+              </div>
+              <div>
+                <span className="text-lg font-semibold tabular-nums text-[#191816] block">
+                  {vitals.inventory.outOfService}
+                </span>
+                <span className="text-[#7A7267]">Out of service</span>
               </div>
             </div>
-          </div>
+
+            {/* Segmented bar */}
+            <div className="w-full bg-[#F5F2EB] h-1.5 rounded-full overflow-hidden flex gap-0.5 mt-2">
+              <div
+                className="bg-emerald-600 h-full rounded-l-full"
+                style={{
+                  width: `${Math.round(
+                    (vitals.housekeeping.readyCount / (vitals.inventory.totalConfigured || 1)) * 100
+                  )}%`,
+                }}
+              />
+              <div
+                className="bg-rose-500 h-full"
+                style={{
+                  width: `${Math.round(
+                    (vitals.housekeeping.dirtyCount / (vitals.inventory.totalConfigured || 1)) * 100
+                  )}%`,
+                }}
+              />
+              <div
+                className="bg-[#71382D] h-full"
+                style={{
+                  width: `${Math.round(
+                    (vitals.inventory.occupiedCount / (vitals.inventory.totalConfigured || 1)) * 100
+                  )}%`,
+                }}
+              />
+              {vitals.inventory.outOfService > 0 && (
+                <div
+                  className="bg-[#8C8275] h-full rounded-r-full"
+                  style={{
+                    width: `${Math.round(
+                      (vitals.inventory.outOfService / (vitals.inventory.totalConfigured || 1)) * 100
+                    )}%`,
+                  }}
+                />
+              )}
+            </div>
+          </section>
         </div>
+
+        {/* 6. OCCUPANCY TREND: Clean, restrained 7-day chart */}
+        <OccupancyChart
+          velocityDays={sevenDayVelocity.days}
+          bookableInventory={vitals.inventory.bookableInventory}
+        />
       </main>
 
       {/* Reservation Drawer */}
@@ -428,8 +658,12 @@ export default function OverviewPage() {
         reservation={selectedRes}
         open={drawerOpen}
         onOpenChange={setDrawerOpen}
-        onCheckIn={(id) => openAssignment(id, 'check-in')}
-        onAssignRoom={(id) => openAssignment(id, selectedRes && selectedRes.roomId ? 'change' : 'assign')}
+        onCheckIn={() => {
+          if (selectedRes) openAssignment(selectedRes, 'check-in');
+        }}
+        onAssignRoom={() => {
+          if (selectedRes) openAssignment(selectedRes, selectedRes.roomId ? 'change' : 'assign');
+        }}
         onCheckOut={handleCheckOut}
         onPaymentRecorded={() => fetchData()}
         onUpdated={(updated) => {
@@ -438,6 +672,7 @@ export default function OverviewPage() {
         }}
       />
 
+      {/* Check In / Room Assignment Dialog */}
       <CheckInRoomDialog
         reservation={assignment?.reservation || null}
         mode={assignment?.mode || 'check-in'}
@@ -454,18 +689,7 @@ export default function OverviewPage() {
           );
         }}
         onFolioUpdated={(update) => {
-          setReservations((prev) =>
-            prev.map((item) =>
-              assignment && item.id === assignment.reservation.id
-                ? {
-                    ...item,
-                    paidAmountMinorUnits: update.paidAmountMinorUnits,
-                    totalAmountMinorUnits: update.totalAmountMinorUnits,
-                    pendingTransferProof: update.pendingTransferProof,
-                  }
-                : item
-            )
-          );
+          fetchData();
           setSelectedRes((prev) =>
             prev && assignment && prev.id === assignment.reservation.id
               ? {
@@ -486,7 +710,7 @@ export default function OverviewPage() {
         onCreateReservation={handleCreateReservation}
       />
 
-      {/* Customer-Facing In-App Confirmation Modal */}
+      {/* In-App Confirmation Modal */}
       <ReservationSuccessModal
         reservation={successReservation}
         open={!!successReservation}

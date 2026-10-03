@@ -81,27 +81,27 @@ export function Topbar({ title, onOpenNewReservation, onOpenSearch }: TopbarProp
   }, [handleOpenNewRes, handleOpenSearch]);
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 flex-shrink-0 items-center justify-between border-b border-[#E8E2DA] bg-[#FAF8F6] px-4 sm:px-6 lg:px-8">
-      <div className="flex min-w-0 items-center gap-2">
+    <header className="sticky top-0 z-30 flex h-14 sm:h-16 flex-shrink-0 items-center justify-between border-b border-[#E8E2DA] bg-[#FAF8F6] px-4 sm:px-6 lg:px-8">
+      <div className="flex min-w-0 items-center gap-2.5">
         <button
           onClick={openMobileNav}
-          className="inline-flex h-11 w-11 flex-shrink-0 items-center justify-center rounded text-[#191816] hover:bg-[#F6F1EA] lg:hidden"
+          className="inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md text-[#191816] hover:bg-[#F6F1EA] lg:hidden"
           aria-label={t('openNavigation')}
         >
           <Menu className="h-5 w-5" />
         </button>
 
-        <h1 className="truncate text-[22px] font-semibold tracking-tight text-[#191816] sm:text-[26px]">
+        <h1 className="truncate text-lg sm:text-xl font-semibold tracking-tight text-[#191816]">
           {heading}
         </h1>
       </div>
 
-      <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+      <div className="flex items-center gap-2 sm:gap-2.5 flex-shrink-0">
         {/* Quick search input (desktop/tablet) */}
         <button
           type="button"
           onClick={handleOpenSearch}
-          className="hidden h-9 w-44 cursor-pointer items-center justify-between gap-2 rounded border border-[#E8E2DA] bg-white px-3 text-xs text-[#7A7267] hover:bg-[#FAF8F6] md:flex lg:w-56"
+          className="hidden h-9 w-44 cursor-pointer items-center justify-between gap-2 rounded-md border border-[#E8E2DA] bg-white px-3 text-xs text-[#7A7267] hover:bg-[#FAF8F6] md:flex lg:w-56 transition-colors"
           title={t('searchHint')}
         >
           <div className="flex items-center gap-2 truncate">
@@ -109,7 +109,7 @@ export function Topbar({ title, onOpenNewReservation, onOpenSearch }: TopbarProp
             <span className="truncate">{t('searchSena')}</span>
           </div>
           <div className="flex items-center gap-1">
-            <kbd className="rounded border border-[#E8E2DA] bg-white px-1.5 py-0.5 text-[10px] text-[#7A7267]">
+            <kbd className="rounded border border-[#E8E2DA] bg-[#FAF8F6] px-1.5 py-0.5 text-[10px] text-[#7A7267] font-mono">
               ⌘K
             </kbd>
           </div>
@@ -119,7 +119,7 @@ export function Topbar({ title, onOpenNewReservation, onOpenSearch }: TopbarProp
         <button
           type="button"
           onClick={handleOpenSearch}
-          className="inline-flex h-11 w-11 items-center justify-center rounded border border-[#E8E2DA] bg-white text-[#7A7267] hover:bg-[#FAF8F6] md:hidden"
+          className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-[#E8E2DA] bg-white text-[#7A7267] hover:bg-[#FAF8F6] md:hidden transition-colors"
           aria-label={t('search')}
           title={t('search')}
         >
@@ -129,12 +129,12 @@ export function Topbar({ title, onOpenNewReservation, onOpenSearch }: TopbarProp
         {/* Global Primary Action */}
         <Button
           onClick={handleOpenNewRes}
-          className="px-2.5 text-xs sm:px-3"
+          className="h-9 px-3 text-xs font-semibold shadow-xs"
         >
-          <Plus className="w-4 h-4 flex-shrink-0" />
+          <Plus className="w-3.5 h-3.5 flex-shrink-0" />
           <span className="hidden sm:inline">{t('newReservation')}</span>
           <span className="sm:hidden">{t('new')}</span>
-          <kbd className="ms-1 hidden rounded bg-black/20 px-1 py-0.5 text-[10px] opacity-80 lg:inline">
+          <kbd className="ms-1 hidden rounded bg-black/15 px-1.5 py-0.5 text-[10px] font-mono opacity-80 lg:inline">
             N
           </kbd>
         </Button>
@@ -143,13 +143,12 @@ export function Topbar({ title, onOpenNewReservation, onOpenSearch }: TopbarProp
         <button
           type="button"
           onClick={toggleNotifications}
-          className="relative inline-flex h-11 w-11 flex-shrink-0 items-center justify-center rounded border border-[#E8E2DA] bg-white text-[#191816] hover:bg-[#FAF8F6]"
+          className="relative inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md border border-[#E8E2DA] bg-white text-[#191816] hover:bg-[#FAF8F6] transition-colors"
           aria-label={unread > 0 ? t('notificationsUnread', { count: unread }) : t('notifications')}
           title={t('notifications')}
         >
-          <Bell className="w-4 h-4" />
-          {unread > 0 && <span className="absolute top-1 end-1 w-2 h-2 rounded-full bg-[#71382D]" />}
-
+          <Bell className="w-4 h-4 text-[#5C564D]" />
+          {unread > 0 && <span className="absolute top-1.5 end-1.5 w-2 h-2 rounded-full bg-[#71382D]" />}
         </button>
       </div>
     </header>

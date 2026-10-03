@@ -126,7 +126,9 @@
     "appsSubtitle": "Payment providers, booking channels, and connected services",
     "billingSubtitle": "Plan, renewal, and billing history",
     "money": "Money",
-    "growth": "Growth"
+    "growth": "Growth",
+    "finance": "Finance",
+    "administration": "Administration"
   },
   "overview": {
     "title": "Overview",

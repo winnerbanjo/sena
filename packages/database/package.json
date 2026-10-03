@@ -10,6 +10,7 @@
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
     "db:migrate": "drizzle-kit migrate",
+    "db:setup-local": "tsx src/setup-local-db.ts",
     "db:apply-payment-lifecycle": "tsx src/apply-payment-lifecycle-schema.ts",
     "db:apply-user-locale": "tsx src/apply-user-locale-schema.ts",
     "db:apply-flutterwave": "tsx src/apply-flutterwave-schema.ts",

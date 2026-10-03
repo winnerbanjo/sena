@@ -2,10 +2,10 @@
 // Version: sena-pwa-v2.0.0
 // Live hotel data is NEVER cached. Offline fallback is only for genuine network failure.
 
-const SW_VERSION = 'sena-pwa-v2.0.0';
-const CACHE_NAME = 'sena-pwa-v2';
+const SW_VERSION = 'sena-pwa-v3.0.0';
+const CACHE_NAME = 'sena-pwa-v3';
 const OFFLINE_URL = '/offline.html';
-const BROKEN_CACHE_NAMES = ['sena-pwa-v1'];
+const BROKEN_CACHE_NAMES = ['sena-pwa-v1', 'sena-pwa-v2'];
 
 const PRECACHE_ASSETS = [
   OFFLINE_URL,
@@ -193,14 +193,19 @@ async function handleNavigation(request) {
 }
 
 async function handleStaticAsset(request) {
+  try {
+    const response = await fetch(request);
+    if (response && response.status === 200) {
+      const cache = await caches.open(CACHE_NAME);
+      cache.put(request, response.clone());
+      return response;
+    }
+  } catch (err) {
+    // Fall back to cache on offline/network failure
+  }
   const cached = await caches.match(request);
   if (cached) return cached;
-  const response = await fetch(request);
-  if (response && response.status === 200 && response.type === 'basic') {
-    const cache = await caches.open(CACHE_NAME);
-    cache.put(request, response.clone());
-  }
-  return response;
+  return new Response('', { status: 404 });
 }
 
 self.addEventListener('install', (event) => {

@@ -17,7 +17,8 @@ export async function resolveTenantForRequest(
 ): Promise<ResolvedTenant | null> {
   const userId = session?.user?.id;
   if (!userId) return null;
-  const requestedPropertyId = session?.user?.propertyId;
+  const cookiePropertyId = _req?.cookies?.get('sena_property_id')?.value;
+  const requestedPropertyId = cookiePropertyId || session?.user?.propertyId;
 
   if (requestedPropertyId) {
     const [user, membership, property] = await Promise.all([
@@ -27,9 +28,21 @@ export async function resolveTenantForRequest(
       }),
       database.query.properties.findFirst({ where: eq(properties.id, requestedPropertyId) }),
     ]);
-    if (!user || !membership || !property) return null;
-    if (membership.permissions?.includes('status:invited') || membership.permissions?.includes('status:revoked')) return null;
-    return { propertyId: property.id, property, user, userId, role: membership.role };
+    if (!user || !property) return null;
+    if (membership) {
+      if (membership.permissions?.includes('status:invited') || membership.permissions?.includes('status:revoked')) return null;
+      return { propertyId: property.id, property, user, userId, role: membership.role };
+    }
+    // Organization ownership check
+    if (property.organizationId) {
+      const orgMember = await database.query.organizationMembers.findFirst({
+        where: and(eq(organizationMembers.userId, userId), eq(organizationMembers.organizationId, property.organizationId)),
+      });
+      if (orgMember && ['owner', 'manager'].includes(orgMember.role.toLowerCase())) {
+        return { propertyId: property.id, property, user, userId, role: orgMember.role };
+      }
+    }
+    return null;
   }
 
   const [user, membership] = await Promise.all([

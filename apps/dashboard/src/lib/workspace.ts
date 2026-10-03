@@ -1,5 +1,6 @@
 import { auth } from '@/auth';
-import { db, users, properties, propertyMembers, and, eq } from '@sena/database';
+import { cookies } from 'next/headers';
+import { db, users, properties, propertyMembers, organizationMembers, and, eq } from '@sena/database';
 import { resolveTenantForRequest } from '@/lib/tenant';
 
 export type Workspace = {
@@ -38,8 +39,25 @@ async function resolveWorkspaceTenant(session: { user?: { id?: string; propertyI
     .innerJoin(properties, eq(properties.id, propertyMembers.propertyId))
     .where(and(eq(users.id, userId), eq(users.isActive, true)))
     .limit(1);
-  if (!row || row.permissions?.includes('status:invited') || row.permissions?.includes('status:revoked')) return null;
-  return { propertyId: row.property.id, property: row.property, user: row.user, userId: row.user.id, role: row.role };
+
+  if (row) {
+    if (row.permissions?.includes('status:invited') || row.permissions?.includes('status:revoked')) return null;
+    return { propertyId: row.property.id, property: row.property, user: row.user, userId: row.user.id, role: row.role };
+  }
+
+  // Fallback to organization ownership if property is owned by user's organization
+  const prop = await db.query.properties.findFirst({ where: eq(properties.id, propertyId) });
+  if (prop?.organizationId) {
+    const orgMember = await db.query.organizationMembers.findFirst({
+      where: and(eq(organizationMembers.userId, userId), eq(organizationMembers.organizationId, prop.organizationId)),
+    });
+    const u = await db.query.users.findFirst({ where: and(eq(users.id, userId), eq(users.isActive, true)) });
+    if (orgMember && u && ['owner', 'manager'].includes(orgMember.role.toLowerCase())) {
+      return { propertyId: prop.id, property: prop, user: u, userId: u.id, role: orgMember.role };
+    }
+  }
+
+  return resolveTenantForRequest(session);
 }
 
 export async function resolveServerWorkspace(): Promise<ServerWorkspaceResult> {
@@ -47,15 +65,25 @@ export async function resolveServerWorkspace(): Promise<ServerWorkspaceResult> {
     const session = await auth();
     if (!session?.user?.id) return { state: 'unauthenticated', workspace: null };
 
+    const cookieStore = await cookies();
+    const cookiePropertyId = cookieStore.get('sena_property_id')?.value;
+    const effectiveSession = {
+      ...session,
+      user: {
+        ...session.user,
+        propertyId: cookiePropertyId || (session.user as any)?.propertyId,
+      },
+    };
+
     let tenant;
     try {
-      tenant = await resolveWorkspaceTenant(session);
+      tenant = await resolveWorkspaceTenant(effectiveSession);
     } catch (firstError) {
       // One short retry absorbs a cold or recycled database connection without
       // turning a valid login into a false "property unavailable" screen.
       await delay(150);
       try {
-        tenant = await resolveWorkspaceTenant(session);
+        tenant = await resolveWorkspaceTenant(effectiveSession);
       } catch {
         throw firstError;
       }

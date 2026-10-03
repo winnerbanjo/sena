@@ -3,6 +3,7 @@ import postgres from 'postgres';
 import * as schema from './schema';
 
 export * from './schema';
+export * from './safety-guard';
 export * from 'drizzle-orm';
 
 /**
@@ -15,6 +16,12 @@ const connectionString = process.env.DATABASE_URL || 'postgresql://postgres:post
 const isRemoteDb =
   connectionString.includes('ondigitalocean.com') ||
   connectionString.includes('sslmode=require');
+
+if (process.env.NODE_ENV !== 'production' && isRemoteDb) {
+  console.warn(
+    '⚠️ [SENA DB WARNING] Development process is connected to a remote database host. Use a local PostgreSQL instance for development.'
+  );
+}
 
 const client = postgres(connectionString, {
   ssl: isRemoteDb ? { rejectUnauthorized: false } : false,
