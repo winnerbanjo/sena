@@ -28,11 +28,10 @@ const config: Config = {
       },
       fontFamily: {
         sans: [
+          'var(--font-inter)',
           'Inter',
           'InterVariable',
-          'var(--font-noto-sans)',
           'var(--font-noto-arabic)',
-          'Noto Sans',
           'Noto Sans Arabic',
           'system-ui',
           '-apple-system',

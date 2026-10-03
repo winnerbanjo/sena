@@ -47,9 +47,15 @@ export function DashboardShell({ children, workspaceResult }: { children: React.
   const isAuthPath =
     pathname === '/login' ||
     pathname === '/signup' ||
+    pathname === '/forgot-password' ||
+    pathname === '/reset-password' ||
+    pathname === '/verify-email' ||
     pathname === '/onboarding' ||
     pathname?.startsWith('/login') ||
     pathname?.startsWith('/signup') ||
+    pathname?.startsWith('/forgot-password') ||
+    pathname?.startsWith('/reset-password') ||
+    pathname?.startsWith('/verify-email') ||
     pathname?.startsWith('/onboarding');
 
   const [isOpen, setIsOpen] = React.useState(false);

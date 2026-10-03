@@ -1,6 +1,6 @@
 import NextAuth from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
-import { db, users, propertyMembers, properties } from '@sena/database';
+import { db, users, propertyMembers, properties, organizationMembers } from '@sena/database';
 import { eq } from 'drizzle-orm';
 import bcrypt from 'bcryptjs';
 import { authConfig } from './auth.config';
@@ -51,9 +51,37 @@ const nextAuth = NextAuth({
 
         const usable = memberships.filter((row) => membershipIsUsable(row.permissions));
 
-        const selected = propertySlug
+        type MembershipSelection = {
+          propertyId: string;
+          role: string;
+          propertyName: string;
+          propertySlug: string | null;
+        };
+
+        let selected: MembershipSelection | undefined = propertySlug
           ? usable.find((row) => row.propertySlug === propertySlug)
           : usable[0];
+
+        // Fallback for organization owners whose properties are linked via organization ownership
+        if (!selected) {
+          const orgProperties = await db
+            .select({
+              propertyId: properties.id,
+              role: organizationMembers.role,
+              propertyName: properties.name,
+              propertySlug: properties.slug,
+            })
+            .from(organizationMembers)
+            .innerJoin(properties, eq(properties.organizationId, organizationMembers.organizationId))
+            .where(eq(organizationMembers.userId, user.id));
+
+          if (orgProperties.length > 0) {
+            selected = propertySlug
+              ? orgProperties.find((row) => row.propertySlug === propertySlug)
+              : orgProperties[0];
+          }
+        }
+
         if (propertySlug && !selected) {
           return null;
         }

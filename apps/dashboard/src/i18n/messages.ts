@@ -3,7 +3,7 @@ import type en from '../../messages/en.json';
 
 export type DashboardMessages = typeof en;
 
-const loaders: Record<AppLocale, () => Promise<{ default: DashboardMessages }>> = {
+const loaders: Record<AppLocale, () => Promise<{ default: Record<string, unknown> }>> = {
   en: () => import('../../messages/en.json'),
   fr: () => import('../../messages/fr.json'),
   ar: () => import('../../messages/ar.json'),
@@ -32,8 +32,9 @@ let englishCache: DashboardMessages | null = null;
 
 export async function loadEnglishMessages(): Promise<DashboardMessages> {
   if (englishCache) return englishCache;
-  englishCache = (await loaders.en()).default;
-  return englishCache;
+  const enMessages = (await loaders.en()).default as unknown as DashboardMessages;
+  englishCache = enMessages;
+  return enMessages;
 }
 
 export async function loadLocaleMessages(locale: AppLocale): Promise<DashboardMessages> {

@@ -50,6 +50,9 @@ const DASHBOARD_ROUTES = new Set([
   'signup',
   'register',
   'auth',
+  'forgot-password',
+  'reset-password',
+  'verify-email',
   'site',
 ]);
 
@@ -173,6 +176,12 @@ export const middleware = auth((req) => {
     pathname.startsWith('/login/') ||
     pathname === '/signup' ||
     pathname.startsWith('/signup/') ||
+    pathname === '/forgot-password' ||
+    pathname.startsWith('/forgot-password/') ||
+    pathname === '/reset-password' ||
+    pathname.startsWith('/reset-password/') ||
+    pathname === '/verify-email' ||
+    pathname.startsWith('/verify-email/') ||
     pathname === '/onboarding' ||
     pathname.startsWith('/onboarding/') ||
     pathname.startsWith('/site/') ||

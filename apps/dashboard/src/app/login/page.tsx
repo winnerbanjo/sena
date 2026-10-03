@@ -5,6 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
+import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import { LanguageSelect } from '../../components/language-select';
 
 function LoginForm() {
@@ -60,7 +61,6 @@ function LoginForm() {
       }
 
       setIsLoading(false);
-      // Reload the server layout after authentication; the login layout has no workspace.
       window.location.assign(propertySlug ? '/apps?manage=flutterwave' : '/');
     } catch (err: any) {
       console.error('Login error:', err);
@@ -69,101 +69,64 @@ function LoginForm() {
     }
   }
 
-
   return (
-    <div className="min-h-screen bg-[#FAF7F2] text-[#191816] flex flex-col justify-between">
-      {/* Top Bar */}
-      <header className="px-6 sm:px-12 pt-8 pb-4 flex items-center justify-between max-w-7xl mx-auto w-full">
-        <Link href="https://sena.ng" className="opacity-90 hover:opacity-100 transition-opacity">
+    <div className="min-h-screen bg-[#FAF8F6] text-[#191816] flex flex-col justify-between selection:bg-[#B85C3E]/15">
+      {/* Top Header */}
+      <header className="px-6 py-6 max-w-7xl mx-auto w-full flex items-center justify-between">
+        <Link href="/" className="inline-flex items-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B85C3E] rounded">
           <Image
             src="/assets/sena-logo.png"
             alt="Sena"
-            width={96}
-            height={32}
+            width={92}
+            height={28}
             priority
-            className="h-6 sm:h-7 w-auto object-contain"
+            className="h-6 w-auto object-contain"
           />
         </Link>
 
-        <div className="flex items-center gap-3 text-xs text-[#7A7267]">
+        <div className="flex items-center gap-3">
           <label className="sr-only" htmlFor="login-language">{t('chooseLanguage')}</label>
-          <LanguageSelect id="login-language" className="min-h-11 rounded border border-[#E5D4BC] bg-white px-2 text-xs text-[#191816]" />
-          <span>{t('newHere')}</span>
-          <Link
-            href="/signup"
-            className="text-[#71382D] hover:text-[#B85C3E] font-medium transition-colors"
-          >
-            {t('createAccount')}
-          </Link>
+          <LanguageSelect id="login-language" />
         </div>
       </header>
 
-      {/* Main Content: Asymmetrical Human Composition */}
-      <main className="flex-1 flex items-center justify-center px-6 sm:px-12 py-10">
-        <div className="max-w-5xl w-full grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-center">
-          {/* Left: Atmospheric Hospitality Editorial */}
-          <div className="hidden lg:flex lg:col-span-5 flex-col justify-between space-y-8">
-            <div className="space-y-4">
-              <span className="text-[11px] font-mono tracking-widest text-[#B85C3E] uppercase">
-                {t('hotelierConsole')}
-              </span>
-              <h2 className="text-3xl font-serif font-normal text-[#71382D] leading-tight">
-                {t('loginEditorial')}
-              </h2>
-              <p className="text-sm text-[#7A7267] leading-relaxed">
-                Log in to review today&apos;s expected arrivals, coordinate housekeeping rooms, and monitor live room occupancy across your property.
-              </p>
-            </div>
-
-            <div className="relative rounded-lg overflow-hidden border border-[#E8E1D5] shadow-sm aspect-[4/3] bg-[#EAE3D9]">
-              <Image
-                src="/assets/pool.jpg"
-                alt="Boutique hotel courtyard"
-                fill
-                className="object-cover"
-                sizes="(max-width: 1024px) 100vw, 400px"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent flex items-end p-4">
-                <span className="text-[11px] text-white/90 tracking-wide font-mono">
-                  Boutique Property · Hospitality OS
-                </span>
-              </div>
-            </div>
-
-            <div className="pt-2 text-xs text-[#8C8275] border-t border-[#E8E1D5]">
-              <em>&ldquo;The mark of hospitality is when everything seems to happen without effort.&rdquo;</em>
-            </div>
-          </div>
-
-          {/* Right: The Sign-in Ledger */}
-          <div className="min-w-0 lg:col-span-7 bg-white rounded-xl border border-[#E8E1D5] p-5 sm:p-10 shadow-[0_4px_24px_rgba(25,24,22,0.03)]">
-            <div className="mb-8">
-              <h1 className="text-2xl font-serif font-normal text-[#191816]">
+      {/* Main Form Surface */}
+      <main className="flex-1 flex items-center justify-center px-4 sm:px-6 py-10">
+        <div className="w-full max-w-[400px]">
+          <div className="bg-white rounded-lg border border-[#E8E2DA] p-6 sm:p-8 shadow-[0_1px_3px_rgba(25,24,22,0.04)]">
+            <div className="mb-6">
+              <h1 className="text-xl font-semibold tracking-tight text-[#191816]">
                 {t('loginTitle')}
               </h1>
-              <p className="text-sm text-[#7A7267] mt-1.5">
+              <p className="text-xs text-[#5C564D] mt-1.5 leading-relaxed">
                 {t('loginSubtitle')}
               </p>
             </div>
 
             {error && (
-              <div className="mb-6 p-3 rounded-md bg-[#FAF4EF] border border-[#E5D4BC] text-[#71382D] text-xs leading-relaxed">
+              <div
+                role="alert"
+                aria-live="polite"
+                className="mb-5 p-3 rounded-md bg-[#FAF4EF] border border-[#E5D4BC] text-[#71382D] text-xs leading-relaxed"
+              >
                 {error}
               </div>
             )}
 
-            <form method="post" onSubmit={handleSubmit} className="space-y-5">
+            <form onSubmit={handleSubmit} className="space-y-4" noValidate>
               <div>
                 <label htmlFor="login-email" className="block text-xs font-medium text-[#191816] mb-1.5">
-                  {t('workEmail')}
+                  {t('email')}
                 </label>
                 <input
                   type="email"
-                  placeholder="you@yourhotel.com"
-                  id="login-email" name="email" autoComplete="username"
+                  id="login-email"
+                  name="email"
+                  autoComplete="email"
+                  placeholder="name@yourhotel.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full h-11 px-3.5 rounded-md border border-[#E8E1D5] bg-[#FAF7F2]/40 text-[#191816] text-sm focus:bg-white focus:outline-none focus:border-[#71382D] transition-all placeholder:text-[#A69E92]"
+                  className="w-full h-10 px-3 rounded-md border border-[#E8E2DA] bg-[#FAF8F6]/30 text-sm text-[#191816] placeholder:text-[#A69E92] focus:bg-white focus:outline-none focus:border-[#B85C3E] focus:ring-1 focus:ring-[#B85C3E] transition-colors"
                   required
                 />
               </div>
@@ -173,41 +136,45 @@ function LoginForm() {
                   <label htmlFor="login-password" className="block text-xs font-medium text-[#191816]">
                     {t('password')}
                   </label>
-                  <button
-                    type="button"
-                    onClick={() => setError('For help recovering your account, contact your property owner or Sena support. No reset email has been sent.')}
-                    className="text-[11px] text-[#8C8275] hover:text-[#71382D] transition-colors"
+                  <Link
+                    href="/forgot-password"
+                    className="text-xs text-[#5C564D] hover:text-[#B85C3E] transition-colors focus-visible:outline-none focus-visible:underline rounded"
                   >
                     {t('forgotPassword')}
-                  </button>
+                  </Link>
                 </div>
                 <div className="relative">
                   <input
-                    id="login-password" name="password" autoComplete="current-password"
+                    id="login-password"
+                    name="password"
                     type={showPassword ? 'text' : 'password'}
+                    autoComplete="current-password"
                     placeholder="••••••••••••"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full h-11 px-3.5 pe-11 rounded-md border border-[#E8E1D5] bg-[#FAF7F2]/40 text-[#191816] text-sm focus:bg-white focus:outline-none focus:border-[#71382D] transition-all placeholder:text-[#A69E92]"
+                    className="w-full h-10 px-3 pe-10 rounded-md border border-[#E8E2DA] bg-[#FAF8F6]/30 text-sm text-[#191816] placeholder:text-[#A69E92] focus:bg-white focus:outline-none focus:border-[#B85C3E] focus:ring-1 focus:ring-[#B85C3E] transition-colors"
                     required
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute end-3 top-3 text-xs text-[#8C8275] hover:text-[#191816]"
+                    aria-label={showPassword ? t('hide') : t('show')}
+                    aria-pressed={showPassword}
+                    className="absolute end-2.5 top-1/2 -translate-y-1/2 p-1 text-[#7A7267] hover:text-[#191816] transition-colors rounded focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#B85C3E]"
                   >
-                    {showPassword ? t('hide') : t('show')}
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
               </div>
 
-              <div className="flex items-center justify-between pt-1">
-                <label className="flex items-center gap-2 cursor-pointer text-xs text-[#7A7267]">
+              <div className="flex items-center justify-between pt-0.5">
+                <label className="flex items-center gap-2 cursor-pointer select-none text-xs text-[#5C564D]">
                   <input
                     type="checkbox"
+                    id="login-remember"
                     checked={rememberMe}
                     onChange={(e) => setRememberMe(e.target.checked)}
-                    className="rounded border-[#E8E1D5] text-[#71382D] focus:ring-[#71382D]"
+                    className="rounded border-[#E8E2DA] text-[#B85C3E] focus:ring-[#B85C3E] h-3.5 w-3.5"
                   />
                   <span>{t('keepSignedIn')}</span>
                 </label>
@@ -216,37 +183,35 @@ function LoginForm() {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full h-11 rounded-md bg-[#B85C3E] hover:bg-[#A34E32] text-white text-xs font-semibold tracking-wide transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                className="w-full h-10 rounded-md bg-[#B85C3E] hover:bg-[#A34F33] text-white text-xs font-medium tracking-wide transition-colors flex items-center justify-center gap-2 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B85C3E] focus-visible:ring-offset-2"
               >
-                {isLoading ? t('signingIn') : t('signIn')}
+                {isLoading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                <span>{isLoading ? t('signingIn') : t('signIn')}</span>
               </button>
-
-              {/* Prominent Create Account Section */}
-              <div className="pt-4 border-t border-[#F0ECE4] text-center">
-                <p className="text-xs text-[#7A7267] mb-2.5">
-                  {t('newHotelier')}
-                </p>
-                <Link
-                  href="/signup"
-                  className="w-full h-11 rounded-md border border-[#E5D4BC] bg-[#FAF7F2] hover:bg-[#F4ECE1] text-[#71382D] hover:text-[#5E2B21] text-xs font-semibold tracking-wide transition-all flex items-center justify-center gap-1.5 shadow-sm"
-                >
-                  <span>{t('createTrial')}</span>
-                </Link>
-              </div>
             </form>
+
+            <div className="mt-6 pt-5 border-t border-[#F0ECE4] text-center text-xs text-[#5C564D]">
+              <span>{t('newHere')}{' '}</span>
+              <Link
+                href="/signup"
+                className="font-medium text-[#B85C3E] hover:text-[#A34F33] transition-colors focus-visible:outline-none focus-visible:underline rounded"
+              >
+                {t('createAccount')}
+              </Link>
+            </div>
           </div>
         </div>
       </main>
 
       {/* Footer */}
-      <footer className="px-6 sm:px-12 py-6 text-center text-xs text-[#8C8275] border-t border-[#EAE3D9]">
+      <footer className="px-6 py-6 text-center text-xs text-[#7A7267]">
         <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
-          <Link href="https://sena.ng" className="hover:text-[#191816] transition-colors">sena.ng</Link>
-          <span>&middot;</span>
-          <Link href="https://sena.ng/privacy" className="hover:text-[#191816] transition-colors">Privacy</Link>
-          <span>&middot;</span>
-          <Link href="https://sena.ng/terms" className="hover:text-[#191816] transition-colors">Terms of Service</Link>
-          <span>&middot;</span>
+          <Link href="https://sena.ng" className="hover:text-[#191816] transition-colors focus-visible:underline rounded">sena.ng</Link>
+          <span aria-hidden="true">&middot;</span>
+          <Link href="https://sena.ng/privacy" className="hover:text-[#191816] transition-colors focus-visible:underline rounded">Privacy</Link>
+          <span aria-hidden="true">&middot;</span>
+          <Link href="https://sena.ng/terms" className="hover:text-[#191816] transition-colors focus-visible:underline rounded">Terms of Service</Link>
+          <span aria-hidden="true">&middot;</span>
           <span>&copy; 2026 Sena Operating System</span>
         </div>
       </footer>
@@ -256,7 +221,7 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <React.Suspense fallback={<div className="min-h-screen bg-[#FAF7F2]" />}>
+    <React.Suspense fallback={<div className="min-h-screen bg-[#FAF8F6]" />}>
       <LoginForm />
     </React.Suspense>
   );

@@ -21,14 +21,29 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { fullName, email, password, phone, propertyName, propertyCategory } = body;
 
-    if (typeof fullName !== 'string' || !fullName.trim() || fullName.length > 255 || typeof propertyName !== 'string' || !propertyName.trim() || propertyName.length > 255 || typeof email !== 'string' || email.length > 255 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) || typeof password !== 'string' || password.length < 8 || Buffer.byteLength(password, 'utf8') > 72) {
+    const cleanFullName = typeof fullName === 'string' ? fullName.trim() : '';
+    const cleanEmail = typeof email === 'string' ? email.toLowerCase().trim() : '';
+    const cleanPassword = typeof password === 'string' ? password : '';
+    const cleanPhone = typeof phone === 'string' && phone.trim() ? phone.trim() : null;
+    const effectivePropertyName =
+      typeof propertyName === 'string' && propertyName.trim()
+        ? propertyName.trim()
+        : `${cleanFullName || 'My'}'s Workspace`;
+
+    if (
+      !cleanFullName ||
+      cleanFullName.length > 255 ||
+      !cleanEmail ||
+      cleanEmail.length > 255 ||
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail) ||
+      cleanPassword.length < 8 ||
+      Buffer.byteLength(cleanPassword, 'utf8') > 72
+    ) {
       return NextResponse.json(
-        { error: 'Enter your name, property name, a valid email and a password of 8–72 bytes.' },
+        { error: 'Enter your full name, a valid email address, and a password of at least 8 characters.' },
         { status: 400 }
       );
     }
-
-    const cleanEmail = String(email).toLowerCase().trim();
 
     // Block re-registration for ALREADY-VERIFIED accounts only
     const existing = await db
@@ -45,25 +60,26 @@ export async function POST(request: Request) {
     }
 
     // Pre-hash the password (safe to do before account creation)
-    const passwordHash = await bcrypt.hash(password, 10);
+    const passwordHash = await bcrypt.hash(cleanPassword, 10);
     const orgSlug =
-      propertyName
+      effectivePropertyName
         .toLowerCase()
         .replace(/[^a-z0-9]/g, '-')
         .replace(/-+/g, '-')
-        .replace(/^-|-$/g, '') +
+        .replace(/^-|-$/g, '')
+        .slice(0, 50) +
       '-' +
-      Math.random().toString(36).substring(2, 7);
+      crypto.randomBytes(3).toString('hex');
 
     // Build the OTP and the pending-signup payload
     const otpCode = crypto.randomInt(100000, 999999).toString();
     const pendingPayload = Buffer.from(
       JSON.stringify({
-        fullName: fullName.trim(),
+        fullName: cleanFullName,
         email: cleanEmail,
         passwordHash,
-        phone: phone ? String(phone).trim() : null,
-        propertyName: propertyName.trim(),
+        phone: cleanPhone,
+        propertyName: effectivePropertyName,
         propertyCategory: propertyCategory || 'boutique_hotel',
         orgSlug,
       })

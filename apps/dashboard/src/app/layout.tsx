@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import { headers, cookies } from 'next/headers';
-import { Noto_Sans, Noto_Sans_Arabic, Poppins } from 'next/font/google';
+import { Inter, Noto_Sans_Arabic } from 'next/font/google';
 import './globals.css';
 import { DashboardShell } from '../components/dashboard-shell';
 import { PostHogProvider } from '../components/posthog-provider';
@@ -10,12 +10,11 @@ import { DEFAULT_LOCALE, LOCALE_COOKIE, LOCALE_META, localeDir, parseLocale, typ
 import { loadLocaleMessages } from '@/i18n/messages';
 import { I18nRoot } from '@/i18n/provider';
 
-const notoSans = Noto_Sans({
+const inter = Inter({
   subsets: ['latin', 'latin-ext'],
   weight: ['400', '500', '600', '700'],
-  variable: '--font-noto-sans',
+  variable: '--font-inter',
   display: 'swap',
-  preload: false,
 });
 
 const notoArabic = Noto_Sans_Arabic({
@@ -23,14 +22,6 @@ const notoArabic = Noto_Sans_Arabic({
   weight: ['400', '500', '600', '700'],
   variable: '--font-noto-arabic',
   display: 'swap',
-});
-
-const poppins = Poppins({
-  subsets: ['latin', 'latin-ext'],
-  weight: ['400', '500', '600', '700'],
-  variable: '--font-poppins',
-  display: 'swap',
-  preload: false,
 });
 
 export const metadata: Metadata = {
@@ -83,6 +74,12 @@ export default async function RootLayout({
     pathname.startsWith('/login/') ||
     pathname === '/signup' ||
     pathname.startsWith('/signup/') ||
+    pathname === '/forgot-password' ||
+    pathname.startsWith('/forgot-password/') ||
+    pathname === '/reset-password' ||
+    pathname.startsWith('/reset-password/') ||
+    pathname === '/verify-email' ||
+    pathname.startsWith('/verify-email/') ||
     pathname === '/onboarding' ||
     pathname.startsWith('/onboarding/') ||
     pathname.startsWith('/invoice/') ||
@@ -115,7 +112,7 @@ export default async function RootLayout({
     <html
       lang={isPublicSite ? 'en' : LOCALE_META[locale].htmlLang}
       dir={dir}
-      className={`${notoSans.variable} ${notoArabic.variable}${isSignedInApp ? ` ${poppins.variable}` : ''}`}
+      className={`${inter.variable} ${notoArabic.variable}`}
     >
       <head>
         {!isPublicSite && (

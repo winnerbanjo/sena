@@ -1,8 +1,15 @@
 import type { NextAuthConfig } from 'next-auth';
 
+const isProductionHttps =
+  process.env.NODE_ENV === 'production' &&
+  !process.env.AUTH_URL?.startsWith('http://') &&
+  !process.env.NEXTAUTH_URL?.startsWith('http://') &&
+  !process.env.NEXTAUTH_URL?.includes('localhost');
+
 export const authConfig = {
   secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET,
   trustHost: true,
+  useSecureCookies: isProductionHttps,
   session: {
     strategy: 'jwt',
     maxAge: 30 * 24 * 60 * 60,
