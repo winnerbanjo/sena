@@ -1,16 +1,18 @@
 import { calculateNights, getDatesBetween } from '@sena/config';
 import {
+  apartments,
   bookingGroups,
   db,
   guests,
   idempotencyKeys,
   properties,
+  propertyInvoices,
   reservationEvents,
   reservations,
   rooms,
   roomTypes,
 } from '@sena/database';
-import { reserveInventoryInTransaction } from '@sena/inventory';
+import { APARTMENT_BLOCKING_STATUSES, reserveInventoryInTransaction } from '@sena/inventory';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { ACTIVE_STAY_STATUSES, assertRoomEligible } from './assignment';
 import { categoryNightsAvailable, categorySoldOutMessage } from './category-availability';
@@ -229,7 +231,7 @@ export async function createBookingGroup(
         .returning();
       await tx.insert(reservationEvents).values({
         reservationId: reservation.id,
-        actorId: actor.id || undefined,
+        actorId: actor.id || null,
         actorName: actor.name,
         eventType: 'reservation_created',
         description: `Reservation ${reference} created in booking ${group.reference} for room ${room.roomNumber} (${roomType.name}).`,
@@ -313,3 +315,207 @@ export async function getBookingGroup(propertyId: string, bookingGroupId: string
     combinedPaidMinorUnits: stays.reduce((sum, stay) => sum + stay.paidAmountMinorUnits, 0),
   };
 }
+
+export type AddAccommodationInput = {
+  propertyId: string;
+  reservationId: string;
+  accommodationType: 'room' | 'apartment';
+  roomTypeId?: string | null;
+  roomId?: string | null;
+  apartmentId?: string | null;
+  checkInDate?: string;
+  checkOutDate?: string;
+  numGuests?: number;
+  customTotalAmountMinorUnits?: number | null;
+  source?: string;
+  specialRequests?: string;
+};
+
+export async function addAccommodationToBooking(
+  input: AddAccommodationInput,
+  actor = { id: '', name: 'Front Desk' },
+) {
+  return db.transaction(async (tx) => {
+    const [parentRes] = await tx
+      .select()
+      .from(reservations)
+      .where(and(eq(reservations.id, input.reservationId), eq(reservations.propertyId, input.propertyId)))
+      .limit(1)
+      .for('update');
+    if (!parentRes) throw new Error('Reservation not found');
+    if (['cancelled', 'no_show', 'voided'].includes(parentRes.status)) {
+      throw new Error('Cannot add accommodation to a cancelled or voided reservation.');
+    }
+
+    const checkInDate = input.checkInDate || parentRes.checkInDate;
+    const checkOutDate = input.checkOutDate || parentRes.checkOutDate;
+    if (checkOutDate <= checkInDate) throw new Error('Check-out must be after check-in.');
+    const nights = calculateNights(checkInDate, checkOutDate);
+    const stayDates = getDatesBetween(checkInDate, checkOutDate);
+    const numGuests = Number(input.numGuests || 1);
+
+    let bookingGroupId = parentRes.bookingGroupId;
+    let groupReference: string;
+
+    if (!bookingGroupId) {
+      groupReference = referenceCode('GRP-');
+      const [newGroup] = await tx
+        .insert(bookingGroups)
+        .values({
+          propertyId: input.propertyId,
+          guestId: parentRes.guestId,
+          reference: groupReference,
+          checkInDate: parentRes.checkInDate,
+          checkOutDate: parentRes.checkOutDate,
+        })
+        .returning();
+      bookingGroupId = newGroup.id;
+
+      await tx
+        .update(reservations)
+        .set({ bookingGroupId: newGroup.id, updatedAt: new Date() })
+        .where(eq(reservations.id, parentRes.id));
+
+      await tx
+        .update(propertyInvoices)
+        .set({ bookingGroupId: newGroup.id, updatedAt: new Date() })
+        .where(eq(propertyInvoices.reservationId, parentRes.id));
+    } else {
+      const [existingGroup] = await tx
+        .select({ reference: bookingGroups.reference })
+        .from(bookingGroups)
+        .where(eq(bookingGroups.id, bookingGroupId))
+        .limit(1);
+      groupReference = existingGroup?.reference || 'Booking Group';
+    }
+
+    let targetRoomTypeId: string | null = null;
+    let targetRoomId: string | null = null;
+    let targetApartmentId: string | null = null;
+    let targetLabel = '';
+    let standardAmount = 0;
+
+    if (input.accommodationType === 'apartment') {
+      if (!input.apartmentId) throw new Error('Select an apartment.');
+      const [apartment] = await tx
+        .select()
+        .from(apartments)
+        .where(and(eq(apartments.id, input.apartmentId), eq(apartments.propertyId, input.propertyId)))
+        .limit(1)
+        .for('update');
+      if (!apartment) throw new Error('Apartment not found.');
+      if (apartment.archivedAt || apartment.operationalStatus === 'blocked' || apartment.operationalStatus === 'maintenance') {
+        throw new Error('This apartment is out of service.');
+      }
+      const blocking = await tx
+        .select({ reference: reservations.reference })
+        .from(reservations)
+        .where(
+          and(
+            eq(reservations.apartmentId, input.apartmentId),
+            eq(reservations.propertyId, input.propertyId),
+            inArray(reservations.status, [...APARTMENT_BLOCKING_STATUSES]),
+            sql`${reservations.checkInDate} < ${checkOutDate}`,
+            sql`${reservations.checkOutDate} > ${checkInDate}`,
+          ),
+        );
+      if (blocking.length > 0) throw new Error(`Apartment is already booked for these dates (${blocking[0].reference}).`);
+
+      standardAmount = apartment.basePriceMinorUnits * nights;
+      targetRoomTypeId = null;
+      targetRoomId = null;
+      targetApartmentId = apartment.id;
+      targetLabel = `${apartment.name} Apartment`;
+    } else {
+      if (!input.roomTypeId) throw new Error('Select a room category.');
+      const [roomType] = await tx
+        .select()
+        .from(roomTypes)
+        .where(and(eq(roomTypes.id, input.roomTypeId), eq(roomTypes.propertyId, input.propertyId)))
+        .limit(1)
+        .for('update');
+      if (!roomType) throw new Error('Room category not found.');
+
+      const category = await categoryNightsAvailable(tx, input.propertyId, input.roomTypeId, checkInDate, checkOutDate);
+      if (category.minAvailable < 1) {
+        throw new Error(categorySoldOutMessage(category.blockers));
+      }
+      await reserveInventoryInTransaction(tx, input.propertyId, input.roomTypeId, stayDates, 1);
+
+      if (input.roomId) {
+        await assertRoomEligible(
+          tx,
+          { propertyId: input.propertyId, roomTypeId: input.roomTypeId, checkInDate, checkOutDate, forCheckIn: false },
+          input.roomId,
+        );
+        const [room] = await tx.select({ roomNumber: rooms.roomNumber }).from(rooms).where(eq(rooms.id, input.roomId)).limit(1);
+        targetLabel = `Room ${room?.roomNumber || 'Assigned'} (${roomType.name})`;
+      } else {
+        targetLabel = `${roomType.name} (Unassigned)`;
+      }
+
+      standardAmount = roomType.basePriceMinorUnits * nights;
+      targetRoomTypeId = roomType.id;
+      targetRoomId = input.roomId || null;
+      targetApartmentId = null;
+    }
+
+    const agreedTotal = input.customTotalAmountMinorUnits != null
+      ? Math.max(0, input.customTotalAmountMinorUnits)
+      : standardAmount;
+    const discount = Math.max(0, standardAmount - agreedTotal);
+    const newReference = referenceCode('SEN-');
+
+    const [newRes] = await tx
+      .insert(reservations)
+      .values({
+        reference: newReference,
+        propertyId: input.propertyId,
+        guestId: parentRes.guestId,
+        bookingGroupId,
+        roomTypeId: targetRoomTypeId,
+        roomId: targetRoomId,
+        apartmentId: targetApartmentId,
+        checkInDate,
+        checkOutDate,
+        nights,
+        numGuests,
+        adults: numGuests,
+        children: 0,
+        source: input.source || parentRes.source || 'direct',
+        status: 'confirmed',
+        paymentStatus: 'pay_later',
+        standardAmountMinorUnits: standardAmount,
+        discountAmountMinorUnits: discount,
+        totalAmountMinorUnits: agreedTotal,
+        paidAmountMinorUnits: 0,
+        specialRequests: input.specialRequests || null,
+      })
+      .returning();
+
+    await tx.insert(reservationEvents).values({
+      reservationId: parentRes.id,
+      actorId: actor.id || null,
+      actorName: actor.name,
+      eventType: 'reservation_accommodation_added',
+      description: `Additional accommodation (${targetLabel}, ${newReference}) added to booking ${groupReference}. Added by ${actor.name}.`,
+      metadata: { addedReservationId: newRes.id, addedReference: newReference, bookingGroupId },
+    });
+
+    await tx.insert(reservationEvents).values({
+      reservationId: newRes.id,
+      actorId: actor.id || null,
+      actorName: actor.name,
+      eventType: 'reservation_created',
+      description: `Reservation ${newReference} created as additional room in booking ${groupReference} (${targetLabel}). Added by ${actor.name}.`,
+      metadata: { parentReservationId: parentRes.id, bookingGroupId },
+    });
+
+    return {
+      bookingGroupId,
+      bookingGroupReference: groupReference,
+      reservation: newRes,
+    };
+  });
+}
+

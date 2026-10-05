@@ -18,6 +18,7 @@
     "db:apply-apartment-archive": "tsx src/apply-apartment-archive-schema.ts",
     "db:apply-reservation-notes": "tsx src/apply-reservation-notes-schema.ts",
     "db:apply-booking-groups": "tsx src/apply-booking-groups-schema.ts",
+    "db:apply-flexible-invoicing": "tsx src/apply-flexible-invoicing-schema.ts",
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {

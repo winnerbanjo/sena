@@ -19,8 +19,13 @@ async function handlePATCH(req: NextRequest, context: { params: Promise<{ id: st
         checkOutDate: String(body.checkOutDate || ''),
         numGuests: Number(body.numGuests || 1),
         roomId: typeof body.roomId === 'string' ? body.roomId : body.roomId === null ? null : undefined,
+        accommodationType: (body.accommodationType === 'room' || body.accommodationType === 'apartment') ? body.accommodationType : undefined,
+        roomTypeId: typeof body.roomTypeId === 'string' ? body.roomTypeId : body.roomTypeId === null ? null : undefined,
+        apartmentId: typeof body.apartmentId === 'string' ? body.apartmentId : body.apartmentId === null ? null : undefined,
         extensionAmountMinorUnits: body.extensionAmountMinorUnits == null ? null : Number(body.extensionAmountMinorUnits),
         adjustmentAmountMinorUnits: body.adjustmentAmountMinorUnits == null ? null : Number(body.adjustmentAmountMinorUnits),
+        customTotalAmountMinorUnits: body.customTotalAmountMinorUnits == null ? null : Number(body.customTotalAmountMinorUnits),
+        discountAmountMinorUnits: body.discountAmountMinorUnits == null ? null : Number(body.discountAmountMinorUnits),
         extensionReason: typeof body.extensionReason === 'string' ? body.extensionReason : null,
       },
       {

@@ -23,7 +23,10 @@ import { RecordPaymentDialog } from './record-payment-dialog';
 import { CheckInPaymentStatus } from './check-in-payment-status';
 import { ReservationNotes } from './reservation-notes';
 import { EditReservationDialog } from './edit-reservation-dialog';
-import { Calendar, CheckCircle2, Mail, Phone } from 'lucide-react';
+import { EditGuestDialog } from './edit-guest-dialog';
+import { ChangeGuestDialog } from './change-guest-dialog';
+import { AddAccommodationDialog } from './add-accommodation-dialog';
+import { Calendar, CheckCircle2, Mail, Phone, Plus, UserCog, UserCheck } from 'lucide-react';
 
 interface ReservationDrawerProps {
   reservation: ReservationItem | null;
@@ -51,6 +54,9 @@ export function ReservationDrawer({
   const t = useTranslations('payments');
   const [payOpen, setPayOpen] = React.useState(false);
   const [editOpen, setEditOpen] = React.useState(false);
+  const [editGuestOpen, setEditGuestOpen] = React.useState(false);
+  const [changeGuestOpen, setChangeGuestOpen] = React.useState(false);
+  const [addRoomOpen, setAddRoomOpen] = React.useState(false);
   const [groupRooms, setGroupRooms] = React.useState<Array<{ id: string; reference: string; roomNumber: string | null; status: string }>>([]);
   const [history, setHistory] = React.useState<any[]>([]);
   const [historyVersion, setHistoryVersion] = React.useState(0);
@@ -133,6 +139,12 @@ export function ReservationDrawer({
             {(isConfirmed || isCheckedIn) && (
               <Button size="sm" variant="secondary" onClick={() => setEditOpen(true)}>
                 Edit stay
+              </Button>
+            )}
+            {(isConfirmed || isCheckedIn) && (
+              <Button size="sm" variant="secondary" onClick={() => setAddRoomOpen(true)}>
+                <Plus className="w-3.5 h-3.5 mr-1" />
+                Add room
               </Button>
             )}
             {isConfirmed && !reservation.apartmentId && (
@@ -227,28 +239,40 @@ export function ReservationDrawer({
             {/* GUEST TAB */}
             <TabsContent value="guest" className="space-y-4 pt-2">
               <div className="p-4 rounded border border-[#E8E2DA] bg-white space-y-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-[#E5D4BC] text-[#71382D] flex items-center justify-center font-bold text-sm">
-                    {reservation.guestName.split(' ').map(n => n[0]).join('')}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-[#E5D4BC] text-[#71382D] flex items-center justify-center font-bold text-sm">
+                      {reservation.guestName.split(' ').map(n => n[0]).join('')}
+                    </div>
+                    <div>
+                      <strong className="text-base text-[#191816] block font-semibold">
+                        {reservation.guestName}
+                      </strong>
+                      <span className="text-xs text-[#7A7267]">
+                        {reservation.guestId ? `Guest ID: ${reservation.guestId.slice(0, 8)}` : 'Guest Details'}
+                      </span>
+                    </div>
                   </div>
-                  <div>
-                    <strong className="text-base text-[#191816] block font-semibold">
-                      {reservation.guestName}
-                    </strong>
-                    <span className="text-xs text-[#7A7267]">
-                      Returning guest · 4 stays
-                    </span>
+                  <div className="flex items-center gap-2">
+                    <Button size="sm" variant="secondary" onClick={() => setEditGuestOpen(true)}>
+                      <UserCog className="w-3.5 h-3.5 mr-1" />
+                      Edit Profile
+                    </Button>
+                    <Button size="sm" variant="secondary" onClick={() => setChangeGuestOpen(true)}>
+                      <UserCheck className="w-3.5 h-3.5 mr-1" />
+                      Change Guest
+                    </Button>
                   </div>
                 </div>
 
                 <div className="pt-2 border-t border-[#E8E2DA] space-y-2 text-xs">
                   <div className="flex items-center gap-2 text-[#191816]">
                     <Mail className="w-3.5 h-3.5 text-[#7A7267]" />
-                    <span>{reservation.guestEmail}</span>
+                    <span>{reservation.guestEmail || 'No email provided'}</span>
                   </div>
                   <div className="flex items-center gap-2 text-[#191816]">
                     <Phone className="w-3.5 h-3.5 text-[#7A7267]" />
-                    <span>{reservation.guestPhone}</span>
+                    <span>{reservation.guestPhone || 'No phone provided'}</span>
                   </div>
                 </div>
               </div>
@@ -344,6 +368,58 @@ export function ReservationDrawer({
           onSaved={(updated) => {
             onUpdated?.(updated);
             onNotesChanged?.();
+          }}
+        />
+        <EditGuestDialog
+          guest={reservation.guestId ? {
+            id: reservation.guestId,
+            fullName: reservation.guestName,
+            email: reservation.guestEmail || '',
+            phone: reservation.guestPhone || '',
+          } : null}
+          open={editGuestOpen}
+          onOpenChange={setEditGuestOpen}
+          onSaved={(updated) => {
+            onUpdated?.({
+              ...reservation,
+              guestName: updated.fullName,
+              guestEmail: updated.email || '',
+              guestPhone: updated.phone || '',
+            });
+          }}
+        />
+        <ChangeGuestDialog
+          open={changeGuestOpen}
+          onOpenChange={setChangeGuestOpen}
+          reservationId={reservation.id}
+          currentGuestName={reservation.guestName}
+          currentGuestId={reservation.guestId || undefined}
+          hasBookingGroup={Boolean(reservation.bookingGroupId)}
+          onReassigned={(res) => {
+            onUpdated?.({
+              ...reservation,
+              guestId: res.guestId,
+              guestName: res.guestName,
+              guestEmail: res.guestEmail,
+              guestPhone: res.guestPhone,
+            });
+          }}
+        />
+        <AddAccommodationDialog
+          reservation={reservation}
+          open={addRoomOpen}
+          onOpenChange={setAddRoomOpen}
+          onAdded={(result) => {
+            if (result.bookingGroupId) {
+              fetch(`/api/booking-groups/${result.bookingGroupId}`)
+                .then((res) => (res.ok ? res.json() : null))
+                .then((data) => setGroupRooms(Array.isArray(data?.bookingGroup?.reservations) ? data.bookingGroup.reservations : []))
+                .catch(() => setGroupRooms([]));
+            }
+            onUpdated?.({
+              ...reservation,
+              bookingGroupId: result.bookingGroupId || reservation.bookingGroupId,
+            });
           }}
         />
         <RecordPaymentDialog

@@ -35,6 +35,16 @@ interface RoomTypeOption {
   maxGuests?: number;
 }
 
+const nairaToMinor = (value: string): number | null => {
+  if (value.trim() === '') return null;
+  const parsed = Number(value.replace(/[^\d.]/g, ''));
+  if (!Number.isFinite(parsed)) return null;
+  return Math.round(parsed * 100);
+};
+
+const minorToNaira = (minor: number | null | undefined) =>
+  minor == null ? '' : String(minor / 100);
+
 export function NewReservationDialog({
   open,
   onOpenChange,
@@ -61,9 +71,14 @@ export function NewReservationDialog({
   const [selectedRoomIds, setSelectedRoomIds] = React.useState<string[]>([]);
   const [eligibleRooms, setEligibleRooms] = React.useState<EligiblePhysicalRoom[]>([]);
   const [loadingEligible, setLoadingEligible] = React.useState(false);
+  const [guestId, setGuestId] = React.useState<string | null>(null);
+  const [propertyGuests, setPropertyGuests] = React.useState<Array<{ id: string; fullName: string; email: string; phone: string }>>([]);
+  const [showGuestSuggestions, setShowGuestSuggestions] = React.useState(false);
   const [guestName, setGuestName] = React.useState('');
   const [guestPhone, setGuestPhone] = React.useState('');
   const [guestEmail, setGuestEmail] = React.useState('');
+  const [customTotalInput, setCustomTotalInput] = React.useState('');
+  const [overridePrice, setOverridePrice] = React.useState(false);
   const [paymentStatus, setPaymentStatus] = React.useState<'paid' | 'part_payment' | 'pay_later'>('pay_later');
   const [source, setSource] = React.useState<'walk_in' | 'phone' | 'direct' | 'whatsapp'>('walk_in');
   const requestKey = React.useRef<string | null>(null);
@@ -77,6 +92,15 @@ export function NewReservationDialog({
       setSelectedRoomIds([]);
       setEligibleRooms([]);
       setLoadingRooms(true);
+      setGuestId(null);
+      setCustomTotalInput('');
+      setOverridePrice(false);
+      setShowGuestSuggestions(false);
+
+      fetch('/api/guests')
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => setPropertyGuests(Array.isArray(data?.guests) ? data.guests : []))
+        .catch(() => setPropertyGuests([]));
 
       Promise.all([
         fetch('/api/rooms').then((res) => (res.ok ? res.json() : null)),
@@ -160,11 +184,15 @@ export function NewReservationDialog({
     roomNumber: room.roomNumber,
     total: nightlyRate * nights,
   }));
-  const totalAmountMinorUnits = selectedRoomObj?.kind === 'apartment'
+  const standardTotalAmountMinorUnits = selectedRoomObj?.kind === 'apartment'
     ? nightlyRate * nights
     : selectedPhysicalRooms.length > 0
       ? roomLines.reduce((sum, line) => sum + line.total, 0)
       : nightlyRate * nights;
+
+  const totalAmountMinorUnits = overridePrice && nairaToMinor(customTotalInput) != null
+    ? nairaToMinor(customTotalInput)!
+    : standardTotalAmountMinorUnits;
 
 
   async function handleSubmit(e: React.FormEvent) {
@@ -188,6 +216,7 @@ export function NewReservationDialog({
             checkOutDate: checkOut,
             numGuests: 2,
             source,
+            guestId: guestId || undefined,
             guest: {
               fullName: guestName.trim(),
               email: guestEmail.trim().toLowerCase(),
@@ -251,6 +280,8 @@ export function NewReservationDialog({
           source,
           paymentStatus,
           paidAmountMinorUnits: paymentStatus === 'paid' ? totalAmountMinorUnits : 0,
+          customTotalAmountMinorUnits: overridePrice ? nairaToMinor(customTotalInput) : undefined,
+          guestId: guestId || undefined,
           guest: {
             fullName: guestName.trim(),
             email: guestEmail.trim().toLowerCase(),
@@ -454,26 +485,88 @@ export function NewReservationDialog({
 
             {/* Guest Details */}
             <div className="pt-2 border-t border-[#E8E2DA] space-y-3">
-              <Label>{t('guestInfo')}</Label>
-              <div>
+              <div className="flex items-center justify-between">
+                <Label>{t('guestInfo')}</Label>
+                {guestId ? (
+                  <span className="text-[11px] text-[#2E6B4F] flex items-center gap-1 font-medium">
+                    ✓ Existing guest selected
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setGuestId(null);
+                        setGuestName('');
+                        setGuestEmail('');
+                        setGuestPhone('');
+                      }}
+                      className="ml-1 text-[#B85C3E] hover:underline"
+                    >
+                      (Clear)
+                    </button>
+                  </span>
+                ) : null}
+              </div>
+              <div className="relative">
                 <Input
-                  aria-label={t('guestName')} autoComplete="name"
+                  aria-label={t('guestName')}
+                  autoComplete="name"
                   placeholder={t('guestName')}
                   value={guestName}
-                  onChange={(e) => setGuestName(e.target.value)}
+                  onChange={(e) => {
+                    setGuestName(e.target.value);
+                    if (guestId) setGuestId(null);
+                    setShowGuestSuggestions(e.target.value.trim().length >= 2);
+                  }}
+                  onFocus={() => {
+                    if (guestName.trim().length >= 2 && !guestId) {
+                      setShowGuestSuggestions(true);
+                    }
+                  }}
                   required
                 />
+                {showGuestSuggestions && propertyGuests.length > 0 && (
+                  <div className="absolute z-50 left-0 right-0 mt-1 max-h-48 overflow-y-auto bg-white rounded border border-[#E8E2DA] shadow-lg">
+                    {propertyGuests
+                      .filter((g) =>
+                        g.fullName.toLowerCase().includes(guestName.toLowerCase()) ||
+                        (g.phone && g.phone.includes(guestName))
+                      )
+                      .slice(0, 5)
+                      .map((g) => (
+                        <button
+                          key={g.id}
+                          type="button"
+                          onClick={() => {
+                            setGuestId(g.id);
+                            setGuestName(g.fullName);
+                            setGuestEmail(g.email || '');
+                            setGuestPhone(g.phone || '');
+                            setShowGuestSuggestions(false);
+                          }}
+                          className="w-full text-left px-3 py-2 text-xs hover:bg-[#FAFAFA] border-b border-[#E8E2DA] last:border-b-0 flex items-center justify-between"
+                        >
+                          <div>
+                            <strong className="text-[#191816] block">{g.fullName}</strong>
+                            <span className="text-[#7A7267] text-[11px]">{g.email || 'No email'} · {g.phone || 'No phone'}</span>
+                          </div>
+                          <span className="text-[10px] bg-[#E8E2DA] px-1.5 py-0.5 rounded text-[#191816]">Select</span>
+                        </button>
+                      ))}
+                  </div>
+                )}
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <Input
-                  type="tel" aria-label={t('guestPhone')} autoComplete="tel"
+                  type="tel"
+                  aria-label={t('guestPhone')}
+                  autoComplete="tel"
                   placeholder={t('guestPhone')}
                   value={guestPhone}
                   onChange={(e) => setGuestPhone(e.target.value)}
                 />
                 <Input
                   type="email"
-                  aria-label={t('guestEmail')} autoComplete="email"
+                  aria-label={t('guestEmail')}
+                  autoComplete="email"
                   placeholder={t('guestEmail')}
                   value={guestEmail}
                   onChange={(e) => setGuestEmail(e.target.value)}
@@ -502,8 +595,45 @@ export function NewReservationDialog({
               </div>
             </div>
 
-            {/* Cost summary */}
+            {/* Cost summary & Agreed Price */}
             <div className="p-3 bg-[#FAFAFA] rounded border border-[#E8E2DA] space-y-2 text-xs">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-[#191816]">Pricing</span>
+                <label className="flex items-center gap-1.5 text-xs text-[#7A7267] cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={overridePrice}
+                    onChange={(e) => {
+                      setOverridePrice(e.target.checked);
+                      if (e.target.checked && standardTotalAmountMinorUnits > 0) {
+                        setCustomTotalInput(minorToNaira(standardTotalAmountMinorUnits));
+                      }
+                    }}
+                    className="rounded border-[#E8E2DA] text-[#B85C3E]"
+                  />
+                  Negotiated / agreed rate
+                </label>
+              </div>
+
+              {overridePrice ? (
+                <div>
+                  <Label htmlFor="create-agreed-total" className="text-[11px]">Agreed total accommodation amount (₦)</Label>
+                  <Input
+                    id="create-agreed-total"
+                    type="number"
+                    min={0}
+                    step="100"
+                    placeholder="e.g. 120000"
+                    value={customTotalInput}
+                    onChange={(e) => setCustomTotalInput(e.target.value)}
+                    required
+                  />
+                  <p className="text-[10px] text-[#7A7267] pt-0.5">
+                    Standard rack price is {formatNaira(standardTotalAmountMinorUnits)} ({nights} nights).
+                  </p>
+                </div>
+              ) : null}
+
               {roomLines.length > 1 ? (
                 <div className="space-y-1">
                   {roomLines.map((line) => (

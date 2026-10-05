@@ -18,8 +18,9 @@ import {
   TableHeader,
   TableRow,
 } from '@sena/ui';
-import { Mail, Phone, Search, Star } from 'lucide-react';
+import { Mail, Pencil, Phone, Search, Star } from 'lucide-react';
 import { Topbar } from '../../components/topbar';
+import { EditGuestDialog } from '../../components/edit-guest-dialog';
 
 interface GuestProfile {
   id: string;
@@ -43,6 +44,7 @@ export default function GuestsPage() {
   const [loading, setLoading] = React.useState(true);
   const [search, setSearch] = React.useState('');
   const [selectedGuest, setSelectedGuest] = React.useState<GuestProfile | null>(null);
+  const [editGuestOpen, setEditGuestOpen] = React.useState(false);
 
   React.useEffect(() => {
     fetch('/api/guests')
@@ -213,12 +215,24 @@ export default function GuestsPage() {
         >
           <DrawerContent className="p-6 space-y-6 bg-white border-l border-[#E8E2DA]">
             <div className="border-b border-[#E8E2DA] pb-4">
-              <span className="text-[10px] font-mono uppercase tracking-wider text-[#B85C3E] block mb-1">
-                Guest Profile
-              </span>
-              <DrawerTitle className="text-2xl text-[#191816] font-semibold">
-                {selectedGuest.name}
-              </DrawerTitle>
+              <div className="flex items-start justify-between">
+                <div>
+                  <span className="text-[10px] font-mono uppercase tracking-wider text-[#B85C3E] block mb-1">
+                    Guest Profile
+                  </span>
+                  <DrawerTitle className="text-2xl text-[#191816] font-semibold">
+                    {selectedGuest.name}
+                  </DrawerTitle>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setEditGuestOpen(true)}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded border border-[#E8E2DA] bg-white text-xs font-medium text-[#191816] hover:bg-[#FAF9F6] transition-colors"
+                >
+                  <Pencil className="w-3.5 h-3.5 text-[#7A7267]" />
+                  Edit Profile
+                </button>
+              </div>
               <div className="flex items-center gap-2 mt-2">
                 <Badge variant={selectedGuest.stays > 1 ? 'clean' : 'default'}>
                   {selectedGuest.stays > 1 ? 'Returning Guest' : 'First Visit'}
@@ -297,6 +311,30 @@ export default function GuestsPage() {
             </div>
           </DrawerContent>
         </Drawer>
+      )}
+
+      {selectedGuest && (
+        <EditGuestDialog
+          open={editGuestOpen}
+          onOpenChange={setEditGuestOpen}
+          guest={selectedGuest}
+          onSaved={(updated) => {
+            setSelectedGuest((prev) => prev ? {
+              ...prev,
+              name: updated.fullName,
+              phone: updated.phone || '—',
+              email: updated.email || '—',
+              notes: updated.notes || '',
+            } : null);
+            setGuests((prev) => prev.map((g) => g.id === updated.id ? {
+              ...g,
+              name: updated.fullName,
+              phone: updated.phone || '—',
+              email: updated.email || '—',
+              notes: updated.notes || '',
+            } : g));
+          }}
+        />
       )}
     </div>
   );

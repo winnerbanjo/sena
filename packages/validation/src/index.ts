@@ -139,6 +139,8 @@ export const createReservationSchema = z.object({
     .enum(['paid', 'part_payment', 'pay_later', 'refunded'])
     .default('pay_later'),
   paidAmountMinorUnits: z.coerce.number().min(0).default(0),
+  customTotalAmountMinorUnits: z.coerce.number().min(0).optional(),
+  discountAmountMinorUnits: z.coerce.number().min(0).optional(),
   specialRequests: z.string().optional(),
   // Embedded or linked guest
   guestId: z.string().uuid().optional(),

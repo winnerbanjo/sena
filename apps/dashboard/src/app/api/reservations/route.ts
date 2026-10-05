@@ -123,6 +123,7 @@ async function handlePOST(req: NextRequest) {
         source: body.source || 'direct',
         paymentStatus: body.paymentStatus || 'pay_later',
         paidAmountMinorUnits: body.paidAmountMinorUnits || 0,
+        customTotalAmountMinorUnits: body.customTotalAmountMinorUnits != null ? Number(body.customTotalAmountMinorUnits) : undefined,
         specialRequests: body.specialRequests,
       },
       {

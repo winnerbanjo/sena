@@ -394,6 +394,8 @@ export const reservations = pgTable(
     source: varchar('source', { length: 50 }).notNull().default('direct'),
     status: varchar('status', { length: 50 }).notNull().default('confirmed'),
     paymentStatus: varchar('payment_status', { length: 50 }).notNull().default('pay_later'),
+    standardAmountMinorUnits: integer('standard_amount_minor_units').notNull().default(0),
+    discountAmountMinorUnits: integer('discount_amount_minor_units').notNull().default(0),
     totalAmountMinorUnits: integer('total_amount_minor_units').notNull(),
     paidAmountMinorUnits: integer('paid_amount_minor_units').notNull().default(0),
     specialRequests: text('special_requests'),
@@ -458,6 +460,7 @@ export const payments = pgTable(
       .references(() => properties.id, { onDelete: 'cascade' })
       .notNull(),
     reservationId: uuid('reservation_id').references(() => reservations.id, { onDelete: 'set null' }),
+    bookingGroupId: uuid('booking_group_id').references(() => bookingGroups.id, { onDelete: 'set null' }),
     invoiceId: uuid('invoice_id').references((): AnyPgColumn => propertyInvoices.id, { onDelete: 'set null' }),
     integrationId: uuid('integration_id').references((): AnyPgColumn => integrations.id, { onDelete: 'restrict' }),
     internalReference: varchar('internal_reference', { length: 255 }),
@@ -479,6 +482,7 @@ export const payments = pgTable(
   (t) => [
     index('payments_res_idx').on(t.reservationId),
     index('payments_prop_idx').on(t.propertyId),
+    index('payments_booking_group_idx').on(t.bookingGroupId),
     uniqueIndex('payments_provider_ref_idx').on(t.provider, t.providerReference),
   ]
 );
@@ -1126,6 +1130,8 @@ export const propertyInvoices = pgTable(
       .notNull(),
     reservationId: uuid('reservation_id')
       .references(() => reservations.id, { onDelete: 'set null' }),
+    bookingGroupId: uuid('booking_group_id')
+      .references(() => bookingGroups.id, { onDelete: 'set null' }),
     guestId: uuid('guest_id')
       .references(() => guests.id, { onDelete: 'set null' }),
     invoiceNumber: varchar('invoice_number', { length: 50 }).notNull().unique(), // e.g. INV-2026-0042
@@ -1150,6 +1156,9 @@ export const propertyInvoices = pgTable(
     bankDetails: jsonb('bank_details').$type<InvoiceBankDetails>(),
     paymentTerms: text('payment_terms'),
     notes: text('notes'),
+    voidReason: text('void_reason'),
+    voidedAt: timestamp('voided_at', { withTimezone: true }),
+    voidedByUserId: uuid('voided_by_user_id').references(() => users.id, { onDelete: 'set null' }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
@@ -1157,6 +1166,7 @@ export const propertyInvoices = pgTable(
     index('prop_inv_prop_idx').on(t.propertyId),
     index('prop_inv_num_idx').on(t.invoiceNumber),
     index('prop_inv_res_idx').on(t.reservationId),
+    index('prop_inv_booking_group_idx').on(t.bookingGroupId),
     index('prop_inv_status_idx').on(t.status),
   ]
 );

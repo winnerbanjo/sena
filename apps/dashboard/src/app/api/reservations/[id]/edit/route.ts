@@ -27,8 +27,13 @@ async function handlePOST(
         checkOutDate: body.checkOutDate,
         numGuests: Number(body.numGuests),
         roomId: body.roomId === undefined ? undefined : body.roomId,
+        accommodationType: body.accommodationType,
+        roomTypeId: typeof body.roomTypeId === 'string' ? body.roomTypeId : body.roomTypeId === null ? null : undefined,
+        apartmentId: typeof body.apartmentId === 'string' ? body.apartmentId : body.apartmentId === null ? null : undefined,
         extensionAmountMinorUnits: body.extensionAmountMinorUnits ?? null,
         adjustmentAmountMinorUnits: body.adjustmentAmountMinorUnits ?? null,
+        customTotalAmountMinorUnits: body.customTotalAmountMinorUnits == null ? null : Number(body.customTotalAmountMinorUnits),
+        discountAmountMinorUnits: body.discountAmountMinorUnits == null ? null : Number(body.discountAmountMinorUnits),
         extensionReason: typeof body.extensionReason === 'string' ? body.extensionReason : null,
       },
       {

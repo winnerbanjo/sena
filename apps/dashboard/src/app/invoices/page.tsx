@@ -95,9 +95,9 @@ export default function InvoicesPage() {
   const [notes, setNotes] = React.useState('');
 
   // Surcharges & Taxes
-  const [applyVat, setApplyVat] = React.useState(true);
+  const [applyVat, setApplyVat] = React.useState(false);
   const [applyConsumptionTax, setApplyConsumptionTax] = React.useState(false);
-  const [applyServiceCharge, setApplyServiceCharge] = React.useState(true);
+  const [applyServiceCharge, setApplyServiceCharge] = React.useState(false);
   const [discountNaira, setDiscountNaira] = React.useState('0');
 
   // Dynamic Line Items
@@ -281,9 +281,9 @@ export default function InvoicesPage() {
     setIssueDate(new Date().toISOString().slice(0, 10));
     setDueDate(new Date().toISOString().slice(0, 10));
     setLineItems([{ id: '1', description: '', category: 'room', quantity: 1, unitPrice: '' }]);
-    setApplyVat(true);
+    setApplyVat(false);
     setApplyConsumptionTax(false);
-    setApplyServiceCharge(true);
+    setApplyServiceCharge(false);
     setDiscountNaira('0');
     setNotes('');
   }

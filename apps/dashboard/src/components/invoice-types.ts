@@ -36,5 +36,9 @@ export interface PropertyInvoice {
   } | null;
   paymentTerms?: string | null;
   notes?: string | null;
+  voidReason?: string | null;
+  voidedAt?: string | null;
+  voidedByUserId?: string | null;
+  bookingGroupId?: string | null;
   createdAt: string;
 }

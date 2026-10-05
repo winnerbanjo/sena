@@ -73,6 +73,15 @@ export function InvoiceViewModal({
   const [documentReservation, setDocumentReservation] = React.useState<InvoiceDocumentReservation | null>(null);
   const [documentPayments, setDocumentPayments] = React.useState<InvoiceDocumentPayment[]>([]);
 
+  const [voidDialogOpen, setVoidDialogOpen] = React.useState(false);
+  const [voidReason, setVoidReason] = React.useState('');
+  const [voiding, setVoiding] = React.useState(false);
+  const [voidError, setVoidError] = React.useState<string | null>(null);
+
+  const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
+  const [deletingDraft, setDeletingDraft] = React.useState(false);
+  const [deleteError, setDeleteError] = React.useState<string | null>(null);
+
   React.useEffect(() => {
     setEditing(false);
     if (!isOpen || !invoice?.id) {
@@ -218,6 +227,49 @@ export function InvoiceViewModal({
     accountNumber: t('accountNumber'),
   };
 
+  async function handleVoidInvoice(e: React.FormEvent) {
+    e.preventDefault();
+    if (!invoice || voiding) return;
+    setVoiding(true);
+    setVoidError(null);
+    try {
+      const res = await fetch(`/api/invoices/${invoice.id}/void`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: voidReason.trim() }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Failed to void invoice');
+      if (data.invoice && onUpdated) {
+        onUpdated(data.invoice);
+      }
+      setVoidDialogOpen(false);
+      setVoidReason('');
+    } catch (err: any) {
+      setVoidError(err?.message || 'Failed to void invoice');
+    } finally {
+      setVoiding(false);
+    }
+  }
+
+  async function handleDeleteDraft() {
+    if (!invoice || deletingDraft) return;
+    setDeletingDraft(true);
+    setDeleteError(null);
+    try {
+      const res = await fetch(`/api/invoices/${invoice.id}`, {
+        method: 'DELETE',
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Failed to delete draft');
+      setDeleteDialogOpen(false);
+      onClose();
+    } catch (err: any) {
+      setDeleteError(err?.message || 'Failed to delete draft');
+    } finally {
+      setDeletingDraft(false);
+    }
+  }
 
   async function handleRecordPayment(e: React.FormEvent) {
     e.preventDefault();
@@ -405,15 +457,39 @@ export function InvoiceViewModal({
               </Button>
             )}
 
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => setEditing(true)}
-              className="min-h-11 text-sm bg-white hover:bg-stone-50 border-[#E8E2DA] text-[#191816]"
-            >
-              <Pencil className="w-3.5 h-3.5 mr-1" />
-              {t('edit')}
-            </Button>
+            {invoice.status !== 'void' && !isPaid && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setEditing(true)}
+                className="min-h-11 text-sm bg-white hover:bg-stone-50 border-[#E8E2DA] text-[#191816]"
+              >
+                <Pencil className="w-3.5 h-3.5 mr-1" />
+                {t('edit')}
+              </Button>
+            )}
+
+            {invoice.status === 'draft' && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setDeleteDialogOpen(true)}
+                className="min-h-11 text-sm bg-white hover:bg-red-50 border-red-200 text-red-700"
+              >
+                Delete draft
+              </Button>
+            )}
+
+            {invoice.status !== 'void' && invoice.paidAmountMinorUnits === 0 && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setVoidDialogOpen(true)}
+                className="min-h-11 text-sm bg-white hover:bg-amber-50 border-amber-300 text-amber-800"
+              >
+                Void invoice
+              </Button>
+            )}
 
             <Button
               variant="secondary"
@@ -434,6 +510,16 @@ export function InvoiceViewModal({
               <X className="w-5 h-5" />
             </button>
           </div>
+
+          {invoice.status === 'void' && (
+            <div className="bg-amber-50 border border-amber-200 rounded p-3 text-xs text-amber-900 mt-2">
+              <strong className="block text-amber-950 font-semibold mb-0.5">VOIDED INVOICE</strong>
+              <span>
+                {invoice.voidReason ? `Reason: ${invoice.voidReason}` : 'This invoice was voided and is no longer payable.'}
+                {invoice.voidedAt ? ` (Voided on ${new Date(invoice.voidedAt).toLocaleDateString()})` : ''}
+              </span>
+            </div>
+          )}
 
           {zohoSync ? (
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#E8E2DA] bg-[#FAF7F2] px-4 py-2 text-xs text-[#7A7267] sm:px-6">
@@ -628,6 +714,101 @@ export function InvoiceViewModal({
                   </Button>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+        {/* Void Invoice Confirmation Modal */}
+        {voidDialogOpen && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+            <div className="bg-white rounded border border-[#E8E2DA] max-w-md w-full p-6 shadow-xl space-y-4">
+              <div>
+                <h3 className="text-base font-semibold text-[#191816]">Void Invoice {invoice.invoiceNumber}</h3>
+                <p className="text-xs text-[#7A7267] mt-1">
+                  Voiding cancels this invoice permanently. Recorded payments and settled accounts are not modified.
+                </p>
+              </div>
+
+              <form onSubmit={handleVoidInvoice} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-medium text-[#191816] mb-1">
+                    Reason for Voiding <span className="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={voidReason}
+                    onChange={(e) => setVoidReason(e.target.value)}
+                    placeholder="e.g. Erroneous rate entered, guest requested stay modification"
+                    className="w-full px-3 py-2 rounded border border-[#E8E2DA] text-xs text-[#191816] focus:outline-none focus:ring-1 focus:ring-[#71382D]"
+                    required
+                  />
+                  <p className="text-[11px] text-[#7A7267] mt-1">
+                    A permanent audit record of this void reason will be maintained.
+                  </p>
+                </div>
+
+                {voidError && (
+                  <p className="rounded bg-red-50 p-2 text-xs text-red-700">{voidError}</p>
+                )}
+
+                <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#E8E2DA]">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setVoidDialogOpen(false);
+                      setVoidError(null);
+                    }}
+                    className="px-4 py-2 rounded border border-[#E8E2DA] bg-white text-xs font-medium text-[#191816] hover:bg-stone-50"
+                  >
+                    Cancel
+                  </button>
+                  <Button
+                    type="submit"
+                    disabled={voiding || voidReason.trim().length < 3}
+                    className="bg-amber-800 hover:bg-amber-900 text-white text-xs"
+                  >
+                    {voiding ? 'Voiding…' : 'Confirm Void'}
+                  </Button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Delete Draft Confirmation Modal */}
+        {deleteDialogOpen && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+            <div className="bg-white rounded border border-[#E8E2DA] max-w-md w-full p-6 shadow-xl space-y-4">
+              <div>
+                <h3 className="text-base font-semibold text-[#191816]">Delete Draft Invoice</h3>
+                <p className="text-xs text-[#7A7267] mt-1">
+                  Are you sure you want to delete draft invoice <strong>{invoice.invoiceNumber}</strong>? This action cannot be undone.
+                </p>
+              </div>
+
+              {deleteError && (
+                <p className="rounded bg-red-50 p-2 text-xs text-red-700">{deleteError}</p>
+              )}
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#E8E2DA]">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDeleteDialogOpen(false);
+                    setDeleteError(null);
+                  }}
+                  className="px-4 py-2 rounded border border-[#E8E2DA] bg-white text-xs font-medium text-[#191816] hover:bg-stone-50"
+                >
+                  Cancel
+                </button>
+                <Button
+                  type="button"
+                  onClick={handleDeleteDraft}
+                  disabled={deletingDraft}
+                  className="bg-red-700 hover:bg-red-800 text-white text-xs"
+                >
+                  {deletingDraft ? 'Deleting…' : 'Delete Draft'}
+                </Button>
+              </div>
             </div>
           </div>
         )}

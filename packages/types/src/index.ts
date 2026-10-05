@@ -60,7 +60,13 @@ export type Permission =
   | 'website.edit'
   | 'website.publish'
   | 'staff.invite'
-  | 'billing.manage';
+  | 'billing.manage'
+  | 'invoice.edit'
+  | 'invoice.void'
+  | 'invoice.delete_draft'
+  | 'reservation.discount'
+  | 'reservation.price_override'
+  | 'reservation.reassign_guest';
 
 export interface User {
   id: string;

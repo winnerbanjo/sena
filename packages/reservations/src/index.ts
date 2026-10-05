@@ -26,10 +26,10 @@ import { categoryNightsAvailable, categorySoldOutMessage, roomUnavailableForStay
 
 export { listEligibleRooms, listStayEligibleRooms, type EligibleRoom, type AssignmentScope } from './assignment';
 import { listStayEligibleRooms } from './assignment';
-import { createBookingGroup as createGroupRecords, getBookingGroup as loadBookingGroup } from './booking-group';
+import { createBookingGroup as createGroupRecords, getBookingGroup as loadBookingGroup, addAccommodationToBooking as addAccommodationRecord, type AddAccommodationInput } from './booking-group';
 import { updateStay as editReservationStay, type StayEditInput } from './edit';
 export { updateStay } from './edit';
-export { createBookingGroup, getBookingGroup } from './booking-group';
+export { createBookingGroup, getBookingGroup, addAccommodationToBooking, type AddAccommodationInput } from './booking-group';
 
 function generateReference(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -80,7 +80,11 @@ export class ReservationService {
         throw new Error('Room type not found');
       }
 
-      const totalAmountMinorUnits = rt[0].basePriceMinorUnits * nights;
+      const standardAmountMinorUnits = rt[0].basePriceMinorUnits * nights;
+      const totalAmountMinorUnits = input.customTotalAmountMinorUnits != null
+        ? Math.max(0, input.customTotalAmountMinorUnits)
+        : standardAmountMinorUnits;
+      const discountAmountMinorUnits = Math.max(0, standardAmountMinorUnits - totalAmountMinorUnits);
 
       // Consume only a matching, active hold within this allocation transaction.
       const holdId = (input as any).holdId;
@@ -210,6 +214,8 @@ export class ReservationService {
           source: input.source,
           status: 'confirmed',
           paymentStatus: input.paymentStatus,
+          standardAmountMinorUnits,
+          discountAmountMinorUnits,
           totalAmountMinorUnits,
           paidAmountMinorUnits: input.paidAmountMinorUnits,
           specialRequests: input.specialRequests,
@@ -348,7 +354,11 @@ export class ReservationService {
       if (!linkedGuest) throw new Error('Guest not found in this property.');
 
       const reference = generateReference();
-      const totalAmountMinorUnits = apartment.basePriceMinorUnits * nights;
+      const standardAmountMinorUnits = apartment.basePriceMinorUnits * nights;
+      const totalAmountMinorUnits = input.customTotalAmountMinorUnits != null
+        ? Math.max(0, input.customTotalAmountMinorUnits)
+        : standardAmountMinorUnits;
+      const discountAmountMinorUnits = Math.max(0, standardAmountMinorUnits - totalAmountMinorUnits);
       const [resRecord] = await tx.insert(reservations).values({
         reference,
         propertyId: input.propertyId,
@@ -365,6 +375,8 @@ export class ReservationService {
         source: input.source,
         status: 'confirmed',
         paymentStatus: input.paymentStatus,
+        standardAmountMinorUnits,
+        discountAmountMinorUnits,
         totalAmountMinorUnits,
         paidAmountMinorUnits: input.paidAmountMinorUnits,
         specialRequests: input.specialRequests,
@@ -785,5 +797,12 @@ export class ReservationService {
       apartment: apartmentRecord,
       events,
     };
+  }
+
+  static async addAccommodation(
+    input: AddAccommodationInput,
+    actor = { id: '', name: 'Hotel Staff' }
+  ) {
+    return addAccommodationRecord(input, actor);
   }
 }

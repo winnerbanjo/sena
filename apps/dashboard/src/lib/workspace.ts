@@ -123,9 +123,7 @@ export async function resolveServerWorkspace(): Promise<ServerWorkspaceResult> {
       },
     };
   } catch (error) {
-    console.error('[workspace-boot] server workspace resolution failed', {
-      error: error instanceof Error ? error.name : 'UnknownError',
-    });
+    console.error('[workspace-boot] server workspace resolution failed:', error);
     return { state: 'server_error', workspace: null };
   }
 }

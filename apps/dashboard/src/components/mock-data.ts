@@ -1,6 +1,7 @@
 export interface ReservationItem {
   id: string;
   reference: string;
+  guestId?: string | null;
   guestName: string;
   guestEmail: string;
   guestPhone: string;
