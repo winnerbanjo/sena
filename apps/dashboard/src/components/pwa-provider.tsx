@@ -48,7 +48,6 @@ export function usePwa() {
 }
 
 export function PwaProvider({ children }: { children: React.ReactNode }) {
-  const [waitingWorker, setWaitingWorker] = React.useState<ServiceWorker | null>(null);
   const [deferredPrompt, setDeferredPrompt] = React.useState<BeforeInstallPromptEvent | null>(null);
   const [isInstalled, setIsInstalled] = React.useState(false);
   const [platform, setPlatform] = React.useState<PwaPlatform>('other');
@@ -111,78 +110,29 @@ export function PwaProvider({ children }: { children: React.ReactNode }) {
     window.addEventListener('beforeinstallprompt', handleBeforeInstall);
     window.addEventListener('appinstalled', handleAppInstalled);
 
-    let handleControllerChange: (() => void) | null = null;
-
-    // Register Service Worker conditionally (strictly for merchant host, never on tenant site)
-    if (process.env.NODE_ENV === 'production' && 'serviceWorker' in navigator) {
-      const host = window.location.hostname.toLowerCase();
-      const RESERVED_HOSTS = [
-        'app.sena.ng',
-        'sena.ng',
-        'www.sena.ng',
-        'admin.sena.ng',
-        'api.sena.ng',
-        'localhost',
-        'app.localhost',
-      ];
-      const isPublicTenant =
-        !RESERVED_HOSTS.includes(host) &&
-        (host.endsWith('.sena.ng') ||
-          host.endsWith('.localhost') ||
-          (!host.includes('sena.ng') && !host.includes('localhost') && !host.includes('vercel.app')));
-
-      if (!isPublicTenant) {
-        const isStandalone =
-          window.matchMedia('(display-mode: standalone)').matches ||
-          (window.navigator as unknown as { standalone?: boolean }).standalone === true;
-
-        const reloadForUpdatedWorker = () => {
-          try {
-            const key = 'sena-sw-controller-reload';
-            const last = Number(sessionStorage.getItem(key) || '0');
-            if (Date.now() - last < 5000) return;
-            sessionStorage.setItem(key, String(Date.now()));
-          } catch {
-            // Ignore storage failures; still allow a single reload.
+    // EMERGENCY KILLSWITCH: Do not register service worker.
+    // Clean up any lingering registrations and caches from previous versions.
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker
+        .getRegistrations()
+        .then((registrations) => {
+          for (const registration of registrations) {
+            registration.unregister().catch(() => {});
           }
-          window.location.reload();
-        };
+        })
+        .catch(() => {});
 
-        handleControllerChange = () => {
-          const onOfflinePage = window.location.pathname === '/offline.html';
-          if (isStandalone || onOfflinePage) {
-            reloadForUpdatedWorker();
-          }
-        };
-        navigator.serviceWorker.addEventListener('controllerchange', handleControllerChange);
-
-        navigator.serviceWorker
-          .register('/sw.js', { scope: '/', updateViaCache: 'none' })
-          .then((registration) => {
-            if (registration.waiting) {
-              setWaitingWorker(registration.waiting);
-              if (isStandalone) {
-                registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+      if ('caches' in window) {
+        caches
+          .keys()
+          .then((names) => {
+            for (const name of names) {
+              if (name.startsWith('sena-')) {
+                caches.delete(name).catch(() => {});
               }
             }
-            registration.update().catch(() => {});
-            registration.onupdatefound = () => {
-              const installingWorker = registration.installing;
-              if (installingWorker) {
-                installingWorker.onstatechange = () => {
-                  if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                    setWaitingWorker(registration.waiting || installingWorker);
-                    if (isStandalone && (registration.waiting || installingWorker)) {
-                      (registration.waiting || installingWorker).postMessage({ type: 'SKIP_WAITING' });
-                    }
-                  }
-                };
-              }
-            };
           })
-          .catch((err) => {
-            console.warn('[Sena PWA] Service Worker registration note:', err);
-          });
+          .catch(() => {});
       }
     }
 
@@ -190,9 +140,6 @@ export function PwaProvider({ children }: { children: React.ReactNode }) {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
       window.removeEventListener('appinstalled', handleAppInstalled);
       mediaQuery.removeEventListener?.('change', handleMediaChange);
-      if (handleControllerChange && 'serviceWorker' in navigator) {
-        navigator.serviceWorker.removeEventListener('controllerchange', handleControllerChange);
-      }
     };
   }, []);
 
@@ -257,13 +204,6 @@ export function PwaProvider({ children }: { children: React.ReactNode }) {
         purgeAndLogout,
       }}
     >
-      {waitingWorker && <div role="status" className="fixed bottom-4 left-4 right-4 z-50 mx-auto max-w-lg rounded-lg border border-[#E5D4BC] bg-white p-4 shadow-md text-sm">
-        <p>A new version of Sena is available. Save your work before updating.</p>
-        <button className="mt-2 min-h-11 px-4 rounded bg-[#71382D] text-white" onClick={() => {
-          navigator.serviceWorker.addEventListener('controllerchange', () => window.location.reload(), { once: true });
-          waitingWorker.postMessage({ type: 'SKIP_WAITING' });
-        }}>Update</button>
-      </div>}
       {children}
     </PwaContext.Provider>
   );
