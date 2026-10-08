@@ -258,6 +258,7 @@ export function CheckInRoomDialog({
             recipientName: reservation.guestName,
             recipientEmail: reservation.guestEmail || undefined,
             reservationId: reservation.id,
+            bookingGroupId: reservation.bookingGroupId || undefined,
             items: [
               {
                 description: `${reservation.roomType} · ${reservation.nights} night stay`,

@@ -12,7 +12,7 @@ import {
 } from '@sena/database';
 import type { Payment } from '@sena/types';
 import type { RecordPaymentInput } from '@sena/validation';
-import { and, desc, eq, ne, sql } from 'drizzle-orm';
+import { and, desc, eq, ne, or, sql } from 'drizzle-orm';
 
 export function folioBalance(totalAmountMinorUnits: number, paidAmountMinorUnits: number) {
   return Math.max(0, Number(totalAmountMinorUnits || 0) - Number(paidAmountMinorUnits || 0));
@@ -63,10 +63,23 @@ async function applyPaymentToInvoices(
   amountMinorUnits: number,
   preferredInvoiceId?: string | null
 ) {
+  const [res] = await tx
+    .select({ bookingGroupId: reservations.bookingGroupId })
+    .from(reservations)
+    .where(eq(reservations.id, reservationId))
+    .limit(1);
+
   const invoices = await tx
     .select()
     .from(propertyInvoices)
-    .where(eq(propertyInvoices.reservationId, reservationId))
+    .where(
+      res?.bookingGroupId
+        ? or(
+            eq(propertyInvoices.bookingGroupId, res.bookingGroupId),
+            eq(propertyInvoices.reservationId, reservationId)
+          )
+        : eq(propertyInvoices.reservationId, reservationId)
+    )
     .for('update');
 
   const open = invoices.filter((invoice) => !['void', 'draft', 'cancelled'].includes(invoice.status));

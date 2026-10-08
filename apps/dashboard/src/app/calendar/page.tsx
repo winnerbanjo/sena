@@ -2,25 +2,33 @@
 import { pageMain } from '../../components/design';
 import { useTranslations } from 'next-intl';
 
-import { PageLoadState, readJsonResponse } from '../../components/page-load-state';
+import { PageLoadState } from '../../components/page-load-state';
 import * as React from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { useToast } from '../../components/toast-notification';
 import { CalendarMonthYearPicker } from '../../components/calendar-month-year-picker';
 import { type ReservationItem } from '../../components/mock-data';
 import { NewReservationDialog } from '../../components/new-reservation-dialog';
 import { ReservationDrawer } from '../../components/reservation-drawer';
+import { CheckInRoomDialog, type RoomAssignmentMode } from '../../components/check-in-room-dialog';
 import { NoteCount } from '../../components/reservation-notes';
 import { Topbar } from '../../components/topbar';
+
+function formatDateKey(d: Date): string {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
 
 function generateDates(baseDate = new Date(), numDays = 7) {
   const days = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
   const dates = [];
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = formatDateKey(new Date());
 
   for (let i = 0; i < numDays; i++) {
-    const d = new Date(baseDate);
-    d.setDate(baseDate.getDate() + i);
-    const full = d.toISOString().split('T')[0];
+    const d = new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate() + i, 12, 0, 0);
+    const full = formatDateKey(d);
     dates.push({
       day: days[d.getDay()],
       date: String(d.getDate()).padStart(2, '0'),
@@ -34,6 +42,7 @@ function generateDates(baseDate = new Date(), numDays = 7) {
 export default function CalendarPage() {
   const t = useTranslations('calendar');
   const tNav = useTranslations('navigation');
+  const toast = useToast();
   const [baseDate, setBaseDate] = React.useState(new Date());
   const [calendarDates, setCalendarDates] = React.useState(() => generateDates(new Date(), 7));
   const [rooms, setRooms] = React.useState<any[]>([]);
@@ -43,11 +52,11 @@ export default function CalendarPage() {
   const [selectedRes, setSelectedRes] = React.useState<ReservationItem | null>(null);
   const [drawerOpen, setDrawerOpen] = React.useState(false);
   const [newResOpen, setNewResOpen] = React.useState(false);
+  const [assignment, setAssignment] = React.useState<{ reservation: ReservationItem; mode: RoomAssignmentMode } | null>(null);
 
   const handlePrevWeek = () => {
     setBaseDate((prev) => {
-      const next = new Date(prev);
-      next.setDate(prev.getDate() - 7);
+      const next = new Date(prev.getFullYear(), prev.getMonth(), prev.getDate() - 7, 12, 0, 0);
       setCalendarDates(generateDates(next, 7));
       return next;
     });
@@ -55,8 +64,7 @@ export default function CalendarPage() {
 
   const handleNextWeek = () => {
     setBaseDate((prev) => {
-      const next = new Date(prev);
-      next.setDate(prev.getDate() + 7);
+      const next = new Date(prev.getFullYear(), prev.getMonth(), prev.getDate() + 7, 12, 0, 0);
       setCalendarDates(generateDates(next, 7));
       return next;
     });
@@ -69,17 +77,19 @@ export default function CalendarPage() {
   };
 
   const handleJumpToMonth = (month: number, year: number) => {
-    const next = new Date(year, month, 1);
-    next.setHours(12, 0, 0, 0);
+    const next = new Date(year, month, 1, 12, 0, 0);
     setBaseDate(next);
     setCalendarDates(generateDates(next, 7));
   };
 
   const fetchCalendar = React.useCallback(async () => {
     try {
-      const startDate = calendarDates[0]?.full || new Date().toISOString().split('T')[0];
-      const endDate = calendarDates[calendarDates.length - 1]?.full || new Date().toISOString().split('T')[0];
-      const res = await fetch(`/api/calendar?startDate=${startDate}&endDate=${endDate}`);
+      const startDate = calendarDates[0]?.full || formatDateKey(new Date());
+      const endDate = calendarDates[calendarDates.length - 1]?.full || formatDateKey(new Date());
+      const res = await fetch(`/api/calendar?startDate=${startDate}&endDate=${endDate}`, {
+        cache: 'no-store',
+        headers: { 'Cache-Control': 'no-cache' },
+      });
       if (!res.ok) throw new Error('Page unavailable');
       if (res.ok) {
         const data = await res.json();
@@ -88,13 +98,15 @@ export default function CalendarPage() {
           const mapped: ReservationItem[] = data.reservations.map((r: any) => ({
             id: r.id,
             reference: r.reference,
+            bookingGroupId: r.bookingGroupId || null,
             guestName: r.guestName || 'Unnamed Guest',
             guestEmail: '',
             guestPhone: '',
-            roomType: '',
-            roomNumber: '',
+            roomType: r.roomTypeName || '',
+            roomNumber: r.roomNumber || '',
             roomId: r.roomId,
             apartmentId: r.apartmentId,
+            apartmentName: r.apartmentName,
             checkInDate: r.checkInDate,
             checkOutDate: r.checkOutDate,
             nights: Math.max(1, Math.round((Date.parse(r.checkOutDate) - Date.parse(r.checkInDate)) / 86400000)),
@@ -103,8 +115,8 @@ export default function CalendarPage() {
             status: r.status,
             paymentStatus: r.paymentStatus,
             noteCount: r.noteCount || 0,
-            totalAmountMinorUnits: 0,
-            paidAmountMinorUnits: 0,
+            totalAmountMinorUnits: r.totalAmountMinorUnits || 0,
+            paidAmountMinorUnits: r.paidAmountMinorUnits || 0,
             timeline: [],
           }));
           setReservations(mapped);
@@ -215,9 +227,100 @@ export default function CalendarPage() {
                 rooms.map((room, index) => {
                   const previous = rooms[index - 1];
                   const showGroup = room.group && room.group !== previous?.group && rooms.some((row) => row.group === 'apartments') && rooms.some((row) => row.group === 'rooms');
-                  const res = reservations.find((r) =>
-                    room.kind === 'apartment' ? (r as any).apartmentId === room.id : ((r as any).roomId === room.id || r.roomNumber === room.roomNumber)
+
+                  const roomReservations = reservations.filter((r) =>
+                    room.kind === 'apartment'
+                      ? (r as any).apartmentId === room.id
+                      : ((r as any).roomId === room.id || (r.roomNumber && r.roomNumber === room.roomNumber))
                   );
+
+                  // Render row cells for visible 7-day range
+                  const cells: React.ReactNode[] = [];
+                  let colIdx = 0;
+
+                  while (colIdx < calendarDates.length) {
+                    const dateObj = calendarDates[colIdx];
+                    const dateKey = dateObj.full;
+
+                    // Find reservation occupying this night
+                    const activeRes = roomReservations.find(
+                      (r) => r.checkInDate <= dateKey && dateKey < r.checkOutDate
+                    );
+
+                    if (activeRes) {
+                      let span = 1;
+                      while (
+                        colIdx + span < calendarDates.length &&
+                        calendarDates[colIdx + span].full < activeRes.checkOutDate
+                      ) {
+                        span++;
+                      }
+
+                      const isContinuingStay = activeRes.checkInDate < calendarDates[0].full;
+                      const isCheckedIn = activeRes.status === 'checked_in';
+
+                      cells.push(
+                        <td
+                          key={dateKey}
+                          colSpan={span}
+                          onClick={() => {
+                            setSelectedRes(activeRes);
+                            setDrawerOpen(true);
+                          }}
+                          className="p-1 border-r border-[#E8E2DA] cursor-pointer"
+                        >
+                          <div
+                            className={`h-10 px-3 rounded-md flex items-center justify-between text-xs text-white shadow-xs transition-transform active:scale-[0.99] hover:brightness-105 ${
+                              isCheckedIn
+                                ? 'bg-[#71382D]'
+                                : 'bg-[#B85C3E]'
+                            }`}
+                          >
+                            <div className="truncate flex items-center gap-2">
+                              <span className="w-1.5 h-1.5 rounded-full bg-white/70" />
+                              <strong className="tracking-tight font-medium text-xs truncate max-w-[120px] sm:max-w-[160px]">
+                                {activeRes.guestName}
+                              </strong>
+                              <span className="opacity-75 text-[10px] font-semibold hidden sm:inline">
+                                · {activeRes.nights} {activeRes.nights === 1 ? 'nt' : 'nts'}
+                              </span>
+                              {isContinuingStay && (
+                                <span className="opacity-75 text-[10px] font-mono hidden md:inline">
+                                  (staying)
+                                </span>
+                              )}
+                              <NoteCount count={activeRes.noteCount} className="inline-flex items-center gap-0.5 text-[10px] text-white/90" />
+                            </div>
+                            <span className="text-[9px] uppercase tracking-wider font-mono px-1.5 py-0.5 rounded bg-black/25 text-white/90 shrink-0">
+                              {isCheckedIn ? 'Checked in' : activeRes.paymentStatus === 'paid' ? 'Settled' : 'Confirmed'}
+                            </span>
+                          </div>
+                        </td>
+                      );
+
+                      colIdx += span;
+                    } else {
+                      const isWeekend = dateObj.day === 'SAT' || dateObj.day === 'SUN';
+                      cells.push(
+                        <td
+                          key={dateKey}
+                          onClick={() => setNewResOpen(true)}
+                          className={`p-2 text-center border-r border-[#E8E2DA] hover:bg-[#FAF0E4]/40 cursor-pointer group transition-colors ${
+                            dateObj.isToday
+                              ? 'bg-[#FAF0E4]/30'
+                              : isWeekend
+                              ? 'bg-[#FAF7F2]/40'
+                              : ''
+                          }`}
+                        >
+                          <span className="opacity-0 group-hover:opacity-100 text-[11px] text-[#B85C3E] font-medium transition-opacity">
+                            + book
+                          </span>
+                        </td>
+                      );
+                      colIdx += 1;
+                    }
+                  }
 
                   return (
                     <React.Fragment key={room.id}>
@@ -246,77 +349,7 @@ export default function CalendarPage() {
                       </td>
 
                       {/* Timeline columns */}
-                      {calendarDates.map((dateObj) => {
-                        const isOccupied =
-                          res &&
-                          dateObj.full >= res.checkInDate &&
-                          dateObj.full < res.checkOutDate;
-
-                        const isCheckInDay = res && dateObj.full === res.checkInDate;
-                        const isWeekend = dateObj.day === 'SAT' || dateObj.day === 'SUN';
-
-                        if (isOccupied && isCheckInDay) {
-                          return (
-                            <td
-                              key={dateObj.full}
-                              colSpan={res.nights}
-                              onClick={() => {
-                                setSelectedRes(res);
-                                setDrawerOpen(true);
-                              }}
-                              className="p-1 border-r border-[#E8E2DA] cursor-pointer"
-                            >
-                              <div
-                                className={`h-10 px-3 rounded-md flex items-center justify-between text-xs text-white shadow-xs transition-transform active:scale-[0.99] hover:brightness-105 ${
-                                  res.status === 'checked_in'
-                                    ? 'bg-[#71382D]'
-                                    : 'bg-[#B85C3E]'
-                                }`}
-                              >
-                                <div className="truncate flex items-center gap-2">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-white/70" />
-                                  <strong className="tracking-tight font-medium text-xs">
-                                    {res.guestName}
-                                  </strong>
-                                  <span className="opacity-75 text-[10px] font-semibold">
-                                    · {res.nights} {res.nights === 1 ? 'night' : 'nights'}
-                                  </span>
-                                  <NoteCount count={res.noteCount} className="inline-flex items-center gap-0.5 text-[10px] text-white/90" />
-                                </div>
-                                <span className="text-[9px] uppercase tracking-wider font-mono px-1.5 py-0.5 rounded bg-black/25 text-white/90">
-                                  {res.paymentStatus === 'paid' ? 'Settled' : 'Unpaid'}
-                                </span>
-                              </div>
-                            </td>
-                          );
-                        }
-
-                        if (
-                          res &&
-                          dateObj.full > res.checkInDate &&
-                          dateObj.full < res.checkOutDate
-                        ) {
-                          return null;
-                        }
-
-                        return (
-                          <td
-                            key={dateObj.full}
-                            onClick={() => setNewResOpen(true)}
-                            className={`p-2 text-center border-r border-[#E8E2DA] hover:bg-[#FAF0E4]/40 cursor-pointer group transition-colors ${
-                              dateObj.isToday
-                                ? 'bg-[#FAF0E4]/30'
-                                : isWeekend
-                                ? 'bg-[#FAF7F2]/40'
-                                : ''
-                            }`}
-                          >
-                            <span className="opacity-0 group-hover:opacity-100 text-[11px] text-[#B85C3E] font-medium transition-opacity">
-                              + book
-                            </span>
-                          </td>
-                        );
-                      })}
+                      {cells}
                     </tr>
                     </React.Fragment>
                   );
@@ -330,6 +363,40 @@ export default function CalendarPage() {
         reservation={selectedRes}
         open={drawerOpen}
         onOpenChange={setDrawerOpen}
+        onCheckIn={(id) => {
+          const res = reservations.find((item) => item.id === id) || selectedRes;
+          if (res) setAssignment({ reservation: res, mode: 'check-in' });
+        }}
+        onAssignRoom={(id) => {
+          const res = reservations.find((item) => item.id === id) || selectedRes;
+          if (res) setAssignment({ reservation: res, mode: res.roomId ? 'change' : 'assign' });
+        }}
+        onCheckOut={async (id) => {
+          const reservation = reservations.find((item) => item.id === id) || selectedRes;
+          const balance = reservation
+            ? reservation.totalAmountMinorUnits - reservation.paidAmountMinorUnits
+            : 0;
+          try {
+            const res = await fetch(`/api/reservations/${id}/check-out`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ force: balance > 0 }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (res.ok) {
+              toast.success('Check-out Successful', 'Reservation marked as checked out');
+              fetchCalendar();
+              if (selectedRes && selectedRes.id === id) {
+                setSelectedRes((prev) => (prev ? { ...prev, status: 'checked_out' } : null));
+              }
+            } else {
+              toast.error('Check-out Failed', data.error || 'Check out failed');
+            }
+          } catch (e: any) {
+            toast.error('Check-out Error', e.message || 'Check out failed');
+          }
+        }}
+        onPaymentRecorded={() => fetchCalendar()}
         onNotesChanged={() => fetchCalendar()}
         onUpdated={(updated) => {
           setSelectedRes(updated);
@@ -337,10 +404,32 @@ export default function CalendarPage() {
         }}
       />
 
+      <CheckInRoomDialog
+        reservation={assignment?.reservation || null}
+        mode={assignment?.mode || 'check-in'}
+        open={!!assignment}
+        onOpenChange={(open) => {
+          if (!open) setAssignment(null);
+        }}
+        onCompleted={(update) => {
+          fetchCalendar();
+          setSelectedRes((prev) =>
+            prev && assignment && prev.id === assignment.reservation.id
+              ? { ...prev, roomId: update.roomId, roomNumber: update.roomNumber, status: update.status || prev.status }
+              : prev
+          );
+        }}
+        onFolioUpdated={() => {
+          fetchCalendar();
+        }}
+      />
+
       <NewReservationDialog
         open={newResOpen}
         onOpenChange={setNewResOpen}
-        onCreateReservation={(newRes) => setReservations((prev) => [newRes, ...prev])}
+        onCreateReservation={() => {
+          fetchCalendar();
+        }}
       />
     </div>
   );

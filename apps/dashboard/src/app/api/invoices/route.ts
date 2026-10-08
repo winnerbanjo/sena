@@ -153,6 +153,7 @@ async function handlePOST(req: NextRequest) {
       recipientAddress,
       companyTin,
       reservationId,
+      bookingGroupId,
       guestId,
       issueDate,
       dueDate,
@@ -218,6 +219,18 @@ async function handlePOST(req: NextRequest) {
     const resolvedIssueDate = issueDate || todayStr;
     const resolvedDueDate = dueDate || todayStr;
 
+    let resolvedBookingGroupId = bookingGroupId || null;
+    if (!resolvedBookingGroupId && reservationId) {
+      const [resRow] = await db
+        .select({ bookingGroupId: reservations.bookingGroupId })
+        .from(reservations)
+        .where(eq(reservations.id, reservationId))
+        .limit(1);
+      if (resRow?.bookingGroupId) {
+        resolvedBookingGroupId = resRow.bookingGroupId;
+      }
+    }
+
     const defaultBank = await PaymentService.primaryBankDetails(propertyId);
 
     // 5. Insert Invoice into DB
@@ -227,6 +240,7 @@ async function handlePOST(req: NextRequest) {
         propertyId,
         organizationId,
         reservationId: reservationId || null,
+        bookingGroupId: resolvedBookingGroupId || null,
         guestId: guestId || null,
         invoiceNumber,
         invoiceType,

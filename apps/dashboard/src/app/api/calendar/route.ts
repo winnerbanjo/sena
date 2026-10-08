@@ -4,7 +4,7 @@ import { withMerchant } from '@/lib/merchant-route';
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { db, properties, rooms, roomTypes, apartments, reservations, guests , propertyMembers, organizationMembers } from '@sena/database';
-import { eq, and, gte, lte, or, isNull } from 'drizzle-orm';
+import { eq, and, gte, lte, or, isNull, notInArray } from 'drizzle-orm';
 
 import { noteCountsByReservation } from '@/lib/reservation-notes';
 import { resolveTenantForRequest } from '@/lib/tenant';
@@ -78,8 +78,12 @@ async function handleGET(req: NextRequest) {
       .select({
         id: reservations.id,
         reference: reservations.reference,
+        bookingGroupId: reservations.bookingGroupId,
         roomId: reservations.roomId,
+        roomNumber: rooms.roomNumber,
+        roomTypeName: roomTypes.name,
         apartmentId: reservations.apartmentId,
+        apartmentName: apartments.name,
         guestId: reservations.guestId,
         guestName: guests.fullName,
         checkInDate: reservations.checkInDate,
@@ -87,12 +91,18 @@ async function handleGET(req: NextRequest) {
         status: reservations.status,
         paymentStatus: reservations.paymentStatus,
         source: reservations.source,
+        totalAmountMinorUnits: reservations.totalAmountMinorUnits,
+        paidAmountMinorUnits: reservations.paidAmountMinorUnits,
       })
       .from(reservations)
       .leftJoin(guests, eq(reservations.guestId, guests.id))
+      .leftJoin(rooms, eq(reservations.roomId, rooms.id))
+      .leftJoin(roomTypes, eq(reservations.roomTypeId, roomTypes.id))
+      .leftJoin(apartments, eq(reservations.apartmentId, apartments.id))
       .where(
         and(
           eq(reservations.propertyId, propertyId),
+          notInArray(reservations.status, ['cancelled', 'no_show']),
           lte(reservations.checkInDate, endDate),
           gte(reservations.checkOutDate, startDate)
         )
@@ -108,7 +118,16 @@ async function handleGET(req: NextRequest) {
       dateRange: { startDate, endDate },
     };
 
-    return NextResponse.json({ ...payload, cached: false });
+    return NextResponse.json(
+      { ...payload, cached: false },
+      {
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+          Pragma: 'no-cache',
+          Expires: '0',
+        },
+      }
+    );
   } catch (error: any) {
     console.error('Calendar API error:', error);
     return NextResponse.json({ error: apiError(error) }, { status: 500 });

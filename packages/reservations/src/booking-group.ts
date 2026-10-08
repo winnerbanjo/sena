@@ -13,7 +13,9 @@ import {
   roomTypes,
 } from '@sena/database';
 import { APARTMENT_BLOCKING_STATUSES, reserveInventoryInTransaction } from '@sena/inventory';
-import { and, eq, inArray, sql } from 'drizzle-orm';
+import { PaymentService } from '@sena/payments';
+import { and, eq, inArray, ne, or, sql } from 'drizzle-orm';
+import crypto from 'crypto';
 import { ACTIVE_STAY_STATUSES, assertRoomEligible } from './assignment';
 import { categoryNightsAvailable, categorySoldOutMessage } from './category-availability';
 
@@ -118,6 +120,7 @@ export async function createBookingGroup(
       .where(and(eq(rooms.propertyId, input.propertyId), inArray(rooms.id, roomIds)))
       .orderBy(rooms.id)
       .for('update');
+
     if (selected.length !== roomIds.length) throw new Error('One of the selected rooms is not in this property. No rooms were booked.');
 
     const blocked = selected.filter((room) => room.operationalStatus === 'blocked' || room.operationalStatus === 'maintenance');
@@ -252,6 +255,72 @@ export async function createBookingGroup(
       });
     }
 
+    // Create single consolidated group invoice covering all rooms
+    const [property] = await tx
+      .select({
+        id: properties.id,
+        organizationId: properties.organizationId,
+        currency: properties.currency,
+      })
+      .from(properties)
+      .where(eq(properties.id, input.propertyId))
+      .limit(1);
+
+    const [guestRecord] = await tx
+      .select({
+        id: guests.id,
+        fullName: guests.fullName,
+        email: guests.email,
+        phone: guests.phone,
+      })
+      .from(guests)
+      .where(eq(guests.id, guestId))
+      .limit(1);
+
+    const defaultBank = await PaymentService.primaryBankDetails(input.propertyId);
+    const combinedTotalMinorUnits = created.reduce((sum, r) => sum + r.totalAmountMinorUnits, 0);
+    const invoiceNumber = `INV-${new Date().getFullYear()}-${crypto.randomUUID().replaceAll('-', '').slice(0, 16).toUpperCase()}`;
+
+    const lineItems = created.map((item) => ({
+      id: crypto.randomUUID(),
+      description: `${item.roomTypeName} (Room ${item.roomNumber}) · ${item.nights} night stay (${item.checkInDate} to ${item.checkOutDate})`,
+      category: 'room' as const,
+      quantity: 1,
+      unitPriceMinorUnits: item.totalAmountMinorUnits,
+      totalMinorUnits: item.totalAmountMinorUnits,
+    }));
+
+    const [groupInvoice] = await tx
+      .insert(propertyInvoices)
+      .values({
+        propertyId: input.propertyId,
+        organizationId: property?.organizationId || '',
+        reservationId: created[0]?.id || null,
+        bookingGroupId: group.id,
+        guestId,
+        invoiceNumber,
+        invoiceType: 'guest_folio',
+        status: 'issued',
+        recipientName: guestRecord?.fullName || input.guest?.fullName || 'Guest',
+        recipientEmail: guestRecord?.email || input.guest?.email || null,
+        recipientPhone: guestRecord?.phone || input.guest?.phone || null,
+        issueDate: input.checkInDate,
+        dueDate: input.checkOutDate,
+        currency: property?.currency || 'NGN',
+        subtotalMinorUnits: combinedTotalMinorUnits,
+        taxVatMinorUnits: 0,
+        taxConsumptionMinorUnits: 0,
+        serviceChargeMinorUnits: 0,
+        discountMinorUnits: 0,
+        totalAmountMinorUnits: combinedTotalMinorUnits,
+        paidAmountMinorUnits: 0,
+        items: lineItems,
+        bankDetails: defaultBank,
+        paymentTerms: 'Due on Receipt',
+        notes: `Booking Group ${group.reference} (${created.length} rooms)`,
+      })
+      .returning();
+
     const result = {
       bookingGroup: {
         id: group.id,
@@ -259,9 +328,12 @@ export async function createBookingGroup(
         checkInDate: group.checkInDate,
         checkOutDate: group.checkOutDate,
         roomCount: created.length,
+        invoiceId: groupInvoice.id,
+        invoiceNumber: groupInvoice.invoiceNumber,
       },
       reservations: created,
-      combinedTotalMinorUnits: created.reduce((sum, reservation) => sum + reservation.totalAmountMinorUnits, 0),
+      combinedTotalMinorUnits,
+      invoice: groupInvoice,
     };
     if (key) {
       await tx.insert(idempotencyKeys).values({
@@ -308,9 +380,27 @@ export async function getBookingGroup(propertyId: string, bookingGroupId: string
     .leftJoin(roomTypes, eq(roomTypes.id, reservations.roomTypeId))
     .where(and(eq(reservations.bookingGroupId, bookingGroupId), eq(reservations.propertyId, propertyId)));
 
+  const invoices = await db
+    .select({
+      id: propertyInvoices.id,
+      invoiceNumber: propertyInvoices.invoiceNumber,
+      status: propertyInvoices.status,
+      totalAmountMinorUnits: propertyInvoices.totalAmountMinorUnits,
+      paidAmountMinorUnits: propertyInvoices.paidAmountMinorUnits,
+    })
+    .from(propertyInvoices)
+    .where(
+      and(
+        eq(propertyInvoices.bookingGroupId, bookingGroupId),
+        ne(propertyInvoices.status, 'void')
+      )
+    );
+
   return {
     ...group,
     reservations: stays,
+    invoices,
+    invoice: invoices[0] || null,
     combinedTotalMinorUnits: stays.reduce((sum, stay) => sum + stay.totalAmountMinorUnits, 0),
     combinedPaidMinorUnits: stays.reduce((sum, stay) => sum + stay.paidAmountMinorUnits, 0),
   };
@@ -511,10 +601,111 @@ export async function addAccommodationToBooking(
       metadata: { parentReservationId: parentRes.id, bookingGroupId },
     });
 
+    // Update or create single consolidated group invoice
+    const existingInvoices = await tx
+      .select()
+      .from(propertyInvoices)
+      .where(
+        and(
+          or(
+            eq(propertyInvoices.bookingGroupId, bookingGroupId),
+            eq(propertyInvoices.reservationId, parentRes.id)
+          ),
+          ne(propertyInvoices.status, 'void')
+        )
+      )
+      .orderBy(propertyInvoices.createdAt);
+
+    const newItem = {
+      id: crypto.randomUUID(),
+      description: `${targetLabel} · ${nights} night stay (${checkInDate} to ${checkOutDate})`,
+      category: 'room' as const,
+      quantity: 1,
+      unitPriceMinorUnits: agreedTotal,
+      totalMinorUnits: agreedTotal,
+    };
+
+    let groupInvoice: any = null;
+    if (existingInvoices.length > 0) {
+      const existingInv = existingInvoices[0];
+      const currentItems = Array.isArray(existingInv.items) ? existingInv.items : [];
+      const updatedItems = [...currentItems, newItem];
+      const newSubtotal = existingInv.subtotalMinorUnits + agreedTotal;
+      const newTotal = existingInv.totalAmountMinorUnits + agreedTotal;
+
+      const [updated] = await tx
+        .update(propertyInvoices)
+        .set({
+          bookingGroupId,
+          items: updatedItems,
+          subtotalMinorUnits: newSubtotal,
+          totalAmountMinorUnits: newTotal,
+          updatedAt: new Date(),
+        })
+        .where(eq(propertyInvoices.id, existingInv.id))
+        .returning();
+      groupInvoice = updated;
+    } else {
+      const [prop] = await tx
+        .select({ organizationId: properties.organizationId, currency: properties.currency })
+        .from(properties)
+        .where(eq(properties.id, input.propertyId))
+        .limit(1);
+      const [guest] = await tx
+        .select({ fullName: guests.fullName, email: guests.email, phone: guests.phone })
+        .from(guests)
+        .where(eq(guests.id, parentRes.guestId))
+        .limit(1);
+      const defaultBank = await PaymentService.primaryBankDetails(input.propertyId);
+
+      const parentItem = {
+        id: crypto.randomUUID(),
+        description: `Original accommodation · ${parentRes.nights} night stay (${parentRes.checkInDate} to ${parentRes.checkOutDate})`,
+        category: 'room' as const,
+        quantity: 1,
+        unitPriceMinorUnits: parentRes.totalAmountMinorUnits,
+        totalMinorUnits: parentRes.totalAmountMinorUnits,
+      };
+      const combinedTotal = parentRes.totalAmountMinorUnits + agreedTotal;
+
+      const [createdInv] = await tx
+        .insert(propertyInvoices)
+        .values({
+          propertyId: input.propertyId,
+          organizationId: prop?.organizationId || '',
+          reservationId: parentRes.id,
+          bookingGroupId,
+          guestId: parentRes.guestId,
+          invoiceNumber: `INV-${new Date().getFullYear()}-${crypto.randomUUID().replaceAll('-', '').slice(0, 16).toUpperCase()}`,
+          invoiceType: 'guest_folio',
+          status: 'issued',
+          recipientName: guest?.fullName || 'Guest',
+          recipientEmail: guest?.email || null,
+          recipientPhone: guest?.phone || null,
+          issueDate: parentRes.checkInDate,
+          dueDate: checkOutDate > parentRes.checkOutDate ? checkOutDate : parentRes.checkOutDate,
+          currency: prop?.currency || 'NGN',
+          subtotalMinorUnits: combinedTotal,
+          taxVatMinorUnits: 0,
+          taxConsumptionMinorUnits: 0,
+          serviceChargeMinorUnits: 0,
+          discountMinorUnits: 0,
+          totalAmountMinorUnits: combinedTotal,
+          paidAmountMinorUnits: parentRes.paidAmountMinorUnits || 0,
+          items: [parentItem, newItem],
+          bankDetails: defaultBank,
+          paymentTerms: 'Due on Receipt',
+          notes: `Booking Group ${groupReference}`,
+        })
+        .returning();
+      groupInvoice = createdInv;
+    }
+
     return {
       bookingGroupId,
       bookingGroupReference: groupReference,
       reservation: newRes,
+      invoice: groupInvoice,
     };
   });
 }
