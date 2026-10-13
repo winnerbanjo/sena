@@ -26,6 +26,7 @@ export interface PropertyInvoice {
     quantity: number;
     unitPriceMinorUnits: number;
     totalMinorUnits: number;
+    reservationId?: string;
   }>;
   bankDetails?: {
     bankName: string;

@@ -5,12 +5,14 @@ import {
   eq,
   guests,
   inArray,
+  or,
   paymentReceipts,
   payments,
   properties,
   propertyInvoices,
   reservations,
   roomTypes,
+  sql,
   websiteConfigs,
 } from '@sena/database';
 import { presentInvoiceDocument } from './invoice-document';
@@ -83,9 +85,16 @@ export async function loadInvoicePresentation(invoiceId: string, audience: 'staf
     })
     .from(payments)
     .where(and(
-      eq(payments.invoiceId, invoice.id),
       eq(payments.propertyId, invoice.propertyId),
       eq(payments.status, 'successful'),
+      or(
+        eq(payments.invoiceId, invoice.id),
+        invoice.bookingGroupId
+          ? eq(payments.bookingGroupId, invoice.bookingGroupId)
+          : invoice.reservationId
+            ? eq(payments.reservationId, invoice.reservationId)
+            : sql`false`
+      )
     ))
     .orderBy(payments.createdAt);
 

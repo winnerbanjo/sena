@@ -16,7 +16,7 @@ import {
   releaseInventoryInTransaction,
   reserveInventoryInTransaction,
 } from '@sena/inventory';
-import { and, eq, gt, inArray, ne, sql } from 'drizzle-orm';
+import { and, eq, gt, inArray, ne, notInArray, or, sql } from 'drizzle-orm';
 import { assertRoomEligible } from './assignment';
 import { categoryNightsAvailable, categorySoldOutMessage, roomUnavailableForStay } from './category-availability';
 
@@ -380,14 +380,22 @@ export async function updateStay(
       );
     }
 
-    const [invoiceRow] = await tx
+    const existingInvoices = await tx
       .select({ id: propertyInvoices.id })
       .from(propertyInvoices)
-      .where(eq(propertyInvoices.reservationId, reservationId))
-      .limit(1);
-    const invoiceCount = invoiceRow ? (
-      await tx.select({ id: propertyInvoices.id }).from(propertyInvoices).where(eq(propertyInvoices.reservationId, reservationId))
-    ).length : 0;
+      .where(
+        and(
+          eq(propertyInvoices.propertyId, propertyId),
+          res.bookingGroupId
+            ? or(
+                eq(propertyInvoices.bookingGroupId, res.bookingGroupId),
+                eq(propertyInvoices.reservationId, reservationId)
+              )
+            : eq(propertyInvoices.reservationId, reservationId),
+          notInArray(propertyInvoices.status, ['void', 'cancelled'])
+        )
+      );
+    const invoiceCount = existingInvoices.length;
 
     const configuredRate = await configuredNightlyRate(tx, target);
     const requestedCustomTotal = readMoney(input.customTotalAmountMinorUnits, 'Custom total amount');
@@ -516,47 +524,183 @@ export async function updateStay(
       .where(eq(reservations.id, res.id))
       .returning();
 
-    // Financial consistency: Synchronize open, unpaid draft/issued invoices with the updated reservation amount.
+    // Financial consistency: Synchronize active invoices with the updated reservation amount.
     if (nextTotal !== res.totalAmountMinorUnits || accommodationChanged || input.checkInDate !== res.checkInDate || input.checkOutDate !== res.checkOutDate) {
-      const openInvoices = await tx
+      const activeInvoices = await tx
         .select()
         .from(propertyInvoices)
         .where(
           and(
-            eq(propertyInvoices.reservationId, res.id),
-            inArray(propertyInvoices.status, ['draft', 'issued']),
-            eq(propertyInvoices.paidAmountMinorUnits, 0),
-          ),
+            eq(propertyInvoices.propertyId, propertyId),
+            res.bookingGroupId
+              ? or(
+                  eq(propertyInvoices.bookingGroupId, res.bookingGroupId),
+                  eq(propertyInvoices.reservationId, res.id)
+                )
+              : eq(propertyInvoices.reservationId, res.id),
+            notInArray(propertyInvoices.status, ['void', 'cancelled'])
+          )
+        )
+        .for('update');
+
+      const [resRoom] = res.roomId
+        ? await tx.select({ roomNumber: rooms.roomNumber }).from(rooms).where(eq(rooms.id, res.roomId)).limit(1)
+        : [null];
+      const resRoomNumber = resRoom?.roomNumber || '';
+
+      const today = new Date().toISOString().slice(0, 10);
+
+      for (const inv of activeInvoices) {
+        const lineItems = Array.isArray(inv.items) ? [...(inv.items as any[])] : [];
+        let targetIndex = -1;
+
+        if (res.bookingGroupId) {
+          // 1. Primary: Deterministic matching using stable reservationId tag
+          const matchingByResId = lineItems
+            .map((item, idx) => (item.category === 'room' && item.reservationId === res.id ? idx : -1))
+            .filter((idx) => idx !== -1);
+
+          if (matchingByResId.length === 1) {
+            targetIndex = matchingByResId[0];
+          } else if (matchingByResId.length > 1) {
+            throw new Error(
+              `Ambiguous line item matching: multiple line items found with reservationId ${res.id} on invoice ${inv.invoiceNumber}. Preserving invoice without modification.`
+            );
+          }
+
+          // 2. Fallback for legacy invoice items without reservationId
+          if (targetIndex === -1) {
+            const roomIndices = lineItems
+              .map((item, idx) => (item.category === 'room' ? idx : -1))
+              .filter((idx) => idx !== -1);
+
+            if (roomIndices.length === 1 && (inv.reservationId === res.id || !inv.reservationId)) {
+              targetIndex = roomIndices[0];
+            } else if (roomIndices.length > 1) {
+              // Match by unique reservation reference
+              const matchesByRef = lineItems
+                .map((item, idx) =>
+                  item.category === 'room' && res.reference && String(item.description || '').includes(res.reference) ? idx : -1
+                )
+                .filter((idx) => idx !== -1);
+
+              if (matchesByRef.length === 1) {
+                targetIndex = matchesByRef[0];
+              } else if (matchesByRef.length > 1) {
+                throw new Error(
+                  `Ambiguous line item matching: multiple room line items match reference ${res.reference} on invoice ${inv.invoiceNumber}. Preserving invoice.`
+                );
+              } else {
+                // Match by unique unit or room number
+                const matchesByUnit = lineItems
+                  .map((item, idx) => {
+                    if (item.category !== 'room') return -1;
+                    const desc = String(item.description || '');
+                    const matchRoom = resRoomNumber && (desc.includes(`Room ${resRoomNumber}`) || desc.includes(`(${resRoomNumber})`));
+                    const matchPrevLabel = previousLabel && desc.includes(previousLabel);
+                    return matchRoom || matchPrevLabel ? idx : -1;
+                  })
+                  .filter((idx) => idx !== -1);
+
+                if (matchesByUnit.length === 1) {
+                  targetIndex = matchesByUnit[0];
+                } else if (matchesByUnit.length > 1) {
+                  throw new Error(
+                    `Ambiguous line item matching: multiple room line items match unit on invoice ${inv.invoiceNumber}. Preserving invoice.`
+                  );
+                } else if (inv.reservationId === res.id && roomIndices.length > 0) {
+                  // Fallback: match by previous room amount if unique
+                  const matchesByAmount = lineItems
+                    .map((item, idx) =>
+                      item.category === 'room' && item.unitPriceMinorUnits === res.totalAmountMinorUnits ? idx : -1
+                    )
+                    .filter((idx) => idx !== -1);
+                  if (matchesByAmount.length === 1) {
+                    targetIndex = matchesByAmount[0];
+                  } else {
+                    throw new Error(
+                      `Ambiguous line item matching: cannot uniquely identify accommodation line item for reservation ${res.reference} on group invoice ${inv.invoiceNumber}. Preserving invoice without guessing.`
+                    );
+                  }
+                } else {
+                  throw new Error(
+                    `Ambiguous line item matching: cannot uniquely identify accommodation line item for reservation ${res.reference} on group invoice ${inv.invoiceNumber}. Preserving invoice without guessing.`
+                  );
+                }
+              }
+            }
+          }
+        } else {
+          // Single reservation invoice: first room item or first item
+          targetIndex = lineItems.findIndex((item) => item.category === 'room');
+          if (targetIndex === -1 && lineItems.length === 1) targetIndex = 0;
+        }
+
+        const updatedRoomItem = {
+          id: targetIndex >= 0 && lineItems[targetIndex]?.id ? lineItems[targetIndex].id : crypto.randomUUID(),
+          description: `${res.reference ? `${res.reference} · ` : ''}${nextLabel} · ${nights} night stay (${input.checkInDate} to ${input.checkOutDate})`,
+          category: 'room' as const,
+          quantity: 1,
+          unitPriceMinorUnits: nextTotal,
+          totalMinorUnits: nextTotal,
+          reservationId: res.id,
+        };
+
+        let updatedItems: any[];
+        if (targetIndex >= 0) {
+          updatedItems = lineItems.map((item, idx) => (idx === targetIndex ? updatedRoomItem : item));
+        } else {
+          updatedItems = [...lineItems, updatedRoomItem];
+        }
+
+        const newSubtotal = updatedItems.reduce((sum, item) => sum + Number(item.totalMinorUnits || 0), 0);
+        const oldSubtotal = Number(inv.subtotalMinorUnits || 0);
+        const hadVat = Number(inv.taxVatMinorUnits || 0) > 0;
+        const newTaxVat = hadVat && oldSubtotal > 0
+          ? Math.round(newSubtotal * (Number(inv.taxVatMinorUnits) / oldSubtotal))
+          : (hadVat ? Math.round(newSubtotal * 0.075) : 0);
+        const hadConsumption = Number(inv.taxConsumptionMinorUnits || 0) > 0;
+        const newTaxConsumption = hadConsumption && oldSubtotal > 0
+          ? Math.round(newSubtotal * (Number(inv.taxConsumptionMinorUnits) / oldSubtotal))
+          : (hadConsumption ? Math.round(newSubtotal * 0.05) : 0);
+        const hadService = Number(inv.serviceChargeMinorUnits || 0) > 0;
+        const newServiceCharge = hadService && oldSubtotal > 0
+          ? Math.round(newSubtotal * (Number(inv.serviceChargeMinorUnits) / oldSubtotal))
+          : (hadService ? Math.round(newSubtotal * 0.1) : 0);
+        const newDiscount = Math.min(newSubtotal, Number(inv.discountMinorUnits || 0));
+        const newTotalAmount = Math.max(
+          0,
+          newSubtotal + newTaxVat + newTaxConsumption + newServiceCharge - newDiscount
         );
 
-      for (const inv of openInvoices) {
-        const lineItems = (inv.items || []) as any[];
-        let updatedItems = lineItems;
-        if (lineItems.length <= 1) {
-          updatedItems = [
-            {
-              id: lineItems[0]?.id || 'item_1',
-              description: `${nextLabel} (${nights} nights, ${input.checkInDate} to ${input.checkOutDate})`,
-              category: 'room',
-              quantity: 1,
-              unitPriceMinorUnits: nextTotal,
-              totalMinorUnits: nextTotal,
-            },
-          ];
+        const paid = Number(inv.paidAmountMinorUnits || 0);
+        const newDueDate = input.checkOutDate > inv.dueDate ? input.checkOutDate : inv.dueDate;
+
+        let newStatus = inv.status;
+        if (inv.status !== 'draft') {
+          if (paid >= newTotalAmount && newTotalAmount > 0) {
+            newStatus = 'paid';
+          } else if (paid > 0) {
+            newStatus = 'partially_paid';
+          } else if (inv.status === 'overdue' && newDueDate < today) {
+            newStatus = 'overdue';
+          } else {
+            newStatus = 'issued';
+          }
         }
 
         await tx
           .update(propertyInvoices)
           .set({
             items: updatedItems,
-            subtotalMinorUnits: nextTotal,
-            discountMinorUnits: 0,
-            taxVatMinorUnits: 0,
-            taxConsumptionMinorUnits: 0,
-            serviceChargeMinorUnits: 0,
-            totalAmountMinorUnits: nextTotal,
-            issueDate: input.checkInDate,
-            dueDate: input.checkOutDate,
+            subtotalMinorUnits: newSubtotal,
+            discountMinorUnits: newDiscount,
+            taxVatMinorUnits: newTaxVat,
+            taxConsumptionMinorUnits: newTaxConsumption,
+            serviceChargeMinorUnits: newServiceCharge,
+            totalAmountMinorUnits: newTotalAmount,
+            status: newStatus,
+            dueDate: newDueDate,
             updatedAt: new Date(),
           })
           .where(eq(propertyInvoices.id, inv.id));
@@ -569,8 +713,17 @@ export async function updateStay(
           action: 'invoice.synced_from_reservation',
           resource: 'invoice',
           resourceId: inv.id,
-          previousValue: { totalAmountMinorUnits: inv.totalAmountMinorUnits },
-          newValue: { totalAmountMinorUnits: nextTotal, reason: 'Stay rate/dates synchronized' },
+          previousValue: {
+            totalAmountMinorUnits: inv.totalAmountMinorUnits,
+            subtotalMinorUnits: inv.subtotalMinorUnits,
+            status: inv.status,
+          },
+          newValue: {
+            totalAmountMinorUnits: newTotalAmount,
+            subtotalMinorUnits: newSubtotal,
+            status: newStatus,
+            reason: 'Stay rate/dates synchronized',
+          },
         });
       }
     }

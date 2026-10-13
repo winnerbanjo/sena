@@ -160,7 +160,26 @@ export class PaymentService {
     }
 
     const res = resList[0];
-    const outstanding = folioBalance(res.totalAmountMinorUnits, res.paidAmountMinorUnits);
+    let outstanding = folioBalance(res.totalAmountMinorUnits, res.paidAmountMinorUnits);
+    let groupStays: (typeof reservations.$inferSelect)[] = [];
+    if (res.bookingGroupId) {
+      groupStays = await tx
+        .select()
+        .from(reservations)
+        .where(
+          and(
+            eq(reservations.bookingGroupId, res.bookingGroupId),
+            ne(reservations.status, 'cancelled'),
+            ne(reservations.status, 'voided')
+          )
+        )
+        .for('update');
+      if (groupStays.length > 0) {
+        const groupTotal = groupStays.reduce((sum, s) => sum + s.totalAmountMinorUnits, 0);
+        const groupPaid = groupStays.reduce((sum, s) => sum + s.paidAmountMinorUnits, 0);
+        outstanding = folioBalance(groupTotal, groupPaid);
+      }
+    }
     if (input.amountMinorUnits > outstanding) throw new Error('Amount is more than the outstanding balance.');
 
     const property = await tx.query.properties.findFirst({ where: eq(properties.id, res.propertyId) });
@@ -179,6 +198,7 @@ export class PaymentService {
       .values({
         propertyId: res.propertyId,
         reservationId: input.reservationId,
+        bookingGroupId: res.bookingGroupId || undefined,
         invoiceId: input.invoiceId,
         amountMinorUnits: input.amountMinorUnits,
         currency: property.currency,
@@ -191,22 +211,55 @@ export class PaymentService {
       })
       .returning();
 
-    const newPaidAmount = res.paidAmountMinorUnits + input.amountMinorUnits;
-    const newPaymentStatus =
-      newPaidAmount >= res.totalAmountMinorUnits
-        ? 'paid'
-        : newPaidAmount > 0
-          ? 'part_payment'
-          : 'pay_later';
+    let remaining = input.amountMinorUnits;
+    if (res.bookingGroupId && groupStays.length > 0) {
+      const resDue = Math.max(0, res.totalAmountMinorUnits - res.paidAmountMinorUnits);
+      const resPay = Math.min(remaining, resDue);
+      const newResPaid = res.paidAmountMinorUnits + resPay;
+      await tx
+        .update(reservations)
+        .set({
+          paidAmountMinorUnits: newResPaid,
+          paymentStatus: newResPaid >= res.totalAmountMinorUnits ? 'paid' : newResPaid > 0 ? 'part_payment' : 'pay_later',
+          updatedAt: new Date(),
+        })
+        .where(eq(reservations.id, res.id));
+      remaining -= resPay;
 
-    await tx
-      .update(reservations)
-      .set({
-        paidAmountMinorUnits: newPaidAmount,
-        paymentStatus: newPaymentStatus,
-        updatedAt: new Date(),
-      })
-      .where(eq(reservations.id, input.reservationId));
+      for (const stay of groupStays) {
+        if (stay.id === res.id || remaining <= 0) continue;
+        const stayDue = Math.max(0, stay.totalAmountMinorUnits - stay.paidAmountMinorUnits);
+        if (stayDue <= 0) continue;
+        const stayPay = Math.min(remaining, stayDue);
+        const newStayPaid = stay.paidAmountMinorUnits + stayPay;
+        await tx
+          .update(reservations)
+          .set({
+            paidAmountMinorUnits: newStayPaid,
+            paymentStatus: newStayPaid >= stay.totalAmountMinorUnits ? 'paid' : newStayPaid > 0 ? 'part_payment' : 'pay_later',
+            updatedAt: new Date(),
+          })
+          .where(eq(reservations.id, stay.id));
+        remaining -= stayPay;
+      }
+    } else {
+      const newPaidAmount = res.paidAmountMinorUnits + input.amountMinorUnits;
+      const newPaymentStatus =
+        newPaidAmount >= res.totalAmountMinorUnits
+          ? 'paid'
+          : newPaidAmount > 0
+            ? 'part_payment'
+            : 'pay_later';
+
+      await tx
+        .update(reservations)
+        .set({
+          paidAmountMinorUnits: newPaidAmount,
+          paymentStatus: newPaymentStatus,
+          updatedAt: new Date(),
+        })
+        .where(eq(reservations.id, input.reservationId));
+    }
 
     await applyPaymentToInvoices(tx, input.reservationId, input.amountMinorUnits, input.invoiceId);
 

@@ -20,6 +20,7 @@ export interface InvoiceLineItem {
   quantity: number;
   unitPriceMinorUnits: number;
   totalMinorUnits: number;
+  reservationId?: string;
 }
 
 export interface InvoiceBankDetails {
@@ -137,13 +138,14 @@ export function calculateInvoiceAmounts(input: {
 
   let subtotalMinorUnits = 0;
   const items = input.items.map((item, index) => {
-    const row = item as { id?: unknown; description?: unknown; category?: unknown; quantity?: unknown; unitPriceMinorUnits?: unknown };
+    const row = item as { id?: unknown; description?: unknown; category?: unknown; quantity?: unknown; unitPriceMinorUnits?: unknown; reservationId?: unknown };
     const quantity = Number(row.quantity);
     const unitPriceMinorUnits = Number(row.unitPriceMinorUnits);
     const totalMinorUnits = quantity * unitPriceMinorUnits;
     subtotalMinorUnits += totalMinorUnits;
     const category = LINE_CATEGORIES.includes(row.category as LineCategory) ? row.category as LineCategory : 'other';
     const description = typeof row.description === 'string' ? row.description.trim() : '';
+    const reservationId = typeof row.reservationId === 'string' && row.reservationId.trim() ? row.reservationId.trim() : undefined;
     return {
       id: typeof row.id === 'string' && row.id.trim() ? row.id.trim().slice(0, 80) : `item_${index + 1}`,
       description: description.slice(0, 500) || 'Service Charge',
@@ -151,6 +153,7 @@ export function calculateInvoiceAmounts(input: {
       quantity,
       unitPriceMinorUnits,
       totalMinorUnits,
+      ...(reservationId ? { reservationId } : {}),
     };
   });
 
@@ -206,13 +209,18 @@ function financialSnapshot(invoice: Pick<EditableInvoice, 'items' | 'subtotalMin
   };
 }
 
-function resolveStatus(invoice: EditableInvoice, dueDate: string, total: number, today: string) {
+function resolveStatus(invoice: EditableInvoice, dueDate: string, total: number, today: string, financialChanged: boolean) {
   const paid = invoice.paidAmountMinorUnits;
   if (invoice.status === 'draft') return 'draft';
-  if (invoice.status === 'paid') return 'paid';
-  if (paid > 0 && paid >= total) return 'paid';
-  if (paid > 0) return 'partially_paid';
+  if (financialChanged) {
+    if (paid >= total && total > 0) return 'paid';
+    if (paid > 0) return 'partially_paid';
+  } else {
+    if (invoice.status === 'paid') return 'paid';
+    if (invoice.status === 'partially_paid') return 'partially_paid';
+  }
   if (invoice.status === 'overdue' && dueDate >= today) return 'issued';
+  if (dueDate < today && paid === 0) return 'overdue';
   if (invoice.status === 'overdue') return 'overdue';
   return 'issued';
 }
@@ -276,9 +284,6 @@ export function planInvoiceEdit(invoice: EditableInvoice, input: InvoiceEditInpu
     if (!amounts.ok) return { ok: false, status: 422, error: amounts.error };
     const current = financialSnapshot(invoice);
     const next = financialSnapshot(amounts);
-    if (invoiceIsFinanciallyPaid(invoice) && !sameJson(current, next)) {
-      return { ok: false, status: 409, error: PAID_FINANCIAL_LOCK };
-    }
     if (amounts.totalAmountMinorUnits < invoice.paidAmountMinorUnits) {
       return { ok: false, status: 409, error: BELOW_PAID };
     }
@@ -295,9 +300,10 @@ export function planInvoiceEdit(invoice: EditableInvoice, input: InvoiceEditInpu
   }
 
   const dueDate = patch.dueDate || invoice.dueDate;
-  const statusShouldMove = patch.totalAmountMinorUnits !== undefined || patch.dueDate !== undefined;
+  const financialChanged = patch.totalAmountMinorUnits !== undefined;
+  const statusShouldMove = financialChanged || patch.dueDate !== undefined;
   if (statusShouldMove) {
-    const status = resolveStatus(invoice, dueDate, nextTotal, today);
+    const status = resolveStatus(invoice, dueDate, nextTotal, today, financialChanged);
     if (status !== invoice.status) patch.status = status;
   }
 

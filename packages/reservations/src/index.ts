@@ -19,7 +19,7 @@ import {
 import { folioBalance, PaymentPolicyError } from '@sena/payments';
 import type { Reservation, ReservationEvent } from '@sena/types';
 import type { CreateReservationInput } from '@sena/validation';
-import { and, desc, eq, gt, inArray, sql } from 'drizzle-orm';
+import { and, desc, eq, gt, inArray, ne, notInArray, sql } from 'drizzle-orm';
 import { APARTMENT_BLOCKING_STATUSES } from '@sena/inventory';
 import { assertRoomEligible, listEligibleRooms, type AssignmentScope, type EligibleRoom } from './assignment';
 import { categoryNightsAvailable, categorySoldOutMessage, roomUnavailableForStay } from './category-availability';
@@ -422,6 +422,29 @@ export class ReservationService {
 
       const res = resList[0];
 
+      let balance = folioBalance(res.totalAmountMinorUnits, res.paidAmountMinorUnits);
+      if (res.bookingGroupId) {
+        const groupStays = await tx
+          .select({
+            totalAmountMinorUnits: reservations.totalAmountMinorUnits,
+            paidAmountMinorUnits: reservations.paidAmountMinorUnits,
+          })
+          .from(reservations)
+          .where(
+            and(
+              eq(reservations.bookingGroupId, res.bookingGroupId),
+              ne(reservations.status, 'cancelled'),
+              ne(reservations.status, 'voided')
+            )
+          );
+        if (groupStays.length > 0) {
+          const groupTotal = groupStays.reduce((sum, s) => sum + s.totalAmountMinorUnits, 0);
+          const groupPaid = groupStays.reduce((sum, s) => sum + s.paidAmountMinorUnits, 0);
+          const groupBalance = folioBalance(groupTotal, groupPaid);
+          balance = groupBalance;
+        }
+      }
+
       if (res.apartmentId) {
         if (res.status === 'checked_in') return;
         if (res.status !== 'confirmed') throw new Error('Only confirmed reservations can be checked in.');
@@ -429,7 +452,6 @@ export class ReservationService {
         if (!apartment) throw new Error('Apartment not found');
         const property = await tx.query.properties.findFirst({ where: eq(properties.id, res.propertyId) });
         const policy = property?.checkInPaymentPolicy || 'allow_outstanding';
-        const balance = folioBalance(res.totalAmountMinorUnits, res.paidAmountMinorUnits);
         if (balance > 0) {
           if (policy === 'require_full') throw new PaymentPolicyError('PAYMENT_REQUIRED_BEFORE_CHECK_IN', balance);
           if (!options?.allowOutstandingBalance) throw new PaymentPolicyError('OUTSTANDING_BALANCE_AUTHORIZATION_REQUIRED', balance);
@@ -448,8 +470,9 @@ export class ReservationService {
         return;
       }
 
-      if (!roomId) throw new Error('ROOM_ASSIGNMENT_REQUIRED');
-      if (res.status === 'checked_in' && res.roomId === roomId) return;
+      const targetRoomId = (roomId ?? res.roomId) || null;
+      if (!targetRoomId) throw new Error('ROOM_ASSIGNMENT_REQUIRED');
+      if (res.status === 'checked_in' && res.roomId === targetRoomId) return;
       if (res.status !== 'confirmed') throw new Error('Only confirmed reservations can be checked in.');
       if (!res.roomTypeId) throw new Error('ROOM_ASSIGNMENT_REQUIRED');
 
@@ -463,12 +486,11 @@ export class ReservationService {
           excludeReservationId: reservationId,
           forCheckIn: true,
         },
-        roomId
+        targetRoomId
       );
 
       const property = await tx.query.properties.findFirst({ where: eq(properties.id, res.propertyId) });
       const policy = property?.checkInPaymentPolicy || 'allow_outstanding';
-      const balance = folioBalance(res.totalAmountMinorUnits, res.paidAmountMinorUnits);
       if (balance > 0) {
         if (policy === 'require_full') {
           throw new PaymentPolicyError('PAYMENT_REQUIRED_BEFORE_CHECK_IN', balance);
@@ -482,7 +504,7 @@ export class ReservationService {
         .update(reservations)
         .set({
           status: 'checked_in',
-          roomId,
+          roomId: targetRoomId,
           updatedAt: new Date(),
         })
         .where(eq(reservations.id, reservationId));
@@ -493,7 +515,7 @@ export class ReservationService {
           operationalStatus: 'occupied',
           updatedAt: new Date(),
         })
-        .where(eq(rooms.id, roomId));
+        .where(eq(rooms.id, targetRoomId));
 
       await tx.insert(reservationEvents).values({
         reservationId,

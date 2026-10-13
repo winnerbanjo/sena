@@ -421,12 +421,13 @@ async function runVerification() {
     );
 
     const [syncedInv] = await db.select().from(propertyInvoices).where(eq(propertyInvoices.id, invoice1.id));
-    const invSyncPassed = syncedInv.totalAmountMinorUnits === 12_000_000;
+    const res1Item = syncedInv.items.find((item: any) => item.unitPriceMinorUnits === 12_000_000);
+    const invSyncPassed = Boolean(res1Item) && syncedInv.totalAmountMinorUnits === 29_000_000;
 
     record(
       'Open Invoice Auto-Sync on Stay Edit',
       invSyncPassed,
-      `Invoice total synchronized to ₦120,000 in same operation`
+      `Invoice stay line synchronized to ₦120,000 and group total reflects ₦290,000`
     );
 
     // ------------------------------------------------------------
