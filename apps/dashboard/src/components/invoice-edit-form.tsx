@@ -77,6 +77,7 @@ export function InvoiceEditForm({
     category: string;
     quantity: string;
     unitPrice: string;
+    totalMinorUnits?: number;
     reservationId?: string;
   }>>(invoice.items.map((item) => ({
     id: item.id,
@@ -84,6 +85,7 @@ export function InvoiceEditForm({
     category: item.category,
     quantity: String(item.quantity),
     unitPrice: String(fromMinorUnits(item.unitPriceMinorUnits)),
+    totalMinorUnits: item.totalMinorUnits,
     reservationId: item.reservationId,
   })));
   const [error, setError] = React.useState(closed ? labels.closedInvoice : '');
@@ -114,6 +116,7 @@ export function InvoiceEditForm({
           category: item.category,
           quantity: Number(item.quantity),
           unitPriceMinorUnits: toMinorUnits(Number(item.unitPrice)),
+          totalMinorUnits: item.totalMinorUnits,
           ...(item.reservationId ? { reservationId: item.reservationId } : {}),
         })),
         discountMinorUnits: toMinorUnits(Number(discount) || 0),
@@ -185,10 +188,10 @@ export function InvoiceEditForm({
                   <input required value={item.description} onChange={(event) => setItems((rows) => rows.map((row, rowIndex) => rowIndex === index ? { ...row, description: event.target.value } : row))} className={fieldClass()} />
                 </label>
                 <label className="block">{labels.quantity}
-                  <input required inputMode="numeric" value={item.quantity} onChange={(event) => setItems((rows) => rows.map((row, rowIndex) => rowIndex === index ? { ...row, quantity: event.target.value } : row))} className={fieldClass()} />
+                  <input required inputMode="numeric" value={item.quantity} onChange={(event) => setItems((rows) => rows.map((row, rowIndex) => rowIndex === index ? { ...row, quantity: event.target.value, totalMinorUnits: undefined } : row))} className={fieldClass()} />
                 </label>
                 <label className="block">{labels.rate}
-                  <input required inputMode="decimal" value={item.unitPrice} onChange={(event) => setItems((rows) => rows.map((row, rowIndex) => rowIndex === index ? { ...row, unitPrice: event.target.value } : row))} className={fieldClass()} />
+                  <input required inputMode="decimal" value={item.unitPrice} onChange={(event) => setItems((rows) => rows.map((row, rowIndex) => rowIndex === index ? { ...row, unitPrice: event.target.value, totalMinorUnits: undefined } : row))} className={fieldClass()} />
                 </label>
                 <button
                   type="button"
