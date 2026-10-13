@@ -107,12 +107,50 @@ export function invoiceIsFinanciallyPaid(invoice: Pick<EditableInvoice, 'status'
   return invoice.status === 'paid' || (invoice.paidAmountMinorUnits > 0 && invoice.paidAmountMinorUnits >= invoice.totalAmountMinorUnits);
 }
 
+export function financialInputsChanged(invoice: EditableInvoice, input: InvoiceEditInput): boolean {
+  if (input.discountMinorUnits !== undefined && Number(input.discountMinorUnits) !== invoice.discountMinorUnits) {
+    return true;
+  }
+  if (input.applyVat !== undefined && Boolean(input.applyVat) !== (invoice.taxVatMinorUnits > 0)) {
+    return true;
+  }
+  if (input.applyConsumptionTax !== undefined && Boolean(input.applyConsumptionTax) !== (invoice.taxConsumptionMinorUnits > 0)) {
+    return true;
+  }
+  if (input.applyServiceCharge !== undefined && Boolean(input.applyServiceCharge) !== (invoice.serviceChargeMinorUnits > 0)) {
+    return true;
+  }
+  if (input.items !== undefined) {
+    if (!Array.isArray(input.items) || input.items.length !== invoice.items.length) {
+      return true;
+    }
+    for (let i = 0; i < input.items.length; i++) {
+      const inItem = input.items[i] as any;
+      const invItem = invoice.items[i];
+      if (!inItem || !invItem) return true;
+      if (inItem.id && invItem.id && inItem.id !== invItem.id) return true;
+      if (Number(inItem.quantity) !== invItem.quantity) return true;
+      if (Number(inItem.unitPriceMinorUnits) !== invItem.unitPriceMinorUnits) return true;
+      if (inItem.category && inItem.category !== invItem.category) return true;
+      if (typeof inItem.description === 'string' && inItem.description.trim() !== invItem.description.trim()) return true;
+      if (inItem.reservationId !== undefined && inItem.reservationId !== invItem.reservationId) return true;
+      if (inItem.totalMinorUnits !== undefined && Number(inItem.totalMinorUnits) !== invItem.totalMinorUnits) return true;
+    }
+    return false;
+  }
+  return false;
+}
+
 export function calculateInvoiceAmounts(input: {
   items: unknown;
   applyVat: boolean;
   applyConsumptionTax: boolean;
   applyServiceCharge: boolean;
   discountMinorUnits: number;
+  existingInvoice?: Pick<
+    EditableInvoice,
+    'taxVatMinorUnits' | 'taxConsumptionMinorUnits' | 'serviceChargeMinorUnits' | 'subtotalMinorUnits'
+  >;
 }): { ok: false; error: string } | {
   ok: true;
   items: InvoiceLineItem[];
@@ -138,12 +176,38 @@ export function calculateInvoiceAmounts(input: {
 
   let subtotalMinorUnits = 0;
   const items = input.items.map((item, index) => {
-    const row = item as { id?: unknown; description?: unknown; category?: unknown; quantity?: unknown; unitPriceMinorUnits?: unknown; reservationId?: unknown };
+    const row = item as {
+      id?: unknown;
+      description?: unknown;
+      category?: unknown;
+      quantity?: unknown;
+      unitPriceMinorUnits?: unknown;
+      totalMinorUnits?: unknown;
+      reservationId?: unknown;
+    };
     const quantity = Number(row.quantity);
     const unitPriceMinorUnits = Number(row.unitPriceMinorUnits);
-    const totalMinorUnits = quantity * unitPriceMinorUnits;
+    let totalMinorUnits = quantity * unitPriceMinorUnits;
+
+    // Explicit remainder allocation for multi-unit stays:
+    // If an authoritative line total T is provided where T was divided into Q units with base unit price
+    // unitPriceMinorUnits = Math.floor(T / Q), the deterministic integer remainder is r = T - (Q * unitPriceMinorUnits).
+    // When 0 <= r < quantity, T matches the exact integer division remainder and is preserved authoritatively.
+    if (
+      row.totalMinorUnits !== undefined &&
+      row.totalMinorUnits !== null &&
+      Number.isSafeInteger(Number(row.totalMinorUnits)) &&
+      Number(row.totalMinorUnits) > 0
+    ) {
+      const explicitTotal = Number(row.totalMinorUnits);
+      const remainder = explicitTotal - (quantity * unitPriceMinorUnits);
+      if (remainder >= 0 && remainder < quantity) {
+        totalMinorUnits = explicitTotal;
+      }
+    }
+
     subtotalMinorUnits += totalMinorUnits;
-    const category = LINE_CATEGORIES.includes(row.category as LineCategory) ? row.category as LineCategory : 'other';
+    const category = LINE_CATEGORIES.includes(row.category as LineCategory) ? (row.category as LineCategory) : 'other';
     const description = typeof row.description === 'string' ? row.description.trim() : '';
     const reservationId = typeof row.reservationId === 'string' && row.reservationId.trim() ? row.reservationId.trim() : undefined;
     return {
@@ -161,9 +225,25 @@ export function calculateInvoiceAmounts(input: {
     return { ok: false, error: 'Enter a valid discount.' };
   }
   const discountMinorUnits = Math.min(subtotalMinorUnits, input.discountMinorUnits);
-  const taxVatMinorUnits = input.applyVat ? Math.round(subtotalMinorUnits * 0.075) : 0;
-  const taxConsumptionMinorUnits = input.applyConsumptionTax ? Math.round(subtotalMinorUnits * 0.05) : 0;
-  const serviceChargeMinorUnits = input.applyServiceCharge ? Math.round(subtotalMinorUnits * 0.1) : 0;
+
+  const existing = input.existingInvoice;
+  const oldSubtotal = existing?.subtotalMinorUnits || 0;
+  const taxVatMinorUnits = input.applyVat
+    ? existing && existing.taxVatMinorUnits > 0 && oldSubtotal > 0
+      ? Math.round(subtotalMinorUnits * (existing.taxVatMinorUnits / oldSubtotal))
+      : Math.round(subtotalMinorUnits * 0.075)
+    : 0;
+  const taxConsumptionMinorUnits = input.applyConsumptionTax
+    ? existing && existing.taxConsumptionMinorUnits > 0 && oldSubtotal > 0
+      ? Math.round(subtotalMinorUnits * (existing.taxConsumptionMinorUnits / oldSubtotal))
+      : Math.round(subtotalMinorUnits * 0.05)
+    : 0;
+  const serviceChargeMinorUnits = input.applyServiceCharge
+    ? existing && existing.serviceChargeMinorUnits > 0 && oldSubtotal > 0
+      ? Math.round(subtotalMinorUnits * (existing.serviceChargeMinorUnits / oldSubtotal))
+      : Math.round(subtotalMinorUnits * 0.1)
+    : 0;
+
   const totalAmountMinorUnits = Math.max(
     0,
     subtotalMinorUnits + taxVatMinorUnits + taxConsumptionMinorUnits + serviceChargeMinorUnits - discountMinorUnits,
@@ -271,22 +351,46 @@ export function planInvoiceEdit(invoice: EditableInvoice, input: InvoiceEditInpu
   const financialTouched = ['items', 'discountMinorUnits', 'applyVat', 'applyConsumptionTax', 'applyServiceCharge']
     .some((key) => key in input);
   let nextTotal = invoice.totalAmountMinorUnits;
-  if (financialTouched) {
+
+  if (financialTouched && financialInputsChanged(invoice, input)) {
+    const existingMap = new Map(invoice.items.map((item) => [item.id, item]));
+    const preparedItems = Array.isArray(input.items)
+      ? input.items.map((item: any) => {
+          if (item && typeof item === 'object') {
+            const existing = item.id ? existingMap.get(item.id) : undefined;
+            if (
+              existing &&
+              Number(item.quantity) === existing.quantity &&
+              Number(item.unitPriceMinorUnits) === existing.unitPriceMinorUnits
+            ) {
+              return { ...item, totalMinorUnits: existing.totalMinorUnits };
+            }
+            const { totalMinorUnits: _ignored, ...rest } = item;
+            return rest;
+          }
+          return item;
+        })
+      : invoice.items;
+
     const amounts = calculateInvoiceAmounts({
-      items: input.items === undefined ? invoice.items : input.items,
+      items: preparedItems,
       applyVat: input.applyVat === undefined ? invoice.taxVatMinorUnits > 0 : Boolean(input.applyVat),
       applyConsumptionTax: input.applyConsumptionTax === undefined ? invoice.taxConsumptionMinorUnits > 0 : Boolean(input.applyConsumptionTax),
       applyServiceCharge: input.applyServiceCharge === undefined ? invoice.serviceChargeMinorUnits > 0 : Boolean(input.applyServiceCharge),
       discountMinorUnits: input.discountMinorUnits === undefined
         ? invoice.discountMinorUnits
         : Number(input.discountMinorUnits),
+      existingInvoice: invoice,
     });
     if (!amounts.ok) return { ok: false, status: 422, error: amounts.error };
     const current = financialSnapshot(invoice);
-    const next = financialSnapshot(amounts);
+
+    // Strict commercial floor: Never silently modify settled invoice totals or absorb deficits.
     if (amounts.totalAmountMinorUnits < invoice.paidAmountMinorUnits) {
       return { ok: false, status: 409, error: BELOW_PAID };
     }
+
+    const next = financialSnapshot(amounts);
     if (!sameJson(current, next)) {
       patch.items = amounts.items;
       patch.subtotalMinorUnits = amounts.subtotalMinorUnits;
