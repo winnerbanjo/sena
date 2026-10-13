@@ -457,7 +457,7 @@ export function InvoiceViewModal({
               </Button>
             )}
 
-            {invoice.status !== 'void' && !isPaid && (
+            {invoice.status !== 'void' && invoice.status !== 'cancelled' && (
               <Button
                 variant="secondary"
                 size="sm"

@@ -218,7 +218,10 @@ export function CheckInRoomDialog({
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        if (data.code === 'ROOM_ASSIGNMENT_REQUIRED' || /physical room/i.test(data.error || '')) {
+        if (
+          data.code === 'ROOM_ASSIGNMENT_REQUIRED' ||
+          /physical room|clean room|choose another room|no longer available/i.test(data.error || '')
+        ) {
           setChangingRoom(true);
         }
         throw new Error(data.error || 'Request failed');

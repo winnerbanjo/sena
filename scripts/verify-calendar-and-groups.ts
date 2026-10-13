@@ -396,7 +396,19 @@ async function runVerification() {
       totalMinorUnits: 12000000,
     }],
   });
-  assert(!fullyPaidEditPlan.ok && fullyPaidEditPlan.error === PAID_FINANCIAL_LOCK, 'Fully paid invoice blocks financial modifications', `Error: ${fullyPaidEditPlan.error}`);
+  assert(fullyPaidEditPlan.ok && fullyPaidEditPlan.patch.status === 'partially_paid', 'Adding charges to paid invoice transitions status to partially_paid');
+
+  const belowPaidEditPlan = planInvoiceEdit(fullyPaidInv as any, {
+    items: [{
+      id: crypto.randomUUID(),
+      description: 'Reduced item',
+      category: 'room',
+      quantity: 1,
+      unitPriceMinorUnits: 8000000,
+      totalMinorUnits: 8000000,
+    }],
+  });
+  assert(!belowPaidEditPlan.ok && belowPaidEditPlan.error === BELOW_PAID, 'Reducing total below paid amount is blocked with BELOW_PAID');
 
   // 11. Multi-Tenant Isolation & Concurrency Safety
   console.log('\n\x1b[34m[11/11] Multi-Tenant Isolation & Concurrency Safety...\x1b[0m');

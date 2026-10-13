@@ -1108,6 +1108,7 @@ export interface InvoiceLineItem {
   quantity: number;
   unitPriceMinorUnits: number;
   totalMinorUnits: number;
+  reservationId?: string;
 }
 
 export interface InvoiceBankDetails {

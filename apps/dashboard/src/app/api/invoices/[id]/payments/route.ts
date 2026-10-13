@@ -3,7 +3,7 @@ import { getMerchantRequest, withMerchant } from '@/lib/merchant-route';
 import { optionalReceiptFromForm, settleWithOptionalReceipt, type ReceiptFileInput } from '@/lib/payment-receipt-file';
 import { persistPaymentReceipt } from '@/lib/payment-receipt-persist';
 import { NextRequest, NextResponse } from 'next/server';
-import { db, propertyInvoices, payments, reservations, idempotencyKeys, operationalNotifications, eq, sql } from '@sena/database';
+import { db, propertyInvoices, payments, reservations, idempotencyKeys, operationalNotifications, and, eq, ne, sql } from '@sena/database';
 
 async function readSettlementInput(req: NextRequest): Promise<{ body: Record<string, unknown>; receipt: ReceiptFileInput | null; error?: { status: number; error: string; code: string } }> {
   const contentType = req.headers.get('content-type') || '';
@@ -48,18 +48,47 @@ async function handlePOST(req: NextRequest, { params }: { params: Promise<{ id: 
       if (amount > invoice.totalAmountMinorUnits - invoice.paidAmountMinorUnits) return { error: 'Amount is more than the outstanding balance.', paymentRecorded: false };
       const paid = invoice.paidAmountMinorUnits + amount;
       const [updated] = await tx.update(propertyInvoices).set({ paidAmountMinorUnits: paid, status: paid >= invoice.totalAmountMinorUnits ? 'paid' : 'partially_paid', updatedAt: new Date() }).where(eq(propertyInvoices.id, id)).returning();
-      if (invoice.reservationId) {
+      if (invoice.bookingGroupId) {
+        const groupStays = await tx
+          .select()
+          .from(reservations)
+          .where(
+            and(
+              eq(reservations.bookingGroupId, invoice.bookingGroupId),
+              ne(reservations.status, 'cancelled'),
+              ne(reservations.status, 'voided')
+            )
+          )
+          .for('update');
+        let remaining = amount;
+        for (const stay of groupStays) {
+          if (remaining <= 0) break;
+          const due = Math.max(0, stay.totalAmountMinorUnits - stay.paidAmountMinorUnits);
+          if (due <= 0) continue;
+          const apply = Math.min(remaining, due);
+          const newPaid = stay.paidAmountMinorUnits + apply;
+          await tx
+            .update(reservations)
+            .set({
+              paidAmountMinorUnits: newPaid,
+              paymentStatus: newPaid >= stay.totalAmountMinorUnits ? 'paid' : newPaid > 0 ? 'part_payment' : 'pay_later',
+              updatedAt: new Date(),
+            })
+            .where(eq(reservations.id, stay.id));
+          remaining -= apply;
+        }
+      } else if (invoice.reservationId) {
         await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${invoice.reservationId}))`);
         const [reservation] = await tx.select().from(reservations).where(eq(reservations.id, invoice.reservationId)).for('update');
-      if (!reservation || reservation.propertyId !== invoice.propertyId) throw new Error('Reservation unavailable');
-      const settlement = applyInvoiceSettlementToReservation({
-        reservationPaidMinorUnits: reservation.paidAmountMinorUnits,
-        reservationTotalMinorUnits: reservation.totalAmountMinorUnits,
-        amountMinorUnits: amount,
-      });
-      await tx.update(reservations).set({ paidAmountMinorUnits: settlement.paidAmountMinorUnits, paymentStatus: settlement.paymentStatus, updatedAt: new Date() }).where(eq(reservations.id, reservation.id));
+        if (!reservation || reservation.propertyId !== invoice.propertyId) throw new Error('Reservation unavailable');
+        const settlement = applyInvoiceSettlementToReservation({
+          reservationPaidMinorUnits: reservation.paidAmountMinorUnits,
+          reservationTotalMinorUnits: reservation.totalAmountMinorUnits,
+          amountMinorUnits: amount,
+        });
+        await tx.update(reservations).set({ paidAmountMinorUnits: settlement.paidAmountMinorUnits, paymentStatus: settlement.paymentStatus, updatedAt: new Date() }).where(eq(reservations.id, reservation.id));
       }
-      const [payment] = await tx.insert(payments).values({ propertyId: invoice.propertyId, invoiceId: invoice.id, reservationId: invoice.reservationId, amountMinorUnits: amount, currency: invoice.currency, provider: 'manual', providerReference: String(body.providerReference || '') || requestKey, method: String(body.method), status: 'successful', source: 'invoice', notes: typeof body.notes === 'string' ? body.notes.trim() : '', recordedByUserId: merchant?.tenant.userId }).returning();
+      const [payment] = await tx.insert(payments).values({ propertyId: invoice.propertyId, invoiceId: invoice.id, reservationId: invoice.reservationId, bookingGroupId: invoice.bookingGroupId || undefined, amountMinorUnits: amount, currency: invoice.currency, provider: 'manual', providerReference: String(body.providerReference || '') || requestKey, method: String(body.method), status: 'successful', source: 'invoice', notes: typeof body.notes === 'string' ? body.notes.trim() : '', recordedByUserId: merchant?.tenant.userId }).returning();
       await tx.insert(operationalNotifications).values({ propertyId: invoice.propertyId, dedupeKey: `manual:${payment.id}`, kind: 'invoice', title: 'Invoice payment received', body: 'An invoice payment was recorded at the property.', href: '/invoices' }).onConflictDoNothing();
       const payload = { success: true, message: 'Payment recorded', invoice: updated, paymentId: payment.id, propertyId: invoice.propertyId };
       await tx.insert(idempotencyKeys).values({ key, action: 'invoice_payment', responsePayload: payload, expiresAt: new Date(Date.now() + 86400000) });

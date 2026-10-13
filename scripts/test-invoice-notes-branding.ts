@@ -137,7 +137,7 @@ const paid = planInvoiceEdit(invoice({ status: 'paid', paidAmountMinorUnits: 10_
 }, { today: '2026-10-01' });
 assert.equal(paid.ok, false);
 if (paid.ok) throw new Error('paid should lock');
-assert.equal(paid.error, PAID_FINANCIAL_LOCK);
+assert.equal(paid.error, BELOW_PAID);
 const paidSafe = planInvoiceEdit(invoice({ status: 'paid', paidAmountMinorUnits: 10_000_00 }), {
   recipientPhone: '+2348000000001',
   notes: 'Accounts copy',
@@ -429,7 +429,7 @@ async function main() {
 }
 
 main().catch((error) => {
-  const message = error instanceof Error ? `${error.name}: ${error.message}` : 'invoice notes test failed';
-  console.error(message.replace(/postgres(?:ql)?:\/\/\S+/gi, '[database]'));
+  console.error(error);
+  if (error && error.errors) console.error('Errors:', error.errors);
   process.exit(1);
 });

@@ -17,11 +17,28 @@ async function handlePOST(
     const roomId = typeof body.roomId === 'string' ? body.roomId : '';
     const allowOutstandingBalance = Boolean(body.allowOutstandingBalance);
     const [existing] = await db
-      .select({ apartmentId: reservations.apartmentId })
+      .select({
+        apartmentId: reservations.apartmentId,
+        roomId: reservations.roomId,
+        status: reservations.status,
+      })
       .from(reservations)
       .where(eq(reservations.id, reservationId))
       .limit(1);
-    if (!existing?.apartmentId && !roomId) {
+
+    if (!existing) {
+      return NextResponse.json({ error: 'Reservation not found.' }, { status: 404 });
+    }
+
+    if (existing.status === 'checked_in') {
+      return NextResponse.json({
+        success: true,
+        message: 'Guest is already checked in.',
+      });
+    }
+
+    const resolvedRoomId = roomId || existing.roomId || '';
+    if (!existing.apartmentId && !resolvedRoomId) {
       return NextResponse.json(
         { error: 'Select a physical room before checking in.', code: 'ROOM_ASSIGNMENT_REQUIRED' },
         { status: 400 }
@@ -34,7 +51,12 @@ async function handlePOST(
       name: session?.user?.name || 'Front Desk Staff',
     };
 
-    await ReservationService.checkIn(reservationId, existing?.apartmentId ? null : roomId, actor, { allowOutstandingBalance });
+    await ReservationService.checkIn(
+      reservationId,
+      existing.apartmentId ? null : resolvedRoomId,
+      actor,
+      { allowOutstandingBalance }
+    );
 
     const [resRow] = await db
       .select({ propertyId: reservations.propertyId })

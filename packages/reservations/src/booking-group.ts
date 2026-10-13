@@ -283,11 +283,12 @@ export async function createBookingGroup(
 
     const lineItems = created.map((item) => ({
       id: crypto.randomUUID(),
-      description: `${item.roomTypeName} (Room ${item.roomNumber}) · ${item.nights} night stay (${item.checkInDate} to ${item.checkOutDate})`,
+      description: `${item.reference} · ${item.roomTypeName} (Room ${item.roomNumber}) · ${item.nights} night stay (${item.checkInDate} to ${item.checkOutDate})`,
       category: 'room' as const,
       quantity: 1,
       unitPriceMinorUnits: item.totalAmountMinorUnits,
       totalMinorUnits: item.totalAmountMinorUnits,
+      reservationId: item.id,
     }));
 
     const [groupInvoice] = await tx
@@ -618,18 +619,26 @@ export async function addAccommodationToBooking(
 
     const newItem = {
       id: crypto.randomUUID(),
-      description: `${targetLabel} · ${nights} night stay (${checkInDate} to ${checkOutDate})`,
+      description: `${newReference} · ${targetLabel} · ${nights} night stay (${checkInDate} to ${checkOutDate})`,
       category: 'room' as const,
       quantity: 1,
       unitPriceMinorUnits: agreedTotal,
       totalMinorUnits: agreedTotal,
+      reservationId: newRes.id,
     };
 
     let groupInvoice: any = null;
     if (existingInvoices.length > 0) {
       const existingInv = existingInvoices[0];
-      const currentItems = Array.isArray(existingInv.items) ? existingInv.items : [];
-      const updatedItems = [...currentItems, newItem];
+      const currentItems = Array.isArray(existingInv.items) ? [...existingInv.items] : [];
+      // If the parent invoice had a single room item without reservationId, tag it
+      const taggedItems = currentItems.map((item: any, idx: number) => {
+        if (item.category === 'room' && !item.reservationId && currentItems.filter((i: any) => i.category === 'room').length === 1) {
+          return { ...item, reservationId: parentRes.id };
+        }
+        return item;
+      });
+      const updatedItems = [...taggedItems, newItem];
       const newSubtotal = existingInv.subtotalMinorUnits + agreedTotal;
       const newTotal = existingInv.totalAmountMinorUnits + agreedTotal;
 

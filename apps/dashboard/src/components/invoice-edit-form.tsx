@@ -54,8 +54,6 @@ export function InvoiceEditForm({
   onCancel: () => void;
   onSaved: (invoice: PropertyInvoice) => void;
 }) {
-  const balance = Math.max(0, invoice.totalAmountMinorUnits - invoice.paidAmountMinorUnits);
-  const financiallyPaid = invoice.status === 'paid' || (invoice.paidAmountMinorUnits > 0 && balance === 0);
   const closed = invoice.status === 'void' || invoice.status === 'cancelled';
   const [recipientName, setRecipientName] = React.useState(invoice.recipientName);
   const [recipientEmail, setRecipientEmail] = React.useState(invoice.recipientEmail || '');
@@ -73,12 +71,20 @@ export function InvoiceEditForm({
   const [bankName, setBankName] = React.useState(invoice.bankDetails?.bankName || '');
   const [accountName, setAccountName] = React.useState(invoice.bankDetails?.accountName || '');
   const [accountNumber, setAccountNumber] = React.useState(invoice.bankDetails?.accountNumber || '');
-  const [items, setItems] = React.useState(invoice.items.map((item) => ({
+  const [items, setItems] = React.useState<Array<{
+    id: string;
+    description: string;
+    category: string;
+    quantity: string;
+    unitPrice: string;
+    reservationId?: string;
+  }>>(invoice.items.map((item) => ({
     id: item.id,
     description: item.description,
     category: item.category,
     quantity: String(item.quantity),
     unitPrice: String(fromMinorUnits(item.unitPriceMinorUnits)),
+    reservationId: item.reservationId,
   })));
   const [error, setError] = React.useState(closed ? labels.closedInvoice : '');
   const [saving, setSaving] = React.useState(false);
@@ -102,20 +108,19 @@ export function InvoiceEditForm({
         bankDetails: bankName || accountName || accountNumber
           ? { bankName, accountName, accountNumber, currency: invoice.currency }
           : null,
-      };
-      if (!financiallyPaid) {
-        payload.items = items.map((item) => ({
+        items: items.map((item) => ({
           id: item.id,
           description: item.description,
           category: item.category,
           quantity: Number(item.quantity),
           unitPriceMinorUnits: toMinorUnits(Number(item.unitPrice)),
-        }));
-        payload.discountMinorUnits = toMinorUnits(Number(discount) || 0);
-        payload.applyVat = applyVat;
-        payload.applyConsumptionTax = applyConsumptionTax;
-        payload.applyServiceCharge = applyServiceCharge;
-      }
+          ...(item.reservationId ? { reservationId: item.reservationId } : {}),
+        })),
+        discountMinorUnits: toMinorUnits(Number(discount) || 0),
+        applyVat,
+        applyConsumptionTax,
+        applyServiceCharge,
+      };
       const response = await fetch(`/api/invoices/${invoice.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -123,12 +128,12 @@ export function InvoiceEditForm({
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        const message = data.error === PAID_FINANCIAL_LOCK
-          ? labels.financialLock
-          : data.error === BELOW_PAID
-            ? labels.belowPaid
-            : data.error === CLOSED_INVOICE
-              ? labels.closedInvoice
+        const message = data.error === BELOW_PAID
+          ? labels.belowPaid
+          : data.error === CLOSED_INVOICE
+            ? labels.closedInvoice
+            : data.error === PAID_FINANCIAL_LOCK
+              ? labels.financialLock
               : data.error;
         throw new Error(message || 'The invoice could not be saved.');
       }
@@ -145,7 +150,6 @@ export function InvoiceEditForm({
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-lg font-semibold">{labels.editTitle}</h2>
       </div>
-      {financiallyPaid ? <p className="rounded border border-[#E8E2DA] bg-[#FAF7F2] px-3 py-2 text-sm">{labels.financialLock}</p> : null}
       {error ? <p role="alert" className="text-sm text-[#9E382A]">{error}</p> : null}
       {closed ? null : (
         <>
@@ -173,7 +177,7 @@ export function InvoiceEditForm({
             </label>
           </div>
 
-          <fieldset disabled={financiallyPaid} className="space-y-3 disabled:opacity-60">
+          <fieldset className="space-y-3">
             <legend className="text-xs font-semibold uppercase tracking-[0.12em] text-[#5c564e]">{labels.lineItems}</legend>
             {items.map((item, index) => (
               <div key={item.id || index} className="grid gap-2 rounded border border-[#E8E2DA] p-3 sm:grid-cols-[1fr_5rem_7rem_auto]">
