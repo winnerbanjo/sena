@@ -287,6 +287,97 @@ async function runHotfixTests() {
   assert(!ROLE_PERMISSIONS.housekeeping.includes('reservation.cancel' as any), 'Housekeeping must NOT have reservation.cancel');
   console.log('✓ RBAC permissions correctly configured across all roles');
 
+  // =========================================================================
+  // TEST SUITE 6: ROOM OCCUPANCY & MAINTENANCE PROTECTION ON CANCELLATION
+  // =========================================================================
+  console.log('\n[TEST 7] Verifying Room operationalStatus is NOT corrupted when cancelled');
+  // Scenario A: Room is in maintenance
+  const [maintenanceRoom] = await db
+    .insert(rooms)
+    .values({
+      propertyId: property.id,
+      roomTypeId: testRoomType.id,
+      roomNumber: `M-${Date.now().toString().slice(-4)}`,
+      operationalStatus: 'maintenance',
+      housekeepingStatus: 'clean',
+    })
+    .returning();
+
+  const [futureMaintRes] = await db
+    .insert(reservations)
+    .values({
+      reference: `SEN-M-${Date.now().toString().slice(-5)}`,
+      propertyId: property.id,
+      guestId: testGuest.id,
+      roomTypeId: testRoomType.id,
+      roomId: maintenanceRoom.id,
+      checkInDate: '2026-12-25',
+      checkOutDate: '2026-12-27',
+      nights: 2,
+      numGuests: 1,
+      status: 'confirmed',
+      totalAmountMinorUnits: 3000000,
+    })
+    .returning();
+
+  await ReservationService.cancel(futureMaintRes.id, actor, 'Maintenance stay cancelled');
+  const [maintRoomAfter] = await db.select().from(rooms).where(eq(rooms.id, maintenanceRoom.id));
+  assert.strictEqual(maintRoomAfter.operationalStatus, 'maintenance', 'Room in maintenance MUST remain in maintenance');
+  console.log('✓ Room in maintenance correctly remained in maintenance after future reservation was cancelled');
+
+  // Scenario B: Room is currently occupied by active in-house stay
+  const [sharedRoom] = await db
+    .insert(rooms)
+    .values({
+      propertyId: property.id,
+      roomTypeId: testRoomType.id,
+      roomNumber: `O-${Date.now().toString().slice(-4)}`,
+      operationalStatus: 'occupied',
+      housekeepingStatus: 'clean',
+    })
+    .returning();
+
+  // Active in-house stay
+  const [activeInHouseStay] = await db
+    .insert(reservations)
+    .values({
+      reference: `SEN-ACT-${Date.now().toString().slice(-5)}`,
+      propertyId: property.id,
+      guestId: testGuest.id,
+      roomTypeId: testRoomType.id,
+      roomId: sharedRoom.id,
+      checkInDate: '2026-10-19',
+      checkOutDate: '2026-10-22',
+      nights: 3,
+      numGuests: 1,
+      status: 'checked_in',
+      totalAmountMinorUnits: 3000000,
+    })
+    .returning();
+
+  // Future stay assigned to same room
+  const [futureStayOnSharedRoom] = await db
+    .insert(reservations)
+    .values({
+      reference: `SEN-FUT-${Date.now().toString().slice(-5)}`,
+      propertyId: property.id,
+      guestId: testGuest.id,
+      roomTypeId: testRoomType.id,
+      roomId: sharedRoom.id,
+      checkInDate: '2026-10-25',
+      checkOutDate: '2026-10-28',
+      nights: 3,
+      numGuests: 1,
+      status: 'confirmed',
+      totalAmountMinorUnits: 3000000,
+    })
+    .returning();
+
+  await ReservationService.cancel(futureStayOnSharedRoom.id, actor, 'Future stay cancelled');
+  const [sharedRoomAfter] = await db.select().from(rooms).where(eq(rooms.id, sharedRoom.id));
+  assert.strictEqual(sharedRoomAfter.operationalStatus, 'occupied', 'Occupied room MUST remain occupied while active stay is checked in');
+  console.log('✓ Room with active checked-in stay correctly remained occupied after future reservation was cancelled');
+
   console.log('\n======================================================');
   console.log('🎉 ALL HOTFIX VERIFICATION TESTS PASSED SUCCESSFULLY! 🎉');
   console.log('======================================================\n');

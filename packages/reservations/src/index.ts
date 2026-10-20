@@ -777,15 +777,83 @@ export class ReservationService {
         })
         .where(eq(reservations.id, reservationId));
 
-      // Release room if assigned
+      // Release room if assigned, but only if not in maintenance/blocked and no other active stay occupies it
       if (res.roomId) {
-        await tx
-          .update(rooms)
-          .set({
-            operationalStatus: 'available',
-            updatedAt: new Date(),
+        const [currentRoom] = await tx
+          .select({
+            id: rooms.id,
+            operationalStatus: rooms.operationalStatus,
           })
-          .where(eq(rooms.id, res.roomId));
+          .from(rooms)
+          .where(eq(rooms.id, res.roomId))
+          .limit(1);
+
+        if (
+          currentRoom &&
+          currentRoom.operationalStatus !== 'maintenance' &&
+          currentRoom.operationalStatus !== 'blocked'
+        ) {
+          const [activeStay] = await tx
+            .select({ id: reservations.id })
+            .from(reservations)
+            .where(
+              and(
+                eq(reservations.roomId, res.roomId),
+                eq(reservations.status, 'checked_in'),
+                ne(reservations.id, reservationId)
+              )
+            )
+            .limit(1);
+
+          if (!activeStay) {
+            await tx
+              .update(rooms)
+              .set({
+                operationalStatus: 'available',
+                updatedAt: new Date(),
+              })
+              .where(eq(rooms.id, res.roomId));
+          }
+        }
+      }
+
+      if (res.apartmentId) {
+        const [currentApartment] = await tx
+          .select({
+            id: apartments.id,
+            operationalStatus: apartments.operationalStatus,
+          })
+          .from(apartments)
+          .where(eq(apartments.id, res.apartmentId))
+          .limit(1);
+
+        if (
+          currentApartment &&
+          currentApartment.operationalStatus !== 'maintenance' &&
+          currentApartment.operationalStatus !== 'blocked'
+        ) {
+          const [activeStay] = await tx
+            .select({ id: reservations.id })
+            .from(reservations)
+            .where(
+              and(
+                eq(reservations.apartmentId, res.apartmentId),
+                eq(reservations.status, 'checked_in'),
+                ne(reservations.id, reservationId)
+              )
+            )
+            .limit(1);
+
+          if (!activeStay) {
+            await tx
+              .update(apartments)
+              .set({
+                operationalStatus: 'available',
+                updatedAt: new Date(),
+              })
+              .where(eq(apartments.id, res.apartmentId));
+          }
+        }
       }
 
       // Record timeline
