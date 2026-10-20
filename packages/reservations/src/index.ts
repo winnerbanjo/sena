@@ -10,6 +10,7 @@ import {
   reservations,
   rooms,
   roomTypes,
+  users,
 } from '@sena/database';
 import { ensureOpenHousekeepingTask } from '@sena/housekeeping';
 import {
@@ -720,7 +721,8 @@ export class ReservationService {
    */
   static async cancel(
     reservationId: string,
-    actor = { id: '', name: 'Staff' }
+    actor = { id: '', name: 'Staff' },
+    reason?: string
   ): Promise<void> {
     await db.transaction(async (tx) => {
       const resList = await tx
@@ -735,7 +737,9 @@ export class ReservationService {
 
       const res = resList[0];
       if (res.status === 'cancelled') return;
-      if (res.status === 'checked_in' || res.status === 'checked_out') throw new Error('This stay cannot be cancelled.');
+      if (res.status === 'checked_in' || res.status === 'checked_out') {
+        throw new Error('This stay cannot be cancelled.');
+      }
 
       const stayDates = getDatesBetween(res.checkInDate, res.checkOutDate);
 
@@ -749,11 +753,26 @@ export class ReservationService {
         );
       }
 
+      let validUserId: string | null = null;
+      if (actor.id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(actor.id)) {
+        const [existingUser] = await tx
+          .select({ id: users.id })
+          .from(users)
+          .where(eq(users.id, actor.id))
+          .limit(1);
+        if (existingUser) {
+          validUserId = existingUser.id;
+        }
+      }
+
       // Update reservation
       await tx
         .update(reservations)
         .set({
           status: 'cancelled',
+          cancellationReason: reason?.trim() || null,
+          cancelledAt: new Date(),
+          cancelledBy: validUserId,
           updatedAt: new Date(),
         })
         .where(eq(reservations.id, reservationId));
@@ -770,12 +789,18 @@ export class ReservationService {
       }
 
       // Record timeline
+      const trimmedReason = reason?.trim();
+      const description = trimmedReason
+        ? `Reservation cancelled by ${actor.name}. Reason: ${trimmedReason}`
+        : `Reservation cancelled by ${actor.name}. Inventory released.`;
+
       await tx.insert(reservationEvents).values({
         reservationId,
-        actorId: actor.id || undefined,
+        actorId: validUserId ? validUserId : undefined,
         actorName: actor.name,
         eventType: 'cancelled',
-        description: `Reservation cancelled by ${actor.name}. Inventory released.`,
+        description,
+        metadata: trimmedReason ? { reason: trimmedReason } : undefined,
       });
     });
   }

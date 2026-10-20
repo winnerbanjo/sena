@@ -15,6 +15,7 @@ export type EligiblePhysicalRoom = {
 export function mapReservationItem(r: {
   id: string;
   reference: string;
+  guestId?: string | null;
   guestName?: string;
   guestEmail?: string;
   guestPhone?: string;
@@ -41,6 +42,7 @@ export function mapReservationItem(r: {
   return {
     id: r.id,
     reference: r.reference,
+    guestId: r.guestId || null,
     guestName: r.guestName || 'Unnamed Guest',
     guestEmail: r.guestEmail || '',
     guestPhone: r.guestPhone || '',

@@ -66,6 +66,7 @@ async function handlePATCH(
     if (body.fullName !== undefined) {
       const name = String(body.fullName || '').trim();
       if (!name) return NextResponse.json({ error: 'Guest name is required.' }, { status: 400 });
+      if (name.length > 255) return NextResponse.json({ error: 'Guest name is too long.' }, { status: 400 });
       if (name !== existing.fullName) {
         changes.push({ field: 'fullName', from: existing.fullName, to: name });
         patch.fullName = name;
@@ -74,7 +75,13 @@ async function handlePATCH(
 
     if (body.email !== undefined) {
       const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
-      if (email && email !== existing.email) {
+      if (email) {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+          return NextResponse.json({ error: 'Invalid email address.' }, { status: 400 });
+        }
+      }
+      if (email !== existing.email) {
         changes.push({ field: 'email', from: existing.email, to: email });
         patch.email = email;
       }
@@ -82,7 +89,7 @@ async function handlePATCH(
 
     if (body.phone !== undefined) {
       const phone = typeof body.phone === 'string' ? body.phone.trim() : '';
-      if (phone && phone !== existing.phone) {
+      if (phone !== existing.phone) {
         changes.push({ field: 'phone', from: existing.phone, to: phone });
         patch.phone = phone;
       }

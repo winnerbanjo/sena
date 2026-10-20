@@ -26,7 +26,8 @@ import { EditReservationDialog } from './edit-reservation-dialog';
 import { EditGuestDialog } from './edit-guest-dialog';
 import { ChangeGuestDialog } from './change-guest-dialog';
 import { AddAccommodationDialog } from './add-accommodation-dialog';
-import { Calendar, CheckCircle2, Mail, Phone, Plus, UserCog, UserCheck } from 'lucide-react';
+import { CancelReservationDialog } from './cancel-reservation-dialog';
+import { Ban, Calendar, CheckCircle2, Mail, Phone, Plus, UserCog, UserCheck } from 'lucide-react';
 
 interface ReservationDrawerProps {
   reservation: ReservationItem | null;
@@ -57,6 +58,7 @@ export function ReservationDrawer({
   const [editGuestOpen, setEditGuestOpen] = React.useState(false);
   const [changeGuestOpen, setChangeGuestOpen] = React.useState(false);
   const [addRoomOpen, setAddRoomOpen] = React.useState(false);
+  const [cancelOpen, setCancelOpen] = React.useState(false);
   const [groupRooms, setGroupRooms] = React.useState<Array<{ id: string; reference: string; roomNumber: string | null; status: string }>>([]);
   const [history, setHistory] = React.useState<any[]>([]);
   const [historyVersion, setHistoryVersion] = React.useState(0);
@@ -85,6 +87,7 @@ export function ReservationDrawer({
   const isCheckedIn = reservation.status === 'checked_in';
   const isConfirmed = reservation.status === 'confirmed';
   const isCheckedOut = reservation.status === 'checked_out';
+  const canCancel = reservation.status === 'confirmed' || reservation.status === 'pending';
   const hasRoom = isPhysicalRoomAssigned(reservation);
   const outstanding = folioBalance(reservation.totalAmountMinorUnits, reservation.paidAmountMinorUnits);
   const payment = deskPaymentStatus({
@@ -173,6 +176,17 @@ export function ReservationDrawer({
             {outstanding <= 0 && isCheckedOut && (
               <span className="text-xs font-medium text-[#2E6B4F]">Paid</span>
             )}
+            {canCancel && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setCancelOpen(true)}
+                className="text-[#991B1B] hover:text-[#7F1D1D] hover:bg-[#FEF2F2] border-[#FCA5A5]"
+              >
+                <Ban className="w-3.5 h-3.5 mr-1" />
+                Cancel
+              </Button>
+            )}
           </div>
           <span className="text-xs text-[#7A7267]">
             Source: <strong className="text-[#191816] capitalize">{reservation.source.replace('_', ' ')}</strong>
@@ -254,7 +268,13 @@ export function ReservationDrawer({
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Button size="sm" variant="secondary" onClick={() => setEditGuestOpen(true)}>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => setEditGuestOpen(true)}
+                      disabled={!reservation.guestId}
+                      title={!reservation.guestId ? 'No guest record associated with this reservation' : 'Edit Guest Profile'}
+                    >
                       <UserCog className="w-3.5 h-3.5 mr-1" />
                       Edit Profile
                     </Button>
@@ -433,6 +453,15 @@ export function ReservationDrawer({
           onRecorded={() => {
             setHistoryVersion((version) => version + 1);
             onPaymentRecorded?.();
+          }}
+        />
+        <CancelReservationDialog
+          reservation={reservation}
+          open={cancelOpen}
+          onOpenChange={setCancelOpen}
+          onCancelled={(updated) => {
+            onUpdated?.(updated);
+            onOpenChange(false);
           }}
         />
       </DrawerContent>
