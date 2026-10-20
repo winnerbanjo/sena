@@ -31,8 +31,15 @@ async function migrate() {
 
   try {
     const sql = readFileSync(resolve(__dirname, '../drizzle/0014_reservation_cancellation.sql'), 'utf8');
+    await client.query('BEGIN;');
+    await client.query("SET LOCAL lock_timeout = '2s';");
+    await client.query("SET LOCAL statement_timeout = '5s';");
     await client.query(sql);
-    console.log('Reservation cancellation schema applied successfully.');
+    await client.query('COMMIT;');
+    console.log('Reservation cancellation schema applied successfully with lock_timeout and statement_timeout safeguards.');
+  } catch (err) {
+    await client.query('ROLLBACK;').catch(() => {});
+    throw err;
   } finally {
     await client.end();
   }
