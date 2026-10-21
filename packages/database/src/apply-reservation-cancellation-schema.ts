@@ -19,11 +19,27 @@ const connectionString = getDatabaseUrl();
 async function migrate() {
   const isRemote =
     connectionString.includes('ondigitalocean.com') ||
-    connectionString.includes('sslmode=require');
+    connectionString.includes('sslmode=require') ||
+    connectionString.includes('sslmode=verify-full');
+
+  let ssl: any = false;
+  if (isRemote) {
+    const caCertPath = process.env.CA_CERT_PATH || process.env.PGSSLROOTCERT;
+    if (caCertPath && existsSync(caCertPath)) {
+      ssl = {
+        rejectUnauthorized: true,
+        ca: readFileSync(caCertPath, 'utf8'),
+      };
+    } else {
+      ssl = {
+        rejectUnauthorized: true,
+      };
+    }
+  }
 
   const client = new Client({
-    connectionString: connectionString.replace('?sslmode=require', ''),
-    ssl: isRemote ? { rejectUnauthorized: false } : false,
+    connectionString: connectionString.replace(/\?sslmode=(require|verify-full)/, ''),
+    ssl,
   });
 
   await client.connect();
