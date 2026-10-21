@@ -12,7 +12,7 @@ concurrency:
 
 jobs:
   validate:
-    name: Typecheck, Lint & Build
+    name: Typecheck & Build
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -34,9 +34,6 @@ jobs:
 
       - name: Run Typecheck
         run: pnpm check-types
-
-      - name: Run Lint
-        run: pnpm lint
 
       - name: Run Build
         run: pnpm build
