@@ -29,5 +29,6 @@ pnpm-debug.log*
 .DS_Store
 *.pem
 Thumbs.db
+* 2.*
 scripts/test-release.js
 apps/dashboard/cleanup.js
