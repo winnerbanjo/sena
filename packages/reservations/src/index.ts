@@ -10,6 +10,7 @@ import {
   reservations,
   rooms,
   roomTypes,
+  users,
 } from '@sena/database';
 import { ensureOpenHousekeepingTask } from '@sena/housekeeping';
 import {
@@ -720,7 +721,8 @@ export class ReservationService {
    */
   static async cancel(
     reservationId: string,
-    actor = { id: '', name: 'Staff' }
+    actor = { id: '', name: 'Staff' },
+    reason?: string
   ): Promise<void> {
     await db.transaction(async (tx) => {
       const resList = await tx
@@ -735,7 +737,9 @@ export class ReservationService {
 
       const res = resList[0];
       if (res.status === 'cancelled') return;
-      if (res.status === 'checked_in' || res.status === 'checked_out') throw new Error('This stay cannot be cancelled.');
+      if (res.status === 'checked_in' || res.status === 'checked_out') {
+        throw new Error('This stay cannot be cancelled.');
+      }
 
       const stayDates = getDatesBetween(res.checkInDate, res.checkOutDate);
 
@@ -749,33 +753,122 @@ export class ReservationService {
         );
       }
 
+      let validUserId: string | null = null;
+      if (actor.id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(actor.id)) {
+        const [existingUser] = await tx
+          .select({ id: users.id })
+          .from(users)
+          .where(eq(users.id, actor.id))
+          .limit(1);
+        if (existingUser) {
+          validUserId = existingUser.id;
+        }
+      }
+
       // Update reservation
       await tx
         .update(reservations)
         .set({
           status: 'cancelled',
+          cancellationReason: reason?.trim() || null,
+          cancelledAt: new Date(),
+          cancelledBy: validUserId,
           updatedAt: new Date(),
         })
         .where(eq(reservations.id, reservationId));
 
-      // Release room if assigned
+      // Release room if assigned, but only if not in maintenance/blocked and no other active stay occupies it
       if (res.roomId) {
-        await tx
-          .update(rooms)
-          .set({
-            operationalStatus: 'available',
-            updatedAt: new Date(),
+        const [currentRoom] = await tx
+          .select({
+            id: rooms.id,
+            operationalStatus: rooms.operationalStatus,
           })
-          .where(eq(rooms.id, res.roomId));
+          .from(rooms)
+          .where(eq(rooms.id, res.roomId))
+          .limit(1);
+
+        if (
+          currentRoom &&
+          currentRoom.operationalStatus !== 'maintenance' &&
+          currentRoom.operationalStatus !== 'blocked'
+        ) {
+          const [activeStay] = await tx
+            .select({ id: reservations.id })
+            .from(reservations)
+            .where(
+              and(
+                eq(reservations.roomId, res.roomId),
+                eq(reservations.status, 'checked_in'),
+                ne(reservations.id, reservationId)
+              )
+            )
+            .limit(1);
+
+          if (!activeStay) {
+            await tx
+              .update(rooms)
+              .set({
+                operationalStatus: 'available',
+                updatedAt: new Date(),
+              })
+              .where(eq(rooms.id, res.roomId));
+          }
+        }
+      }
+
+      if (res.apartmentId) {
+        const [currentApartment] = await tx
+          .select({
+            id: apartments.id,
+            operationalStatus: apartments.operationalStatus,
+          })
+          .from(apartments)
+          .where(eq(apartments.id, res.apartmentId))
+          .limit(1);
+
+        if (
+          currentApartment &&
+          currentApartment.operationalStatus !== 'maintenance' &&
+          currentApartment.operationalStatus !== 'blocked'
+        ) {
+          const [activeStay] = await tx
+            .select({ id: reservations.id })
+            .from(reservations)
+            .where(
+              and(
+                eq(reservations.apartmentId, res.apartmentId),
+                eq(reservations.status, 'checked_in'),
+                ne(reservations.id, reservationId)
+              )
+            )
+            .limit(1);
+
+          if (!activeStay) {
+            await tx
+              .update(apartments)
+              .set({
+                operationalStatus: 'available',
+                updatedAt: new Date(),
+              })
+              .where(eq(apartments.id, res.apartmentId));
+          }
+        }
       }
 
       // Record timeline
+      const trimmedReason = reason?.trim();
+      const description = trimmedReason
+        ? `Reservation cancelled by ${actor.name}. Reason: ${trimmedReason}`
+        : `Reservation cancelled by ${actor.name}. Inventory released.`;
+
       await tx.insert(reservationEvents).values({
         reservationId,
-        actorId: actor.id || undefined,
+        actorId: validUserId ? validUserId : undefined,
         actorName: actor.name,
         eventType: 'cancelled',
-        description: `Reservation cancelled by ${actor.name}. Inventory released.`,
+        description,
+        metadata: trimmedReason ? { reason: trimmedReason } : undefined,
       });
     });
   }

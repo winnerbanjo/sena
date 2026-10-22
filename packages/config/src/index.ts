@@ -75,6 +75,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     'reservation.read',
     'reservation.create',
     'reservation.edit',
+    'reservation.cancel',
     'guest.read',
     'guest.edit',
     'room.read',
