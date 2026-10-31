@@ -27,7 +27,9 @@ import { EditGuestDialog } from './edit-guest-dialog';
 import { ChangeGuestDialog } from './change-guest-dialog';
 import { AddAccommodationDialog } from './add-accommodation-dialog';
 import { CancelReservationDialog } from './cancel-reservation-dialog';
-import { Ban, Calendar, CheckCircle2, Mail, Phone, Plus, UserCog, UserCheck } from 'lucide-react';
+import { ReverseCheckOutDialog } from './reverse-checkout-dialog';
+import { useWorkspace } from './workspace-access';
+import { Ban, Calendar, CheckCircle2, Mail, Phone, Plus, RotateCcw, UserCog, UserCheck } from 'lucide-react';
 
 interface ReservationDrawerProps {
   reservation: ReservationItem | null;
@@ -53,12 +55,14 @@ export function ReservationDrawer({
   onUpdated,
 }: ReservationDrawerProps) {
   const t = useTranslations('payments');
+  const workspace = useWorkspace();
   const [payOpen, setPayOpen] = React.useState(false);
   const [editOpen, setEditOpen] = React.useState(false);
   const [editGuestOpen, setEditGuestOpen] = React.useState(false);
   const [changeGuestOpen, setChangeGuestOpen] = React.useState(false);
   const [addRoomOpen, setAddRoomOpen] = React.useState(false);
   const [cancelOpen, setCancelOpen] = React.useState(false);
+  const [reverseCheckOutOpen, setReverseCheckOutOpen] = React.useState(false);
   const [groupRooms, setGroupRooms] = React.useState<Array<{ id: string; reference: string; roomNumber: string | null; status: string }>>([]);
   const [history, setHistory] = React.useState<any[]>([]);
   const [historyVersion, setHistoryVersion] = React.useState(0);
@@ -87,6 +91,8 @@ export function ReservationDrawer({
   const isCheckedIn = reservation.status === 'checked_in';
   const isConfirmed = reservation.status === 'confirmed';
   const isCheckedOut = reservation.status === 'checked_out';
+  const userRole = workspace?.user.role?.toLowerCase() || '';
+  const canReverseCheckOut = ['owner', 'manager', 'general manager', 'property manager', 'administrator', 'super_admin'].includes(userRole);
   const canCancel = reservation.status === 'confirmed' || reservation.status === 'pending';
   const hasRoom = isPhysicalRoomAssigned(reservation);
   const outstanding = folioBalance(reservation.totalAmountMinorUnits, reservation.paidAmountMinorUnits);
@@ -166,6 +172,17 @@ export function ReservationDrawer({
                 onClick={() => onCheckOut?.(reservation.id)}
               >
                 Check out
+              </Button>
+            )}
+            {isCheckedOut && canReverseCheckOut && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-[#71382D] border-[#F0BCB0] hover:bg-[#FDF8F5]"
+                onClick={() => setReverseCheckOutOpen(true)}
+              >
+                <RotateCcw className="w-3.5 h-3.5 mr-1" />
+                Reverse check-out
               </Button>
             )}
             {outstanding > 0 && (
@@ -462,6 +479,18 @@ export function ReservationDrawer({
           onCancelled={(updated) => {
             onUpdated?.(updated);
             onOpenChange(false);
+          }}
+        />
+        <ReverseCheckOutDialog
+          reservation={reservation}
+          open={reverseCheckOutOpen}
+          onOpenChange={setReverseCheckOutOpen}
+          onReversed={() => {
+            onUpdated?.({
+              ...reservation,
+              status: 'checked_in',
+            });
+            onNotesChanged?.();
           }}
         />
       </DrawerContent>

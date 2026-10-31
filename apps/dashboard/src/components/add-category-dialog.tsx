@@ -89,8 +89,8 @@ export function AddCategoryDialog({
       return;
     }
     setName(category.name);
-    setCode(category.name.slice(0, 3).toUpperCase());
-    setRateNaira(String(Math.round(category.baseRateMinorUnits / 100)));
+    const rate = category.baseRateMinorUnits / 100;
+    setRateNaira(Number.isInteger(rate) ? String(rate) : rate.toFixed(2));
     setMaxGuests(String(category.maxGuests || 2));
     setBedType(category.bedType || '1 King Bed');
     setDescription(category.description || '');

@@ -47,6 +47,10 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     'reservation.discount',
     'reservation.price_override',
     'reservation.reassign_guest',
+    'admin.emergency_correction',
+    'reservation.reverse_checkout',
+    'reservation.correct_status',
+    'invoice.amend',
   ],
   manager: [
     'reservation.read',
@@ -70,6 +74,10 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     'reservation.discount',
     'reservation.price_override',
     'reservation.reassign_guest',
+    'admin.emergency_correction',
+    'reservation.reverse_checkout',
+    'reservation.correct_status',
+    'invoice.amend',
   ],
   front_desk: [
     'reservation.read',
@@ -99,6 +107,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     'invoice.edit',
     'invoice.void',
     'invoice.delete_draft',
+    'invoice.amend',
   ],
   marketing: [
     'website.edit',

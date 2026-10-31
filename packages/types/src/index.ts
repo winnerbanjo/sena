@@ -66,7 +66,11 @@ export type Permission =
   | 'invoice.delete_draft'
   | 'reservation.discount'
   | 'reservation.price_override'
-  | 'reservation.reassign_guest';
+  | 'reservation.reassign_guest'
+  | 'admin.emergency_correction'
+  | 'reservation.reverse_checkout'
+  | 'reservation.correct_status'
+  | 'invoice.amend';
 
 export interface User {
   id: string;
@@ -208,6 +212,8 @@ export interface Reservation {
   paidAmountMinorUnits: MinorUnits;
   balanceMinorUnits: MinorUnits; // total - paid
   specialRequests?: string;
+  actualCheckInAt?: Date | null;
+  actualCheckOutAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -222,6 +228,8 @@ export interface ReservationEvent {
     | 'payment_received'
     | 'checked_in'
     | 'checked_out'
+    | 'checkout_reversed'
+    | 'status_corrected'
     | 'room_assigned'
     | 'status_changed'
     | 'cancelled';

@@ -402,6 +402,8 @@ export const reservations = pgTable(
     cancellationReason: text('cancellation_reason'),
     cancelledAt: timestamp('cancelled_at', { withTimezone: true }),
     cancelledBy: uuid('cancelled_by').references(() => users.id, { onDelete: 'set null' }),
+    actualCheckInAt: timestamp('actual_check_in_at', { withTimezone: true }),
+    actualCheckOutAt: timestamp('actual_check_out_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },

@@ -393,8 +393,8 @@ export function EditReservationDialog({
                     id="custom-total-input"
                     type="number"
                     min={0}
-                    step="100"
-                    inputMode="numeric"
+                    step="any"
+                    inputMode="decimal"
                     placeholder="e.g. 150000"
                     value={customTotalInput}
                     onChange={(e) => setCustomTotalInput(e.target.value)}
@@ -437,8 +437,8 @@ export function EditReservationDialog({
                         id="edit-extension-amount"
                         type="number"
                         min={0}
-                        step="100"
-                        inputMode="numeric"
+                        step="any"
+                        inputMode="decimal"
                         value={extensionAmount}
                         onChange={(event) => setExtensionAmount(event.target.value)}
                       />

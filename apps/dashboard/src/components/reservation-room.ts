@@ -68,7 +68,13 @@ export function mapReservationItem(r: {
   };
 }
 
-export function isPhysicalRoomAssigned(reservation: Pick<ReservationItem, 'roomId' | 'roomNumber'>) {
+export function isPhysicalRoomAssigned(reservation: Pick<ReservationItem, 'roomId' | 'roomNumber'> & { apartmentId?: string | null }) {
+  if (reservation.apartmentId) return true;
+  return Boolean(reservation.roomId) && reservation.roomNumber !== 'Unassigned';
+}
+
+export function isAccommodationAssigned(reservation: Pick<ReservationItem, 'roomId' | 'roomNumber'> & { apartmentId?: string | null }) {
+  if (reservation.apartmentId) return true;
   return Boolean(reservation.roomId) && reservation.roomNumber !== 'Unassigned';
 }
 

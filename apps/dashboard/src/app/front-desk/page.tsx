@@ -50,6 +50,31 @@ export default function FrontDeskPage() {
     mode: RoomAssignmentMode;
   } | null>(null);
   const requireCheckoutSettlement = workspace?.property.checkOutPaymentPolicy === 'require_settlement';
+  const timezone = workspace?.property.timezone || 'Africa/Lagos';
+  const [operationalTime, setOperationalTime] = React.useState('');
+
+  React.useEffect(() => {
+    const updateTime = () => {
+      try {
+        const now = new Date();
+        const formatted = new Intl.DateTimeFormat('en-GB', {
+          timeZone: timezone,
+          weekday: 'short',
+          day: 'numeric',
+          month: 'short',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true,
+        }).format(now);
+        setOperationalTime(formatted);
+      } catch {
+        setOperationalTime('');
+      }
+    };
+    updateTime();
+    const interval = setInterval(updateTime, 30000);
+    return () => clearInterval(interval);
+  }, [timezone]);
 
   const fetchReservations = React.useCallback(async () => {
     setLoadError(false);
@@ -135,52 +160,61 @@ export default function FrontDeskPage() {
       />
 
       <main className={pageMain}>
-        {/* Operational Filter Tabs */}
-        <div className="flex items-center gap-6 border-b border-[#E8E1D5] text-xs">
-          <button
-            onClick={() => setActiveTab('arriving')}
-            className={`pb-3 font-medium transition-colors relative flex items-center gap-2 ${
-              activeTab === 'arriving' ? 'text-[#71382D]' : 'text-[#8C8275] hover:text-[#191816]'
-            }`}
-          >
-            <span>{t('expectedArrivals')}</span>
-            <span className="font-mono text-[11px] px-1.5 py-0.2 rounded bg-[#FAF4EF] text-[#71382D] border border-[#E5D4BC]">
-              {arrivingList.length}
-            </span>
-            {activeTab === 'arriving' && (
-              <span className="absolute bottom-0 inset-x-0 h-0.5 bg-[#71382D]" />
-            )}
-          </button>
+        {/* Operational Filter Tabs & Property Operational Local Time */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-[#E8E1D5] text-xs gap-3">
+          <div className="flex items-center gap-6">
+            <button
+              onClick={() => setActiveTab('arriving')}
+              className={`pb-3 font-medium transition-colors relative flex items-center gap-2 ${
+                activeTab === 'arriving' ? 'text-[#71382D]' : 'text-[#8C8275] hover:text-[#191816]'
+              }`}
+            >
+              <span>{t('expectedArrivals')}</span>
+              <span className="font-mono text-[11px] px-1.5 py-0.2 rounded bg-[#FAF4EF] text-[#71382D] border border-[#E5D4BC]">
+                {arrivingList.length}
+              </span>
+              {activeTab === 'arriving' && (
+                <span className="absolute bottom-0 inset-x-0 h-0.5 bg-[#71382D]" />
+              )}
+            </button>
 
-          <button
-            onClick={() => setActiveTab('in_house')}
-            className={`pb-3 font-medium transition-colors relative flex items-center gap-2 ${
-              activeTab === 'in_house' ? 'text-[#71382D]' : 'text-[#8C8275] hover:text-[#191816]'
-            }`}
-          >
-            <span>{t('currentlyInHouse')}</span>
-            <span className="font-mono text-[11px] px-1.5 py-0.2 rounded bg-[#FAF4EF] text-[#71382D] border border-[#E5D4BC]">
-              {inHouseList.length}
-            </span>
-            {activeTab === 'in_house' && (
-              <span className="absolute bottom-0 inset-x-0 h-0.5 bg-[#71382D]" />
-            )}
-          </button>
+            <button
+              onClick={() => setActiveTab('in_house')}
+              className={`pb-3 font-medium transition-colors relative flex items-center gap-2 ${
+                activeTab === 'in_house' ? 'text-[#71382D]' : 'text-[#8C8275] hover:text-[#191816]'
+              }`}
+            >
+              <span>{t('currentlyInHouse')}</span>
+              <span className="font-mono text-[11px] px-1.5 py-0.2 rounded bg-[#FAF4EF] text-[#71382D] border border-[#E5D4BC]">
+                {inHouseList.length}
+              </span>
+              {activeTab === 'in_house' && (
+                <span className="absolute bottom-0 inset-x-0 h-0.5 bg-[#71382D]" />
+              )}
+            </button>
 
-          <button
-            onClick={() => setActiveTab('departing')}
-            className={`pb-3 font-medium transition-colors relative flex items-center gap-2 ${
-              activeTab === 'departing' ? 'text-[#71382D]' : 'text-[#8C8275] hover:text-[#191816]'
-            }`}
-          >
-            <span>{t('departures')}</span>
-            <span className="font-mono text-[11px] px-1.5 py-0.2 rounded bg-[#FAF4EF] text-[#71382D] border border-[#E5D4BC]">
-              {departingList.length}
-            </span>
-            {activeTab === 'departing' && (
-              <span className="absolute bottom-0 inset-x-0 h-0.5 bg-[#71382D]" />
-            )}
-          </button>
+            <button
+              onClick={() => setActiveTab('departing')}
+              className={`pb-3 font-medium transition-colors relative flex items-center gap-2 ${
+                activeTab === 'departing' ? 'text-[#71382D]' : 'text-[#8C8275] hover:text-[#191816]'
+              }`}
+            >
+              <span>{t('departures')}</span>
+              <span className="font-mono text-[11px] px-1.5 py-0.2 rounded bg-[#FAF4EF] text-[#71382D] border border-[#E5D4BC]">
+                {departingList.length}
+              </span>
+              {activeTab === 'departing' && (
+                <span className="absolute bottom-0 inset-x-0 h-0.5 bg-[#71382D]" />
+              )}
+            </button>
+          </div>
+
+          {operationalTime && (
+            <div className="hidden sm:flex items-center gap-1.5 pb-2.5 text-[11px] text-[#7A7267]">
+              <span className="w-2 h-2 rounded-full bg-[#2E6B4F]" />
+              <span>Operational Time: <strong className="text-[#191816] font-mono">{operationalTime}</strong></span>
+            </div>
+          )}
         </div>
 
         {/* Operational Front Desk Roster: Clean Table Layout Instead of Random Cards */}

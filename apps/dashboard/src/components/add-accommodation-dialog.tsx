@@ -389,7 +389,8 @@ export function AddAccommodationDialog({
                     id="add-custom-price"
                     type="number"
                     min={0}
-                    step="100"
+                    step="any"
+                    inputMode="decimal"
                     placeholder="e.g. 75000"
                     value={agreedAmountInput}
                     onChange={(e) => setAgreedAmountInput(e.target.value)}

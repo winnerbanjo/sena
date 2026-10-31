@@ -1,9 +1,11 @@
 import { calculateNights, getDatesBetween } from '@sena/config';
 import {
+  activityLogs,
   apartments,
   bookingHolds,
   db,
   guests,
+  housekeepingTasks,
   idempotencyKeys,
   properties,
   reservationEvents,
@@ -31,6 +33,11 @@ import { createBookingGroup as createGroupRecords, getBookingGroup as loadBookin
 import { updateStay as editReservationStay, type StayEditInput } from './edit';
 export { updateStay } from './edit';
 export { createBookingGroup, getBookingGroup, addAccommodationToBooking, type AddAccommodationInput } from './booking-group';
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function sanitizeActorId(id?: string | null): string | undefined {
+  return id && UUID_REGEX.test(id) ? id : undefined;
+}
 
 function generateReference(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -226,7 +233,7 @@ export class ReservationService {
       // 5. Create Audit Timeline Event
       await tx.insert(reservationEvents).values({
         reservationId: resRecord.id,
-        actorId: actor.id || undefined,
+        actorId: sanitizeActorId(actor.id),
         actorName: actor.name,
         eventType: 'reservation_created',
         description: `Reservation ${reference} created for ${nights} nights (${rt[0].name}).`,
@@ -385,7 +392,7 @@ export class ReservationService {
 
       await tx.insert(reservationEvents).values({
         reservationId: resRecord.id,
-        actorId: actor.id || undefined,
+        actorId: sanitizeActorId(actor.id),
         actorName: actor.name,
         eventType: 'reservation_created',
         description: `Reservation ${reference} created for ${nights} nights (${apartment.name}).`,
@@ -451,17 +458,35 @@ export class ReservationService {
         if (res.status !== 'confirmed') throw new Error('Only confirmed reservations can be checked in.');
         const [apartment] = await tx.select().from(apartments).where(and(eq(apartments.id, res.apartmentId), eq(apartments.propertyId, res.propertyId))).limit(1).for('update');
         if (!apartment) throw new Error('Apartment not found');
+        if (apartment.operationalStatus === 'maintenance' || apartment.operationalStatus === 'blocked') {
+          throw new Error(`Apartment ${apartment.name} is currently out of service (${apartment.operationalStatus}).`);
+        }
+        const [conflictingStay] = await tx
+          .select({ id: reservations.id, reference: reservations.reference })
+          .from(reservations)
+          .where(
+            and(
+              eq(reservations.apartmentId, res.apartmentId),
+              eq(reservations.status, 'checked_in'),
+              ne(reservations.id, reservationId)
+            )
+          )
+          .limit(1);
+        if (conflictingStay) {
+          throw new Error(`Apartment ${apartment.name} is already occupied by active reservation ${conflictingStay.reference}.`);
+        }
         const property = await tx.query.properties.findFirst({ where: eq(properties.id, res.propertyId) });
         const policy = property?.checkInPaymentPolicy || 'allow_outstanding';
         if (balance > 0) {
           if (policy === 'require_full') throw new PaymentPolicyError('PAYMENT_REQUIRED_BEFORE_CHECK_IN', balance);
           if (!options?.allowOutstandingBalance) throw new PaymentPolicyError('OUTSTANDING_BALANCE_AUTHORIZATION_REQUIRED', balance);
         }
-        await tx.update(reservations).set({ status: 'checked_in', updatedAt: new Date() }).where(eq(reservations.id, reservationId));
-        await tx.update(apartments).set({ operationalStatus: 'occupied', updatedAt: new Date() }).where(eq(apartments.id, apartment.id));
+        const now = new Date();
+        await tx.update(reservations).set({ status: 'checked_in', actualCheckInAt: now, updatedAt: now }).where(eq(reservations.id, reservationId));
+        await tx.update(apartments).set({ operationalStatus: 'occupied', updatedAt: now }).where(eq(apartments.id, apartment.id));
         await tx.insert(reservationEvents).values({
           reservationId,
-          actorId: actor.id || undefined,
+          actorId: sanitizeActorId(actor.id),
           actorName: actor.name,
           eventType: balance > 0 ? 'checked_in_outstanding' : 'checked_in',
           description: balance > 0
@@ -501,12 +526,14 @@ export class ReservationService {
         }
       }
 
+      const now = new Date();
       await tx
         .update(reservations)
         .set({
           status: 'checked_in',
           roomId: targetRoomId,
-          updatedAt: new Date(),
+          actualCheckInAt: now,
+          updatedAt: now,
         })
         .where(eq(reservations.id, reservationId));
 
@@ -514,13 +541,13 @@ export class ReservationService {
         .update(rooms)
         .set({
           operationalStatus: 'occupied',
-          updatedAt: new Date(),
+          updatedAt: now,
         })
         .where(eq(rooms.id, targetRoomId));
 
       await tx.insert(reservationEvents).values({
         reservationId,
-        actorId: actor.id || undefined,
+        actorId: sanitizeActorId(actor.id),
         actorName: actor.name,
         eventType: balance > 0 ? 'checked_in_outstanding' : 'checked_in',
         description:
@@ -585,7 +612,7 @@ export class ReservationService {
       const changed = previousRoomId && previousRoomId !== roomId;
       await tx.insert(reservationEvents).values({
         reservationId,
-        actorId: actor.id || undefined,
+        actorId: sanitizeActorId(actor.id),
         actorName: actor.name,
         eventType: changed ? 'room_changed' : 'room_assigned',
         description: changed
@@ -634,7 +661,8 @@ export class ReservationService {
   static async checkOut(
     reservationId: string,
     actor = { id: '', name: 'Receptionist' },
-    force = false
+    force = false,
+    options?: { checkoutTimestamp?: string | Date }
   ): Promise<{ outstandingBalanceMinorUnits: number }> {
     return await db.transaction(async (tx) => {
       const resList = await tx
@@ -652,6 +680,14 @@ export class ReservationService {
       if (res.status === 'checked_out') return { outstandingBalanceMinorUnits: balance };
       if (res.status !== 'checked_in') throw new Error('Only checked-in stays can be checked out.');
 
+      const now = new Date();
+      if (res.actualCheckInAt && now < res.actualCheckInAt) {
+        throw new Error('Check-out timestamp cannot be earlier than check-in time.');
+      }
+      if (options?.checkoutTimestamp && new Date(options.checkoutTimestamp) > now) {
+        throw new Error('Future-dated check-out is not permitted. Check-out must occur at the current operational time.');
+      }
+
       const property = await tx.query.properties.findFirst({ where: eq(properties.id, res.propertyId) });
       const policy = property?.checkOutPaymentPolicy || 'allow_outstanding';
       if (balance > 0 && policy === 'require_settlement') {
@@ -667,7 +703,8 @@ export class ReservationService {
         .update(reservations)
         .set({
           status: 'checked_out',
-          updatedAt: new Date(),
+          actualCheckOutAt: now,
+          updatedAt: now,
         })
         .where(eq(reservations.id, reservationId));
 
@@ -678,7 +715,7 @@ export class ReservationService {
           .set({
             operationalStatus: 'available',
             housekeepingStatus: 'dirty',
-            updatedAt: new Date(),
+            updatedAt: now,
           })
           .where(eq(rooms.id, res.roomId));
 
@@ -693,7 +730,7 @@ export class ReservationService {
       if (res.apartmentId) {
         await tx
           .update(apartments)
-          .set({ operationalStatus: 'available', housekeepingStatus: 'dirty', updatedAt: new Date() })
+          .set({ operationalStatus: 'available', housekeepingStatus: 'dirty', updatedAt: now })
           .where(and(eq(apartments.id, res.apartmentId), eq(apartments.propertyId, res.propertyId)));
         await ensureOpenHousekeepingTask(tx, {
           propertyId: res.propertyId,
@@ -705,13 +742,325 @@ export class ReservationService {
       // Record timeline
       await tx.insert(reservationEvents).values({
         reservationId,
-        actorId: actor.id || undefined,
+        actorId: sanitizeActorId(actor.id),
         actorName: actor.name,
         eventType: balance > 0 ? 'checked_out_outstanding' : 'checked_out',
         description: `Checked out by ${actor.name}.${balance > 0 ? ` Outstanding receivable: ₦${(balance / 100).toLocaleString('en-NG')}.` : ''}`,
       });
 
       return { outstandingBalanceMinorUnits: balance };
+    });
+  }
+
+  /**
+   * Reverse an erroneous check-out (Master Administrator operation).
+   * Restores status to checked_in, returns room/apartment to occupied,
+   * handles housekeeping task cleanup, checks for room conflicts,
+   * records timeline event and immutable activityLog entry.
+   */
+  static async reverseCheckOut(
+    reservationId: string,
+    actor: { id?: string; name: string; role?: string },
+    reason: string,
+    options?: { targetRoomId?: string }
+  ): Promise<void> {
+    if (!reason || reason.trim().length < 5) {
+      throw new Error('A detailed operational reason (at least 5 characters) is required to reverse check-out.');
+    }
+
+    await db.transaction(async (tx) => {
+      const [res] = await tx
+        .select()
+        .from(reservations)
+        .where(eq(reservations.id, reservationId))
+        .limit(1)
+        .for('update');
+
+      if (!res) throw new Error('Reservation not found');
+      if (res.status !== 'checked_out') {
+        throw new Error('Only checked-out reservations can have their check-out reversed.');
+      }
+
+      const property = await tx.query.properties.findFirst({
+        where: eq(properties.id, res.propertyId),
+      });
+      if (!property) throw new Error('Property not found');
+
+      const now = new Date();
+
+      if (res.apartmentId) {
+        const [apartment] = await tx
+          .select()
+          .from(apartments)
+          .where(and(eq(apartments.id, res.apartmentId), eq(apartments.propertyId, res.propertyId)))
+          .limit(1)
+          .for('update');
+
+        if (!apartment) throw new Error('Apartment not found');
+
+        // Check if another reservation is currently checked_in in this apartment
+        const [conflict] = await tx
+          .select({ id: reservations.id, reference: reservations.reference })
+          .from(reservations)
+          .where(
+            and(
+              eq(reservations.apartmentId, res.apartmentId),
+              eq(reservations.status, 'checked_in'),
+              ne(reservations.id, reservationId)
+            )
+          )
+          .limit(1);
+
+        if (conflict) {
+          const err: any = new Error(
+            `Cannot reverse check-out: Apartment ${apartment.name} is currently occupied by active reservation ${conflict.reference}.`
+          );
+          err.code = 'APARTMENT_OCCUPIED_CONFLICT';
+          err.conflictingReservationId = conflict.id;
+          err.conflictingReference = conflict.reference;
+          throw err;
+        }
+
+        if (apartment.operationalStatus === 'maintenance' || apartment.operationalStatus === 'blocked') {
+          throw new Error(`Cannot reverse check-out: Apartment ${apartment.name} is currently out of service (${apartment.operationalStatus}).`);
+        }
+
+        await tx
+          .update(reservations)
+          .set({
+            status: 'checked_in',
+            actualCheckOutAt: null,
+            updatedAt: now,
+          })
+          .where(eq(reservations.id, reservationId));
+
+        await tx
+          .update(apartments)
+          .set({
+            operationalStatus: 'occupied',
+            housekeepingStatus: 'clean',
+            updatedAt: now,
+          })
+          .where(eq(apartments.id, apartment.id));
+
+        // Clean up open checkout housekeeping tasks
+        await tx
+          .delete(housekeepingTasks)
+          .where(
+            and(
+              eq(housekeepingTasks.propertyId, res.propertyId),
+              eq(housekeepingTasks.apartmentId, apartment.id),
+              inArray(housekeepingTasks.status, ['dirty', 'cleaning'])
+            )
+          );
+      } else {
+        const targetRoomId = options?.targetRoomId || res.roomId;
+        if (!targetRoomId) {
+          throw new Error('ROOM_ASSIGNMENT_REQUIRED: Assign a room to reinstate this check-in.');
+        }
+
+        const [room] = await tx
+          .select()
+          .from(rooms)
+          .where(and(eq(rooms.id, targetRoomId), eq(rooms.propertyId, res.propertyId)))
+          .limit(1)
+          .for('update');
+
+        if (!room) throw new Error('Room not found');
+
+        // Check if another reservation is currently checked_in in this room
+        const [conflict] = await tx
+          .select({ id: reservations.id, reference: reservations.reference })
+          .from(reservations)
+          .where(
+            and(
+              eq(reservations.roomId, targetRoomId),
+              eq(reservations.status, 'checked_in'),
+              ne(reservations.id, reservationId)
+            )
+          )
+          .limit(1);
+
+        if (conflict) {
+          const err: any = new Error(
+            `Cannot reverse check-out: Room ${room.roomNumber} is currently occupied by active reservation ${conflict.reference}. Reassign to an available room.`
+          );
+          err.code = 'ROOM_OCCUPIED_CONFLICT';
+          err.conflictingReservationId = conflict.id;
+          err.conflictingReference = conflict.reference;
+          err.targetRoomId = targetRoomId;
+          throw err;
+        }
+
+        if (room.operationalStatus === 'maintenance' || room.operationalStatus === 'blocked') {
+          throw new Error(`Cannot reverse check-out: Room ${room.roomNumber} is currently out of service (${room.operationalStatus}).`);
+        }
+
+        await tx
+          .update(reservations)
+          .set({
+            status: 'checked_in',
+            roomId: targetRoomId,
+            actualCheckOutAt: null,
+            updatedAt: now,
+          })
+          .where(eq(reservations.id, reservationId));
+
+        await tx
+          .update(rooms)
+          .set({
+            operationalStatus: 'occupied',
+            housekeepingStatus: 'clean',
+            updatedAt: now,
+          })
+          .where(eq(rooms.id, targetRoomId));
+
+        // Clean up open checkout housekeeping tasks
+        await tx
+          .delete(housekeepingTasks)
+          .where(
+            and(
+              eq(housekeepingTasks.propertyId, res.propertyId),
+              eq(housekeepingTasks.roomId, targetRoomId),
+              inArray(housekeepingTasks.status, ['dirty', 'cleaning'])
+            )
+          );
+      }
+
+      await tx.insert(reservationEvents).values({
+        reservationId,
+        actorId: sanitizeActorId(actor.id),
+        actorName: actor.name,
+        eventType: 'checkout_reversed',
+        description: `Check-out reversed by ${actor.name}. Reason: ${reason.trim()}`,
+      });
+
+      await tx.insert(activityLogs).values({
+        organizationId: property.organizationId,
+        propertyId: res.propertyId,
+        actorId: sanitizeActorId(actor.id),
+        actorName: actor.name,
+        action: 'reservation.reverse_checkout',
+        resource: 'reservation',
+        resourceId: res.id,
+        previousValue: {
+          status: 'checked_out',
+          actualCheckOutAt: res.actualCheckOutAt,
+        },
+        newValue: {
+          status: 'checked_in',
+          actualCheckOutAt: null,
+          reason: reason.trim(),
+        },
+      });
+    });
+  }
+
+  /**
+   * Emergency status and stay correction (Master Administrator operation).
+   * Overrides state with audit trail and mandatory justification.
+   */
+  static async emergencyCorrectStay(
+    reservationId: string,
+    actor: { id?: string; name: string },
+    input: {
+      status?: 'pending' | 'confirmed' | 'checked_in' | 'checked_out' | 'cancelled' | 'no_show';
+      checkInDate?: string;
+      checkOutDate?: string;
+      reason: string;
+    }
+  ): Promise<void> {
+    if (!input.reason || input.reason.trim().length < 5) {
+      throw new Error('A detailed operational reason (at least 5 characters) is required for emergency correction.');
+    }
+
+    await db.transaction(async (tx) => {
+      const [res] = await tx
+        .select()
+        .from(reservations)
+        .where(eq(reservations.id, reservationId))
+        .limit(1)
+        .for('update');
+
+      if (!res) throw new Error('Reservation not found');
+
+      const property = await tx.query.properties.findFirst({
+        where: eq(properties.id, res.propertyId),
+      });
+      if (!property) throw new Error('Property not found');
+
+      const updates: Partial<typeof reservations.$inferInsert> = {
+        updatedAt: new Date(),
+      };
+
+      const previousValue: Record<string, unknown> = {};
+      const newValue: Record<string, unknown> = { reason: input.reason.trim() };
+
+      if (input.status && input.status !== res.status) {
+        previousValue.status = res.status;
+        newValue.status = input.status;
+        updates.status = input.status;
+
+        if (input.status === 'checked_in' && !res.actualCheckInAt) {
+          updates.actualCheckInAt = new Date();
+        }
+        if (input.status === 'checked_out' && !res.actualCheckOutAt) {
+          updates.actualCheckOutAt = new Date();
+        }
+      }
+
+      if (input.checkInDate && input.checkInDate !== res.checkInDate) {
+        previousValue.checkInDate = res.checkInDate;
+        newValue.checkInDate = input.checkInDate;
+        updates.checkInDate = input.checkInDate;
+      }
+
+      if (input.checkOutDate && input.checkOutDate !== res.checkOutDate) {
+        previousValue.checkOutDate = res.checkOutDate;
+        newValue.checkOutDate = input.checkOutDate;
+        updates.checkOutDate = input.checkOutDate;
+      }
+
+      if (updates.checkInDate || updates.checkOutDate) {
+        const inDate = (updates.checkInDate as string) || res.checkInDate;
+        const outDate = (updates.checkOutDate as string) || res.checkOutDate;
+        if (outDate <= inDate) {
+          throw new Error('Check-out date must be strictly after check-in date.');
+        }
+        const nights = calculateNights(inDate, outDate);
+        updates.nights = nights;
+        previousValue.nights = res.nights;
+        newValue.nights = nights;
+      }
+
+      if (Object.keys(previousValue).length === 0) {
+        return;
+      }
+
+      await tx
+        .update(reservations)
+        .set(updates)
+        .where(eq(reservations.id, reservationId));
+
+      await tx.insert(reservationEvents).values({
+        reservationId,
+        actorId: sanitizeActorId(actor.id),
+        actorName: actor.name,
+        eventType: 'status_corrected',
+        description: `Emergency correction by ${actor.name}. Reason: ${input.reason.trim()}. Changes: ${JSON.stringify(newValue)}`,
+      });
+
+      await tx.insert(activityLogs).values({
+        organizationId: property.organizationId,
+        propertyId: res.propertyId,
+        actorId: sanitizeActorId(actor.id),
+        actorName: actor.name,
+        action: 'reservation.emergency_corrected',
+        resource: 'reservation',
+        resourceId: res.id,
+        previousValue,
+        newValue,
+      });
     });
   }
 

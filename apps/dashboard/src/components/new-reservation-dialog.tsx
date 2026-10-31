@@ -622,7 +622,8 @@ export function NewReservationDialog({
                     id="create-agreed-total"
                     type="number"
                     min={0}
-                    step="100"
+                    step="any"
+                    inputMode="decimal"
                     placeholder="e.g. 120000"
                     value={customTotalInput}
                     onChange={(e) => setCustomTotalInput(e.target.value)}

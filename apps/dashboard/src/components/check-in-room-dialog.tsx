@@ -72,9 +72,10 @@ export function CheckInRoomDialog({
   const [outstandingAuthorized, setOutstandingAuthorized] = React.useState(false);
   const [invoiceBusy, setInvoiceBusy] = React.useState(false);
 
+  const isApartment = Boolean(reservation?.apartmentId);
   const assigned = reservation ? isPhysicalRoomAssigned(reservation) : false;
   const forCheckIn = mode === 'check-in';
-  const mustChooseRoom = !assigned || changingRoom || mode !== 'check-in';
+  const mustChooseRoom = !isApartment && (!assigned || changingRoom || mode !== 'check-in');
   const totalAmountMinorUnits = folio?.totalAmountMinorUnits ?? reservation?.totalAmountMinorUnits ?? 0;
   const paidAmountMinorUnits = folio?.paidAmountMinorUnits ?? reservation?.paidAmountMinorUnits ?? 0;
   const pendingTransferProof = folio?.pendingTransferProof ?? Boolean(reservation?.pendingTransferProof);
@@ -430,7 +431,7 @@ export function CheckInRoomDialog({
                 </div>
               )}
 
-              {assigned && mode === 'check-in' && !changingRoom && (
+              {!isApartment && assigned && mode === 'check-in' && !changingRoom && (
                 <button
                   type="button"
                   onClick={() => setChangingRoom(true)}
