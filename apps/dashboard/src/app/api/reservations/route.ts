@@ -97,7 +97,7 @@ async function handleGET(req: NextRequest) {
 async function handlePOST(req: NextRequest) {
   try {
     const merchant = getMerchantRequest(req);
-    const session = merchant?.session || (await auth());
+    const session: any = merchant?.session || (await auth());
     const tenant = merchant?.tenant || (await resolveTenantForRequest(session, req));
     const propertyId = tenant?.propertyId;
 
