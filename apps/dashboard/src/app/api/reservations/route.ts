@@ -96,16 +96,16 @@ async function handleGET(req: NextRequest) {
 
 async function handlePOST(req: NextRequest) {
   try {
-    const session = await auth();
-
-    const tenant = await resolveTenantForRequest(session, req);
+    const merchant = getMerchantRequest(req);
+    const session = merchant?.session || (await auth());
+    const tenant = merchant?.tenant || (await resolveTenantForRequest(session, req));
     const propertyId = tenant?.propertyId;
 
     if (!propertyId) {
       return NextResponse.json({ error: 'Property not found for user session' }, { status: 400 });
     }
 
-    const body = await req.json();
+    const body: any = merchant?.body || (await req.json());
 
     const reservation = await ReservationService.create(
       {
@@ -117,12 +117,12 @@ async function handlePOST(req: NextRequest) {
         roomId: body.roomId || undefined,
         checkInDate: body.checkInDate,
         checkOutDate: body.checkOutDate,
-        numGuests: body.numGuests || 1,
-        adults: body.adults || 1,
-        children: body.children || 0,
+        numGuests: body.numGuests ? Number(body.numGuests) : 1,
+        adults: body.adults ? Number(body.adults) : 1,
+        children: body.children ? Number(body.children) : 0,
         source: body.source || 'direct',
-        paymentStatus: body.paymentStatus || 'pay_later',
-        paidAmountMinorUnits: body.paidAmountMinorUnits || 0,
+        paymentStatus: 'pay_later',
+        paidAmountMinorUnits: 0,
         customTotalAmountMinorUnits: body.customTotalAmountMinorUnits != null ? Number(body.customTotalAmountMinorUnits) : undefined,
         specialRequests: body.specialRequests,
       },
@@ -211,7 +211,10 @@ async function handlePOST(req: NextRequest) {
 
     return NextResponse.json({ success: true, reservation });
   } catch (error: any) {
-    console.error('Error creating reservation:', error);
+    console.error('Error creating reservation:', {
+      error: error?.message || error,
+      stack: error?.stack,
+    });
     return NextResponse.json({ error: apiError(error) }, { status: 400 });
   }
 }

@@ -278,8 +278,8 @@ export function NewReservationDialog({
           checkInDate: checkIn,
           checkOutDate: checkOut,
           source,
-          paymentStatus,
-          paidAmountMinorUnits: paymentStatus === 'paid' ? totalAmountMinorUnits : 0,
+          paymentStatus: 'pay_later',
+          paidAmountMinorUnits: 0,
           customTotalAmountMinorUnits: overridePrice ? nairaToMinor(customTotalInput) : undefined,
           guestId: guestId || undefined,
           guest: {

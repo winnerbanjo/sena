@@ -48,6 +48,86 @@ function generateReference(): string {
   return `SEN-${code}`;
 }
 
+async function resolveOrCreateGuest(
+  tx: any,
+  propertyId: string,
+  guestId?: string,
+  guest?: {
+    fullName: string;
+    email?: string;
+    phone?: string;
+    identificationType?: any;
+    identificationNumber?: string;
+    preferences?: string[];
+    notes?: string;
+  }
+): Promise<string> {
+  if (guestId) {
+    const existing = await tx.query.guests.findFirst({
+      where: and(eq(guests.id, guestId), eq(guests.propertyId, propertyId)),
+    });
+    if (!existing) throw new Error('Guest not found in this property.');
+    return existing.id;
+  }
+
+  if (!guest || !guest.fullName?.trim()) {
+    throw new Error('Enter the guest full name.');
+  }
+
+  const cleanEmail = guest.email?.trim().toLowerCase() || undefined;
+  const cleanPhone = guest.phone?.trim() || undefined;
+
+  let existing: any[] = [];
+  if (cleanEmail) {
+    existing = await tx
+      .select()
+      .from(guests)
+      .where(and(eq(guests.propertyId, propertyId), eq(guests.email, cleanEmail)))
+      .limit(1);
+  }
+  if (existing.length === 0 && cleanPhone) {
+    existing = await tx
+      .select()
+      .from(guests)
+      .where(and(eq(guests.propertyId, propertyId), eq(guests.phone, cleanPhone)))
+      .limit(1);
+  }
+
+  if (existing.length > 0) {
+    return existing[0].id;
+  }
+
+  const [prop] = await tx
+    .select({ organizationId: properties.organizationId })
+    .from(properties)
+    .where(eq(properties.id, propertyId))
+    .limit(1);
+
+  if (!prop?.organizationId) {
+    throw new Error(`Property ${propertyId} has no parent organization.`);
+  }
+
+  const fallbackEmail = cleanEmail || `${cleanPhone ? cleanPhone.replace(/[^\d+]/g, '') : crypto.randomUUID().slice(0, 8)}@guest.sena.ng`;
+  const fallbackPhone = cleanPhone || '+2340000000000';
+
+  const inserted = await tx
+    .insert(guests)
+    .values({
+      organizationId: prop.organizationId,
+      propertyId,
+      fullName: guest.fullName.trim(),
+      email: fallbackEmail,
+      phone: fallbackPhone,
+      identificationType: guest.identificationType,
+      identificationNumber: guest.identificationNumber,
+      preferences: guest.preferences || [],
+      notes: guest.notes,
+    })
+    .returning();
+
+  return inserted[0].id;
+}
+
 export class ReservationService {
   /**
    * Create Reservation with strict atomic concurrency locking.
@@ -149,59 +229,12 @@ export class ReservationService {
       }
 
       // 3. Resolve Guest ID (find existing or create new)
-      let resolvedGuestId = input.guestId;
-      if (!resolvedGuestId && input.guest) {
-        // Query by email first
-        const existing = await tx
-          .select()
-          .from(guests)
-          .where(
-            and(
-              eq(guests.propertyId, input.propertyId),
-              eq(guests.email, input.guest.email)
-            )
-          )
-          .limit(1);
-
-        if (input.guest.email && existing.length > 0) {
-          resolvedGuestId = existing[0].id;
-        } else {
-          // Resolve property organizationId
-          const propList = await tx
-            .select({ organizationId: properties.organizationId })
-            .from(properties)
-            .where(eq(properties.id, input.propertyId))
-            .limit(1);
-
-          const organizationId = propList[0]?.organizationId;
-          if (!organizationId) {
-            throw new Error(`Property ${input.propertyId} has no parent organization`);
-          }
-
-          const inserted = await tx
-            .insert(guests)
-            .values({
-              organizationId,
-              propertyId: input.propertyId,
-              fullName: input.guest.fullName,
-              email: input.guest.email,
-              phone: input.guest.phone,
-              identificationType: input.guest.identificationType,
-              identificationNumber: input.guest.identificationNumber,
-              preferences: input.guest.preferences || [],
-              notes: input.guest.notes,
-            })
-            .returning();
-          resolvedGuestId = inserted[0].id;
-        }
-      }
-
-      if (!resolvedGuestId) {
-        throw new Error('Could not resolve or create guest profile');
-      }
-
-      const linkedGuest = await tx.query.guests.findFirst({ where: and(eq(guests.id, resolvedGuestId), eq(guests.propertyId, input.propertyId)) });
-      if (!linkedGuest) throw new Error('Guest not found in this property.');
+      const resolvedGuestId = await resolveOrCreateGuest(
+        tx,
+        input.propertyId,
+        input.guestId,
+        input.guest
+      );
 
       // 4. Insert Reservation Record
       const reference = generateReference();
@@ -332,34 +365,12 @@ export class ReservationService {
         throw new Error('This apartment is already booked for those dates.');
       }
 
-      let resolvedGuestId = input.guestId;
-      if (!resolvedGuestId && input.guest) {
-        const existing = input.guest.email
-          ? await tx.select().from(guests).where(and(eq(guests.propertyId, input.propertyId), eq(guests.email, input.guest.email))).limit(1)
-          : [];
-        if (existing.length > 0) {
-          resolvedGuestId = existing[0].id;
-        } else {
-          const propList = await tx.select({ organizationId: properties.organizationId }).from(properties).where(eq(properties.id, input.propertyId)).limit(1);
-          const organizationId = propList[0]?.organizationId;
-          if (!organizationId) throw new Error('Property has no parent organization');
-          const inserted = await tx.insert(guests).values({
-            organizationId,
-            propertyId: input.propertyId,
-            fullName: input.guest.fullName,
-            email: input.guest.email,
-            phone: input.guest.phone,
-            identificationType: input.guest.identificationType,
-            identificationNumber: input.guest.identificationNumber,
-            preferences: input.guest.preferences || [],
-            notes: input.guest.notes,
-          }).returning();
-          resolvedGuestId = inserted[0].id;
-        }
-      }
-      if (!resolvedGuestId) throw new Error('Could not resolve or create guest profile');
-      const linkedGuest = await tx.query.guests.findFirst({ where: and(eq(guests.id, resolvedGuestId), eq(guests.propertyId, input.propertyId)) });
-      if (!linkedGuest) throw new Error('Guest not found in this property.');
+      const resolvedGuestId = await resolveOrCreateGuest(
+        tx,
+        input.propertyId,
+        input.guestId,
+        input.guest
+      );
 
       const reference = generateReference();
       const standardAmountMinorUnits = apartment.basePriceMinorUnits * nights;
@@ -559,12 +570,18 @@ export class ReservationService {
   }
 
   /**
-   * Assign or change a physical room on a confirmed reservation without checking in.
+   * Assign or change a physical room on a confirmed or checked-in reservation.
+   * If the reservation is checked in:
+   * - Validates target room is clean, ready and unoccupied.
+   * - Atomically marks new room occupied and assigns it to reservation.
+   * - Marks previous room as dirty and creates a housekeeping task.
+   * - Logs full audit trail with staff, timestamp, and optional reason.
    */
   static async assignRoom(
     reservationId: string,
     roomId: string,
-    actor = { id: '', name: 'Receptionist' }
+    actor = { id: '', name: 'Receptionist' },
+    reason?: string
   ): Promise<{ roomId: string; roomNumber: string }> {
     if (!roomId) throw new Error('ROOM_ASSIGNMENT_REQUIRED');
 
@@ -581,12 +598,97 @@ export class ReservationService {
       }
 
       const res = resList[0];
-      if (res.apartmentId) throw new Error('This stay is an apartment and does not use a room number.');
-      if (res.status !== 'confirmed') {
-        throw new Error('Only confirmed reservations can have their room assignment changed.');
+      if (res.status !== 'confirmed' && res.status !== 'checked_in') {
+        throw new Error('Only confirmed or checked-in reservations can have their room assignment changed.');
       }
+
+      // Handle apartment stay moves
+      if (res.apartmentId) {
+        const [targetApt] = await tx
+          .select()
+          .from(apartments)
+          .where(and(eq(apartments.id, roomId), eq(apartments.propertyId, res.propertyId)))
+          .limit(1)
+          .for('update');
+
+        if (!targetApt) {
+          throw new Error('This stay is an apartment and does not use a room number.');
+        }
+
+        if (targetApt.operationalStatus === 'maintenance' || targetApt.operationalStatus === 'blocked') {
+          throw new Error(`Apartment ${targetApt.name} is currently out of service (${targetApt.operationalStatus}).`);
+        }
+
+        const [prevApt] = await tx
+          .select()
+          .from(apartments)
+          .where(eq(apartments.id, res.apartmentId))
+          .limit(1)
+          .for('update');
+
+        const now = new Date();
+        if (res.status === 'checked_in') {
+          const [conflictingStay] = await tx
+            .select({ id: reservations.id, reference: reservations.reference })
+            .from(reservations)
+            .where(
+              and(
+                eq(reservations.apartmentId, targetApt.id),
+                eq(reservations.status, 'checked_in'),
+                ne(reservations.id, reservationId)
+              )
+            )
+            .limit(1);
+
+          if (conflictingStay) {
+            throw new Error(`Apartment ${targetApt.name} is already occupied by active reservation ${conflictingStay.reference}.`);
+          }
+
+          await tx
+            .update(apartments)
+            .set({ operationalStatus: 'occupied', updatedAt: now })
+            .where(eq(apartments.id, targetApt.id));
+
+          if (res.apartmentId !== targetApt.id) {
+            await tx
+              .update(apartments)
+              .set({ operationalStatus: 'available', housekeepingStatus: 'dirty', updatedAt: now })
+              .where(eq(apartments.id, res.apartmentId));
+
+            await ensureOpenHousekeepingTask(tx, {
+              propertyId: res.propertyId,
+              apartmentId: res.apartmentId,
+              notes: `Guest moved to Apartment ${targetApt.name} from reservation ${res.reference}`,
+            });
+          }
+        }
+
+        await tx
+          .update(reservations)
+          .set({ apartmentId: targetApt.id, updatedAt: now })
+          .where(eq(reservations.id, reservationId));
+
+        const aptDescription = `Stay moved from ${prevApt?.name || 'apartment'} to ${targetApt.name} by ${actor.name}.${reason ? ` Reason: ${reason}` : ''}`;
+        await tx.insert(reservationEvents).values({
+          reservationId,
+          actorId: sanitizeActorId(actor.id),
+          actorName: actor.name,
+          eventType: 'room_changed',
+          description: aptDescription,
+          metadata: {
+            previousApartmentId: res.apartmentId,
+            newApartmentId: targetApt.id,
+            status: res.status,
+            reason: reason || null,
+          },
+        });
+
+        return { roomId: targetApt.id, roomNumber: targetApt.name };
+      }
+
       if (!res.roomTypeId) throw new Error('ROOM_ASSIGNMENT_REQUIRED');
 
+      const isCheckedIn = res.status === 'checked_in';
       const assignedRoom = await assertRoomEligible(
         tx,
         {
@@ -595,29 +697,90 @@ export class ReservationService {
           checkInDate: res.checkInDate,
           checkOutDate: res.checkOutDate,
           excludeReservationId: reservationId,
-          forCheckIn: false,
+          forCheckIn: isCheckedIn,
         },
         roomId
       );
 
       const previousRoomId = res.roomId;
+      const changed = Boolean(previousRoomId && previousRoomId !== roomId);
+      let previousRoomNumber: string | null = null;
+      if (previousRoomId) {
+        const [prev] = await tx
+          .select({ roomNumber: rooms.roomNumber })
+          .from(rooms)
+          .where(eq(rooms.id, previousRoomId))
+          .limit(1);
+        previousRoomNumber = prev?.roomNumber || null;
+      }
+
+      const now = new Date();
+
+      if (isCheckedIn) {
+        // Mark new room as occupied
+        await tx
+          .update(rooms)
+          .set({
+            operationalStatus: 'occupied',
+            updatedAt: now,
+          })
+          .where(eq(rooms.id, roomId));
+
+        // Release previous room as dirty and schedule housekeeping task
+        if (changed && previousRoomId) {
+          await tx
+            .update(rooms)
+            .set({
+              operationalStatus: 'available',
+              housekeepingStatus: 'dirty',
+              updatedAt: now,
+            })
+            .where(eq(rooms.id, previousRoomId));
+
+          await ensureOpenHousekeepingTask(tx, {
+            propertyId: res.propertyId,
+            roomId: previousRoomId,
+            notes: `Guest moved to Room ${assignedRoom.roomNumber} from reservation ${res.reference}`,
+          });
+        }
+      }
+
+      // Update reservation
       await tx
         .update(reservations)
         .set({
           roomId,
-          updatedAt: new Date(),
+          updatedAt: now,
         })
         .where(eq(reservations.id, reservationId));
 
-      const changed = previousRoomId && previousRoomId !== roomId;
+      let description = '';
+      if (changed) {
+        if (isCheckedIn) {
+          description = `In-house guest moved from Room ${previousRoomNumber || 'unassigned'} to Room ${assignedRoom.roomNumber} by ${actor.name}.${reason ? ` Reason: ${reason}` : ''}`;
+        } else {
+          description = `Room changed from ${previousRoomNumber || 'unassigned'} to ${assignedRoom.roomNumber} by ${actor.name}.${reason ? ` Reason: ${reason}` : ''}`;
+        }
+      } else {
+        description = `Room ${assignedRoom.roomNumber} assigned by ${actor.name}.`;
+      }
+
       await tx.insert(reservationEvents).values({
         reservationId,
         actorId: sanitizeActorId(actor.id),
         actorName: actor.name,
         eventType: changed ? 'room_changed' : 'room_assigned',
-        description: changed
-          ? `Room changed to ${assignedRoom.roomNumber} by ${actor.name}.`
-          : `Room ${assignedRoom.roomNumber} assigned by ${actor.name}.`,
+        description,
+        metadata: {
+          previousRoomId: previousRoomId || null,
+          previousRoomNumber,
+          newRoomId: roomId,
+          newRoomNumber: assignedRoom.roomNumber,
+          status: res.status,
+          reason: reason || null,
+          actorName: actor.name,
+          timestamp: now.toISOString(),
+        },
       });
 
       return { roomId: assignedRoom.id, roomNumber: assignedRoom.roomNumber };

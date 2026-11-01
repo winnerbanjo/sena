@@ -156,7 +156,7 @@ export function ReservationDrawer({
                 Add room
               </Button>
             )}
-            {isConfirmed && !reservation.apartmentId && (
+            {(isConfirmed || isCheckedIn) && !reservation.apartmentId && (
               <Button
                 size="sm"
                 variant="secondary"

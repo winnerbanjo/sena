@@ -13,6 +13,7 @@ async function handlePOST(
     const { id: reservationId } = await params;
     const body = await req.json();
     const roomId = typeof body.roomId === 'string' ? body.roomId : '';
+    const reason = typeof body.reason === 'string' ? body.reason : undefined;
 
     if (!roomId) {
       return NextResponse.json({ error: 'Select a physical room to assign.', code: 'ROOM_ASSIGNMENT_REQUIRED' }, { status: 400 });
@@ -24,7 +25,7 @@ async function handlePOST(
       name: session?.user?.name || 'Front Desk Staff',
     };
 
-    const assigned = await ReservationService.assignRoom(reservationId, roomId, actor);
+    const assigned = await ReservationService.assignRoom(reservationId, roomId, actor, reason);
 
     const [resRow] = await db
       .select({ propertyId: reservations.propertyId })
@@ -46,6 +47,7 @@ async function handlePOST(
       message: `Room ${assigned.roomNumber} assigned.`,
     });
   } catch (error: unknown) {
+    console.error('[ASSIGN ROOM ERROR]', error);
     return NextResponse.json({ error: apiError(error) }, { status: 400 });
   }
 }

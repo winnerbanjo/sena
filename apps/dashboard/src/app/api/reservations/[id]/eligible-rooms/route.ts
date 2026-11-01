@@ -29,6 +29,7 @@ async function handleGET(
         checkInDate: reservations.checkInDate,
         checkOutDate: reservations.checkOutDate,
         roomId: reservations.roomId,
+        status: reservations.status,
       })
       .from(reservations)
       .where(and(eq(reservations.id, reservationId), eq(reservations.propertyId, tenant.propertyId)))
@@ -48,7 +49,7 @@ async function handleGET(
       checkInDate: reservation.checkInDate,
       checkOutDate: reservation.checkOutDate,
       excludeReservationId: reservation.id,
-      forCheckIn,
+      forCheckIn: forCheckIn || reservation.status === 'checked_in',
     });
 
     return NextResponse.json({
