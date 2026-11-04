@@ -58,7 +58,7 @@ async function handlePOST(req: NextRequest) {
     const session = await auth();
     const tenant = await resolveTenantForRequest(session, req);
     const propertyId = tenant?.propertyId;
-    const organizationId = tenant?.organizationId;
+    const organizationId = tenant?.property.organizationId;
 
     if (!propertyId || !organizationId) {
       return NextResponse.json({ error: 'Property not found' }, { status: 400 });

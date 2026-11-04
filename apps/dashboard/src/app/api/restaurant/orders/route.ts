@@ -176,7 +176,7 @@ async function handlePOST(req: NextRequest) {
           eventType: 'room_service_charge',
           actorId: session?.user?.id || 'system',
           actorName: session?.user?.name || 'Restaurant POS',
-          notes: `Posted restaurant bill ${orderNumber} (₦${totalAmountMinorUnits / 100}) to guest folio`,
+          description: `Posted restaurant bill ${orderNumber} (₦${totalAmountMinorUnits / 100}) to guest folio`,
         });
       }
     }
