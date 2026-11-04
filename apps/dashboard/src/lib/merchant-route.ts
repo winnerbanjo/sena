@@ -34,10 +34,28 @@ export function withMerchant(handler: Handler, scope: string): Handler {
       const role = aliases[rawRole] || rawRole as Role;
       const permissions = ROLE_PERMISSIONS[role] || [];
       const read = req.method === 'GET';
-      const required: Record<string, Permission | Permission[]> = { settings: 'room.edit', calendar: 'reservation.read', reservations: read ? 'reservation.read' : ['reservation.create', 'reservation.edit'], guests: read ? 'guest.read' : 'guest.edit', rooms: read ? 'room.read' : 'room.edit', apartments: read ? 'room.read' : 'room.edit', housekeeping: 'housekeeping.update', payments: read ? 'payment.read' : 'payment.record', invoices: read ? 'payment.read' : ['payment.record', 'invoice.edit'], staff: 'staff.invite', subscription: 'billing.manage', website: 'website.edit', reviews: 'website.edit', upload: 'website.edit', connect: 'billing.manage', reports: ['analytics.read', 'payment.read'], 'invoice-void': 'invoice.void', 'invoice-delete': 'invoice.delete_draft', 'invoice-amend': 'invoice.amend', 'reservation-reassign': 'reservation.reassign_guest', 'reservation-discount': 'reservation.discount', 'reservation-price-override': 'reservation.price_override', 'reservation-cancel': 'reservation.cancel', 'reservation-reverse-checkout': 'reservation.reverse_checkout', 'reservation-correct': 'reservation.correct_status' };
+      const required: Record<string, Permission | Permission[]> = { settings: 'room.edit', calendar: 'reservation.read', reservations: read ? 'reservation.read' : ['reservation.create', 'reservation.edit'], guests: read ? 'guest.read' : 'guest.edit', rooms: read ? 'room.read' : 'room.edit', apartments: read ? 'room.read' : 'room.edit', housekeeping: 'housekeeping.update', payments: read ? 'payment.read' : 'payment.record', invoices: read ? 'payment.read' : ['payment.record', 'invoice.edit'], staff: 'staff.invite', subscription: 'billing.manage', website: 'website.edit', reviews: 'website.edit', upload: 'website.edit', connect: 'billing.manage', reports: ['analytics.read', 'payment.read'], 'invoice-void': 'invoice.void', 'invoice-delete': 'invoice.delete_draft', 'invoice-amend': 'invoice.amend', 'reservation-reassign': 'reservation.reassign_guest', 'reservation-discount': 'reservation.discount', 'reservation-price-override': 'reservation.price_override', 'reservation-cancel': 'reservation.cancel', 'reservation-reverse-checkout': 'reservation.reverse_checkout', 'reservation-correct': 'reservation.correct_status', gym: read ? 'guest.read' : 'guest.edit', restaurant: read ? 'guest.read' : 'payment.record' };
       const needed = required[scope];
       const allowed = Array.isArray(needed) ? needed.some((permission) => permissions.includes(permission)) : Boolean(needed && permissions.includes(needed));
       if (!needed || !allowed) return NextResponse.json({ error: 'Your role does not allow this action. Contact your property manager.' }, { status: 403 });
+
+      const propertyIndustry = tenant.property.industry || 'hotel';
+      const hotelOnlyScopes = [
+        'calendar', 'reservations', 'rooms', 'apartments', 'housekeeping',
+        'reservation-reassign', 'reservation-discount', 'reservation-price-override',
+        'reservation-cancel', 'reservation-reverse-checkout', 'reservation-correct'
+      ];
+      if (hotelOnlyScopes.includes(scope) && propertyIndustry !== 'hotel') {
+        return NextResponse.json({ error: `Forbidden: Property industry '${propertyIndustry}' is not authorized to perform hotel operations.` }, { status: 403 });
+      }
+
+      if ((scope === 'gym' || scope.startsWith('gym-')) && propertyIndustry !== 'gym') {
+        return NextResponse.json({ error: `Forbidden: Property industry '${propertyIndustry}' is not authorized to perform gym operations.` }, { status: 403 });
+      }
+
+      if ((scope === 'restaurant' || scope.startsWith('restaurant-')) && propertyIndustry !== 'restaurant') {
+        return NextResponse.json({ error: `Forbidden: Property industry '${propertyIndustry}' is not authorized to perform restaurant operations.` }, { status: 403 });
+      }
 
       let body: Record<string, unknown> = {};
       if (req.headers.get('content-type')?.includes('application/json') && !['GET', 'HEAD'].includes(req.method)) {

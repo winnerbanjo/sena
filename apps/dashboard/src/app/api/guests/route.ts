@@ -56,50 +56,17 @@ async function handleGET(req: NextRequest) {
 async function handlePOST(req: NextRequest) {
   try {
     const session = await auth();
-    let propertyId = (session?.user as any)?.propertyId;
+    const tenant = await resolveTenantForRequest(session, req);
+    const propertyId = tenant?.propertyId;
+    const organizationId = tenant?.organizationId;
 
-    if (!propertyId) {
-      // Securely fetch property for this user instead of leaking firstProp
-      const userId = session?.user?.id;
-      if (userId) {
-        const membership = await db.query.propertyMembers.findFirst({
-          where: eq(propertyMembers.userId, userId)
-        });
-        if (membership) {
-          propertyId = membership.propertyId;
-        } else {
-          // Try organization fallback
-          const orgMembership = await db.query.organizationMembers.findFirst({
-            where: eq(organizationMembers.userId, userId)
-          });
-          if (orgMembership) {
-            const orgProp = await db.query.properties.findFirst({
-              where: eq(properties.organizationId, orgMembership.organizationId)
-            });
-            if (orgProp) propertyId = orgProp.id;
-          }
-        }
-      }
-    }
-
-    if (!propertyId) {
+    if (!propertyId || !organizationId) {
       return NextResponse.json({ error: 'Property not found' }, { status: 400 });
     }
 
     const body = await req.json();
     const { fullName, email, phone, identificationType, identificationNumber, preferences, notes } =
       body;
-
-    const [prop] = await db
-      .select({ organizationId: properties.organizationId })
-      .from(properties)
-      .where(eq(properties.id, propertyId))
-      .limit(1);
-
-    const organizationId = prop?.organizationId;
-    if (!organizationId) {
-      return NextResponse.json({ error: 'Property has no associated organization' }, { status: 400 });
-    }
 
     const [newGuest] = await db
       .insert(guests)

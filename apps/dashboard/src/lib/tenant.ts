@@ -1,4 +1,4 @@
-import type { NextRequest } from 'next/server';
+import { NextResponse, type NextRequest } from 'next/server';
 import { db, users, properties, propertyMembers, organizationMembers, eq, and } from '@sena/database';
 
 export interface ResolvedTenant {
@@ -57,9 +57,22 @@ export async function resolveTenantForRequest(
     const property = await database.query.properties.findFirst({ where: eq(properties.id, membership.propertyId) });
     return property ? { propertyId: property.id, property, user, userId, role: membership.role } : null;
   }
-  // A removed property membership must not silently select a different property.
   const organizationMembership = await database.query.organizationMembers.findFirst({ where: eq(organizationMembers.userId, userId) });
   if (!organizationMembership || !['owner', 'manager'].includes(organizationMembership.role.toLowerCase())) return null;
   const property = await database.query.properties.findFirst({ where: eq(properties.organizationId, organizationMembership.organizationId) });
   return property ? { propertyId: property.id, property, user, userId, role: organizationMembership.role } : null;
+}
+
+export function assertIndustry(
+  tenant: ResolvedTenant,
+  allowedIndustries: ('hotel' | 'gym' | 'restaurant')[]
+): NextResponse | null {
+  const industry = (tenant.property.industry || 'hotel') as 'hotel' | 'gym' | 'restaurant';
+  if (!allowedIndustries.includes(industry)) {
+    return NextResponse.json(
+      { error: `Forbidden: Property industry '${industry}' is not permitted to access this module (${allowedIndustries.join(', ')}).` },
+      { status: 403 }
+    );
+  }
+  return null;
 }

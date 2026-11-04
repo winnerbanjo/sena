@@ -37,6 +37,8 @@ export default function FrontDeskPage() {
   const [reservations, setReservations] = React.useState<ReservationItem[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [activeTab, setActiveTab] = React.useState<'arriving' | 'in_house' | 'departing'>('arriving');
+  const [arrivalScope, setArrivalScope] = React.useState<'today' | 'all'>('today');
+  const [departureScope, setDepartureScope] = React.useState<'today' | 'all'>('today');
   const [selectedRes, setSelectedRes] = React.useState<ReservationItem | null>(null);
   const [drawerOpen, setDrawerOpen] = React.useState(false);
   const [newResOpen, setNewResOpen] = React.useState(false);
@@ -52,6 +54,14 @@ export default function FrontDeskPage() {
   const requireCheckoutSettlement = workspace?.property.checkOutPaymentPolicy === 'require_settlement';
   const timezone = workspace?.property.timezone || 'Africa/Lagos';
   const [operationalTime, setOperationalTime] = React.useState('');
+
+  const todayStr = React.useMemo(() => {
+    try {
+      return new Intl.DateTimeFormat('en-CA', { timeZone: timezone }).format(new Date());
+    } catch {
+      return new Date().toISOString().split('T')[0];
+    }
+  }, [timezone]);
 
   React.useEffect(() => {
     const updateTime = () => {
@@ -139,9 +149,29 @@ export default function FrontDeskPage() {
     }
   }
 
-  const arrivingList = reservations.filter((r) => r.status === 'confirmed');
-  const inHouseList = reservations.filter((r) => r.status === 'checked_in');
-  const departingList = reservations.filter((r) => r.status === 'checked_in');
+  const arrivingTodayList = React.useMemo(() => {
+    return reservations.filter((r) => r.status === 'confirmed' && r.checkInDate <= todayStr);
+  }, [reservations, todayStr]);
+
+  const allUpcomingArrivingList = React.useMemo(() => {
+    return reservations.filter((r) => r.status === 'confirmed');
+  }, [reservations]);
+
+  const arrivingList = arrivalScope === 'today' ? arrivingTodayList : allUpcomingArrivingList;
+
+  const inHouseList = React.useMemo(() => {
+    return reservations.filter((r) => r.status === 'checked_in');
+  }, [reservations]);
+
+  const departingTodayList = React.useMemo(() => {
+    return reservations.filter((r) => r.status === 'checked_in' && r.checkOutDate <= todayStr);
+  }, [reservations, todayStr]);
+
+  const allDepartingList = React.useMemo(() => {
+    return reservations.filter((r) => r.status === 'checked_in');
+  }, [reservations]);
+
+  const departingList = departureScope === 'today' ? departingTodayList : allDepartingList;
 
   const currentList =
     activeTab === 'arriving'
@@ -171,7 +201,7 @@ export default function FrontDeskPage() {
             >
               <span>{t('expectedArrivals')}</span>
               <span className="font-mono text-[11px] px-1.5 py-0.2 rounded bg-[#FAF4EF] text-[#71382D] border border-[#E5D4BC]">
-                {arrivingList.length}
+                {arrivingTodayList.length}
               </span>
               {activeTab === 'arriving' && (
                 <span className="absolute bottom-0 inset-x-0 h-0.5 bg-[#71382D]" />
@@ -201,7 +231,7 @@ export default function FrontDeskPage() {
             >
               <span>{t('departures')}</span>
               <span className="font-mono text-[11px] px-1.5 py-0.2 rounded bg-[#FAF4EF] text-[#71382D] border border-[#E5D4BC]">
-                {departingList.length}
+                {departingTodayList.length}
               </span>
               {activeTab === 'departing' && (
                 <span className="absolute bottom-0 inset-x-0 h-0.5 bg-[#71382D]" />
@@ -216,6 +246,63 @@ export default function FrontDeskPage() {
             </div>
           )}
         </div>
+
+        {/* Operational Scope Filter Pills */}
+        {activeTab === 'arriving' && (
+          <div className="flex items-center gap-2 py-1 text-xs">
+            <span className="text-[11px] font-mono text-[#8C8275] uppercase tracking-wider">Arrivals View:</span>
+            <button
+              type="button"
+              onClick={() => setArrivalScope('today')}
+              className={`px-3 py-1 rounded-full text-xs font-medium transition-colors cursor-pointer ${
+                arrivalScope === 'today'
+                  ? 'bg-[#71382D] text-white shadow-xs'
+                  : 'bg-[#FAF7F2] text-[#7A7267] hover:text-[#191816] border border-[#E8E1D5]'
+              }`}
+            >
+              Today & Overdue ({arrivingTodayList.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setArrivalScope('all')}
+              className={`px-3 py-1 rounded-full text-xs font-medium transition-colors cursor-pointer ${
+                arrivalScope === 'all'
+                  ? 'bg-[#71382D] text-white shadow-xs'
+                  : 'bg-[#FAF7F2] text-[#7A7267] hover:text-[#191816] border border-[#E8E1D5]'
+              }`}
+            >
+              All Upcoming ({allUpcomingArrivingList.length})
+            </button>
+          </div>
+        )}
+
+        {activeTab === 'departing' && (
+          <div className="flex items-center gap-2 py-1 text-xs">
+            <span className="text-[11px] font-mono text-[#8C8275] uppercase tracking-wider">Departures View:</span>
+            <button
+              type="button"
+              onClick={() => setDepartureScope('today')}
+              className={`px-3 py-1 rounded-full text-xs font-medium transition-colors cursor-pointer ${
+                departureScope === 'today'
+                  ? 'bg-[#71382D] text-white shadow-xs'
+                  : 'bg-[#FAF7F2] text-[#7A7267] hover:text-[#191816] border border-[#E8E1D5]'
+              }`}
+            >
+              Departing Today & Overdue ({departingTodayList.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setDepartureScope('all')}
+              className={`px-3 py-1 rounded-full text-xs font-medium transition-colors cursor-pointer ${
+                departureScope === 'all'
+                  ? 'bg-[#71382D] text-white shadow-xs'
+                  : 'bg-[#FAF7F2] text-[#7A7267] hover:text-[#191816] border border-[#E8E1D5]'
+              }`}
+            >
+              All In-House ({inHouseList.length})
+            </button>
+          </div>
+        )}
 
         {/* Operational Front Desk Roster: Clean Table Layout Instead of Random Cards */}
         <div className="border border-[#E8E1D5] rounded-xl overflow-hidden bg-white shadow-xs">
@@ -290,9 +377,31 @@ export default function FrontDeskPage() {
                           <span className="text-[11px] text-[#8C8275]">{res.roomType}</span>
                         </td>
                         <td className="py-4 px-5 font-mono">
-                          <span className="text-[#191816] block">
-                            {formatStayDates(res.checkInDate, res.checkOutDate)}
-                          </span>
+                          <div className="flex flex-wrap items-center gap-1.5 mb-0.5">
+                            <span className="text-[#191816] font-medium">
+                              {formatStayDates(res.checkInDate, res.checkOutDate)}
+                            </span>
+                            {res.status === 'confirmed' && res.checkInDate < todayStr && (
+                              <span className="px-1.5 py-0.2 rounded text-[10px] font-sans font-medium bg-red-100 text-red-800 border border-red-200">
+                                Overdue Arrival
+                              </span>
+                            )}
+                            {res.status === 'confirmed' && res.checkInDate === todayStr && (
+                              <span className="px-1.5 py-0.2 rounded text-[10px] font-sans font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                Today
+                              </span>
+                            )}
+                            {res.status === 'checked_in' && res.checkOutDate < todayStr && (
+                              <span className="px-1.5 py-0.2 rounded text-[10px] font-sans font-medium bg-red-100 text-red-800 border border-red-200 animate-pulse">
+                                Overdue Checkout
+                              </span>
+                            )}
+                            {res.status === 'checked_in' && res.checkOutDate === todayStr && (
+                              <span className="px-1.5 py-0.2 rounded text-[10px] font-sans font-medium bg-amber-50 text-amber-800 border border-amber-200">
+                                Due Today
+                              </span>
+                            )}
+                          </div>
                           <span className="text-[11px] text-[#8C8275]">
                             {tCommon(res.nights === 1 ? 'nights_one' : 'nights_other', { count: res.nights })}
                           </span>

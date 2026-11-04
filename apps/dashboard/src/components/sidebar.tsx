@@ -21,6 +21,9 @@ import {
   Plug,
   LogOut,
   ChevronDown,
+  Dumbbell,
+  Utensils,
+  QrCode,
 } from 'lucide-react';
 import { useWorkspace } from './workspace-access';
 import { useMobileNav } from './dashboard-shell';
@@ -36,11 +39,28 @@ interface NavItem {
   icon: React.ComponentType<{ className?: string }>;
 }
 
-const PRIMARY_OPERATIONS: NavItem[] = [
+const HOTEL_OPERATIONS: NavItem[] = [
   { id: 'reservations', label: 'Reservations', href: '/reservations', icon: ClipboardList },
   { id: 'frontDesk', label: 'Front Desk', href: '/front-desk', icon: DoorOpen },
   { id: 'rooms', label: 'Rooms', href: '/rooms', icon: Layers },
   { id: 'guests', label: 'Guests', href: '/guests', icon: Users },
+];
+
+const GYM_OPERATIONS: NavItem[] = [
+  { id: 'gymDashboard', label: 'Gym Operations', href: '/gym', icon: Dumbbell },
+  { id: 'gymMembers', label: 'Members', href: '/gym/members', icon: Users },
+  { id: 'gymTerminal', label: 'Access Terminal', href: '/gym/access-terminal', icon: QrCode },
+  { id: 'gymPlans', label: 'Plans & Passes', href: '/gym/plans', icon: ClipboardList },
+  { id: 'gymClasses', label: 'Classes & Schedule', href: '/gym/classes', icon: Calendar },
+  { id: 'gymTrainers', label: 'Trainers', href: '/gym/trainers', icon: Layers },
+];
+
+const RESTAURANT_OPERATIONS: NavItem[] = [
+  { id: 'pos', label: 'POS Terminal', href: '/pos', icon: CreditCard },
+  { id: 'tables', label: 'Floor & Tables', href: '/restaurant/floor-plan', icon: Layers },
+  { id: 'kds', label: 'Kitchen KDS', href: '/kds', icon: Utensils },
+  { id: 'menu', label: 'Menu Catalog', href: '/restaurant/menu', icon: ClipboardList },
+  { id: 'inventory', label: 'Recipe Inventory', href: '/restaurant/inventory', icon: Building2 },
 ];
 
 const PRIMARY_MONEY: NavItem[] = [
@@ -48,10 +68,12 @@ const PRIMARY_MONEY: NavItem[] = [
   { id: 'invoices', label: 'Invoices', href: '/invoices', icon: Receipt },
 ];
 
-const SECONDARY_MORE: NavItem[] = [
+const HOTEL_SECONDARY_MORE: NavItem[] = [
   { id: 'calendar', label: 'Calendar', href: '/calendar', icon: Calendar },
   { id: 'housekeeping', label: 'Housekeeping', href: '/housekeeping', icon: Brush },
   { id: 'apartments', label: 'Apartments', href: '/apartments', icon: Building2 },
+  { id: 'pos_module', label: 'Restaurant POS', href: '/pos', icon: Utensils },
+  { id: 'gym_module', label: 'Gym Terminal', href: '/gym/access-terminal', icon: Dumbbell },
   { id: 'website', label: 'Website', href: '/website', icon: Globe },
   { id: 'apps', label: 'Connected Apps', href: '/apps', icon: Plug },
   { id: 'reports', label: 'Reports', href: '/reports', icon: ClipboardList },
@@ -59,10 +81,40 @@ const SECONDARY_MORE: NavItem[] = [
   { id: 'settings', label: 'Settings', href: '/settings', icon: Settings },
 ];
 
+const GYM_SECONDARY_MORE: NavItem[] = [
+  { id: 'reports', label: 'Reports & Attendance', href: '/reports', icon: ClipboardList },
+  { id: 'apps', label: 'Connected Apps', href: '/apps', icon: Plug },
+  { id: 'staff', label: 'Staff & Reception', href: '/staff', icon: Users },
+  { id: 'settings', label: 'Gym Settings', href: '/settings', icon: Settings },
+];
+
+const RESTAURANT_SECONDARY_MORE: NavItem[] = [
+  { id: 'reports', label: 'Sales & Food Cost Reports', href: '/reports', icon: ClipboardList },
+  { id: 'apps', label: 'Connected Apps', href: '/apps', icon: Plug },
+  { id: 'staff', label: 'Staff & Waiters', href: '/staff', icon: Users },
+  { id: 'settings', label: 'Restaurant Settings', href: '/settings', icon: Settings },
+];
+
 function SidebarNavItems({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   const workspace = useWorkspace();
   const tCommon = useTranslations('common');
+  const industry = workspace?.property?.industry || 'hotel';
+
+  const primaryOperations =
+    industry === 'gym'
+      ? GYM_OPERATIONS
+      : industry === 'restaurant'
+      ? RESTAURANT_OPERATIONS
+      : HOTEL_OPERATIONS;
+
+  const secondaryMore =
+    industry === 'gym'
+      ? GYM_SECONDARY_MORE
+      : industry === 'restaurant'
+      ? RESTAURANT_SECONDARY_MORE
+      : HOTEL_SECONDARY_MORE;
+
   const profile = {
     name: workspace?.user.name || '',
     email: workspace?.user.email || '',
@@ -71,7 +123,7 @@ function SidebarNavItems({ onNavigate }: { onNavigate?: () => void }) {
   };
 
   // Auto-expand "More" if the active page is inside it
-  const isMoreActive = SECONDARY_MORE.some((item) => pathname.startsWith(item.href));
+  const isMoreActive = secondaryMore.some((item) => pathname.startsWith(item.href));
   const [moreExpanded, setMoreExpanded] = React.useState(isMoreActive);
 
   React.useEffect(() => {
@@ -135,9 +187,9 @@ function SidebarNavItems({ onNavigate }: { onNavigate?: () => void }) {
           {/* Operations */}
           <div className="space-y-0.5">
             <div className="px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#8C8275]">
-              Operations
+              {industry === 'gym' ? 'Gym Operations' : industry === 'restaurant' ? 'Restaurant POS & Floor' : 'Hotel PMS'}
             </div>
-            {PRIMARY_OPERATIONS.map((item) => {
+            {primaryOperations.map((item) => {
               const isActive = pathname.startsWith(item.href);
               const Icon = item.icon;
 
@@ -214,7 +266,7 @@ function SidebarNavItems({ onNavigate }: { onNavigate?: () => void }) {
 
             {moreExpanded && (
               <div className="mt-1.5 ms-2 border-s border-[#E8E2DA]/80 ps-2 space-y-1 pt-0.5">
-                {SECONDARY_MORE.map((item) => {
+                {secondaryMore.map((item) => {
                   const isActive = pathname.startsWith(item.href);
                   const Icon = item.icon;
 

@@ -32,3 +32,5 @@ Thumbs.db
 * 2.*
 scripts/test-release.js
 apps/dashboard/cleanup.js
+.vercel
+.env*

@@ -10,6 +10,7 @@ export type Workspace = {
     slug?: string;
     name: string;
     address: string;
+    industry: 'hotel' | 'gym' | 'restaurant' | string;
     timezone: string;
     currency: string;
     checkInTime: string;
@@ -113,6 +114,7 @@ export async function resolveServerWorkspace(): Promise<ServerWorkspaceResult> {
           slug: tenant.property.slug || undefined,
           name: tenant.property.name,
           address: tenant.property.address,
+          industry: (tenant.property as any).industry || 'hotel',
           timezone: tenant.property.timezone,
           currency: tenant.property.currency,
           checkInTime: tenant.property.checkInTime,

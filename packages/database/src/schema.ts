@@ -1,8 +1,10 @@
 import {
+  bigint,
   boolean,
   index,
   integer,
   jsonb,
+  numeric,
   pgTable,
   text,
   timestamp,
@@ -100,7 +102,7 @@ export const organizationMembers = pgTable(
   ]
 );
 
-// 4. Properties (Hotels / Serviced Apartments)
+// 4. Properties (Hotels / Serviced Apartments / Gyms / Restaurants)
 export const properties = pgTable('properties', {
   id: uuid('id').defaultRandom().primaryKey(),
   organizationId: uuid('organization_id')
@@ -109,6 +111,7 @@ export const properties = pgTable('properties', {
   name: varchar('name', { length: 255 }).notNull(),
   slug: varchar('slug', { length: 100 }),
   code: varchar('code', { length: 20 }).notNull(),
+  industry: varchar('industry', { length: 50 }).notNull().default('hotel'), // 'hotel' | 'gym' | 'restaurant'
   propertyType: varchar('property_type', { length: 50 }).notNull().default('hotel'),
   country: varchar('country', { length: 100 }).notNull().default('Nigeria'),
   address: text('address').notNull(),
@@ -1383,3 +1386,361 @@ export const transferProofs = pgTable(
     index('transfer_proofs_inv_idx').on(t.invoiceId),
   ]
 );
+
+// ============================================================================
+// SENA FOR GYMS SCHEMA
+// ============================================================================
+
+export const gymMembershipPlans = pgTable(
+  'gym_membership_plans',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    propertyId: uuid('property_id')
+      .references(() => properties.id, { onDelete: 'cascade' })
+      .notNull(),
+    name: varchar('name', { length: 255 }).notNull(),
+    description: text('description'),
+    durationMonths: integer('duration_months').notNull().default(1),
+    priceMinorUnits: bigint('price_minor_units', { mode: 'number' }).notNull(),
+    registrationFeeMinorUnits: bigint('registration_fee_minor_units', { mode: 'number' }).notNull().default(0),
+    accessHours: varchar('access_hours', { length: 100 }).notNull().default('all_hours'),
+    maxClassCreditsPerMonth: integer('max_class_credits_per_month').notNull().default(0),
+    status: varchar('status', { length: 50 }).notNull().default('active'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    index('gym_plans_prop_idx').on(t.propertyId, t.status),
+  ]
+);
+
+export const gymMembers = pgTable(
+  'gym_members',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    propertyId: uuid('property_id')
+      .references(() => properties.id, { onDelete: 'cascade' })
+      .notNull(),
+    organizationId: uuid('organization_id')
+      .references(() => organizations.id, { onDelete: 'cascade' })
+      .notNull(),
+    memberNumber: varchar('member_number', { length: 50 }).notNull(),
+    fullName: varchar('full_name', { length: 255 }).notNull(),
+    email: varchar('email', { length: 255 }),
+    phone: varchar('phone', { length: 50 }).notNull(),
+    emergencyContactName: varchar('emergency_contact_name', { length: 255 }),
+    emergencyContactPhone: varchar('emergency_contact_phone', { length: 50 }),
+    medicalNotes: text('medical_notes'),
+    profilePhotoUrl: text('profile_photo_url'),
+    qrCodeToken: varchar('qr_code_token', { length: 100 }).notNull(),
+    status: varchar('status', { length: 50 }).notNull().default('active'), // 'active', 'inactive', 'suspended'
+    joinedAt: timestamp('joined_at', { withTimezone: true }).defaultNow().notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex('gym_members_prop_num_idx').on(t.propertyId, t.memberNumber),
+    uniqueIndex('gym_members_qr_idx').on(t.qrCodeToken),
+    index('gym_members_prop_idx').on(t.propertyId, t.status),
+  ]
+);
+
+export const gymSubscriptions = pgTable(
+  'gym_subscriptions',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    propertyId: uuid('property_id')
+      .references(() => properties.id, { onDelete: 'cascade' })
+      .notNull(),
+    memberId: uuid('member_id')
+      .references(() => gymMembers.id, { onDelete: 'cascade' })
+      .notNull(),
+    planId: uuid('plan_id')
+      .references(() => gymMembershipPlans.id, { onDelete: 'restrict' })
+      .notNull(),
+    startDate: varchar('start_date', { length: 10 }).notNull(),
+    endDate: varchar('end_date', { length: 10 }).notNull(),
+    autoRenew: boolean('auto_renew').notNull().default(false),
+    status: varchar('status', { length: 50 }).notNull().default('active'), // 'active', 'expired', 'cancelled', 'frozen'
+    totalAmountMinorUnits: bigint('total_amount_minor_units', { mode: 'number' }).notNull(),
+    paidAmountMinorUnits: bigint('paid_amount_minor_units', { mode: 'number' }).notNull().default(0),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    index('gym_subs_member_idx').on(t.memberId),
+    index('gym_subs_prop_idx').on(t.propertyId, t.status),
+  ]
+);
+
+export const gymCheckins = pgTable(
+  'gym_checkins',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    propertyId: uuid('property_id')
+      .references(() => properties.id, { onDelete: 'cascade' })
+      .notNull(),
+    memberId: uuid('member_id')
+      .references(() => gymMembers.id, { onDelete: 'cascade' })
+      .notNull(),
+    checkInAt: timestamp('check_in_at', { withTimezone: true }).defaultNow().notNull(),
+    checkOutAt: timestamp('check_out_at', { withTimezone: true }),
+    accessPoint: varchar('access_point', { length: 100 }).notNull().default('main_entrance'),
+    verifiedBy: varchar('verified_by', { length: 255 }),
+    accessResult: varchar('access_result', { length: 50 }).notNull().default('granted'), // 'granted', 'denied'
+    denialReason: text('denial_reason'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    index('gym_checkins_member_idx').on(t.memberId),
+    index('gym_checkins_prop_date_idx').on(t.propertyId, t.checkInAt),
+  ]
+);
+
+export const gymTrainers = pgTable(
+  'gym_trainers',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    propertyId: uuid('property_id')
+      .references(() => properties.id, { onDelete: 'cascade' })
+      .notNull(),
+    userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
+    fullName: varchar('full_name', { length: 255 }).notNull(),
+    email: varchar('email', { length: 255 }),
+    phone: varchar('phone', { length: 50 }).notNull(),
+    specializations: text('specializations').array(),
+    hourlyRateMinorUnits: bigint('hourly_rate_minor_units', { mode: 'number' }).notNull().default(0),
+    bio: text('bio'),
+    status: varchar('status', { length: 50 }).notNull().default('active'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    index('gym_trainers_prop_idx').on(t.propertyId, t.status),
+  ]
+);
+
+export const gymClasses = pgTable(
+  'gym_classes',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    propertyId: uuid('property_id')
+      .references(() => properties.id, { onDelete: 'cascade' })
+      .notNull(),
+    trainerId: uuid('trainer_id').references(() => gymTrainers.id, { onDelete: 'set null' }),
+    name: varchar('name', { length: 255 }).notNull(),
+    description: text('description'),
+    dayOfWeek: integer('day_of_week').notNull(), // 0 = Sunday, 1 = Monday, etc.
+    startTime: varchar('start_time', { length: 10 }).notNull(), // "07:00"
+    durationMinutes: integer('duration_minutes').notNull().default(60),
+    capacity: integer('capacity').notNull().default(20),
+    locationRoom: varchar('location_room', { length: 100 }),
+    priceMinorUnits: bigint('price_minor_units', { mode: 'number' }).notNull().default(0),
+    status: varchar('status', { length: 50 }).notNull().default('active'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    index('gym_classes_prop_idx').on(t.propertyId, t.status),
+  ]
+);
+
+export const gymClassBookings = pgTable(
+  'gym_class_bookings',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    propertyId: uuid('property_id')
+      .references(() => properties.id, { onDelete: 'cascade' })
+      .notNull(),
+    classId: uuid('class_id')
+      .references(() => gymClasses.id, { onDelete: 'cascade' })
+      .notNull(),
+    memberId: uuid('member_id')
+      .references(() => gymMembers.id, { onDelete: 'cascade' })
+      .notNull(),
+    bookingDate: varchar('booking_date', { length: 10 }).notNull(),
+    status: varchar('status', { length: 50 }).notNull().default('booked'), // 'booked', 'attended', 'cancelled', 'no_show'
+    checkedInAt: timestamp('checked_in_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    index('gym_class_bookings_class_idx').on(t.classId, t.bookingDate),
+    index('gym_class_bookings_member_idx').on(t.memberId),
+  ]
+);
+
+// ============================================================================
+// SENA FOR RESTAURANTS SCHEMA
+// ============================================================================
+
+export const restaurantTables = pgTable(
+  'restaurant_tables',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    propertyId: uuid('property_id')
+      .references(() => properties.id, { onDelete: 'cascade' })
+      .notNull(),
+    tableNumber: varchar('table_number', { length: 50 }).notNull(),
+    capacity: integer('capacity').notNull().default(4),
+    section: varchar('section', { length: 100 }).notNull().default('indoor'), // 'indoor', 'patio', 'rooftop', 'bar'
+    status: varchar('status', { length: 50 }).notNull().default('available'), // 'available', 'occupied', 'reserved', 'cleaning'
+    currentOrderId: uuid('current_order_id'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex('rest_tables_prop_num_idx').on(t.propertyId, t.tableNumber),
+    index('rest_tables_prop_idx').on(t.propertyId, t.status),
+  ]
+);
+
+export const restaurantMenuCategories = pgTable(
+  'restaurant_menu_categories',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    propertyId: uuid('property_id')
+      .references(() => properties.id, { onDelete: 'cascade' })
+      .notNull(),
+    name: varchar('name', { length: 255 }).notNull(),
+    description: text('description'),
+    displayOrder: integer('display_order').notNull().default(0),
+    isActive: boolean('is_active').notNull().default(true),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    index('rest_menu_cat_prop_idx').on(t.propertyId, t.displayOrder),
+  ]
+);
+
+export const restaurantMenuItems = pgTable(
+  'restaurant_menu_items',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    propertyId: uuid('property_id')
+      .references(() => properties.id, { onDelete: 'cascade' })
+      .notNull(),
+    categoryId: uuid('category_id')
+      .references(() => restaurantMenuCategories.id, { onDelete: 'restrict' })
+      .notNull(),
+    name: varchar('name', { length: 255 }).notNull(),
+    description: text('description'),
+    priceMinorUnits: bigint('price_minor_units', { mode: 'number' }).notNull(),
+    costMinorUnits: bigint('cost_minor_units', { mode: 'number' }).notNull().default(0),
+    imageUrl: text('image_url'),
+    isAvailable: boolean('is_available').notNull().default(true),
+    preparationTimeMinutes: integer('preparation_time_minutes').notNull().default(15),
+    preparationStation: varchar('preparation_station', { length: 50 }).notNull().default('kitchen'), // 'kitchen', 'bar', 'grill', 'dessert'
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    index('rest_menu_item_prop_idx').on(t.propertyId, t.categoryId),
+  ]
+);
+
+export const restaurantOrders = pgTable(
+  'restaurant_orders',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    propertyId: uuid('property_id')
+      .references(() => properties.id, { onDelete: 'cascade' })
+      .notNull(),
+    organizationId: uuid('organization_id')
+      .references(() => organizations.id, { onDelete: 'cascade' })
+      .notNull(),
+    orderNumber: varchar('order_number', { length: 50 }).notNull(),
+    orderType: varchar('order_type', { length: 50 }).notNull().default('dine_in'), // 'dine_in', 'takeout', 'delivery', 'room_service'
+    tableId: uuid('table_id').references(() => restaurantTables.id, { onDelete: 'set null' }),
+    guestId: uuid('guest_id').references(() => guests.id, { onDelete: 'set null' }),
+    reservationId: uuid('reservation_id').references(() => reservations.id, { onDelete: 'set null' }),
+    waiterId: uuid('waiter_id').references(() => users.id, { onDelete: 'set null' }),
+    status: varchar('status', { length: 50 }).notNull().default('open'), // 'open', 'sent_to_kds', 'preparing', 'ready', 'served', 'completed', 'cancelled'
+    subtotalMinorUnits: bigint('subtotal_minor_units', { mode: 'number' }).notNull().default(0),
+    taxMinorUnits: bigint('tax_minor_units', { mode: 'number' }).notNull().default(0),
+    serviceChargeMinorUnits: bigint('service_charge_minor_units', { mode: 'number' }).notNull().default(0),
+    discountMinorUnits: bigint('discount_minor_units', { mode: 'number' }).notNull().default(0),
+    totalAmountMinorUnits: bigint('total_amount_minor_units', { mode: 'number' }).notNull().default(0),
+    paidAmountMinorUnits: bigint('paid_amount_minor_units', { mode: 'number' }).notNull().default(0),
+    notes: text('notes'),
+    openedAt: timestamp('opened_at', { withTimezone: true }).defaultNow().notNull(),
+    closedAt: timestamp('closed_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex('rest_orders_prop_num_idx').on(t.propertyId, t.orderNumber),
+    index('rest_orders_prop_idx').on(t.propertyId, t.status, t.openedAt),
+  ]
+);
+
+export const restaurantOrderItems = pgTable(
+  'restaurant_order_items',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    orderId: uuid('order_id')
+      .references(() => restaurantOrders.id, { onDelete: 'cascade' })
+      .notNull(),
+    menuItemId: uuid('menu_item_id')
+      .references(() => restaurantMenuItems.id, { onDelete: 'restrict' })
+      .notNull(),
+    quantity: integer('quantity').notNull().default(1),
+    unitPriceMinorUnits: bigint('unit_price_minor_units', { mode: 'number' }).notNull(),
+    totalAmountMinorUnits: bigint('total_amount_minor_units', { mode: 'number' }).notNull(),
+    notes: text('notes'),
+    preparationStation: varchar('preparation_station', { length: 50 }).notNull().default('kitchen'),
+    kdsStatus: varchar('kds_status', { length: 50 }).notNull().default('pending'), // 'pending', 'cooking', 'ready', 'served'
+    sentToKdsAt: timestamp('sent_to_kds_at', { withTimezone: true }),
+    completedAt: timestamp('completed_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    index('rest_order_items_order_idx').on(t.orderId),
+    index('rest_order_items_station_kds_idx').on(t.preparationStation, t.kdsStatus),
+  ]
+);
+
+export const restaurantIngredients = pgTable(
+  'restaurant_ingredients',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    propertyId: uuid('property_id')
+      .references(() => properties.id, { onDelete: 'cascade' })
+      .notNull(),
+    name: varchar('name', { length: 255 }).notNull(),
+    unitOfMeasure: varchar('unit_of_measure', { length: 50 }).notNull().default('unit'),
+    currentStock: numeric('current_stock', { precision: 12, scale: 3 }).notNull().default('0'),
+    minimumStockAlert: numeric('minimum_stock_alert', { precision: 12, scale: 3 }).notNull().default('0'),
+    costPerUnitMinorUnits: bigint('cost_per_unit_minor_units', { mode: 'number' }).notNull().default(0),
+    supplierName: varchar('supplier_name', { length: 255 }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    index('rest_ingredients_prop_idx').on(t.propertyId),
+  ]
+);
+
+export const restaurantRecipes = pgTable(
+  'restaurant_recipes',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    propertyId: uuid('property_id')
+      .references(() => properties.id, { onDelete: 'cascade' })
+      .notNull(),
+    menuItemId: uuid('menu_item_id')
+      .references(() => restaurantMenuItems.id, { onDelete: 'cascade' })
+      .notNull(),
+    ingredientId: uuid('ingredient_id')
+      .references(() => restaurantIngredients.id, { onDelete: 'cascade' })
+      .notNull(),
+    quantityRequired: numeric('quantity_required', { precision: 12, scale: 3 }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex('rest_recipes_item_ing_idx').on(t.menuItemId, t.ingredientId),
+    index('rest_recipes_prop_idx').on(t.propertyId),
+  ]
+);
+
