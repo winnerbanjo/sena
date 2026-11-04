@@ -68,5 +68,5 @@ async function handlePOST(req: NextRequest) {
   }
 }
 
-export const GET = withMerchant(handleGET, 'reservations');
-export const POST = withMerchant(handlePOST, 'reservations');
+export const GET = withMerchant(handleGET, 'gym');
+export const POST = withMerchant(handlePOST, 'gym');

@@ -24,8 +24,12 @@ import {
   Plus,
   FileSpreadsheet,
   Plug,
+  Dumbbell,
+  QrCode,
+  Utensils,
 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
+import { useWorkspace } from './workspace-access';
 
 interface CommandPaletteProps {
   open: boolean;
@@ -56,28 +60,40 @@ export function CommandPalette({ open, onClose, onOpenNewReservation }: CommandP
   const [liveRooms, setLiveRooms] = React.useState<any[]>([]);
   const inputRef = React.useRef<HTMLInputElement>(null);
 
+  const workspace = useWorkspace();
+  const industry = workspace?.property?.industry || 'hotel';
+  const [liveMembers, setLiveMembers] = React.useState<any[]>([]);
+
   React.useEffect(() => {
     if (open) {
       setTimeout(() => inputRef.current?.focus(), 50);
       setQuery('');
       setSelectedIndex(0);
 
-      // Fetch live data from PostgreSQL API
-      fetch('/api/reservations')
-        .then((res) => res.json())
-        .then((data) => {
-          if (data?.reservations) setLiveReservations(data.reservations);
-        })
-        .catch(() => {});
+      if (industry === 'gym') {
+        fetch('/api/gym/members')
+          .then((res) => res.json())
+          .then((data) => {
+            if (data?.members) setLiveMembers(data.members);
+          })
+          .catch(() => {});
+      } else if (industry === 'hotel') {
+        fetch('/api/reservations')
+          .then((res) => res.json())
+          .then((data) => {
+            if (data?.reservations) setLiveReservations(data.reservations);
+          })
+          .catch(() => {});
 
-      fetch('/api/rooms')
-        .then((res) => res.json())
-        .then((data) => {
-          if (data?.rooms) setLiveRooms(data.rooms);
-        })
-        .catch(() => {});
+        fetch('/api/rooms')
+          .then((res) => res.json())
+          .then((data) => {
+            if (data?.rooms) setLiveRooms(data.rooms);
+          })
+          .catch(() => {});
+      }
     }
-  }, [open]);
+  }, [open, industry]);
 
   // Pages definition
   const pages: CommandItem[] = [
@@ -181,10 +197,87 @@ export function CommandPalette({ open, onClose, onOpenNewReservation }: CommandP
     action: () => router.push(`/rooms`),
   }));
 
-  const allItems: CommandItem[] = [...actions, ...pages, ...reservations, ...rooms];
+  // Gym specific pages & actions
+  const gymPages: CommandItem[] = [
+    { id: 'p-gym-dash', category: 'pages', title: 'Command Center', subtitle: 'Live floor capacity & gym overview', aliases: 'Gym Command Center Dashboard', icon: Dumbbell, action: () => { onClose(); router.push('/gym'); } },
+    { id: 'p-gym-members', category: 'pages', title: 'Member Directory', subtitle: 'View, search, and register gym members', aliases: 'Gym Members Directory', icon: Users, action: () => { onClose(); router.push('/gym/members'); } },
+    { id: 'p-gym-term', category: 'pages', title: 'Access Terminal', subtitle: 'QR scan entry and door access gate', aliases: 'QR Check-in Access Terminal', icon: QrCode, action: () => { onClose(); router.push('/gym/access-terminal'); } },
+    { id: 'p-gym-plans', category: 'pages', title: 'Plans & Passes', subtitle: 'Membership tiers, passes, and pricing', aliases: 'Gym Plans Subscriptions Passes', icon: ClipboardList, action: () => { onClose(); router.push('/gym/plans'); } },
+    { id: 'p-gym-classes', category: 'pages', title: 'Classes & Schedule', subtitle: 'Group fitness classes & timetable', aliases: 'Gym Classes Fitness Schedule Timetable', icon: Calendar, action: () => { onClose(); router.push('/gym/classes'); } },
+    { id: 'p-gym-trainers', category: 'pages', title: 'Trainers & Instructors', subtitle: 'Fitness coaches and class leads', aliases: 'Gym Trainers Instructors Coaches', icon: Layers, action: () => { onClose(); router.push('/gym/trainers'); } },
+    { id: 'p-payments', category: 'pages', title: 'Payments', subtitle: 'Subscription settlements & transactions', aliases: 'Payments', icon: CreditCard, action: () => { onClose(); router.push('/payments'); } },
+    { id: 'p-invoices', category: 'pages', title: 'Invoices', subtitle: 'Membership dues & corporate billing', aliases: 'Invoices Billing', icon: FileSpreadsheet, action: () => { onClose(); router.push('/invoices'); } },
+    { id: 'p-reports', category: 'pages', title: 'Reports & Attendance', subtitle: 'Member attendance and check-in audit', aliases: 'Reports Attendance', icon: FileSpreadsheet, action: () => { onClose(); router.push('/reports'); } },
+    { id: 'p-staff', category: 'pages', title: 'Staff & Reception', subtitle: 'Gym desk and operational team', aliases: 'Staff Reception', icon: Users, action: () => { onClose(); router.push('/staff'); } },
+    { id: 'p-settings', category: 'pages', title: 'Gym Settings', subtitle: 'Facility hours, tax, and property details', aliases: 'Settings Facility', icon: Settings, action: () => { onClose(); router.push('/settings'); } },
+  ];
+
+  const gymActions: CommandItem[] = [
+    {
+      id: 'act-gym-terminal',
+      category: 'actions',
+      title: 'Launch Access Terminal',
+      subtitle: 'Open live QR code scanner gate',
+      badge: 'QR',
+      aliases: 'Scan Check-in Terminal Gate',
+      icon: QrCode,
+      action: () => {
+        onClose();
+        router.push('/gym/access-terminal');
+      },
+    },
+    {
+      id: 'act-gym-reg',
+      category: 'actions',
+      title: 'Register New Member',
+      subtitle: 'Add member and assign membership plan',
+      badge: 'Gym',
+      aliases: 'Add Register Member Enrol',
+      icon: Plus,
+      action: () => {
+        onClose();
+        router.push('/gym/members');
+      },
+    },
+    {
+      id: 'act-gym-class',
+      category: 'actions',
+      title: 'Schedule Fitness Class',
+      subtitle: 'Create group workout session',
+      badge: 'Classes',
+      aliases: 'Add Class Workout Session',
+      icon: Calendar,
+      action: () => {
+        onClose();
+        router.push('/gym/classes');
+      },
+    },
+  ];
+
+  const memberItems: CommandItem[] = liveMembers.map((m) => ({
+    id: `member-${m.id}`,
+    category: 'guests',
+    title: m.fullName,
+    subtitle: `${m.memberNumber} · ${m.phone} · ${m.status.toUpperCase()}`,
+    badge: 'Member',
+    aliases: `${m.memberNumber} ${m.phone} ${m.email || ''}`,
+    icon: User,
+    action: () => {
+      onClose();
+      router.push('/gym/members');
+    },
+  }));
+
+  const allItems: CommandItem[] =
+    industry === 'gym'
+      ? [...gymActions, ...gymPages, ...memberItems]
+      : [...actions, ...pages, ...reservations, ...rooms];
 
   const filteredItems = React.useMemo(() => {
     if (!query.trim()) {
+      if (industry === 'gym') {
+        return [...gymActions, ...gymPages.slice(0, 5), ...memberItems.slice(0, 3)];
+      }
       return [...actions, ...pages.slice(0, 6), ...reservations.slice(0, 3)];
     }
     const q = query.toLowerCase();
@@ -194,7 +287,7 @@ export function CommandPalette({ open, onClose, onOpenNewReservation }: CommandP
         (item.subtitle && item.subtitle.toLowerCase().includes(q)) ||
         (item.aliases && item.aliases.toLowerCase().includes(q))
     );
-  }, [query]);
+  }, [query, allItems, industry]);
 
   // Keyboard navigation
   React.useEffect(() => {

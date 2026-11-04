@@ -1,10 +1,12 @@
 'use client';
 
 import * as React from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Topbar } from '../../../components/topbar';
 import { pageMain, pageStack } from '../../../components/design';
 import { useToast } from '../../../components/toast-notification';
-import { Plus, Search, Users, QrCode, Phone, Mail, RefreshCw } from 'lucide-react';
+import { Plus, Search, Users, QrCode, Phone, Mail, RefreshCw, Smartphone } from 'lucide-react';
+import Link from 'next/link';
 import {
   Dialog,
   DialogContent,
@@ -16,6 +18,7 @@ import { PageLoadState } from '../../../components/page-load-state';
 
 export default function GymMembersPage() {
   const toast = useToast();
+  const searchParams = useSearchParams();
   const [members, setMembers] = React.useState<any[]>([]);
   const [plans, setPlans] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -32,6 +35,22 @@ export default function GymMembersPage() {
   const [emergencyName, setEmergencyName] = React.useState('');
   const [emergencyPhone, setEmergencyPhone] = React.useState('');
   const [selectedPlanId, setSelectedPlanId] = React.useState('');
+  const [leadIdToConvert, setLeadIdToConvert] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    const convertName = searchParams?.get('convertName');
+    const convertPhone = searchParams?.get('convertPhone');
+    const convertEmail = searchParams?.get('convertEmail');
+    const leadId = searchParams?.get('leadId');
+
+    if (convertName || convertPhone) {
+      if (convertName) setFullName(convertName);
+      if (convertPhone) setPhone(convertPhone);
+      if (convertEmail) setEmail(convertEmail);
+      if (leadId) setLeadIdToConvert(leadId);
+      setRegisterOpen(true);
+    }
+  }, [searchParams]);
 
   const fetchMembers = React.useCallback(async () => {
     setLoadError(false);
@@ -89,6 +108,24 @@ export default function GymMembersPage() {
       if (!res.ok) throw new Error(data.error || 'Failed to register member');
 
       toast.success('Registration Complete', `${data.member.fullName} registered as ${data.member.memberNumber}`);
+
+      if (leadIdToConvert) {
+        try {
+          await fetch('/api/gym/leads', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              id: leadIdToConvert,
+              status: 'converted',
+              convertedMemberId: data.member.id,
+            }),
+          });
+          setLeadIdToConvert(null);
+        } catch {
+          // ignore lead status update error
+        }
+      }
+
       setRegisterOpen(false);
       setFullName('');
       setPhone('');
@@ -177,13 +214,14 @@ export default function GymMembersPage() {
                   <th className="py-3 px-5 font-medium">Contact</th>
                   <th className="py-3 px-5 font-medium">Active Subscription</th>
                   <th className="py-3 px-5 font-medium">Access Pass</th>
-                  <th className="py-3 px-5 font-medium text-end">Status</th>
+                  <th className="py-3 px-5 font-medium text-center">Status</th>
+                  <th className="py-3 px-5 font-medium text-end">Portal</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#E8E1D5] text-xs">
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="py-16 text-center text-xs text-[#7A7267]">
+                    <td colSpan={6} className="py-16 text-center text-xs text-[#7A7267]">
                       No members match the current search or filters. Click &ldquo;Register New Member&rdquo; to add your first client.
                     </td>
                   </tr>
@@ -226,7 +264,7 @@ export default function GymMembersPage() {
                           <span className="truncate max-w-[130px]">{m.qrCodeToken}</span>
                         </div>
                       </td>
-                      <td className="py-4 px-5 text-end">
+                      <td className="py-4 px-5 text-center">
                         <span
                           className={`inline-block px-2.5 py-0.5 rounded text-[11px] font-medium capitalize ${
                             m.status === 'active'
@@ -238,6 +276,15 @@ export default function GymMembersPage() {
                         >
                           {m.status}
                         </span>
+                      </td>
+                      <td className="py-4 px-5 text-end">
+                        <Link
+                          href={`/gym/member-portal?memberId=${m.id}`}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs border border-[#E8E1D5] bg-white hover:bg-[#FAF7F2] text-[#71382D] font-medium transition-colors"
+                        >
+                          <Smartphone className="w-3.5 h-3.5" />
+                          <span>Pass</span>
+                        </Link>
                       </td>
                     </tr>
                   ))

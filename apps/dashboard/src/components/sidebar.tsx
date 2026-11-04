@@ -24,6 +24,8 @@ import {
   Dumbbell,
   Utensils,
   QrCode,
+  UserPlus,
+  Smartphone,
 } from 'lucide-react';
 import { useWorkspace } from './workspace-access';
 import { useMobileNav } from './dashboard-shell';
@@ -47,8 +49,9 @@ const HOTEL_OPERATIONS: NavItem[] = [
 ];
 
 const GYM_OPERATIONS: NavItem[] = [
-  { id: 'gymDashboard', label: 'Gym Operations', href: '/gym', icon: Dumbbell },
+  { id: 'gymDashboard', label: 'Command Center', href: '/gym', icon: Dumbbell },
   { id: 'gymMembers', label: 'Members', href: '/gym/members', icon: Users },
+  { id: 'gymLeads', label: 'Sales & Leads', href: '/gym/leads', icon: UserPlus },
   { id: 'gymTerminal', label: 'Access Terminal', href: '/gym/access-terminal', icon: QrCode },
   { id: 'gymPlans', label: 'Plans & Passes', href: '/gym/plans', icon: ClipboardList },
   { id: 'gymClasses', label: 'Classes & Schedule', href: '/gym/classes', icon: Calendar },
@@ -82,6 +85,7 @@ const HOTEL_SECONDARY_MORE: NavItem[] = [
 ];
 
 const GYM_SECONDARY_MORE: NavItem[] = [
+  { id: 'memberPortal', label: 'Member Portal Preview', href: '/gym/member-portal', icon: Smartphone },
   { id: 'reports', label: 'Reports & Attendance', href: '/reports', icon: ClipboardList },
   { id: 'apps', label: 'Connected Apps', href: '/apps', icon: Plug },
   { id: 'staff', label: 'Staff & Reception', href: '/staff', icon: Users },
@@ -165,24 +169,26 @@ function SidebarNavItems({ onNavigate }: { onNavigate?: () => void }) {
 
         {/* Navigation */}
         <nav className="mt-3.5 space-y-3" aria-label="Sidebar navigation">
-          {/* Overview */}
-          <Link
-            href="/"
-            prefetch={false}
-            onClick={onNavigate}
-            className={`flex h-8 items-center gap-2.5 rounded-md px-2.5 text-[13px] font-medium transition-colors ${
-              pathname === '/'
-                ? 'border-s-2 border-[#B85C3E] bg-[#F6F1EA] text-[#191816] font-semibold'
-                : 'text-[#5C564D] hover:bg-[#FAF8F6] hover:text-[#191816]'
-            }`}
-          >
-            <Home
-              className={`h-4 w-4 flex-shrink-0 ${
-                pathname === '/' ? 'text-[#B85C3E]' : 'text-[#7A7267]'
+          {/* Overview (Hotels only) */}
+          {industry === 'hotel' && (
+            <Link
+              href="/"
+              prefetch={false}
+              onClick={onNavigate}
+              className={`flex h-8 items-center gap-2.5 rounded-md px-2.5 text-[13px] font-medium transition-colors ${
+                pathname === '/'
+                  ? 'border-s-2 border-[#B85C3E] bg-[#F6F1EA] text-[#191816] font-semibold'
+                  : 'text-[#5C564D] hover:bg-[#FAF8F6] hover:text-[#191816]'
               }`}
-            />
-            <span>Overview</span>
-          </Link>
+            >
+              <Home
+                className={`h-4 w-4 flex-shrink-0 ${
+                  pathname === '/' ? 'text-[#B85C3E]' : 'text-[#7A7267]'
+                }`}
+              />
+              <span>Overview</span>
+            </Link>
+          )}
 
           {/* Operations */}
           <div className="space-y-0.5">
@@ -190,7 +196,10 @@ function SidebarNavItems({ onNavigate }: { onNavigate?: () => void }) {
               {industry === 'gym' ? 'Gym Operations' : industry === 'restaurant' ? 'Restaurant POS & Floor' : 'Hotel PMS'}
             </div>
             {primaryOperations.map((item) => {
-              const isActive = pathname.startsWith(item.href);
+              const isActive =
+                item.href === '/gym'
+                  ? pathname === '/' || pathname === '/gym' || pathname.startsWith('/gym/page')
+                  : pathname.startsWith(item.href);
               const Icon = item.icon;
 
               return (

@@ -1,12 +1,14 @@
 'use client';
 
 import * as React from 'react';
-import { Bell, Menu, Plus, Search } from 'lucide-react';
+import Link from 'next/link';
+import { Bell, Menu, Plus, Search, QrCode, Utensils } from 'lucide-react';
 import { Button } from '@sena/ui';
 import { useDashboard } from './dashboard-shell';
 import { useTranslations } from 'next-intl';
 import { usePathname } from 'next/navigation';
 import { loadUnreadNotificationCount } from '../lib/notification-unread';
+import { useWorkspace } from './workspace-access';
 
 interface TopbarProps {
   title: string;
@@ -40,6 +42,8 @@ export function Topbar({ title, onOpenNewReservation, onOpenSearch }: TopbarProp
   const t = useTranslations('common');
   const tRoot = useTranslations();
   const pathname = usePathname() || '/';
+  const workspace = useWorkspace();
+  const industry = workspace?.property?.industry || 'hotel';
   const titleKey = TITLE_KEYS.find((entry) => entry.test(pathname))?.key;
   const heading = titleKey && tRoot.has(titleKey as never) ? tRoot(titleKey as never) : title;
   const {
@@ -127,17 +131,37 @@ export function Topbar({ title, onOpenNewReservation, onOpenSearch }: TopbarProp
         </button>
 
         {/* Global Primary Action */}
-        <Button
-          onClick={handleOpenNewRes}
-          className="h-9 px-3 text-xs font-semibold shadow-xs"
-        >
-          <Plus className="w-3.5 h-3.5 flex-shrink-0" />
-          <span className="hidden sm:inline">{t('newReservation')}</span>
-          <span className="sm:hidden">{t('new')}</span>
-          <kbd className="ms-1 hidden rounded bg-black/15 px-1.5 py-0.5 text-[10px] font-mono opacity-80 lg:inline">
-            N
-          </kbd>
-        </Button>
+        {industry === 'gym' ? (
+          <Link
+            href="/gym/access-terminal"
+            className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md bg-[#71382D] hover:bg-[#5E2E25] text-white text-xs font-semibold shadow-xs transition-colors"
+          >
+            <QrCode className="w-3.5 h-3.5 flex-shrink-0" />
+            <span className="hidden sm:inline">Access Terminal</span>
+            <span className="sm:hidden">Terminal</span>
+          </Link>
+        ) : industry === 'restaurant' ? (
+          <Link
+            href="/pos"
+            className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md bg-[#71382D] hover:bg-[#5E2E25] text-white text-xs font-semibold shadow-xs transition-colors"
+          >
+            <Utensils className="w-3.5 h-3.5 flex-shrink-0" />
+            <span className="hidden sm:inline">POS Order</span>
+            <span className="sm:hidden">POS</span>
+          </Link>
+        ) : (
+          <Button
+            onClick={handleOpenNewRes}
+            className="h-9 px-3 text-xs font-semibold shadow-xs"
+          >
+            <Plus className="w-3.5 h-3.5 flex-shrink-0" />
+            <span className="hidden sm:inline">{t('newReservation')}</span>
+            <span className="sm:hidden">{t('new')}</span>
+            <kbd className="ms-1 hidden rounded bg-black/15 px-1.5 py-0.5 text-[10px] font-mono opacity-80 lg:inline">
+              N
+            </kbd>
+          </Button>
+        )}
 
         {/* Notifications */}
         <button

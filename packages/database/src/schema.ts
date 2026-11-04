@@ -1569,6 +1569,59 @@ export const gymClassBookings = pgTable(
   ]
 );
 
+export const gymLeads = pgTable(
+  'gym_leads',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    propertyId: uuid('property_id')
+      .references(() => properties.id, { onDelete: 'cascade' })
+      .notNull(),
+    organizationId: uuid('organization_id')
+      .references(() => organizations.id, { onDelete: 'cascade' })
+      .notNull(),
+    fullName: varchar('full_name', { length: 255 }).notNull(),
+    phone: varchar('phone', { length: 50 }).notNull(),
+    email: varchar('email', { length: 255 }),
+    source: varchar('source', { length: 100 }).notNull().default('walk_in'), // 'walk_in', 'instagram', 'referral', 'website', 'other'
+    status: varchar('status', { length: 50 }).notNull().default('new'), // 'new', 'contacted', 'trial_scheduled', 'trial_completed', 'offered', 'converted', 'lost'
+    trialDate: varchar('trial_date', { length: 10 }),
+    assignedStaffId: uuid('assigned_staff_id').references(() => users.id, { onDelete: 'set null' }),
+    notes: text('notes'),
+    lossReason: text('loss_reason'),
+    convertedMemberId: uuid('converted_member_id').references(() => gymMembers.id, { onDelete: 'set null' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    index('gym_leads_prop_status_idx').on(t.propertyId, t.status),
+    index('gym_leads_created_idx').on(t.propertyId, t.createdAt),
+  ]
+);
+
+export const gymSubscriptionHistory = pgTable(
+  'gym_subscription_history',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    propertyId: uuid('property_id')
+      .references(() => properties.id, { onDelete: 'cascade' })
+      .notNull(),
+    subscriptionId: uuid('subscription_id')
+      .references(() => gymSubscriptions.id, { onDelete: 'cascade' })
+      .notNull(),
+    memberId: uuid('member_id')
+      .references(() => gymMembers.id, { onDelete: 'cascade' })
+      .notNull(),
+    action: varchar('action', { length: 50 }).notNull(), // 'created', 'renewed', 'frozen', 'resumed', 'cancelled', 'upgraded'
+    details: text('details'),
+    performedBy: varchar('performed_by', { length: 255 }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    index('gym_sub_hist_sub_idx').on(t.subscriptionId),
+    index('gym_sub_hist_member_idx').on(t.memberId),
+  ]
+);
+
 // ============================================================================
 // SENA FOR RESTAURANTS SCHEMA
 // ============================================================================

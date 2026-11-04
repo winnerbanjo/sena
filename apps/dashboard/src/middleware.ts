@@ -54,6 +54,10 @@ const DASHBOARD_ROUTES = new Set([
   'reset-password',
   'verify-email',
   'site',
+  'gym',
+  'restaurant',
+  'kds',
+  'pos',
 ]);
 
 export const middleware = auth((req) => {

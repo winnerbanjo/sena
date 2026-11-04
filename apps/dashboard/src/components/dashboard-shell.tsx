@@ -84,7 +84,14 @@ export function DashboardShell({ children, workspaceResult }: { children: React.
         setIsSearchOpen(true);
       } else if (e.key === 'n' || e.key === 'N') {
         e.preventDefault();
-        setIsNewResOpen(true);
+        const industry = workspaceResult?.workspace?.property?.industry;
+        if (industry === 'gym') {
+          window.location.assign('/gym/members');
+        } else if (industry === 'restaurant') {
+          window.location.assign('/pos');
+        } else {
+          setIsNewResOpen(true);
+        }
       }
     }
 

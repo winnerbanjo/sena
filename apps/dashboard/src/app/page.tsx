@@ -20,6 +20,9 @@ import { ReservationSuccessModal } from '../components/reservation-success-modal
 import { OccupancyChart } from '../components/occupancy-chart';
 import { ReservationDrawer } from '../components/reservation-drawer';
 import { Topbar } from '../components/topbar';
+import { useRouter } from 'next/navigation';
+import { useWorkspace } from '../components/workspace-access';
+import GymDashboardPage from './gym/page';
 
 interface OverviewPayload {
   property: {
@@ -106,6 +109,20 @@ interface OperationRow {
 }
 
 export default function OverviewPage() {
+  const workspace = useWorkspace();
+  const router = useRouter();
+  const industry = workspace?.property?.industry || 'hotel';
+
+  React.useEffect(() => {
+    if (industry === 'restaurant') {
+      router.replace('/pos');
+    }
+  }, [industry, router]);
+
+  if (industry === 'gym') {
+    return <GymDashboardPage />;
+  }
+
   const t = useTranslations('overview');
   const toast = useToast();
 
