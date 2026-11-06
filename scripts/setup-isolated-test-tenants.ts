@@ -2,12 +2,24 @@ import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import bcrypt from 'bcryptjs';
 
-// 1. Read production DATABASE_URL
-const envPath = resolve(__dirname, '../apps/booking/.env.local');
-const envContent = readFileSync(envPath, 'utf8');
-const match = envContent.match(/^DATABASE_URL=["']?([^"'\r\n]+)["']?/m);
-if (!match) throw new Error('DATABASE_URL not found');
-process.env.DATABASE_URL = match[1].trim();
+// 1. Read DATABASE_URL
+if (!process.env.DATABASE_URL) {
+  try {
+    const envPath = resolve(__dirname, '../apps/dashboard/.env.local');
+    const envContent = readFileSync(envPath, 'utf8');
+    const match = envContent.match(/^DATABASE_URL=["']?([^"'\r\n]+)["']?/m);
+    if (match) process.env.DATABASE_URL = match[1].trim();
+  } catch {}
+}
+if (!process.env.DATABASE_URL) {
+  try {
+    const envPath = resolve(__dirname, '../.env');
+    const envContent = readFileSync(envPath, 'utf8');
+    const match = envContent.match(/^DATABASE_URL=["']?([^"'\r\n]+)["']?/m);
+    if (match) process.env.DATABASE_URL = match[1].trim();
+  } catch {}
+}
+if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL not found');
 
 async function main() {
   const {

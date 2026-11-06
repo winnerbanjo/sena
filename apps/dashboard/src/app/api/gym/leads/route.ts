@@ -109,7 +109,7 @@ async function handlePOST(req: NextRequest) {
     if (industryCheck) return industryCheck;
 
     const propertyId = tenant.propertyId;
-    const organizationId = tenant.organizationId;
+    const organizationId = tenant.property.organizationId;
     const body = await req.json();
 
     const { fullName, phone, email, source, notes, trialDate } = body;
