@@ -571,7 +571,7 @@ async function run() {
     console.log('\n9. [Scenario 6] Verifying Screen Reloads & Database Persistence...');
     const reloadList = await apiRequest('/api/reservations');
     assert.equal(reloadList.status, 200);
-    const reloadedRes = reloadList.data.reservations.find((r: any) => r.id === res1.id);
+    const reloadedRes = reloadList.data.items.find((r: any) => r.id === res1.id);
     assert.ok(reloadedRes, 'Reservation must appear in reservations list');
     assert.equal(reloadedRes.status, 'checked_in');
 

@@ -75,6 +75,21 @@ async function handlePOST(
     const actorName = tenant.user.fullName || 'Staff';
 
     const result = await db.transaction(async (tx) => {
+      // Global ledger lock order: property_invoices (ascending id) first, then
+      // reservations. The invoice UPDATE below only touches rows locked here.
+      await tx
+        .select({ id: propertyInvoices.id })
+        .from(propertyInvoices)
+        .where(
+          and(
+            eq(propertyInvoices.reservationId, res.id),
+            eq(propertyInvoices.propertyId, propertyId),
+            inArray(propertyInvoices.status, ['draft', 'issued'])
+          )
+        )
+        .orderBy(propertyInvoices.id)
+        .for('update');
+
       // 1. Update reservation guest
       const [updatedReservation] = await tx
         .update(reservations)

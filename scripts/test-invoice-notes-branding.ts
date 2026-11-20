@@ -172,8 +172,11 @@ const paymentRoute = source('apps/dashboard/src/app/api/invoices/[id]/payments/r
 assert.match(paymentRoute, /applyInvoiceSettlementToReservation/);
 assert.doesNotMatch(paymentRoute, /Amount is more than the reservation outstanding balance/);
 const editRoute = source('apps/dashboard/src/app/api/invoices/[id]/route.ts');
-assert.match(editRoute, /planInvoiceEdit/);
-assert.match(editRoute, /activityLogs/);
+// Edits are still planned server-side; the plan now runs inside the locked
+// transaction helper instead of the route body.
+assert.match(editRoute, /applyInvoiceEdit/);
+assert.match(source('apps/dashboard/src/lib/invoice-edit-apply.ts'), /planInvoiceEdit/);
+assert.match(source('apps/dashboard/src/lib/invoice-edit-apply.ts'), /activityLogs/);
 assert.doesNotMatch(editRoute, /applyInvoiceSettlementToReservation/);
 assert.doesNotMatch(editRoute, /paidAmountMinorUnits:/);
 console.log('PASS invoice edits do not rewrite settlement or payment rows');

@@ -1,3 +1,13 @@
+import { MoneyRangeError } from '@sena/config';
+
+/**
+ * HTTP status for a domain error. Money bounds are correctable client input,
+ * so they are 400s rather than server faults.
+ */
+export function errorStatus(error: unknown, fallback = 500): number {
+  return error instanceof MoneyRangeError ? 400 : fallback;
+}
+
 /**
  * Formats API errors for display in the merchant dashboard and front desk.
  * Operational errors and validation messages are returned clearly to staff.

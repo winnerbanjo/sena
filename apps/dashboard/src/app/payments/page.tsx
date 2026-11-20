@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl';
 import { PageLoadState, readJsonResponse } from '../../components/page-load-state';
 import * as React from 'react';
 import { formatNaira } from '@sena/config';
+import { formatMinorUnits } from '../../lib/minor-units';
 import {
   Badge,
   Button,
@@ -37,9 +38,17 @@ interface PaymentItem {
 export default function PaymentsPage() {
   const t = useTranslations('payments');
   const [payments, setPayments] = React.useState<PaymentItem[]>([]);
-  const [reservations, setReservations] = React.useState<any[]>([]);
   const [receivables, setReceivables] = React.useState<any[]>([]);
   const [proofs, setProofs] = React.useState<any[]>([]);
+  const [metrics, setMetrics] = React.useState({
+    totalCollectedMinorUnits: '0',
+    pendingFoliosMinorUnits: '0',
+    directBookingShare: 0,
+  });
+  const [nextCursor, setNextCursor] = React.useState<string | null>(null);
+  const [receivablesCursor, setReceivablesCursor] = React.useState<string | null>(null);
+  const [proofsCursor, setProofsCursor] = React.useState<string | null>(null);
+  const [loadingMore, setLoadingMore] = React.useState<'payments' | 'receivables' | 'proofs' | null>(null);
   const [loadError, setLoadError] = React.useState(false);
   const [loading, setLoading] = React.useState(true);
   const [recordOpen, setRecordOpen] = React.useState(false);
@@ -50,57 +59,70 @@ export default function PaymentsPage() {
   const recordDialogRef = useDialogA11y<HTMLFormElement>(recordOpen, () => setRecordOpen(false));
   const receipt = usePaymentReceipt({ invalid: t('receiptInvalid'), tooLarge: t('receiptTooLarge') });
 
+  const mapPayment = React.useCallback((p: any): PaymentItem => ({
+    id: p.id,
+    reference: p.providerReference || `PAY-${p.id.slice(0, 6)}`,
+    guestName: p.guestName || 'Walk-in Guest',
+    amountMinorUnits: p.amountMinorUnits,
+    provider: p.provider || 'manual',
+    method: p.method || 'cash',
+    status: p.status || 'successful',
+    hasReceipt: Boolean(p.hasReceipt),
+    date: new Date(p.createdAt).toLocaleString('en-GB', {
+      day: '2-digit',
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit',
+    }),
+  }), []);
+
   React.useEffect(() => {
-    Promise.all([
-      fetch('/api/payments').then(readJsonResponse),
-      fetch('/api/reservations').then(readJsonResponse),
-    ])
-      .then(([payData, resData]) => {
-        if (payData.payments) {
-          const mapped: PaymentItem[] = payData.payments.map((p: any) => ({
-            id: p.id,
-            reference: p.providerReference || `PAY-${p.id.slice(0, 6)}`,
-            guestName: p.guestName || 'Walk-in Guest',
-            amountMinorUnits: p.amountMinorUnits,
-            provider: p.provider || 'manual',
-            method: p.method || 'cash',
-            status: p.status || 'successful',
-            hasReceipt: Boolean(p.hasReceipt),
-            date: new Date(p.createdAt).toLocaleString('en-GB', {
-              day: '2-digit',
-              month: 'short',
-              hour: '2-digit',
-              minute: '2-digit',
-            }),
-          }));
-          setPayments(mapped);
-        }
-        if (resData.reservations) {
-          setReservations(resData.reservations);
-        }
+    fetch('/api/payments?limit=25&receivablesLimit=100&proofsLimit=50')
+      .then(readJsonResponse)
+      .then((payData) => {
+        setPayments((payData.items || []).map(mapPayment));
+        setNextCursor(payData.nextCursor || null);
         if (payData.receivables) setReceivables(payData.receivables);
+        setReceivablesCursor(payData.receivablesNextCursor || null);
         if (payData.transferProofs) setProofs(payData.transferProofs);
+        setProofsCursor(payData.transferProofsNextCursor || null);
+        if (payData.metrics) setMetrics(payData.metrics);
       })
       .catch(() => setLoadError(true))
       .finally(() => setLoading(false));
-  }, []);
+  }, [mapPayment]);
 
-  const totalCollectedMinorUnits = payments
-    .filter((p) => p.status === 'successful')
-    .reduce((sum, p) => sum + p.amountMinorUnits, 0);
+  async function loadMore(section: 'payments' | 'receivables' | 'proofs') {
+    const cursor = section === 'payments' ? nextCursor : section === 'receivables' ? receivablesCursor : proofsCursor;
+    if (!cursor || loadingMore) return;
+    setLoadingMore(section);
+    try {
+      const params = new URLSearchParams({ limit: '25', receivablesLimit: '100', proofsLimit: '50' });
+      if (section === 'payments') params.set('cursor', cursor);
+      if (section === 'receivables') params.set('receivablesCursor', cursor);
+      if (section === 'proofs') params.set('proofsCursor', cursor);
+      const payData = await readJsonResponse(await fetch(`/api/payments?${params.toString()}`));
+      if (section === 'payments') {
+        setPayments((previous) => [...previous, ...(payData.items || []).map(mapPayment)]);
+        setNextCursor(payData.nextCursor || null);
+      } else if (section === 'receivables') {
+        setReceivables((previous) => [...previous, ...(payData.receivables || [])]);
+        setReceivablesCursor(payData.receivablesNextCursor || null);
+      } else {
+        setProofs((previous) => [...previous, ...(payData.transferProofs || [])]);
+        setProofsCursor(payData.transferProofsNextCursor || null);
+      }
+    } catch {
+      // Keep the already loaded rows; the user can retry the same control.
+    } finally {
+      setLoadingMore(null);
+    }
+  }
 
-  const pendingFoliosMinorUnits = reservations
-    .filter((r) => r.paymentStatus !== 'paid' && r.status !== 'cancelled')
-    .reduce((sum, r) => {
-      const balance = Number(r.totalAmountMinorUnits || 0) - Number(r.paidAmountMinorUnits || 0);
-      return sum + (balance > 0 ? balance : 0);
-    }, 0);
-
-  const directReservationsCount = reservations.filter((r) => r.source === 'direct').length;
-  const directBookingShare = reservations.length > 0
-    ? Math.round((directReservationsCount / reservations.length) * 100)
-    : 0;
-  const outstandingReservations = reservations.filter((reservation) => reservation.status !== 'cancelled' && Number(reservation.totalAmountMinorUnits || 0) > Number(reservation.paidAmountMinorUnits || 0));
+  const totalCollectedMinorUnits = metrics.totalCollectedMinorUnits;
+  const pendingFoliosMinorUnits = metrics.pendingFoliosMinorUnits;
+  const directBookingShare = metrics.directBookingShare;
+  const outstandingReservations = receivables;
 
   async function submitRecordPayment(event: React.FormEvent) {
     event.preventDefault();
@@ -172,7 +194,7 @@ export default function PaymentsPage() {
                 Settled revenue
               </span>
               <strong className="text-2xl font-medium tabular-nums tracking-tight text-[#191816]">
-                {formatNaira(totalCollectedMinorUnits)}
+                {formatMinorUnits(totalCollectedMinorUnits)}
               </strong>
             </div>
             <div className="flex items-center gap-2 text-xs text-[#7A7267] pt-2 border-t border-[#E8E2DA]">
@@ -187,7 +209,7 @@ export default function PaymentsPage() {
                 Outstanding
               </span>
               <strong className="text-2xl font-medium tabular-nums text-[#191816]">
-                {formatNaira(pendingFoliosMinorUnits)}
+                {formatMinorUnits(pendingFoliosMinorUnits)}
               </strong>
             </div>
             <p className="text-[11px] text-[#7A7267]">
@@ -298,6 +320,13 @@ export default function PaymentsPage() {
             </TableBody>
           </Table>
         </div>
+        {nextCursor && (
+          <div className="flex justify-center">
+            <Button size="sm" variant="secondary" className="text-xs" onClick={() => loadMore('payments')} disabled={loadingMore === 'payments'}>
+              {loadingMore === 'payments' ? 'Loading…' : 'Load more payments'}
+            </Button>
+          </div>
+        )}
 
         <div className="bg-white border border-[#E8E2DA] rounded-lg overflow-x-auto">
           <div className="p-4 border-b border-[#E8E2DA] bg-[#FAF9F6]">
@@ -321,6 +350,13 @@ export default function PaymentsPage() {
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+          {receivablesCursor && (
+            <div className="flex justify-center border-t border-[#E8E2DA] py-3">
+              <Button size="sm" variant="secondary" className="text-xs" onClick={() => loadMore('receivables')} disabled={loadingMore === 'receivables'}>
+                {loadingMore === 'receivables' ? 'Loading…' : 'Load more balances'}
+              </Button>
             </div>
           )}
         </div>
@@ -358,6 +394,13 @@ export default function PaymentsPage() {
                   {proof.proofUrl && <a href={proof.proofUrl} target="_blank" rel="noreferrer" className="text-[#71382D] underline text-xs">View submitted proof</a>}
                 </div>
               ))}
+            </div>
+          )}
+          {proofsCursor && (
+            <div className="flex justify-center border-t border-[#E8E2DA] py-3">
+              <Button size="sm" variant="secondary" className="text-xs" onClick={() => loadMore('proofs')} disabled={loadingMore === 'proofs'}>
+                {loadingMore === 'proofs' ? 'Loading…' : 'Load more proofs'}
+              </Button>
             </div>
           )}
         </div>

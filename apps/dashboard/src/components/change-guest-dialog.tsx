@@ -60,30 +60,28 @@ export function ChangeGuestDialog({
       return;
     }
 
-    setLoadingGuests(true);
-    fetch('/api/guests')
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (Array.isArray(data?.guests)) {
-          setGuests(data.guests);
-        }
-      })
-      .catch(() => setGuests([]))
-      .finally(() => setLoadingGuests(false));
-  }, [open]);
+    const controller = new AbortController();
+    const timer = setTimeout(() => {
+      setLoadingGuests(true);
+      const params = new URLSearchParams({ limit: '15' });
+      if (query.trim()) params.set('search', query.trim());
+      fetch(`/api/guests?${params.toString()}`, { signal: controller.signal })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (Array.isArray(data?.items)) {
+            setGuests(data.items);
+          }
+        })
+        .catch(() => setGuests([]))
+        .finally(() => setLoadingGuests(false));
+    }, query ? 250 : 0);
+    return () => {
+      controller.abort();
+      clearTimeout(timer);
+    };
+  }, [open, query]);
 
-  const filteredGuests = React.useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return guests.slice(0, 8);
-    return guests
-      .filter((g) => {
-        const name = (g.fullName || '').toLowerCase();
-        const email = (g.email || '').toLowerCase();
-        const phone = (g.phone || '').toLowerCase();
-        return name.includes(q) || email.includes(q) || phone.includes(q);
-      })
-      .slice(0, 15);
-  }, [guests, query]);
+  const filteredGuests = guests.slice(0, 15);
 
   async function handleConfirm(e: React.FormEvent) {
     e.preventDefault();
