@@ -66,6 +66,7 @@ async function handlePOST(req: NextRequest, { params }: { params: Promise<{ id: 
               ne(reservations.status, 'voided')
             )
           )
+          .orderBy(reservations.id)
           .for('update');
         let remaining = amount;
         for (const stay of groupStays) {
@@ -85,7 +86,9 @@ async function handlePOST(req: NextRequest, { params }: { params: Promise<{ id: 
           remaining -= apply;
         }
       } else if (invoice.reservationId) {
-        await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${invoice.reservationId}))`);
+        // No reservation advisory lock here: it would be acquired after the
+        // invoice row lock and invert the global advisory -> invoice ->
+        // reservation order used by the payment service.
         const [reservation] = await tx.select().from(reservations).where(eq(reservations.id, invoice.reservationId)).for('update');
         if (!reservation || reservation.propertyId !== invoice.propertyId) throw new Error('Reservation unavailable');
         const settlement = applyInvoiceSettlementToReservation({

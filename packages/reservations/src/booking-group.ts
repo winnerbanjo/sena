@@ -427,6 +427,29 @@ export async function addAccommodationToBooking(
   actor = { id: '', name: 'Front Desk' },
 ) {
   return db.transaction(async (tx) => {
+    // Global ledger lock order: property_invoices (ascending id) first, then
+    // reservations (ascending id). The unlocked read only selects the invoice
+    // rows to lock; the authoritative parent row is locked below.
+    const [scope] = await tx
+      .select({ propertyId: reservations.propertyId, bookingGroupId: reservations.bookingGroupId })
+      .from(reservations)
+      .where(eq(reservations.id, input.reservationId))
+      .limit(1);
+    if (!scope || scope.propertyId !== input.propertyId) throw new Error('Reservation not found');
+
+    const invoiceScope = scope.bookingGroupId
+      ? or(
+          eq(propertyInvoices.reservationId, input.reservationId),
+          eq(propertyInvoices.bookingGroupId, scope.bookingGroupId)
+        )
+      : eq(propertyInvoices.reservationId, input.reservationId);
+    const lockedInvoices = await tx
+      .select()
+      .from(propertyInvoices)
+      .where(and(invoiceScope, ne(propertyInvoices.status, 'void')))
+      .orderBy(propertyInvoices.id)
+      .for('update');
+
     const [parentRes] = await tx
       .select()
       .from(reservations)
@@ -602,20 +625,12 @@ export async function addAccommodationToBooking(
       metadata: { parentReservationId: parentRes.id, bookingGroupId },
     });
 
-    // Update or create single consolidated group invoice
-    const existingInvoices = await tx
-      .select()
-      .from(propertyInvoices)
-      .where(
-        and(
-          or(
-            eq(propertyInvoices.bookingGroupId, bookingGroupId),
-            eq(propertyInvoices.reservationId, parentRes.id)
-          ),
-          ne(propertyInvoices.status, 'void')
-        )
-      )
-      .orderBy(propertyInvoices.createdAt);
+    // Update or create single consolidated group invoice. These rows were
+    // locked above in the global invoice-first order; keep the oldest-first
+    // choice the previous query made with ORDER BY created_at.
+    const existingInvoices = [...lockedInvoices].sort(
+      (left, right) => left.createdAt.getTime() - right.createdAt.getTime(),
+    );
 
     const newItem = {
       id: crypto.randomUUID(),

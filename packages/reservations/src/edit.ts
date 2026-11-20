@@ -346,6 +346,37 @@ export async function updateStay(
   const nights = calculateNights(input.checkInDate, input.checkOutDate);
 
   return db.transaction(async (tx) => {
+    // Global ledger lock order: property_invoices (ascending id) first, then
+    // reservations. Payments, invoice settlement, and booking-group invoice
+    // writes take the same order, so an edit and a payment can never hold one
+    // table and wait on the other. This scope read is deliberately unlocked:
+    // it only decides which invoice rows to lock before the reservation row.
+    const [scope] = await tx
+      .select({ propertyId: reservations.propertyId, bookingGroupId: reservations.bookingGroupId })
+      .from(reservations)
+      .where(eq(reservations.id, reservationId))
+      .limit(1);
+    if (!scope || scope.propertyId !== propertyId) throw new Error('Reservation not found');
+
+    const invoiceScope = tx
+      .select()
+      .from(propertyInvoices)
+      .where(
+        and(
+          eq(propertyInvoices.propertyId, propertyId),
+          scope.bookingGroupId
+            ? or(
+                eq(propertyInvoices.bookingGroupId, scope.bookingGroupId),
+                eq(propertyInvoices.reservationId, reservationId)
+              )
+            : eq(propertyInvoices.reservationId, reservationId),
+          notInArray(propertyInvoices.status, ['void', 'cancelled'])
+        )
+      )
+      .orderBy(propertyInvoices.id);
+    // Previews write nothing, so they read the invoice set without locking it.
+    const invoices = preview ? await invoiceScope : await invoiceScope.for('update');
+
     const [res] = await tx.select().from(reservations).where(eq(reservations.id, reservationId)).limit(1).for('update');
     if (!res || res.propertyId !== propertyId) throw new Error('Reservation not found');
     if (res.status === 'checked_out') throw new Error('Checked-out reservations cannot be edited.');
@@ -380,22 +411,7 @@ export async function updateStay(
       );
     }
 
-    const existingInvoices = await tx
-      .select({ id: propertyInvoices.id })
-      .from(propertyInvoices)
-      .where(
-        and(
-          eq(propertyInvoices.propertyId, propertyId),
-          res.bookingGroupId
-            ? or(
-                eq(propertyInvoices.bookingGroupId, res.bookingGroupId),
-                eq(propertyInvoices.reservationId, reservationId)
-              )
-            : eq(propertyInvoices.reservationId, reservationId),
-          notInArray(propertyInvoices.status, ['void', 'cancelled'])
-        )
-      );
-    const invoiceCount = existingInvoices.length;
+    const invoiceCount = invoices.length;
 
     const configuredRate = await configuredNightlyRate(tx, target);
     const requestedCustomTotal = readMoney(input.customTotalAmountMinorUnits, 'Custom total amount');
@@ -529,22 +545,8 @@ export async function updateStay(
 
     // Financial consistency: Synchronize active invoices with the updated reservation amount.
     if (nextTotal !== res.totalAmountMinorUnits || accommodationChanged || input.checkInDate !== res.checkInDate || input.checkOutDate !== res.checkOutDate) {
-      const activeInvoices = await tx
-        .select()
-        .from(propertyInvoices)
-        .where(
-          and(
-            eq(propertyInvoices.propertyId, propertyId),
-            res.bookingGroupId
-              ? or(
-                  eq(propertyInvoices.bookingGroupId, res.bookingGroupId),
-                  eq(propertyInvoices.reservationId, res.id)
-                )
-              : eq(propertyInvoices.reservationId, res.id),
-            notInArray(propertyInvoices.status, ['void', 'cancelled'])
-          )
-        )
-        .for('update');
+      // Already locked above in the global invoice-first order.
+      const activeInvoices = invoices;
 
       const [resRoom] = res.roomId
         ? await tx.select({ roomNumber: rooms.roomNumber }).from(rooms).where(eq(rooms.id, res.roomId)).limit(1)
