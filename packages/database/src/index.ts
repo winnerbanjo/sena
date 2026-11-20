@@ -32,7 +32,9 @@ function booleanEnv(name: string, fallback: boolean): boolean {
   throw new Error(`${name} must be true or false.`);
 }
 
-const poolMax = positiveIntegerEnv('DB_POOL_MAX', 10);
+// DB_MAX_CONNECTIONS was the previous name for the pool limit. Keep reading it
+// when DB_POOL_MAX is absent so existing deployments keep the same pool size.
+const poolMax = positiveIntegerEnv('DB_POOL_MAX', positiveIntegerEnv('DB_MAX_CONNECTIONS', 10));
 const poolIdleTimeout = positiveIntegerEnv('DB_IDLE_TIMEOUT', 20);
 const poolConnectTimeout = positiveIntegerEnv('DB_CONNECT_TIMEOUT', 10);
 const prepareStatements = booleanEnv('DB_PREPARE', false);
