@@ -66,22 +66,46 @@ export function ReservationDrawer({
   const [groupRooms, setGroupRooms] = React.useState<Array<{ id: string; reference: string; roomNumber: string | null; status: string }>>([]);
   const [history, setHistory] = React.useState<any[]>([]);
   const [historyVersion, setHistoryVersion] = React.useState(0);
-  const [detail, setDetail] = React.useState<Pick<ReservationItem, 'timeline' | 'noteCount' | 'pendingTransferProof'> | null>(null);
+  const [detail, setDetail] = React.useState<Pick<ReservationItem, 'noteCount' | 'pendingTransferProof'> | null>(null);
+  const [timeline, setTimeline] = React.useState<ReservationItem['timeline']>([]);
+  const [timelineCursor, setTimelineCursor] = React.useState<string | null>(null);
+  const [timelineLoading, setTimelineLoading] = React.useState(false);
 
   React.useEffect(() => {
     if (!open || !reservation) {
       setDetail(null);
+      setTimeline([]);
+      setTimelineCursor(null);
       return;
     }
     const controller = new AbortController();
-    fetch(`/api/reservations/${reservation.id}`, { signal: controller.signal })
+    fetch(`/api/reservations/${reservation.id}?eventsLimit=50`, { signal: controller.signal })
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        if (data?.reservation) setDetail(data.reservation);
+        if (!data?.reservation) return;
+        setDetail(data.reservation);
+        setTimeline(Array.isArray(data.reservation.timeline) ? data.reservation.timeline : []);
+        setTimelineCursor(data.reservation.timelineNextCursor || null);
       })
       .catch(() => null);
     return () => controller.abort();
   }, [open, reservation?.id]);
+
+  async function loadMoreTimeline() {
+    if (!reservation || !timelineCursor || timelineLoading) return;
+    setTimelineLoading(true);
+    try {
+      const res = await fetch(`/api/reservations/${reservation.id}?eventsLimit=50&eventsCursor=${encodeURIComponent(timelineCursor)}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      if (Array.isArray(data?.reservation?.timeline)) {
+        setTimeline((previous) => [...previous, ...data.reservation.timeline]);
+      }
+      setTimelineCursor(data?.reservation?.timelineNextCursor || null);
+    } finally {
+      setTimelineLoading(false);
+    }
+  }
 
   React.useEffect(() => {
     if (!open || !reservation) return;
@@ -397,7 +421,7 @@ export function ReservationDrawer({
             {/* TIMELINE TAB */}
             <TabsContent value="timeline" className="pt-2">
               <div className="space-y-4 relative before:absolute before:left-3 before:top-2 before:bottom-2 before:w-[1px] before:bg-[#E8E2DA]">
-                {(detail?.timeline ?? reservation.timeline).map((event, idx) => (
+                {timeline.map((event, idx) => (
                   <div key={idx} className="flex items-start gap-4 relative pl-6">
                     <span className="w-2.5 h-2.5 rounded-full bg-[#B85C3E] absolute left-1.5 top-1 ring-4 ring-white" />
                     <div>
@@ -410,6 +434,21 @@ export function ReservationDrawer({
                     </div>
                   </div>
                 ))}
+                {timeline.length === 0 && (
+                  <p className="pl-6 text-xs text-[#7A7267]">No activity recorded yet.</p>
+                )}
+                {timelineCursor && (
+                  <div className="pl-6 pt-1">
+                    <button
+                      type="button"
+                      onClick={loadMoreTimeline}
+                      disabled={timelineLoading}
+                      className="text-xs font-medium text-[#71382D] hover:underline disabled:opacity-60"
+                    >
+                      {timelineLoading ? 'Loading…' : 'Load earlier activity'}
+                    </button>
+                  </div>
+                )}
               </div>
             </TabsContent>
           </Tabs>

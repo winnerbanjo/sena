@@ -1,9 +1,10 @@
 import { apiError } from '@/lib/api-error';
 import { getMerchantRequest, withMerchant } from '@/lib/merchant-route';
 import { noteCountsByReservation } from '@/lib/reservation-notes';
+import { badCursorResponse, cursorIsMalformed, cursorTimestamp, cursorUuid, decodeCursor, encodeCursor, parsePageLimit } from '@/lib/pagination';
 import { NextRequest, NextResponse } from 'next/server';
 import { updateStay } from '@sena/reservations';
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, sql } from 'drizzle-orm';
 import { db, reservations, guests, rooms, roomTypes, apartments, reservationEvents, transferProofs } from '@sena/database';
 
 async function handleGET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
@@ -53,12 +54,27 @@ async function handleGET(req: NextRequest, context: { params: Promise<{ id: stri
       return NextResponse.json({ error: 'Reservation not found' }, { status: 404 });
     }
 
+    const { searchParams } = new URL(req.url);
+    const eventsLimit = parsePageLimit(searchParams.get('eventsLimit') || '50');
+    const rawEventsCursor = searchParams.get('eventsCursor');
+    const eventsCursor = decodeCursor(rawEventsCursor);
+    const eventsCursorCreatedAt = cursorTimestamp(eventsCursor?.createdAt);
+    const eventsCursorId = cursorUuid(eventsCursor?.id);
+    if (cursorIsMalformed(rawEventsCursor, eventsCursor) || (rawEventsCursor && (!eventsCursorCreatedAt || !eventsCursorId))) {
+      return NextResponse.json(badCursorResponse(), { status: 400 });
+    }
+    const eventConditions = [eq(reservationEvents.reservationId, reservation.id)];
+    if (eventsCursorCreatedAt && eventsCursorId) {
+      eventConditions.push(sql`(${reservationEvents.createdAt}, ${reservationEvents.id}) < (${eventsCursorCreatedAt}::timestamptz, ${eventsCursorId}::uuid)`);
+    }
+
     const [events, pendingProofs, noteCounts] = await Promise.all([
       db
         .select()
         .from(reservationEvents)
-        .where(eq(reservationEvents.reservationId, reservation.id))
-        .orderBy(desc(reservationEvents.createdAt)),
+        .where(sql.join(eventConditions, sql` and `))
+        .orderBy(desc(reservationEvents.createdAt), desc(reservationEvents.id))
+        .limit(eventsLimit + 1),
       db
         .select({ id: transferProofs.id })
         .from(transferProofs)
@@ -72,11 +88,15 @@ async function handleGET(req: NextRequest, context: { params: Promise<{ id: stri
     ]);
 
     const timezone = merchant.tenant.property.timezone;
-    const timeline = events.map((event) => ({
+    const timeline = events.slice(0, eventsLimit).map((event) => ({
       time: new Date(event.createdAt).toLocaleString('en-GB', { timeZone: timezone, day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }),
       text: event.description,
       actor: event.actorName || 'System',
     }));
+    const lastEvent = events[eventsLimit - 1];
+    const timelineNextCursor = events.length > eventsLimit && lastEvent
+      ? encodeCursor({ createdAt: lastEvent.createdAt.toISOString(), id: lastEvent.id })
+      : null;
 
     return NextResponse.json({
       reservation: {
@@ -84,6 +104,7 @@ async function handleGET(req: NextRequest, context: { params: Promise<{ id: stri
         noteCount: noteCounts.get(reservation.id) || 0,
         pendingTransferProof: pendingProofs.length > 0,
         timeline,
+        timelineNextCursor,
       },
     });
   } catch (error: unknown) {
