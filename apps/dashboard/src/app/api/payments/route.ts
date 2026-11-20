@@ -80,7 +80,8 @@ async function handleGET(req: NextRequest) {
     const receivableConditions = [
       eq(reservations.propertyId, propertyId),
       ne(reservations.status, 'cancelled'),
-      sql`${outstanding} > 0`,
+      // Written as a direct comparison so it matches the partial index predicate.
+      sql`${reservations.totalAmountMinorUnits} > ${reservations.paidAmountMinorUnits}`,
     ];
     if (typeof receivablesCursorOutstanding === 'number' && receivablesCursorId) {
       receivableConditions.push(sql`(${outstanding}, ${reservations.id}) < (${receivablesCursorOutstanding}::int, ${receivablesCursorId}::uuid)`);

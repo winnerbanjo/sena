@@ -77,7 +77,10 @@ async function handleGET(req: NextRequest) {
 
     if (statusFilter && statusFilter !== 'all') {
       if (statusFilter === 'unpaid') {
-        conditions.push(sql`${effectiveStatus} in ('issued', 'partially_paid', 'overdue') and ${propertyInvoices.paidAmountMinorUnits} < ${propertyInvoices.totalAmountMinorUnits}`);
+        // Effective status only ever moves issued/partially_paid to overdue, so
+        // this is equivalent to filtering on the effective status and lets the
+        // partial unpaid index provide the sort order.
+        conditions.push(sql`${propertyInvoices.status} in ('issued', 'partially_paid', 'overdue') and ${propertyInvoices.paidAmountMinorUnits} < ${propertyInvoices.totalAmountMinorUnits}`);
       } else if (statusFilter === 'overdue') {
         conditions.push(sql`${effectiveStatus} = 'overdue'`);
       } else {
