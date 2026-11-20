@@ -12,6 +12,31 @@ export * from 'drizzle-orm';
  */
 const connectionString = process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/sena';
 
+// Pool configuration is per process/instance. Keep these defaults stable unless
+// a deployment explicitly sets the corresponding DB_* variable.
+function positiveIntegerEnv(name: string, fallback: number): number {
+  const value = process.env[name];
+  if (value === undefined || value === '') return fallback;
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    throw new Error(`${name} must be a positive integer.`);
+  }
+  return parsed;
+}
+
+function booleanEnv(name: string, fallback: boolean): boolean {
+  const value = process.env[name];
+  if (value === undefined || value === '') return fallback;
+  if (value.toLowerCase() === 'true') return true;
+  if (value.toLowerCase() === 'false') return false;
+  throw new Error(`${name} must be true or false.`);
+}
+
+const poolMax = positiveIntegerEnv('DB_POOL_MAX', 10);
+const poolIdleTimeout = positiveIntegerEnv('DB_IDLE_TIMEOUT', 20);
+const poolConnectTimeout = positiveIntegerEnv('DB_CONNECT_TIMEOUT', 10);
+const prepareStatements = booleanEnv('DB_PREPARE', false);
+
 // For queries that use connection pooling
 const isRemoteDb =
   connectionString.includes('ondigitalocean.com') ||
@@ -25,10 +50,10 @@ if (process.env.NODE_ENV !== 'production' && isRemoteDb) {
 
 const client = postgres(connectionString, {
   ssl: isRemoteDb ? { rejectUnauthorized: false } : false,
-  max: process.env.DB_MAX_CONNECTIONS ? Number(process.env.DB_MAX_CONNECTIONS) : 10,
-  idle_timeout: 20,
-  connect_timeout: 10,
-  prepare: false, // Required for transaction connection poolers like PgBouncer
+  max: poolMax,
+  idle_timeout: poolIdleTimeout,
+  connect_timeout: poolConnectTimeout,
+  prepare: prepareStatements, // Disable for transaction-mode poolers such as PgBouncer
 });
 
 export const db = drizzle(client, { schema });
