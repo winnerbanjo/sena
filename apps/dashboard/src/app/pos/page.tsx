@@ -67,7 +67,7 @@ export default function RestaurantPOSPage() {
       const [resMenu, resTables, resReservations] = await Promise.all([
         fetch('/api/restaurant/menu'),
         fetch('/api/restaurant/tables'),
-        fetch('/api/reservations?status=checked_in'),
+        fetch('/api/reservations?status=checked_in&limit=100'),
       ]);
 
       if (!resMenu.ok) throw new Error('Could not load menu catalog');
@@ -82,7 +82,7 @@ export default function RestaurantPOSPage() {
 
       if (resReservations.ok) {
         const dataRes = await resReservations.json();
-        const inHouse = (dataRes.reservations || []).filter((r: any) => r.status === 'checked_in');
+        const inHouse = (dataRes.items || []).filter((r: any) => r.status === 'checked_in');
         setInHouseGuests(inHouse);
       }
     } catch (err: any) {

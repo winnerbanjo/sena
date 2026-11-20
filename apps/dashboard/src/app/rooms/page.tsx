@@ -157,10 +157,10 @@ export default function RoomsPage() {
     if (!assignRoom) return;
     setAssignLoading(true);
     setAssignError(null);
-    fetch('/api/reservations')
+    fetch('/api/reservations?status=confirmed&limit=100')
       .then((res) => (res.ok ? res.json() : Promise.reject(new Error('Could not load arrivals'))))
       .then((data) => {
-        const mapped: ReservationItem[] = (data.reservations || []).map(mapReservationItem);
+        const mapped: ReservationItem[] = (data.items || []).map(mapReservationItem);
         setAssignArrivals(
           mapped.filter(
             (reservation) =>

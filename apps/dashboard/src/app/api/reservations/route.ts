@@ -1,10 +1,10 @@
 import { apiError } from '@/lib/api-error';
 import { getMerchantRequest, withMerchant } from '@/lib/merchant-route';
-import { noteCountsByReservation } from '@/lib/reservation-notes';
-import { eq, desc, inArray, and } from 'drizzle-orm';
+import { badCursorResponse, cursorIsMalformed, cursorTimestamp, cursorUuid, decodeCursor, encodeCursor, escapeLikePattern, parsePageLimit } from '@/lib/pagination';
+import { eq, desc, or, ilike, gte, lte, inArray, sql } from 'drizzle-orm';
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
-import { db, reservations, guests, rooms, roomTypes, apartments, properties, reservationEvents , propertyMembers, organizationMembers, transferProofs } from '@sena/database';
+import { db, reservations, guests, rooms, roomTypes, apartments, properties, reservationNotes, transferProofs } from '@sena/database';
 import { ReservationService } from '@sena/reservations';
 import { sendBookingConfirmationEmail, sendSenaEmail } from '@sena/email';
 import { formatNaira } from '@sena/config';
@@ -19,10 +19,57 @@ async function handleGET(req: NextRequest) {
     const propertyId = tenant?.propertyId;
 
     if (!propertyId || !tenant) {
-      return NextResponse.json({ reservations: [] });
+      return NextResponse.json({ items: [], nextCursor: null });
     }
 
-    const resList = await db
+    const { searchParams } = new URL(req.url);
+    const limit = parsePageLimit(searchParams.get('limit'));
+    const rawCursor = searchParams.get('cursor');
+    const cursor = decodeCursor(rawCursor);
+    if (cursorIsMalformed(rawCursor, cursor)) {
+      return NextResponse.json(badCursorResponse(), { status: 400 });
+    }
+    const cursorCreatedAt = cursorTimestamp(cursor?.createdAt);
+    const cursorId = cursorUuid(cursor?.id);
+    if (rawCursor && (!cursorCreatedAt || !cursorId)) {
+      return NextResponse.json(badCursorResponse(), { status: 400 });
+    }
+
+    const statusParam = searchParams.get('status');
+    const statuses = (statusParam || '')
+      .split(',')
+      .map((status) => status.trim())
+      .filter((status) => status && status !== 'all');
+    const allowedStatuses = new Set(['pending', 'confirmed', 'checked_in', 'checked_out', 'cancelled', 'no_show']);
+    if (statuses.some((status) => !allowedStatuses.has(status))) {
+      return NextResponse.json({ error: 'Unknown reservation status' }, { status: 400 });
+    }
+
+    const search = (searchParams.get('search') || '').trim().slice(0, 100);
+    const from = searchParams.get('from');
+    const to = searchParams.get('to');
+    const isDate = (value: string | null): value is string => Boolean(value && /^\d{4}-\d{2}-\d{2}$/.test(value));
+    if ((from && !isDate(from)) || (to && !isDate(to))) {
+      return NextResponse.json({ error: 'Dates must be YYYY-MM-DD' }, { status: 400 });
+    }
+
+    const conditions = [eq(reservations.propertyId, propertyId)];
+    if (statuses.length) conditions.push(inArray(reservations.status, statuses));
+    if (isDate(from)) conditions.push(gte(reservations.checkInDate, from));
+    if (isDate(to)) conditions.push(lte(reservations.checkInDate, to));
+    if (search) {
+      const pattern = `%${escapeLikePattern(search)}%`;
+      conditions.push(or(
+        ilike(reservations.reference, pattern),
+        ilike(guests.fullName, pattern),
+        ilike(rooms.roomNumber, pattern)
+      )!);
+    }
+    if (cursorCreatedAt && cursorId) {
+      conditions.push(sql`(${reservations.createdAt}, ${reservations.id}) < (${cursorCreatedAt}::timestamptz, ${cursorId}::uuid)`);
+    }
+
+    const rows = await db
       .select({
         id: reservations.id,
         reference: reservations.reference,
@@ -47,47 +94,25 @@ async function handleGET(req: NextRequest) {
         roomTypeName: roomTypes.name,
         apartmentId: reservations.apartmentId,
         apartmentName: apartments.name,
+        noteCount: sql<number>`(select count(*)::int from ${reservationNotes} where ${reservationNotes.reservationId} = ${reservations.id})`,
+        pendingTransferProof: sql<boolean>`exists (select 1 from ${transferProofs} where ${transferProofs.reservationId} = ${reservations.id} and ${transferProofs.propertyId} = ${propertyId} and ${transferProofs.status} = 'pending')`,
       })
       .from(reservations)
       .leftJoin(guests, eq(reservations.guestId, guests.id))
       .leftJoin(rooms, eq(reservations.roomId, rooms.id))
       .leftJoin(roomTypes, eq(reservations.roomTypeId, roomTypes.id))
       .leftJoin(apartments, eq(reservations.apartmentId, apartments.id))
-      .where(eq(reservations.propertyId, propertyId))
-      .orderBy(desc(reservations.createdAt));
+      .where(sql.join(conditions, sql` and `))
+      .orderBy(desc(reservations.createdAt), desc(reservations.id))
+      .limit(limit + 1);
 
-    const reservationIds = resList.map((reservation) => reservation.id);
-    const [allEvents, pendingProofRows] = reservationIds.length
-      ? await Promise.all([
-          db.select().from(reservationEvents).where(inArray(reservationEvents.reservationId, reservationIds)).orderBy(desc(reservationEvents.createdAt)),
-          db
-            .select({ reservationId: transferProofs.reservationId })
-            .from(transferProofs)
-            .where(
-              and(
-                eq(transferProofs.propertyId, propertyId),
-                eq(transferProofs.status, 'pending'),
-                inArray(transferProofs.reservationId, reservationIds)
-              )
-            ),
-        ])
-      : [[], []];
-    const eventsByReservation = new Map<string, Array<{ time: string; text: string; actor: string }>>();
-    for (const event of allEvents) {
-      const events = eventsByReservation.get(event.reservationId) || [];
-      events.push({ time: new Date(event.createdAt).toLocaleString('en-GB', { timeZone: tenant.property.timezone, day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }), text: event.description, actor: event.actorName || 'System' });
-      eventsByReservation.set(event.reservationId, events);
-    }
-    const pendingProofIds = new Set(pendingProofRows.map((row) => row.reservationId).filter(Boolean));
-    const noteCounts = await noteCountsByReservation(propertyId, reservationIds);
-    const reservationsWithTimeline = resList.map(reservation => ({
-      ...reservation,
-      noteCount: noteCounts.get(reservation.id) || 0,
-      pendingTransferProof: pendingProofIds.has(reservation.id),
-      timeline: eventsByReservation.get(reservation.id) || [],
-    }));
+    const items = rows.slice(0, limit);
+    const last = items[items.length - 1];
+    const nextCursor = rows.length > limit && last
+      ? encodeCursor({ createdAt: last.createdAt.toISOString(), id: last.id })
+      : null;
 
-    return NextResponse.json({ reservations: reservationsWithTimeline });
+    return NextResponse.json({ items, nextCursor });
   } catch (error: any) {
     console.error('Error fetching reservations:', error);
     return NextResponse.json({ error: apiError(error) }, { status: 500 });

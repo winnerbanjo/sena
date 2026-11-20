@@ -66,14 +66,30 @@ export function ReservationDrawer({
   const [groupRooms, setGroupRooms] = React.useState<Array<{ id: string; reference: string; roomNumber: string | null; status: string }>>([]);
   const [history, setHistory] = React.useState<any[]>([]);
   const [historyVersion, setHistoryVersion] = React.useState(0);
+  const [detail, setDetail] = React.useState<Pick<ReservationItem, 'timeline' | 'noteCount' | 'pendingTransferProof'> | null>(null);
+
+  React.useEffect(() => {
+    if (!open || !reservation) {
+      setDetail(null);
+      return;
+    }
+    const controller = new AbortController();
+    fetch(`/api/reservations/${reservation.id}`, { signal: controller.signal })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.reservation) setDetail(data.reservation);
+      })
+      .catch(() => null);
+    return () => controller.abort();
+  }, [open, reservation?.id]);
 
   React.useEffect(() => {
     if (!open || !reservation) return;
     fetch(`/api/payments?reservationId=${reservation.id}`)
-      .then((res) => (res.ok ? res.json() : { payments: [] }))
-      .then((data) => setHistory(Array.isArray(data.payments) ? data.payments : []))
+      .then((res) => (res.ok ? res.json() : { items: [] }))
+      .then((data) => setHistory(Array.isArray(data.items) ? data.items : []))
       .catch(() => setHistory([]));
-  }, [open, reservation, historyVersion]);
+  }, [open, reservation?.id, historyVersion]);
 
   React.useEffect(() => {
     if (!open || !reservation?.bookingGroupId) {
@@ -381,7 +397,7 @@ export function ReservationDrawer({
             {/* TIMELINE TAB */}
             <TabsContent value="timeline" className="pt-2">
               <div className="space-y-4 relative before:absolute before:left-3 before:top-2 before:bottom-2 before:w-[1px] before:bg-[#E8E2DA]">
-                {reservation.timeline.map((event, idx) => (
+                {(detail?.timeline ?? reservation.timeline).map((event, idx) => (
                   <div key={idx} className="flex items-start gap-4 relative pl-6">
                     <span className="w-2.5 h-2.5 rounded-full bg-[#B85C3E] absolute left-1.5 top-1 ring-4 ring-white" />
                     <div>

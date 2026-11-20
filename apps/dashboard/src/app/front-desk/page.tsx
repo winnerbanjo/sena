@@ -89,13 +89,22 @@ export default function FrontDeskPage() {
   const fetchReservations = React.useCallback(async () => {
     setLoadError(false);
     try {
-      const res = await fetch('/api/reservations');
-      if (!res.ok) throw new Error(`Could not load reservations (${res.status})`);
-      const data = await res.json();
-      if (data.reservations) {
-        const mapped: ReservationItem[] = data.reservations.map(mapReservationItem);
-        setReservations(mapped);
+      // Only active stays are operationally relevant. Walk the cursor pages for
+      // this filtered set (bounded) instead of loading the property's history.
+      const collected: any[] = [];
+      let cursor: string | null = null;
+      for (let page = 0; page < 5; page += 1) {
+        const params = new URLSearchParams({ status: 'confirmed,checked_in', limit: '100' });
+        if (cursor) params.set('cursor', cursor);
+        const res = await fetch(`/api/reservations?${params.toString()}`);
+        if (!res.ok) throw new Error(`Could not load reservations (${res.status})`);
+        const data = await res.json();
+        collected.push(...(data.items || []));
+        cursor = data.nextCursor || null;
+        if (!cursor) break;
       }
+      const mapped: ReservationItem[] = collected.map(mapReservationItem);
+      setReservations(mapped);
     } catch (error) {
       setFailureKind(classifyLoadFailure(error, typeof navigator === 'undefined' ? true : navigator.onLine));
       setLoadError(true);

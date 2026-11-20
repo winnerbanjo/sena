@@ -78,10 +78,10 @@ export function CommandPalette({ open, onClose, onOpenNewReservation }: CommandP
           })
           .catch(() => {});
       } else if (industry === 'hotel') {
-        fetch('/api/reservations')
+        fetch('/api/reservations?limit=100')
           .then((res) => res.json())
           .then((data) => {
-            if (data?.reservations) setLiveReservations(data.reservations);
+            if (data?.items) setLiveReservations(data.items);
           })
           .catch(() => {});
 
