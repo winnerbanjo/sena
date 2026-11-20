@@ -3,7 +3,8 @@ import { withMerchant } from '@/lib/merchant-route';
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { db, guests, reservations, properties , propertyMembers, organizationMembers } from '@sena/database';
-import { eq, desc, sql } from 'drizzle-orm';
+import { and, eq, desc, ilike, inArray, or, sql } from 'drizzle-orm';
+import { badCursorResponse, cursorIsMalformed, cursorTimestamp, cursorUuid, decodeCursor, encodeCursor, escapeLikePattern, parsePageLimit } from '@/lib/pagination';
 
 import { resolveTenantForRequest } from '@/lib/tenant';
 
@@ -16,10 +17,34 @@ async function handleGET(req: NextRequest) {
     const propertyId = tenant?.propertyId;
 
     if (!propertyId) {
-      return NextResponse.json({ guests: [] });
+      return NextResponse.json({ items: [], nextCursor: null });
     }
 
-    const guestList = await db
+    const { searchParams } = new URL(req.url);
+    const limit = parsePageLimit(searchParams.get('limit'));
+    const rawCursor = searchParams.get('cursor');
+    const cursor = decodeCursor(rawCursor);
+    const cursorCreatedAt = cursorTimestamp(cursor?.createdAt);
+    const cursorId = cursorUuid(cursor?.id);
+    if (cursorIsMalformed(rawCursor, cursor) || (rawCursor && (!cursorCreatedAt || !cursorId))) {
+      return NextResponse.json(badCursorResponse(), { status: 400 });
+    }
+    const search = (searchParams.get('search') || '').trim().slice(0, 100);
+
+    const conditions = [eq(guests.propertyId, propertyId)];
+    if (search) {
+      const pattern = `%${escapeLikePattern(search)}%`;
+      conditions.push(or(
+        ilike(guests.fullName, pattern),
+        ilike(guests.email, pattern),
+        ilike(guests.phone, pattern)
+      )!);
+    }
+    if (cursorCreatedAt && cursorId) {
+      conditions.push(sql`(${guests.createdAt}, ${guests.id}) < (${cursorCreatedAt}::timestamptz, ${cursorId}::uuid)`);
+    }
+
+    const rows = await db
       .select({
         id: guests.id,
         fullName: guests.fullName,
@@ -32,21 +57,43 @@ async function handleGET(req: NextRequest) {
         createdAt: guests.createdAt,
       })
       .from(guests)
-      .where(eq(guests.propertyId, propertyId))
-      .orderBy(desc(guests.createdAt));
+      .where(sql.join(conditions, sql` and `))
+      .orderBy(desc(guests.createdAt), desc(guests.id))
+      .limit(limit + 1);
 
-    // One aggregate query avoids two additional queries for every guest.
-    const stats = await db.select({
-      guestId: reservations.guestId,
-      totalStays: sql<number>`count(*) filter (where ${reservations.status} in ('checked_in', 'checked_out'))::int`,
-      totalNights: sql<number>`coalesce(sum(${reservations.nights}) filter (where ${reservations.status} in ('checked_in', 'checked_out')), 0)::int`,
-      totalSpendMinorUnits: sql<number>`coalesce(sum(${reservations.paidAmountMinorUnits}), 0)::bigint`,
-      lastStayDate: sql<string>`max(${reservations.checkInDate}) filter (where ${reservations.status} in ('checked_in', 'checked_out'))`,
-    }).from(reservations).where(eq(reservations.propertyId, propertyId)).groupBy(reservations.guestId);
-    const byGuest = new Map(stats.map(stat => [stat.guestId, stat]));
-    const enrichedGuests = guestList.map(guest => ({ ...guest, totalStays: byGuest.get(guest.id)?.totalStays || 0, totalNights: byGuest.get(guest.id)?.totalNights || 0, totalSpendMinorUnits: Number(byGuest.get(guest.id)?.totalSpendMinorUnits || 0), lastStayDate: byGuest.get(guest.id)?.lastStayDate || null }));
+    const page = rows.slice(0, limit);
+    const guestIds = page.map((guest) => guest.id);
 
-    return NextResponse.json({ guests: enrichedGuests });
+    // Aggregate only the guests on this page; money is returned as text so a
+    // bigint sum is never narrowed through an unchecked Number().
+    const stats = guestIds.length
+      ? await db.select({
+          guestId: reservations.guestId,
+          totalStays: sql<number>`count(*) filter (where ${reservations.status} in ('checked_in', 'checked_out'))::int`,
+          totalNights: sql<number>`coalesce(sum(${reservations.nights}) filter (where ${reservations.status} in ('checked_in', 'checked_out')), 0)::int`,
+          totalSpendMinorUnits: sql<string>`coalesce(sum(${reservations.paidAmountMinorUnits}), 0)::text`,
+          lastStayDate: sql<string | null>`max(${reservations.checkInDate}) filter (where ${reservations.status} in ('checked_in', 'checked_out'))`,
+        })
+          .from(reservations)
+          .where(and(eq(reservations.propertyId, propertyId), inArray(reservations.guestId, guestIds)))
+          .groupBy(reservations.guestId)
+      : [];
+
+    const byGuest = new Map(stats.map((stat) => [stat.guestId, stat]));
+    const items = page.map((guest) => ({
+      ...guest,
+      totalStays: byGuest.get(guest.id)?.totalStays || 0,
+      totalNights: byGuest.get(guest.id)?.totalNights || 0,
+      totalSpendMinorUnits: byGuest.get(guest.id)?.totalSpendMinorUnits || '0',
+      lastStayDate: byGuest.get(guest.id)?.lastStayDate || null,
+    }));
+
+    const last = page[page.length - 1];
+    const nextCursor = rows.length > limit && last
+      ? encodeCursor({ createdAt: last.createdAt.toISOString(), id: last.id })
+      : null;
+
+    return NextResponse.json({ items, nextCursor });
   } catch (error: any) {
     console.error('Guests API error:', error);
     return NextResponse.json({ error: apiError(error) }, { status: 500 });

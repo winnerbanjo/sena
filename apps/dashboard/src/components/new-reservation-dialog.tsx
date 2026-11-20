@@ -97,11 +97,6 @@ export function NewReservationDialog({
       setOverridePrice(false);
       setShowGuestSuggestions(false);
 
-      fetch('/api/guests')
-        .then((res) => (res.ok ? res.json() : null))
-        .then((data) => setPropertyGuests(Array.isArray(data?.guests) ? data.guests : []))
-        .catch(() => setPropertyGuests([]));
-
       Promise.all([
         fetch('/api/rooms').then((res) => (res.ok ? res.json() : null)),
         fetch('/api/apartments').then((res) => (res.ok ? res.json() : null)),
@@ -136,6 +131,27 @@ export function NewReservationDialog({
         .finally(() => setLoadingRooms(false));
     }
   }, [open]);
+
+  // Search the guest directory as the name is typed instead of loading it all.
+  React.useEffect(() => {
+    if (!open) return;
+    const query = guestName.trim();
+    if (query.length < 2 || guestId) {
+      setPropertyGuests([]);
+      return;
+    }
+    const controller = new AbortController();
+    const timer = setTimeout(() => {
+      fetch(`/api/guests?search=${encodeURIComponent(query)}&limit=5`, { signal: controller.signal })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => setPropertyGuests(Array.isArray(data?.items) ? data.items : []))
+        .catch(() => setPropertyGuests([]));
+    }, 250);
+    return () => {
+      controller.abort();
+      clearTimeout(timer);
+    };
+  }, [open, guestName, guestId]);
 
   React.useEffect(() => {
     const selectedKind = roomOptions.find((option) => option.id === selectedRoomId)?.kind;
@@ -526,10 +542,6 @@ export function NewReservationDialog({
                 {showGuestSuggestions && propertyGuests.length > 0 && (
                   <div className="absolute z-50 left-0 right-0 mt-1 max-h-48 overflow-y-auto bg-white rounded border border-[#E8E2DA] shadow-lg">
                     {propertyGuests
-                      .filter((g) =>
-                        g.fullName.toLowerCase().includes(guestName.toLowerCase()) ||
-                        (g.phone && g.phone.includes(guestName))
-                      )
                       .slice(0, 5)
                       .map((g) => (
                         <button
