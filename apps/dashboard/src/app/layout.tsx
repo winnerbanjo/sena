@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import { headers, cookies } from 'next/headers';
-import { Inter, Noto_Sans_Arabic } from 'next/font/google';
+import localFont from 'next/font/local';
 import './globals.css';
 import { DashboardShell } from '../components/dashboard-shell';
 import { PostHogProvider } from '../components/posthog-provider';
@@ -10,16 +10,18 @@ import { DEFAULT_LOCALE, LOCALE_COOKIE, LOCALE_META, localeDir, parseLocale, typ
 import { loadLocaleMessages } from '@/i18n/messages';
 import { I18nRoot } from '@/i18n/provider';
 
-const inter = Inter({
-  subsets: ['latin', 'latin-ext'],
-  weight: ['400', '500', '600', '700'],
+// Fonts are vendored so builds never depend on fetching fonts.googleapis.com.
+// Keep the OFL license files next to the font binaries.
+const inter = localFont({
+  src: './fonts/InterVariable.woff2',
+  weight: '400 700',
   variable: '--font-inter',
   display: 'swap',
 });
 
-const notoArabic = Noto_Sans_Arabic({
-  subsets: ['arabic'],
-  weight: ['400', '500', '600', '700'],
+const notoArabic = localFont({
+  src: './fonts/NotoSansArabic-Variable.woff2',
+  weight: '400 700',
   variable: '--font-noto-arabic',
   display: 'swap',
 });
