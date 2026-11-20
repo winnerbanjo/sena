@@ -1,4 +1,5 @@
 import { applyInvoiceSettlementToReservation } from '@/lib/invoice-settlement';
+import { MoneyRangeError, assertMoney, checkedAdd } from '@sena/config';
 import { getMerchantRequest, withMerchant } from '@/lib/merchant-route';
 import { optionalReceiptFromForm, settleWithOptionalReceipt, type ReceiptFileInput } from '@/lib/payment-receipt-file';
 import { persistPaymentReceipt } from '@/lib/payment-receipt-persist';
@@ -33,6 +34,12 @@ async function handlePOST(req: NextRequest, { params }: { params: Promise<{ id: 
   const requestKey = req.headers.get('idempotency-key');
   if (!requestKey || requestKey.length > 100) return NextResponse.json({ error: 'A payment reference is required. Please try again.', paymentRecorded: false }, { status: 400 });
   if (!Number.isSafeInteger(amount) || amount <= 0 || !['cash', 'pos', 'bank_transfer', 'card'].includes(String(body.method))) return NextResponse.json({ error: 'Enter a valid payment amount and method.', paymentRecorded: false }, { status: 422 });
+  try {
+    assertMoney(amount, 'Payment amount', { allowZero: false });
+  } catch (error) {
+    if (!(error instanceof MoneyRangeError)) throw error;
+    return NextResponse.json({ error: error.message, paymentRecorded: false }, { status: 400 });
+  }
   const key = `invoice-payment:${id}:${requestKey}`;
   const merchant = getMerchantRequest(req);
   let settled: Awaited<ReturnType<typeof settleWithOptionalReceipt>>;
@@ -46,7 +53,7 @@ async function handlePOST(req: NextRequest, { params }: { params: Promise<{ id: 
       const [invoice] = await tx.select().from(propertyInvoices).where(eq(propertyInvoices.id, id)).for('update');
       if (!invoice || ['void', 'draft', 'cancelled', 'paid'].includes(invoice.status)) throw new Error('Invoice unavailable');
       if (amount > invoice.totalAmountMinorUnits - invoice.paidAmountMinorUnits) return { error: 'Amount is more than the outstanding balance.', paymentRecorded: false };
-      const paid = invoice.paidAmountMinorUnits + amount;
+      const paid = checkedAdd(invoice.paidAmountMinorUnits, amount, 'Invoice paid amount');
       const [updated] = await tx.update(propertyInvoices).set({ paidAmountMinorUnits: paid, status: paid >= invoice.totalAmountMinorUnits ? 'paid' : 'partially_paid', updatedAt: new Date() }).where(eq(propertyInvoices.id, id)).returning();
       if (invoice.bookingGroupId) {
         const groupStays = await tx
@@ -110,6 +117,9 @@ async function handlePOST(req: NextRequest, { params }: { params: Promise<{ id: 
   });
   } catch (error) {
     console.error('[invoice-payment]', { invoiceId: id, name: error instanceof Error ? error.name : 'Error' });
+    if (error instanceof MoneyRangeError) {
+      return NextResponse.json({ error: error.message, paymentRecorded: false }, { status: 400 });
+    }
     const message = error instanceof Error ? error.message : '';
     const safe = message === 'Invoice unavailable'
       ? 'This invoice can no longer accept a payment. Refresh it before trying again.'

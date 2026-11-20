@@ -1,4 +1,4 @@
-import { calculateNights, getDatesBetween } from '@sena/config';
+import { assertMoney, calculateNights, checkedMul, checkedSub, checkedSum, getDatesBetween } from '@sena/config';
 import {
   apartments,
   bookingGroups,
@@ -208,7 +208,7 @@ export async function createBookingGroup(
       if (!roomType) throw new Error('Room type not found');
       if (input.numGuests > roomType.capacity) throw new Error(`Room ${room.roomNumber} cannot take that many guests. No rooms were booked.`);
       const reference = referenceCode('SEN-');
-      const totalAmountMinorUnits = roomType.basePriceMinorUnits * nights;
+      const totalAmountMinorUnits = checkedMul(roomType.basePriceMinorUnits, nights, 'Accommodation total');
       const [reservation] = await tx
         .insert(reservations)
         .values({
@@ -278,7 +278,7 @@ export async function createBookingGroup(
       .limit(1);
 
     const defaultBank = await PaymentService.primaryBankDetails(input.propertyId);
-    const combinedTotalMinorUnits = created.reduce((sum, r) => sum + r.totalAmountMinorUnits, 0);
+    const combinedTotalMinorUnits = checkedSum(created.map((r) => r.totalAmountMinorUnits), 'Booking total');
     const invoiceNumber = `INV-${new Date().getFullYear()}-${crypto.randomUUID().replaceAll('-', '').slice(0, 16).toUpperCase()}`;
 
     const lineItems = created.map((item) => ({
@@ -512,7 +512,7 @@ export async function addAccommodationToBooking(
         );
       if (blocking.length > 0) throw new Error(`Apartment is already booked for these dates (${blocking[0].reference}).`);
 
-      standardAmount = apartment.basePriceMinorUnits * nights;
+      standardAmount = checkedMul(apartment.basePriceMinorUnits, nights, 'Accommodation total');
       targetRoomTypeId = null;
       targetRoomId = null;
       targetApartmentId = apartment.id;
@@ -545,16 +545,16 @@ export async function addAccommodationToBooking(
         targetLabel = `${roomType.name} (Unassigned)`;
       }
 
-      standardAmount = roomType.basePriceMinorUnits * nights;
+      standardAmount = checkedMul(roomType.basePriceMinorUnits, nights, 'Accommodation total');
       targetRoomTypeId = roomType.id;
       targetRoomId = input.roomId || null;
       targetApartmentId = null;
     }
 
     const agreedTotal = input.customTotalAmountMinorUnits != null
-      ? Math.max(0, input.customTotalAmountMinorUnits)
+      ? assertMoney(input.customTotalAmountMinorUnits, 'Custom total')
       : standardAmount;
-    const discount = Math.max(0, standardAmount - agreedTotal);
+    const discount = Math.max(0, checkedSub(standardAmount, agreedTotal, 'Discount', { allowNegative: true }));
     const newReference = referenceCode('SEN-');
 
     const [newRes] = await tx

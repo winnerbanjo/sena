@@ -31,8 +31,10 @@ export { listEligibleRooms, listStayEligibleRooms, type EligibleRoom, type Assig
 import { listStayEligibleRooms } from './assignment';
 import { createBookingGroup as createGroupRecords, getBookingGroup as loadBookingGroup, addAccommodationToBooking as addAccommodationRecord, type AddAccommodationInput } from './booking-group';
 import { updateStay as editReservationStay, type StayEditInput } from './edit';
+import { calculateStayAmounts } from './pricing';
 export { updateStay } from './edit';
 export { createBookingGroup, getBookingGroup, addAccommodationToBooking, type AddAccommodationInput } from './booking-group';
+export { calculateStayAmounts, type StayPricing, type StayPricingInput } from './pricing';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 function sanitizeActorId(id?: string | null): string | undefined {
@@ -168,11 +170,11 @@ export class ReservationService {
         throw new Error('Room type not found');
       }
 
-      const standardAmountMinorUnits = rt[0].basePriceMinorUnits * nights;
-      const totalAmountMinorUnits = input.customTotalAmountMinorUnits != null
-        ? Math.max(0, input.customTotalAmountMinorUnits)
-        : standardAmountMinorUnits;
-      const discountAmountMinorUnits = Math.max(0, standardAmountMinorUnits - totalAmountMinorUnits);
+      const { standardAmountMinorUnits, totalAmountMinorUnits, discountAmountMinorUnits } = calculateStayAmounts({
+        basePriceMinorUnits: rt[0].basePriceMinorUnits,
+        nights,
+        customTotalAmountMinorUnits: input.customTotalAmountMinorUnits,
+      });
 
       // Consume only a matching, active hold within this allocation transaction.
       const holdId = (input as any).holdId;
@@ -373,11 +375,11 @@ export class ReservationService {
       );
 
       const reference = generateReference();
-      const standardAmountMinorUnits = apartment.basePriceMinorUnits * nights;
-      const totalAmountMinorUnits = input.customTotalAmountMinorUnits != null
-        ? Math.max(0, input.customTotalAmountMinorUnits)
-        : standardAmountMinorUnits;
-      const discountAmountMinorUnits = Math.max(0, standardAmountMinorUnits - totalAmountMinorUnits);
+      const { standardAmountMinorUnits, totalAmountMinorUnits, discountAmountMinorUnits } = calculateStayAmounts({
+        basePriceMinorUnits: apartment.basePriceMinorUnits,
+        nights,
+        customTotalAmountMinorUnits: input.customTotalAmountMinorUnits,
+      });
       const [resRecord] = await tx.insert(reservations).values({
         reference,
         propertyId: input.propertyId,

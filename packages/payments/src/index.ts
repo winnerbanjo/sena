@@ -1,3 +1,4 @@
+import { assertMoney, checkedAdd } from '@sena/config';
 import crypto from 'crypto';
 import {
   db,
@@ -95,7 +96,7 @@ async function applyPaymentToInvoices(
     const outstanding = folioBalance(invoice.totalAmountMinorUnits, invoice.paidAmountMinorUnits);
     if (outstanding <= 0) continue;
     const apply = Math.min(remaining, outstanding);
-    const paid = invoice.paidAmountMinorUnits + apply;
+    const paid = checkedAdd(invoice.paidAmountMinorUnits, apply, 'Invoice paid amount');
     await tx
       .update(propertyInvoices)
       .set({
@@ -121,6 +122,8 @@ export class PaymentService {
     if (!Number.isSafeInteger(input.amountMinorUnits) || input.amountMinorUnits <= 0) {
       throw new Error('Enter a valid payment amount.');
     }
+    // Bounds check: an amount the ledger cannot store is a correctable input error.
+    assertMoney(input.amountMinorUnits, 'Payment amount', { allowZero: false });
     return await db.transaction(async (tx) => {
       return PaymentService.recordPaymentInTx(tx, input, idempotencyKey, actor);
     });
@@ -215,7 +218,7 @@ export class PaymentService {
     if (res.bookingGroupId && groupStays.length > 0) {
       const resDue = Math.max(0, res.totalAmountMinorUnits - res.paidAmountMinorUnits);
       const resPay = Math.min(remaining, resDue);
-      const newResPaid = res.paidAmountMinorUnits + resPay;
+      const newResPaid = checkedAdd(res.paidAmountMinorUnits, resPay, 'Reservation paid amount');
       await tx
         .update(reservations)
         .set({
@@ -231,7 +234,7 @@ export class PaymentService {
         const stayDue = Math.max(0, stay.totalAmountMinorUnits - stay.paidAmountMinorUnits);
         if (stayDue <= 0) continue;
         const stayPay = Math.min(remaining, stayDue);
-        const newStayPaid = stay.paidAmountMinorUnits + stayPay;
+        const newStayPaid = checkedAdd(stay.paidAmountMinorUnits, stayPay, 'Reservation paid amount');
         await tx
           .update(reservations)
           .set({
@@ -243,7 +246,7 @@ export class PaymentService {
         remaining -= stayPay;
       }
     } else {
-      const newPaidAmount = res.paidAmountMinorUnits + input.amountMinorUnits;
+      const newPaidAmount = checkedAdd(res.paidAmountMinorUnits, input.amountMinorUnits, 'Reservation paid amount');
       const newPaymentStatus =
         newPaidAmount >= res.totalAmountMinorUnits
           ? 'paid'
@@ -299,6 +302,7 @@ export class PaymentService {
     if (!Number.isSafeInteger(input.amountMinorUnits) || input.amountMinorUnits <= 0) {
       throw new Error('Enter a valid transfer amount.');
     }
+    assertMoney(input.amountMinorUnits, 'Transfer amount', { allowZero: false });
     if (!input.proofUrl?.trim()) throw new Error('Upload proof of transfer.');
     if (!input.reservationId && !input.invoiceId) throw new Error('Choose a reservation or invoice.');
 

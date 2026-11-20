@@ -9,6 +9,7 @@
     "check-types": "tsc --noEmit"
   },
   "dependencies": {
+    "@sena/config": "workspace:*",
     "@sena/database": "workspace:*",
     "@sena/types": "workspace:*",
     "@sena/validation": "workspace:*",

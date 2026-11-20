@@ -1,4 +1,4 @@
-import { calculateNights, formatNaira, getDatesBetween } from '@sena/config';
+import { assertMoney, calculateNights, checkedAdd, checkedMul, checkedSub, checkedSum, formatNaira, getDatesBetween } from '@sena/config';
 import {
   activityLogs,
   apartments,
@@ -51,9 +51,7 @@ function nextPaymentStatus(current: string, paid: number, total: number) {
 
 function readMoney(value: unknown, label: string): number | null {
   if (value === undefined || value === null || value === '') return null;
-  const amount = typeof value === 'number' ? value : Number(value);
-  if (!Number.isSafeInteger(amount)) throw new Error(`${label} must be a whole amount in kobo.`);
-  return amount;
+  return assertMoney(value, label);
 }
 
 /**
@@ -82,10 +80,10 @@ function buildQuote(input: {
   let requiresOperatorAction: string | null = null;
 
   if (requestedCustomTotal != null) {
-    appliedAmountMinorUnits = Math.abs(requestedCustomTotal - previousTotal);
+    appliedAmountMinorUnits = Math.abs(checkedSub(requestedCustomTotal, previousTotal, 'Stay total', { allowNegative: true }));
   } else if (mode === 'extension') {
     if (input.configuredRateMinorUnits != null) {
-      suggestedAmountMinorUnits = input.configuredRateMinorUnits * additionalNights;
+      suggestedAmountMinorUnits = checkedMul(input.configuredRateMinorUnits, additionalNights, 'Extension amount');
     }
     const amount = input.requestedExtensionAmount ?? suggestedAmountMinorUnits;
     if (amount == null) {
@@ -107,8 +105,10 @@ function buildQuote(input: {
   }
 
   const nextTotal = requestedCustomTotal != null
-    ? Math.max(0, requestedCustomTotal)
-    : Math.max(0, previousTotal + (mode === 'shortening' ? -appliedAmountMinorUnits : appliedAmountMinorUnits));
+    ? assertMoney(requestedCustomTotal, 'Custom total amount')
+    : mode === 'shortening'
+      ? checkedSub(previousTotal, appliedAmountMinorUnits, 'Stay total')
+      : checkedAdd(previousTotal, appliedAmountMinorUnits, 'Stay total');
 
   const note =
     nextTotal === previousTotal
@@ -403,7 +403,10 @@ export async function updateStay(
 
     let customTotal: number | null = requestedCustomTotal;
     if (customTotal == null && requestedDiscount != null && configuredRate != null) {
-      customTotal = Math.max(0, (configuredRate * nights) - requestedDiscount);
+      customTotal = Math.max(
+        0,
+        checkedSub(checkedMul(configuredRate, nights, 'Custom total amount'), requestedDiscount, 'Custom total amount', { allowNegative: true }),
+      );
     }
 
     const financial = buildQuote({
@@ -500,8 +503,8 @@ export async function updateStay(
       }
     }
 
-    const standardTotal = (configuredRate ? configuredRate * nights : res.standardAmountMinorUnits) || nextTotal;
-    const discountAmount = Math.max(0, standardTotal - nextTotal);
+    const standardTotal = (configuredRate ? checkedMul(configuredRate, nights, 'Accommodation total') : res.standardAmountMinorUnits) || nextTotal;
+    const discountAmount = Math.max(0, checkedSub(standardTotal, nextTotal, 'Discount', { allowNegative: true }));
 
     const [updated] = await tx
       .update(reservations)
@@ -653,24 +656,29 @@ export async function updateStay(
           updatedItems = [...lineItems, updatedRoomItem];
         }
 
-        const newSubtotal = updatedItems.reduce((sum, item) => sum + Number(item.totalMinorUnits || 0), 0);
+        const newSubtotal = checkedSum(updatedItems.map((item) => Number(item.totalMinorUnits || 0)), 'Invoice subtotal');
         const oldSubtotal = Number(inv.subtotalMinorUnits || 0);
         const hadVat = Number(inv.taxVatMinorUnits || 0) > 0;
-        const newTaxVat = hadVat && oldSubtotal > 0
+        const newTaxVat = assertMoney(hadVat && oldSubtotal > 0
           ? Math.round(newSubtotal * (Number(inv.taxVatMinorUnits) / oldSubtotal))
-          : (hadVat ? Math.round(newSubtotal * 0.075) : 0);
+          : (hadVat ? Math.round(newSubtotal * 0.075) : 0), 'VAT');
         const hadConsumption = Number(inv.taxConsumptionMinorUnits || 0) > 0;
-        const newTaxConsumption = hadConsumption && oldSubtotal > 0
+        const newTaxConsumption = assertMoney(hadConsumption && oldSubtotal > 0
           ? Math.round(newSubtotal * (Number(inv.taxConsumptionMinorUnits) / oldSubtotal))
-          : (hadConsumption ? Math.round(newSubtotal * 0.05) : 0);
+          : (hadConsumption ? Math.round(newSubtotal * 0.05) : 0), 'Consumption tax');
         const hadService = Number(inv.serviceChargeMinorUnits || 0) > 0;
-        const newServiceCharge = hadService && oldSubtotal > 0
+        const newServiceCharge = assertMoney(hadService && oldSubtotal > 0
           ? Math.round(newSubtotal * (Number(inv.serviceChargeMinorUnits) / oldSubtotal))
-          : (hadService ? Math.round(newSubtotal * 0.1) : 0);
-        const newDiscount = Math.min(newSubtotal, Number(inv.discountMinorUnits || 0));
-        const newTotalAmount = Math.max(
-          0,
-          newSubtotal + newTaxVat + newTaxConsumption + newServiceCharge - newDiscount
+          : (hadService ? Math.round(newSubtotal * 0.1) : 0), 'Service charge');
+        const newDiscount = Math.min(newSubtotal, assertMoney(Number(inv.discountMinorUnits || 0), 'Discount'));
+        const newTotalAmount = checkedSub(
+          checkedAdd(
+            checkedAdd(checkedAdd(newSubtotal, newTaxVat, 'Invoice total'), newTaxConsumption, 'Invoice total'),
+            newServiceCharge,
+            'Invoice total',
+          ),
+          newDiscount,
+          'Invoice total',
         );
 
         const paid = Number(inv.paidAmountMinorUnits || 0);
