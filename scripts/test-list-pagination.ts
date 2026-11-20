@@ -51,7 +51,8 @@ async function reservationPage(
   }
   params.push(limit + 1);
   const rows = await sql.unsafe<Row[]>(
-    `select r.id, r.reference, r.status, r.created_at, r.property_id
+    `select r.id, r.reference, r.status, r.created_at, r.property_id,
+            to_char(r.created_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as cursor_created_at
      from reservations r
      left join guests g on g.id = r.guest_id
      left join rooms rm on rm.id = r.room_id
@@ -65,9 +66,125 @@ async function reservationPage(
   return {
     items: page,
     nextCursor: rows.length > limit && last
-      ? encodeCursor({ createdAt: new Date(last.created_at).toISOString(), id: last.id })
+      ? encodeCursor({ createdAt: last.cursor_created_at, id: last.id })
       : null,
   };
+}
+
+/** Mirrors the invoice route: cursor text comes from Postgres, not a JS Date. */
+async function invoicePage(
+  propertyId: string,
+  options: { limit?: number; cursor?: string | null; unpaid?: boolean } = {}
+) {
+  const limit = Math.min(options.limit ?? 25, 100);
+  const conditions = ['pi.property_id = $1'];
+  if (options.unpaid) {
+    conditions.push(`pi.status in ('issued', 'partially_paid', 'overdue') and pi.paid_amount_minor_units < pi.total_amount_minor_units`);
+  }
+  const params: unknown[] = [propertyId];
+  const cursor = decodeCursor(options.cursor);
+  if (cursor) {
+    params.push(cursor.createdAt, cursor.id);
+    conditions.push(`(pi.created_at, pi.id) < ($${params.length - 1}::timestamptz, $${params.length}::uuid)`);
+  }
+  params.push(limit + 1);
+  const rows = await sql.unsafe<Row[]>(
+    `select pi.id, pi.property_id, pi.status,
+            to_char(pi.created_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as cursor_created_at
+     from property_invoices pi
+     where ${conditions.join(' and ')}
+     order by pi.created_at desc, pi.id desc
+     limit $${params.length}`,
+    params as never[]
+  );
+  const page = rows.slice(0, limit);
+  const last = page[page.length - 1];
+  return {
+    items: page,
+    nextCursor: rows.length > limit && last
+      ? encodeCursor({ createdAt: last.cursor_created_at, id: last.id })
+      : null,
+  };
+}
+
+async function paymentPage(
+  propertyId: string,
+  options: { limit?: number; cursor?: string | null } = {}
+) {
+  const limit = Math.min(options.limit ?? 25, 100);
+  const conditions = ['p.property_id = $1'];
+  const params: unknown[] = [propertyId];
+  const cursor = decodeCursor(options.cursor);
+  if (cursor) {
+    params.push(cursor.createdAt, cursor.id);
+    conditions.push(`(p.created_at, p.id) < ($${params.length - 1}::timestamptz, $${params.length}::uuid)`);
+  }
+  params.push(limit + 1);
+  const rows = await sql.unsafe<Row[]>(
+    `select p.id, p.property_id,
+            to_char(p.created_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as cursor_created_at
+     from payments p
+     where ${conditions.join(' and ')}
+     order by p.created_at desc, p.id desc
+     limit $${params.length}`,
+    params as never[]
+  );
+  const page = rows.slice(0, limit);
+  const last = page[page.length - 1];
+  return {
+    items: page,
+    nextCursor: rows.length > limit && last
+      ? encodeCursor({ createdAt: last.cursor_created_at, id: last.id })
+      : null,
+  };
+}
+
+async function guestPage(
+  propertyId: string,
+  options: { limit?: number; cursor?: string | null } = {}
+) {
+  const limit = Math.min(options.limit ?? 25, 100);
+  const conditions = ['g.property_id = $1'];
+  const params: unknown[] = [propertyId];
+  const cursor = decodeCursor(options.cursor);
+  if (cursor) {
+    params.push(cursor.createdAt, cursor.id);
+    conditions.push(`(g.created_at, g.id) < ($${params.length - 1}::timestamptz, $${params.length}::uuid)`);
+  }
+  params.push(limit + 1);
+  const rows = await sql.unsafe<Row[]>(
+    `select g.id, g.property_id,
+            to_char(g.created_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as cursor_created_at
+     from guests g
+     where ${conditions.join(' and ')}
+     order by g.created_at desc, g.id desc
+     limit $${params.length}`,
+    params as never[]
+  );
+  const page = rows.slice(0, limit);
+  const last = page[page.length - 1];
+  return {
+    items: page,
+    nextCursor: rows.length > limit && last
+      ? encodeCursor({ createdAt: last.cursor_created_at, id: last.id })
+      : null,
+  };
+}
+
+async function walkPages<T extends { id: string }>(
+  fetchPage: (cursor: string | null) => Promise<{ items: T[]; nextCursor: string | null }>
+) {
+  const seen: string[] = [];
+  let cursor: string | null = null;
+  let pages = 0;
+  do {
+    const page = await fetchPage(cursor);
+    seen.push(...page.items.map((row) => row.id));
+    cursor = page.nextCursor;
+    pages += 1;
+    assert.ok(pages < 2000, 'pagination did not terminate');
+  } while (cursor);
+  return { seen, pages };
 }
 
 async function walkReservations(propertyId: string, limit: number) {
@@ -159,6 +276,33 @@ async function main() {
   assert.equal(new Set(tieWalk.seen).size, 5);
   pass('five rows sharing createdAt paginate without duplicates or skips');
 
+  console.log('Sub-millisecond timestamps');
+  for (let i = 1; i <= 3; i += 1) {
+    await sql`
+      insert into property_invoices (
+        id, property_id, organization_id, invoice_number, recipient_name,
+        issue_date, due_date, status, total_amount_minor_units, paid_amount_minor_units, created_at
+      ) values (
+        ${`40000000-0000-4000-8000-99999999990${i}`}::uuid, ${TEST_PROPERTY}::uuid, ${ORG}::uuid,
+        ${`PAGTEST-INV-${i}`}, 'Pagination Test', '2026-02-01', '2026-02-10', 'issued', 1000, 0,
+        ${`2026-02-02T10:00:00.12345${i}Z`}::timestamptz
+      )
+    `;
+    await sql`
+      insert into payments (id, property_id, reservation_id, amount_minor_units, method, status, created_at)
+      values (
+        ${`60000000-0000-4000-8000-99999999990${i}`}::uuid, ${TEST_PROPERTY}::uuid,
+        '30000000-0000-4000-8000-999999990001'::uuid, 1000, 'cash', 'successful',
+        ${`2026-02-03T10:00:00.12345${i}Z`}::timestamptz
+      )
+    `;
+  }
+  const invoiceMicroWalk = await walkPages((cursor) => invoicePage(TEST_PROPERTY, { limit: 1, cursor }));
+  assert.equal(invoiceMicroWalk.seen.length, 3, 'microsecond-distinct invoices must not be skipped');
+  const paymentMicroWalk = await walkPages((cursor) => paymentPage(TEST_PROPERTY, { limit: 1, cursor }));
+  assert.equal(paymentMicroWalk.seen.length, 3, 'microsecond-distinct payments must not be skipped');
+  pass('cursors preserve microsecond timestamps for invoices and payments');
+
   console.log('Filters');
   const checkedIn = await reservationPage(PROPERTY_A, { limit: 100, status: 'checked_in' });
   assert.ok(checkedIn.items.length > 0);
@@ -184,12 +328,41 @@ async function main() {
   assert.ok(unpaid.every((row) => row.paid_amount_minor_units < row.total_amount_minor_units));
   pass('status, escaped LIKE, guest search, and unpaid filters');
 
+  console.log('Every list endpoint walks its cursor');
+  const invoiceWalk = await walkPages((cursor) => invoicePage(PROPERTY_A, { limit: 100, cursor }));
+  const paymentWalk = await walkPages((cursor) => paymentPage(PROPERTY_A, { limit: 100, cursor }));
+  const guestWalk = await walkPages((cursor) => guestPage(PROPERTY_A, { limit: 100, cursor }));
+  const unpaidWalk = await walkPages((cursor) => invoicePage(PROPERTY_A, { limit: 100, cursor, unpaid: true }));
+  for (const walk of [invoiceWalk, paymentWalk, guestWalk, unpaidWalk]) {
+    assert.equal(new Set(walk.seen).size, walk.seen.length, 'a cursor walk must not repeat rows');
+  }
+  const invoiceCount = await sql<Row[]>`select count(*)::int as count from property_invoices where property_id = ${PROPERTY_A}::uuid`;
+  const paymentCount = await sql<Row[]>`select count(*)::int as count from payments where property_id = ${PROPERTY_A}::uuid`;
+  const guestCount = await sql<Row[]>`select count(*)::int as count from guests where property_id = ${PROPERTY_A}::uuid`;
+  assert.equal(invoiceWalk.seen.length, invoiceCount[0].count);
+  assert.equal(paymentWalk.seen.length, paymentCount[0].count);
+  assert.equal(guestWalk.seen.length, guestCount[0].count);
+  assert.ok(unpaidWalk.seen.length > 0);
+  pass(`invoices ${invoiceWalk.pages}p, payments ${paymentWalk.pages}p, guests ${guestWalk.pages}p, unpaid ${unpaidWalk.pages}p — no duplicates, full counts`);
+
   console.log('Tenant isolation');
   const aPage = await reservationPage(PROPERTY_A, { limit: 100 });
   const bPage = await reservationPage(PROPERTY_B, { limit: 100 });
   assert.ok(aPage.items.every((row) => row.property_id === PROPERTY_A));
   assert.ok(bPage.items.every((row) => row.property_id === PROPERTY_B));
   assert.ok(aPage.items.every((row) => !bPage.items.some((other) => other.id === row.id)));
+  const invoiceA = await invoicePage(PROPERTY_A, { limit: 100 });
+  const invoiceB = await invoicePage(PROPERTY_B, { limit: 100 });
+  const paymentA = await paymentPage(PROPERTY_A, { limit: 100 });
+  const paymentB = await paymentPage(PROPERTY_B, { limit: 100 });
+  const guestA = await guestPage(PROPERTY_A, { limit: 100 });
+  const guestB = await guestPage(PROPERTY_B, { limit: 100 });
+  assert.ok(invoiceA.items.every((row) => row.property_id === PROPERTY_A));
+  assert.ok(invoiceB.items.every((row) => row.property_id === PROPERTY_B));
+  assert.ok(paymentA.items.every((row) => row.property_id === PROPERTY_A));
+  assert.ok(paymentB.items.every((row) => row.property_id === PROPERTY_B));
+  assert.ok(guestA.items.every((row) => row.property_id === PROPERTY_A));
+  assert.ok(guestB.items.every((row) => row.property_id === PROPERTY_B));
   const guestLeak = await sql<Row[]>`
     select id from guests where property_id = ${PROPERTY_A}::uuid and property_id <> ${PROPERTY_A}::uuid
   `;

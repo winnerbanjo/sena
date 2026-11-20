@@ -83,6 +83,7 @@ async function handleGET(req: NextRequest) {
         totalAmountMinorUnits: reservations.totalAmountMinorUnits,
         paidAmountMinorUnits: reservations.paidAmountMinorUnits,
         createdAt: reservations.createdAt,
+        cursorCreatedAt: sql<string>`to_char(${reservations.createdAt} at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
         guestId: reservations.guestId,
         guestName: guests.fullName,
         guestEmail: guests.email,
@@ -109,10 +110,11 @@ async function handleGET(req: NextRequest) {
     const items = rows.slice(0, limit);
     const last = items[items.length - 1];
     const nextCursor = rows.length > limit && last
-      ? encodeCursor({ createdAt: last.createdAt.toISOString(), id: last.id })
+      ? encodeCursor({ createdAt: last.cursorCreatedAt, id: last.id })
       : null;
+    const responseItems = items.map(({ cursorCreatedAt: _cursorCreatedAt, ...item }) => item);
 
-    return NextResponse.json({ items, nextCursor });
+    return NextResponse.json({ items: responseItems, nextCursor });
   } catch (error: any) {
     console.error('Error fetching reservations:', error);
     return NextResponse.json({ error: apiError(error) }, { status: 500 });

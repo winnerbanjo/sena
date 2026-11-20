@@ -3,6 +3,7 @@ import { pageMain } from '../../components/design';
 import { useTranslations } from 'next-intl';
 
 import { PageLoadState, readJsonResponse } from '../../components/page-load-state';
+import { fetchPagedItems } from '../../lib/paged-fetch';
 import * as React from 'react';
 import Link from 'next/link';
 import { formatNaira } from '@sena/config';
@@ -157,10 +158,10 @@ export default function RoomsPage() {
     if (!assignRoom) return;
     setAssignLoading(true);
     setAssignError(null);
-    fetch('/api/reservations?status=confirmed&limit=100')
-      .then((res) => (res.ok ? res.json() : Promise.reject(new Error('Could not load arrivals'))))
-      .then((data) => {
-        const mapped: ReservationItem[] = (data.items || []).map(mapReservationItem);
+    const controller = new AbortController();
+    fetchPagedItems<any>('/api/reservations?status=confirmed&limit=100', { signal: controller.signal })
+      .then((items) => {
+        const mapped: ReservationItem[] = items.map(mapReservationItem);
         setAssignArrivals(
           mapped.filter(
             (reservation) =>
@@ -172,8 +173,13 @@ export default function RoomsPage() {
           )
         );
       })
-      .catch((error) => setAssignError(error.message || 'Could not load arrivals'))
-      .finally(() => setAssignLoading(false));
+      .catch((error) => {
+        if (!controller.signal.aborted) setAssignError(error.message || 'Could not load arrivals');
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setAssignLoading(false);
+      });
+    return () => controller.abort();
   }, [assignRoom]);
 
   async function handleSendToHousekeeping(room: RoomItem) {

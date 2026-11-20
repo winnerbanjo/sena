@@ -107,19 +107,24 @@ async function handleGET(req: NextRequest) {
     }
 
     const rows = await db
-      .select({ ...getTableColumns(propertyInvoices), effectiveStatus })
+      .select({
+        ...getTableColumns(propertyInvoices),
+        effectiveStatus,
+        cursorCreatedAt: sql<string>`to_char(${propertyInvoices.createdAt} at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
+      })
       .from(propertyInvoices)
       .where(sql.join(conditions, sql` and `))
       .orderBy(desc(propertyInvoices.createdAt), desc(propertyInvoices.id))
       .limit(limit + 1);
 
     const items = rows.slice(0, limit).map((row) => {
-      const { effectiveStatus: currentStatus, ...invoice } = row;
+      const { effectiveStatus: currentStatus, cursorCreatedAt: _cursorCreatedAt, ...invoice } = row;
       return { ...invoice, status: currentStatus, publicToken: createPublicInvoiceToken(invoice.id) };
     });
     const last = items[items.length - 1];
-    const nextCursor = rows.length > limit && last
-      ? encodeCursor({ createdAt: last.createdAt.toISOString(), id: last.id })
+    const lastRow = rows[limit - 1];
+    const nextCursor = rows.length > limit && last && lastRow
+      ? encodeCursor({ createdAt: lastRow.cursorCreatedAt, id: last.id })
       : null;
 
     // Property-wide metrics stay in SQL and are independent of the page/filter.

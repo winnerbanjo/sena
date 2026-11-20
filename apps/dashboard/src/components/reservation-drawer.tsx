@@ -70,6 +70,8 @@ export function ReservationDrawer({
   const [timeline, setTimeline] = React.useState<ReservationItem['timeline']>([]);
   const [timelineCursor, setTimelineCursor] = React.useState<string | null>(null);
   const [timelineLoading, setTimelineLoading] = React.useState(false);
+  const [historyCursor, setHistoryCursor] = React.useState<string | null>(null);
+  const [historyLoading, setHistoryLoading] = React.useState(false);
 
   React.useEffect(() => {
     if (!open || !reservation) {
@@ -110,10 +112,30 @@ export function ReservationDrawer({
   React.useEffect(() => {
     if (!open || !reservation) return;
     fetch(`/api/payments?reservationId=${reservation.id}`)
-      .then((res) => (res.ok ? res.json() : { items: [] }))
-      .then((data) => setHistory(Array.isArray(data.items) ? data.items : []))
-      .catch(() => setHistory([]));
+      .then((res) => (res.ok ? res.json() : { items: [], nextCursor: null }))
+      .then((data) => {
+        setHistory(Array.isArray(data.items) ? data.items : []);
+        setHistoryCursor(data.nextCursor || null);
+      })
+      .catch(() => {
+        setHistory([]);
+        setHistoryCursor(null);
+      });
   }, [open, reservation?.id, historyVersion]);
+
+  async function loadMoreHistory() {
+    if (!reservation || !historyCursor || historyLoading) return;
+    setHistoryLoading(true);
+    try {
+      const res = await fetch(`/api/payments?reservationId=${reservation.id}&cursor=${encodeURIComponent(historyCursor)}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      if (Array.isArray(data.items)) setHistory((previous) => [...previous, ...data.items]);
+      setHistoryCursor(data.nextCursor || null);
+    } finally {
+      setHistoryLoading(false);
+    }
+  }
 
   React.useEffect(() => {
     if (!open || !reservation?.bookingGroupId) {
@@ -408,6 +430,16 @@ export function ReservationDrawer({
                       )}
                     </div>
                   ))}
+                  {historyCursor && (
+                    <button
+                      type="button"
+                      onClick={loadMoreHistory}
+                      disabled={historyLoading}
+                      className="text-xs font-medium text-[#71382D] hover:underline disabled:opacity-60"
+                    >
+                      {historyLoading ? 'Loading…' : 'Load earlier payments'}
+                    </button>
+                  )}
                   <Link
                     href={`/invoices?search=${encodeURIComponent(reservation.reference)}`}
                     className="inline-flex items-center gap-1 text-xs text-[#71382D] hover:underline font-medium"

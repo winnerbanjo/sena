@@ -55,6 +55,7 @@ async function handleGET(req: NextRequest) {
         preferences: guests.preferences,
         notes: guests.notes,
         createdAt: guests.createdAt,
+        cursorCreatedAt: sql<string>`to_char(${guests.createdAt} at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
       })
       .from(guests)
       .where(sql.join(conditions, sql` and `))
@@ -80,17 +81,20 @@ async function handleGET(req: NextRequest) {
       : [];
 
     const byGuest = new Map(stats.map((stat) => [stat.guestId, stat]));
-    const items = page.map((guest) => ({
-      ...guest,
-      totalStays: byGuest.get(guest.id)?.totalStays || 0,
-      totalNights: byGuest.get(guest.id)?.totalNights || 0,
-      totalSpendMinorUnits: byGuest.get(guest.id)?.totalSpendMinorUnits || '0',
-      lastStayDate: byGuest.get(guest.id)?.lastStayDate || null,
-    }));
+    const items = page.map((guest) => {
+      const { cursorCreatedAt: _cursorCreatedAt, ...item } = guest;
+      return {
+        ...item,
+        totalStays: byGuest.get(guest.id)?.totalStays || 0,
+        totalNights: byGuest.get(guest.id)?.totalNights || 0,
+        totalSpendMinorUnits: byGuest.get(guest.id)?.totalSpendMinorUnits || '0',
+        lastStayDate: byGuest.get(guest.id)?.lastStayDate || null,
+      };
+    });
 
     const last = page[page.length - 1];
     const nextCursor = rows.length > limit && last
-      ? encodeCursor({ createdAt: last.createdAt.toISOString(), id: last.id })
+      ? encodeCursor({ createdAt: last.cursorCreatedAt, id: last.id })
       : null;
 
     return NextResponse.json({ items, nextCursor });

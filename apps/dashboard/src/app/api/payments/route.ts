@@ -104,13 +104,14 @@ async function handleGET(req: NextRequest) {
           status: payments.status,
           notes: payments.notes,
           createdAt: payments.createdAt,
+          cursorCreatedAt: sql<string>`to_char(${payments.createdAt} at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
           reservationId: payments.reservationId,
           reservationReference: reservations.reference,
           guestName: guests.fullName,
           guestEmail: guests.email,
         })
         .from(payments)
-        .leftJoin(reservations, eq(payments.reservationId, reservations.id))
+        .leftJoin(reservations, and(eq(payments.reservationId, reservations.id), eq(reservations.propertyId, propertyId)))
         .leftJoin(guests, eq(reservations.guestId, guests.id))
         .where(sql.join(paymentConditions, sql` and `))
         .orderBy(desc(payments.createdAt), desc(payments.id))
@@ -141,13 +142,14 @@ async function handleGET(req: NextRequest) {
           proofUrl: transferProofs.proofUrl,
           status: transferProofs.status,
           submittedAt: transferProofs.submittedAt,
+          cursorSubmittedAt: sql<string>`to_char(${transferProofs.submittedAt} at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
           reservationId: transferProofs.reservationId,
           invoiceId: transferProofs.invoiceId,
           reservationReference: reservations.reference,
           guestName: guests.fullName,
         })
         .from(transferProofs)
-        .leftJoin(reservations, eq(transferProofs.reservationId, reservations.id))
+        .leftJoin(reservations, and(eq(transferProofs.reservationId, reservations.id), eq(reservations.propertyId, propertyId)))
         .leftJoin(guests, eq(reservations.guestId, guests.id))
         .where(sql.join(proofConditions, sql` and `))
         .orderBy(desc(transferProofs.submittedAt), desc(transferProofs.id))
@@ -178,7 +180,7 @@ async function handleGET(req: NextRequest) {
 
     const lastPayment = paymentItems[paymentItems.length - 1];
     const nextCursor = paymentList.length > limit && lastPayment
-      ? encodeCursor({ createdAt: lastPayment.createdAt.toISOString(), id: lastPayment.id })
+      ? encodeCursor({ createdAt: lastPayment.cursorCreatedAt, id: lastPayment.id })
       : null;
     const lastReceivable = receivableItems[receivableItems.length - 1];
     const receivablesNextCursor = reservationRows.length > receivablesLimit && lastReceivable
@@ -186,7 +188,7 @@ async function handleGET(req: NextRequest) {
       : null;
     const lastProof = proofItems[proofItems.length - 1];
     const transferProofsNextCursor = proofs.length > proofsLimit && lastProof
-      ? encodeCursor({ submittedAt: lastProof.submittedAt.toISOString(), id: lastProof.id })
+      ? encodeCursor({ submittedAt: lastProof.cursorSubmittedAt, id: lastProof.id })
       : null;
 
     const paymentIds = paymentItems.map((payment) => payment.id);
@@ -200,11 +202,11 @@ async function handleGET(req: NextRequest) {
 
     const totals = reservationTotals[0];
     return NextResponse.json({
-      items: paymentItems.map((payment) => ({ ...payment, hasReceipt: receipts.has(payment.id) })),
+      items: paymentItems.map(({ cursorCreatedAt: _cursorCreatedAt, ...payment }) => ({ ...payment, hasReceipt: receipts.has(payment.id) })),
       nextCursor,
       receivables: receivableItems,
       receivablesNextCursor,
-      transferProofs: proofItems,
+      transferProofs: proofItems.map(({ cursorSubmittedAt: _cursorSubmittedAt, ...proof }) => proof),
       transferProofsNextCursor,
       metrics: {
         totalCollectedMinorUnits: paymentTotals[0]?.totalCollectedMinorUnits || '0',

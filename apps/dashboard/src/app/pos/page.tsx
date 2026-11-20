@@ -27,6 +27,7 @@ import {
   DialogFooter,
 } from '@sena/ui';
 import { PageLoadState } from '../../components/page-load-state';
+import { fetchPagedItems } from '../../lib/paged-fetch';
 
 interface CartItem {
   menuItemId: string;
@@ -64,10 +65,10 @@ export default function RestaurantPOSPage() {
   const fetchCatalog = React.useCallback(async () => {
     setLoadError(false);
     try {
-      const [resMenu, resTables, resReservations] = await Promise.all([
+      const [resMenu, resTables, inHouseRows] = await Promise.all([
         fetch('/api/restaurant/menu'),
         fetch('/api/restaurant/tables'),
-        fetch('/api/reservations?status=checked_in&limit=100'),
+        fetchPagedItems<any>('/api/reservations?status=checked_in&limit=100'),
       ]);
 
       if (!resMenu.ok) throw new Error('Could not load menu catalog');
@@ -80,11 +81,7 @@ export default function RestaurantPOSPage() {
         setTables(dataTables.tables || []);
       }
 
-      if (resReservations.ok) {
-        const dataRes = await resReservations.json();
-        const inHouse = (dataRes.items || []).filter((r: any) => r.status === 'checked_in');
-        setInHouseGuests(inHouse);
-      }
+      setInHouseGuests(inHouseRows.filter((r: any) => r.status === 'checked_in'));
     } catch (err: any) {
       setLoadError(true);
       toast.error('POS Catalog', err.message);
