@@ -17,6 +17,25 @@ type MerchantRequestContext = {
 
 const merchantRequests = new WeakMap<NextRequest, MerchantRequestContext>();
 
+/**
+ * Test-only session override. Route tests exercise the real tenant resolution
+ * and permission checks; only the auth() lookup is replaced. Never available in
+ * production, and only when the test runner opts in explicitly.
+ */
+type MerchantSession = {
+  user?: { id?: string; propertyId?: string; name?: string | null; email?: string | null } | null;
+  expires?: string;
+} | null;
+
+let testSession: MerchantSession | undefined;
+
+export function setMerchantSessionForTests(session: MerchantSession) {
+  if (process.env.NODE_ENV === 'production' || process.env.SENA_TEST_ROUTE_AUTH !== '1') {
+    throw new Error('setMerchantSessionForTests is only available to the route test runner.');
+  }
+  testSession = session;
+}
+
 export function getMerchantRequest(req: NextRequest): MerchantRequestContext | undefined {
   return merchantRequests.get(req);
 }
@@ -25,7 +44,7 @@ export function getMerchantRequest(req: NextRequest): MerchantRequestContext | u
 export function withMerchant(handler: Handler, scope: string): Handler {
   return async (req, context) => {
     try {
-      const session = await auth();
+      const session = testSession !== undefined ? testSession : await auth();
       if (!session?.user?.id) return NextResponse.json({ error: 'Please sign in to continue.' }, { status: 401 });
       const tenant = await resolveTenantForRequest(session, req);
       if (!tenant) return NextResponse.json({ error: 'Your account does not have access to this property.' }, { status: 403 });

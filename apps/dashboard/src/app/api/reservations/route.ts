@@ -4,7 +4,8 @@ import { badCursorResponse, cursorIsMalformed, cursorTimestamp, cursorUuid, deco
 import { eq, desc, or, ilike, gte, lte, inArray, sql } from 'drizzle-orm';
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
-import { db, reservations, guests, rooms, roomTypes, apartments, properties, reservationNotes, transferProofs } from '@sena/database';
+import { db, reservations, guests, rooms, roomTypes, apartments, properties } from '@sena/database';
+import { reservationListColumns } from '@/lib/reservation-list-columns';
 import { ReservationService } from '@sena/reservations';
 import { sendBookingConfirmationEmail, sendSenaEmail } from '@sena/email';
 import { formatNaira } from '@sena/config';
@@ -70,34 +71,7 @@ async function handleGET(req: NextRequest) {
     }
 
     const rows = await db
-      .select({
-        id: reservations.id,
-        reference: reservations.reference,
-        status: reservations.status,
-        paymentStatus: reservations.paymentStatus,
-        checkInDate: reservations.checkInDate,
-        checkOutDate: reservations.checkOutDate,
-        nights: reservations.nights,
-        numGuests: reservations.numGuests,
-        source: reservations.source,
-        totalAmountMinorUnits: reservations.totalAmountMinorUnits,
-        paidAmountMinorUnits: reservations.paidAmountMinorUnits,
-        createdAt: reservations.createdAt,
-        cursorCreatedAt: sql<string>`to_char(${reservations.createdAt} at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
-        guestId: reservations.guestId,
-        guestName: guests.fullName,
-        guestEmail: guests.email,
-        guestPhone: guests.phone,
-        roomId: reservations.roomId,
-        roomNumber: rooms.roomNumber,
-        bookingGroupId: reservations.bookingGroupId,
-        roomTypeId: reservations.roomTypeId,
-        roomTypeName: roomTypes.name,
-        apartmentId: reservations.apartmentId,
-        apartmentName: apartments.name,
-        noteCount: sql<number>`(select count(*)::int from ${reservationNotes} where ${reservationNotes.reservationId} = ${reservations.id})`,
-        pendingTransferProof: sql<boolean>`exists (select 1 from ${transferProofs} where ${transferProofs.reservationId} = ${reservations.id} and ${transferProofs.propertyId} = ${propertyId} and ${transferProofs.status} = 'pending')`,
-      })
+      .select(reservationListColumns(propertyId))
       .from(reservations)
       .leftJoin(guests, eq(reservations.guestId, guests.id))
       .leftJoin(rooms, eq(reservations.roomId, rooms.id))

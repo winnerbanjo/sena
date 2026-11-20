@@ -70,7 +70,17 @@ async function handleGET(req: NextRequest, context: { params: Promise<{ id: stri
 
     const [events, pendingProofs, noteCounts] = await Promise.all([
       db
-        .select()
+        .select({
+          id: reservationEvents.id,
+          reservationId: reservationEvents.reservationId,
+          eventType: reservationEvents.eventType,
+          description: reservationEvents.description,
+          actorName: reservationEvents.actorName,
+          metadata: reservationEvents.metadata,
+          createdAt: reservationEvents.createdAt,
+          // Keep microseconds; Date.toISOString() only has milliseconds.
+          cursorCreatedAt: sql<string>`to_char(${reservationEvents.createdAt} at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
+        })
         .from(reservationEvents)
         .where(sql.join(eventConditions, sql` and `))
         .orderBy(desc(reservationEvents.createdAt), desc(reservationEvents.id))
@@ -95,7 +105,7 @@ async function handleGET(req: NextRequest, context: { params: Promise<{ id: stri
     }));
     const lastEvent = events[eventsLimit - 1];
     const timelineNextCursor = events.length > eventsLimit && lastEvent
-      ? encodeCursor({ createdAt: lastEvent.createdAt.toISOString(), id: lastEvent.id })
+      ? encodeCursor({ createdAt: lastEvent.cursorCreatedAt, id: lastEvent.id })
       : null;
 
     return NextResponse.json({

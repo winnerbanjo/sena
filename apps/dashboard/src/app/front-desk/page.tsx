@@ -27,6 +27,14 @@ import { useToast } from '../../components/toast-notification';
 import { useTranslations } from 'next-intl';
 import { isolateLtr, Ltr } from '../../components/ltr';
 
+type FrontDeskList = { items: ReservationItem[]; total: number; truncated: boolean };
+type FrontDeskBoard = {
+  arrivalsToday: FrontDeskList;
+  arrivalsAll: FrontDeskList;
+  inHouse: FrontDeskList;
+  departuresToday: FrontDeskList;
+};
+
 export default function FrontDeskPage() {
   const toast = useToast();
   const t = useTranslations('frontDesk');
@@ -34,7 +42,12 @@ export default function FrontDeskPage() {
   const workspace = useWorkspace();
   const [loadError, setLoadError] = React.useState(false);
   const [failureKind, setFailureKind] = React.useState<LoadFailureKind>('error');
-  const [reservations, setReservations] = React.useState<ReservationItem[]>([]);
+  const [board, setBoard] = React.useState<FrontDeskBoard>({
+    arrivalsToday: { items: [], total: 0, truncated: false },
+    arrivalsAll: { items: [], total: 0, truncated: false },
+    inHouse: { items: [], total: 0, truncated: false },
+    departuresToday: { items: [], total: 0, truncated: false },
+  });
   const [loading, setLoading] = React.useState(true);
   const [activeTab, setActiveTab] = React.useState<'arriving' | 'in_house' | 'departing'>('arriving');
   const [arrivalScope, setArrivalScope] = React.useState<'today' | 'all'>('today');
@@ -89,22 +102,22 @@ export default function FrontDeskPage() {
   const fetchReservations = React.useCallback(async () => {
     setLoadError(false);
     try {
-      // Only active stays are operationally relevant. Walk the cursor pages for
-      // this filtered set (bounded) instead of loading the property's history.
-      const collected: any[] = [];
-      let cursor: string | null = null;
-      for (let page = 0; page < 5; page += 1) {
-        const params = new URLSearchParams({ status: 'confirmed,checked_in', limit: '100' });
-        if (cursor) params.set('cursor', cursor);
-        const res = await fetch(`/api/reservations?${params.toString()}`);
-        if (!res.ok) throw new Error(`Could not load reservations (${res.status})`);
-        const data = await res.json();
-        collected.push(...(data.items || []));
-        cursor = data.nextCursor || null;
-        if (!cursor) break;
-      }
-      const mapped: ReservationItem[] = collected.map(mapReservationItem);
-      setReservations(mapped);
+      // The board is a server-side bounded query: today's arrivals, in-house
+      // stays and today's departures. It never walks the property history.
+      const res = await fetch('/api/front-desk', { cache: 'no-store' });
+      if (!res.ok) throw new Error(`Could not load the front desk (${res.status})`);
+      const data = await res.json();
+      const list = (bucket: any): FrontDeskList => ({
+        items: (bucket?.items || []).map(mapReservationItem),
+        total: Number(bucket?.total) || 0,
+        truncated: Boolean(bucket?.truncated),
+      });
+      setBoard({
+        arrivalsToday: list(data.arrivals?.today),
+        arrivalsAll: list(data.arrivals?.all),
+        inHouse: list(data.inHouse),
+        departuresToday: list(data.departures?.today),
+      });
     } catch (error) {
       setFailureKind(classifyLoadFailure(error, typeof navigator === 'undefined' ? true : navigator.onLine));
       setLoadError(true);
@@ -118,7 +131,12 @@ export default function FrontDeskPage() {
   }, [fetchReservations]);
 
   function openAssignment(id: string, mode: RoomAssignmentMode) {
-    const reservation = reservations.find((item) => item.id === id) || selectedRes;
+    const reservation = [
+      ...board.arrivalsToday.items,
+      ...board.arrivalsAll.items,
+      ...board.inHouse.items,
+      ...board.departuresToday.items,
+    ].find((item) => item.id === id) || selectedRes;
     if (!reservation) return;
     setAssignment({ reservation, mode });
   }
@@ -158,28 +176,13 @@ export default function FrontDeskPage() {
     }
   }
 
-  const arrivingTodayList = React.useMemo(() => {
-    return reservations.filter((r) => r.status === 'confirmed' && r.checkInDate <= todayStr);
-  }, [reservations, todayStr]);
-
-  const allUpcomingArrivingList = React.useMemo(() => {
-    return reservations.filter((r) => r.status === 'confirmed');
-  }, [reservations]);
+  const arrivingTodayList = board.arrivalsToday.items;
+  const allUpcomingArrivingList = board.arrivalsAll.items;
+  const inHouseList = board.inHouse.items;
+  const departingTodayList = board.departuresToday.items;
+  const allDepartingList = inHouseList;
 
   const arrivingList = arrivalScope === 'today' ? arrivingTodayList : allUpcomingArrivingList;
-
-  const inHouseList = React.useMemo(() => {
-    return reservations.filter((r) => r.status === 'checked_in');
-  }, [reservations]);
-
-  const departingTodayList = React.useMemo(() => {
-    return reservations.filter((r) => r.status === 'checked_in' && r.checkOutDate <= todayStr);
-  }, [reservations, todayStr]);
-
-  const allDepartingList = React.useMemo(() => {
-    return reservations.filter((r) => r.status === 'checked_in');
-  }, [reservations]);
-
   const departingList = departureScope === 'today' ? departingTodayList : allDepartingList;
 
   const currentList =
@@ -188,6 +191,13 @@ export default function FrontDeskPage() {
       : activeTab === 'in_house'
       ? inHouseList
       : departingList;
+
+  const currentBucket =
+    activeTab === 'arriving'
+      ? (arrivalScope === 'today' ? board.arrivalsToday : board.arrivalsAll)
+      : activeTab === 'in_house'
+      ? board.inHouse
+      : (departureScope === 'today' ? board.departuresToday : board.inHouse);
 
   if (loading || loadError) return <PageLoadState title={t('title')} failed={loadError} failureKind={failureKind} retry={fetchReservations} />;
 
@@ -210,7 +220,7 @@ export default function FrontDeskPage() {
             >
               <span>{t('expectedArrivals')}</span>
               <span className="font-mono text-[11px] px-1.5 py-0.2 rounded bg-[#FAF4EF] text-[#71382D] border border-[#E5D4BC]">
-                {arrivingTodayList.length}
+                {board.arrivalsToday.total}
               </span>
               {activeTab === 'arriving' && (
                 <span className="absolute bottom-0 inset-x-0 h-0.5 bg-[#71382D]" />
@@ -225,7 +235,7 @@ export default function FrontDeskPage() {
             >
               <span>{t('currentlyInHouse')}</span>
               <span className="font-mono text-[11px] px-1.5 py-0.2 rounded bg-[#FAF4EF] text-[#71382D] border border-[#E5D4BC]">
-                {inHouseList.length}
+                {board.inHouse.total}
               </span>
               {activeTab === 'in_house' && (
                 <span className="absolute bottom-0 inset-x-0 h-0.5 bg-[#71382D]" />
@@ -240,7 +250,7 @@ export default function FrontDeskPage() {
             >
               <span>{t('departures')}</span>
               <span className="font-mono text-[11px] px-1.5 py-0.2 rounded bg-[#FAF4EF] text-[#71382D] border border-[#E5D4BC]">
-                {departingTodayList.length}
+                {board.departuresToday.total}
               </span>
               {activeTab === 'departing' && (
                 <span className="absolute bottom-0 inset-x-0 h-0.5 bg-[#71382D]" />
@@ -269,7 +279,7 @@ export default function FrontDeskPage() {
                   : 'bg-[#FAF7F2] text-[#7A7267] hover:text-[#191816] border border-[#E8E1D5]'
               }`}
             >
-              Today & Overdue ({arrivingTodayList.length})
+              Today & Overdue ({board.arrivalsToday.total})
             </button>
             <button
               type="button"
@@ -280,7 +290,7 @@ export default function FrontDeskPage() {
                   : 'bg-[#FAF7F2] text-[#7A7267] hover:text-[#191816] border border-[#E8E1D5]'
               }`}
             >
-              All Upcoming ({allUpcomingArrivingList.length})
+              All Upcoming ({board.arrivalsAll.total})
             </button>
           </div>
         )}
@@ -297,7 +307,7 @@ export default function FrontDeskPage() {
                   : 'bg-[#FAF7F2] text-[#7A7267] hover:text-[#191816] border border-[#E8E1D5]'
               }`}
             >
-              Departing Today & Overdue ({departingTodayList.length})
+              Departing Today & Overdue ({board.departuresToday.total})
             </button>
             <button
               type="button"
@@ -308,9 +318,16 @@ export default function FrontDeskPage() {
                   : 'bg-[#FAF7F2] text-[#7A7267] hover:text-[#191816] border border-[#E8E1D5]'
               }`}
             >
-              All In-House ({inHouseList.length})
+              All In-House ({board.inHouse.total})
             </button>
           </div>
+        )}
+
+        {currentBucket.truncated && (
+          <p role="status" className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-900">
+            Showing the first {currentBucket.items.length} of {currentBucket.total} stays. This property has more
+            operational rows than the board loads at once; narrow the view or open Reservations to find a specific booking.
+          </p>
         )}
 
         {/* Operational Front Desk Roster: Clean Table Layout Instead of Random Cards */}
@@ -527,18 +544,27 @@ export default function FrontDeskPage() {
           );
         }}
         onFolioUpdated={(update) => {
-          setReservations((prev) =>
-            prev.map((item) =>
-              assignment && item.id === assignment.reservation.id
-                ? {
-                    ...item,
-                    paidAmountMinorUnits: update.paidAmountMinorUnits,
-                    totalAmountMinorUnits: update.totalAmountMinorUnits,
-                    pendingTransferProof: update.pendingTransferProof,
-                  }
-                : item
-            )
-          );
+          if (assignment) {
+            const patch = (bucket: FrontDeskList): FrontDeskList => ({
+              ...bucket,
+              items: bucket.items.map((item) =>
+                item.id === assignment.reservation.id
+                  ? {
+                      ...item,
+                      paidAmountMinorUnits: update.paidAmountMinorUnits,
+                      totalAmountMinorUnits: update.totalAmountMinorUnits,
+                      pendingTransferProof: update.pendingTransferProof,
+                    }
+                  : item
+              ),
+            });
+            setBoard((prev) => ({
+              arrivalsToday: patch(prev.arrivalsToday),
+              arrivalsAll: patch(prev.arrivalsAll),
+              inHouse: patch(prev.inHouse),
+              departuresToday: patch(prev.departuresToday),
+            }));
+          }
           setSelectedRes((prev) =>
             prev && assignment && prev.id === assignment.reservation.id
               ? {

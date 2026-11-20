@@ -9,6 +9,7 @@
 import assert from 'node:assert/strict';
 import postgres from 'postgres';
 import { decodeCursor, encodeCursor, escapeLikePattern, parsePageLimit } from '../apps/dashboard/src/lib/pagination';
+import { formatMinorUnits } from '../apps/dashboard/src/lib/minor-units';
 
 const url = process.env.SENA_BENCH_DATABASE_URL || process.env.DATABASE_URL;
 if (!url) {
@@ -368,6 +369,17 @@ async function main() {
   `;
   assert.equal(guestLeak.length, 0);
   pass('property A pages never contain property B rows');
+
+  // Guest spend is summed as bigint text; formatting must not narrow it through
+  // Number() or the last kobo disappears above MAX_SAFE_INTEGER.
+  const hugeSpend = '9007199251071';
+  assert.ok(
+    formatMinorUnits(hugeSpend).includes('90,071,992,510.71'),
+    'large guest spend must be formatted without precision loss'
+  );
+  assert.ok(formatMinorUnits('123456').includes('1,234.56'), 'ordinary amounts keep their kobo');
+  assert.ok(formatMinorUnits(null).length > 0, 'missing amounts render as zero');
+  pass('guest lifetime spend is formatted from bigint text without precision loss');
 
   await sql`delete from properties where id = ${TEST_PROPERTY}::uuid`;
   await sql.end();

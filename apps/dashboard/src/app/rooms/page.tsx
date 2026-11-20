@@ -3,7 +3,6 @@ import { pageMain } from '../../components/design';
 import { useTranslations } from 'next-intl';
 
 import { PageLoadState, readJsonResponse } from '../../components/page-load-state';
-import { fetchPagedItems } from '../../lib/paged-fetch';
 import * as React from 'react';
 import Link from 'next/link';
 import { formatNaira } from '@sena/config';
@@ -65,6 +64,8 @@ export default function RoomsPage() {
   const [toastMessage, setToastMessage] = React.useState<string | null>(null);
   const [assignRoom, setAssignRoom] = React.useState<RoomItem | null>(null);
   const [assignArrivals, setAssignArrivals] = React.useState<ReservationItem[]>([]);
+  const [assignTotal, setAssignTotal] = React.useState(0);
+  const [assignTruncated, setAssignTruncated] = React.useState(false);
   const [assignLoading, setAssignLoading] = React.useState(false);
   const [assigningId, setAssigningId] = React.useState<string | null>(null);
   const [assignError, setAssignError] = React.useState<string | null>(null);
@@ -158,20 +159,19 @@ export default function RoomsPage() {
     if (!assignRoom) return;
     setAssignLoading(true);
     setAssignError(null);
+    setAssignTruncated(false);
+    setAssignTotal(0);
     const controller = new AbortController();
-    fetchPagedItems<any>('/api/reservations?status=confirmed&limit=100', { signal: controller.signal })
-      .then((items) => {
-        const mapped: ReservationItem[] = items.map(mapReservationItem);
-        setAssignArrivals(
-          mapped.filter(
-            (reservation) =>
-              reservation.status === 'confirmed' &&
-              !reservation.roomId &&
-              (assignRoom.roomTypeId
-                ? reservation.roomTypeId === assignRoom.roomTypeId
-                : reservation.roomType === assignRoom.type)
-          )
-        );
+    const params = new URLSearchParams();
+    if (assignRoom.roomTypeId) params.set('roomTypeId', assignRoom.roomTypeId);
+    else params.set('roomType', assignRoom.type);
+    fetch(`/api/rooms/assignable-reservations?${params.toString()}`, { signal: controller.signal })
+      .then(async (res) => {
+        if (!res.ok) throw new Error(`Could not load arrivals (${res.status})`);
+        const data = await res.json();
+        setAssignArrivals((data.items || []).map(mapReservationItem));
+        setAssignTotal(Number(data.total) || 0);
+        setAssignTruncated(Boolean(data.truncated));
       })
       .catch((error) => {
         if (!controller.signal.aborted) setAssignError(error.message || 'Could not load arrivals');
@@ -1021,6 +1021,12 @@ export default function RoomsPage() {
                   </button>
                 ))}
               </div>
+            )}
+            {assignTruncated && (
+              <p role="status" className="rounded bg-amber-50 text-amber-900 border border-amber-200 px-2.5 py-2 text-[11px]">
+                Showing the first {assignArrivals.length} of {assignTotal} unassigned arrivals for this room type.
+                Assign the rest from Front Desk or Reservations.
+              </p>
             )}
             {assignError && (
               <p className="rounded bg-red-50 text-red-700 px-2.5 py-2 text-xs font-medium" role="alert">

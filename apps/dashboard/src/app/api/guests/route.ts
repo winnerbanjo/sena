@@ -1,5 +1,5 @@
 import { apiError } from '@/lib/api-error';
-import { withMerchant } from '@/lib/merchant-route';
+import { getMerchantRequest, withMerchant } from '@/lib/merchant-route';
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { db, guests, reservations, properties , propertyMembers, organizationMembers } from '@sena/database';
@@ -12,7 +12,8 @@ export const dynamic = 'force-dynamic';
 
 async function handleGET(req: NextRequest) {
   try {
-    const session = await auth();
+    const merchant = getMerchantRequest(req);
+    const session = merchant ? merchant.session : await auth();
     const tenant = await resolveTenantForRequest(session, req);
     const propertyId = tenant?.propertyId;
 
@@ -106,7 +107,8 @@ async function handleGET(req: NextRequest) {
 
 async function handlePOST(req: NextRequest) {
   try {
-    const session = await auth();
+    const merchant = getMerchantRequest(req);
+    const session = merchant ? merchant.session : await auth();
     const tenant = await resolveTenantForRequest(session, req);
     const propertyId = tenant?.propertyId;
     const organizationId = tenant?.property.organizationId;

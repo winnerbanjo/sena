@@ -9,6 +9,11 @@
 --
 -- Every statement is additive and uses IF NOT EXISTS. Drop the CONCURRENTLY
 -- keyword if you must run this inside a transaction on a maintenance window.
+--
+-- Each index below is used by at least one measured plan in
+-- docs/ops/list-indexes.md. Two candidates (invoice status tab, per-reservation
+-- payment history) were measured and dropped: the existing created_at and
+-- reservation indexes already serve those queries at the same cost.
 
 -- Reservations list: property scope + (created_at DESC, id DESC) keyset.
 CREATE INDEX CONCURRENTLY IF NOT EXISTS res_prop_created_id_idx
@@ -30,10 +35,6 @@ CREATE INDEX CONCURRENTLY IF NOT EXISTS res_prop_guest_idx
 CREATE INDEX CONCURRENTLY IF NOT EXISTS prop_inv_prop_created_id_idx
   ON property_invoices (property_id, created_at DESC, id DESC);
 
--- Invoices list with a status tab.
-CREATE INDEX CONCURRENTLY IF NOT EXISTS prop_inv_prop_status_created_id_idx
-  ON property_invoices (property_id, status, created_at DESC, id DESC);
-
 -- "Unpaid" tab: ordered scan over only invoices that still have a balance.
 CREATE INDEX CONCURRENTLY IF NOT EXISTS prop_inv_prop_unpaid_created_id_idx
   ON property_invoices (property_id, created_at DESC, id DESC)
@@ -43,10 +44,6 @@ CREATE INDEX CONCURRENTLY IF NOT EXISTS prop_inv_prop_unpaid_created_id_idx
 -- Payments ledger: property scope + (created_at DESC, id DESC) keyset.
 CREATE INDEX CONCURRENTLY IF NOT EXISTS payments_prop_created_id_idx
   ON payments (property_id, created_at DESC, id DESC);
-
--- Payment history for one reservation (drawer).
-CREATE INDEX CONCURRENTLY IF NOT EXISTS payments_prop_res_created_id_idx
-  ON payments (property_id, reservation_id, created_at DESC, id DESC);
 
 -- Transfer proofs list: property scope + (submitted_at DESC, id DESC) keyset.
 CREATE INDEX CONCURRENTLY IF NOT EXISTS transfer_proofs_prop_submitted_id_idx

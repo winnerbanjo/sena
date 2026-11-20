@@ -1,6 +1,6 @@
 import { createPublicInvoiceToken } from '@/lib/public-invoice-token';
 import { apiError, errorStatus } from '@/lib/api-error';
-import { withMerchant } from '@/lib/merchant-route';
+import { getMerchantRequest, withMerchant } from '@/lib/merchant-route';
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import {
@@ -25,7 +25,8 @@ import { PaymentService } from '@sena/payments';
 
 async function handleGET(req: NextRequest) {
   try {
-    const session = await auth();
+    const merchant = getMerchantRequest(req);
+    const session = merchant ? merchant.session : await auth();
     const { searchParams } = new URL(req.url);
     const statusFilter = searchParams.get('status');
     const typeFilter = searchParams.get('type');
@@ -159,7 +160,8 @@ async function handleGET(req: NextRequest) {
 
 async function handlePOST(req: NextRequest) {
   try {
-    const session = await auth();
+    const merchant = getMerchantRequest(req);
+    const session = merchant ? merchant.session : await auth();
     const body = await req.json();
 
     const {
