@@ -11,7 +11,7 @@ export interface ResolvedTenant {
 
 /** Resolve identity only from a verified session, and recheck access on every request. */
 export async function resolveTenantForRequest(
-  session: { user?: { id?: string; propertyId?: string } } | null,
+  session: { user?: { id?: string; propertyId?: string } | null } | null,
   _req?: NextRequest,
   database = db,
 ): Promise<ResolvedTenant | null> {

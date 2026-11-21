@@ -5,14 +5,26 @@ import { useTranslations } from 'next-intl';
 import { PageLoadState, readJsonResponse } from '../../components/page-load-state';
 import * as React from 'react';
 import Link from 'next/link';
-import { formatNaira } from '@sena/config';
+import { formatMinorUnits } from '../../lib/minor-units';
 import { Button, MetricCard } from '@sena/ui';
 import { Bed, Calendar, Globe, Sparkles } from 'lucide-react';
 import { Topbar } from '../../components/topbar';
 
+interface ReservationSummary {
+  totalReservations: number;
+  validReservations: number;
+  totalBookingValueMinorUnits: string;
+  totalNights: number;
+  directCount: number;
+  frontDeskCount: number;
+  whatsappCount: number;
+  otaCount: number;
+  byRoomType: Array<{ roomTypeId: string; paidAmountMinorUnits: string }>;
+}
+
 export default function AnalyticsPage() {
   const t = useTranslations('analytics');
-  const [reservations, setReservations] = React.useState<any[]>([]);
+  const [summary, setSummary] = React.useState<ReservationSummary | null>(null);
   const [rooms, setRooms] = React.useState<any[]>([]);
   const [roomTypes, setRoomTypes] = React.useState<any[]>([]);
   const [loadError, setLoadError] = React.useState(false);
@@ -20,11 +32,11 @@ export default function AnalyticsPage() {
 
   React.useEffect(() => {
     Promise.all([
-      fetch('/api/reservations').then(readJsonResponse),
+      fetch('/api/reservations/summary').then(readJsonResponse),
       fetch('/api/rooms').then(readJsonResponse),
     ])
-      .then(([resData, roomData]) => {
-        if (resData.reservations) setReservations(resData.reservations);
+      .then(([summaryData, roomData]) => {
+        if (summaryData.summary) setSummary(summaryData.summary);
         if (roomData.rooms) setRooms(roomData.rooms);
         if (roomData.roomTypes) setRoomTypes(roomData.roomTypes);
       })
@@ -32,21 +44,12 @@ export default function AnalyticsPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  // Total Booking Value (gross confirmed)
-  const totalBookingValue = reservations
-    .filter((r) => r.status !== 'cancelled')
-    .reduce((sum, r) => sum + Number(r.totalAmountMinorUnits || 0), 0);
-
-  // Average stay in nights
-  const validStays = reservations.filter((r) => r.status !== 'cancelled');
-  const avgNights = validStays.length > 0
-    ? (validStays.reduce((sum, r) => sum + Number(r.nights || 1), 0) / validStays.length).toFixed(1)
-    : '0';
-
-  // Direct Booking Share
-  const directCount = reservations.filter((r) => r.source === 'direct').length;
-  const directShare = reservations.length > 0
-    ? Math.round((directCount / reservations.length) * 100)
+  const totalReservations = summary?.totalReservations ?? 0;
+  const validStays = summary?.validReservations ?? 0;
+  const totalNights = summary?.totalNights ?? 0;
+  const avgNights = validStays > 0 ? (totalNights / validStays).toFixed(1) : '0';
+  const directShare = totalReservations > 0
+    ? Math.round(((summary?.directCount ?? 0) / totalReservations) * 100)
     : 0;
 
   // Occupancy rate calculation
@@ -55,54 +58,46 @@ export default function AnalyticsPage() {
     ? Math.round((occupiedRoomsCount / rooms.length) * 100)
     : 0;
 
-  // Booking sources distribution
-  const sourceCounts: Record<string, number> = {
-    direct: 0,
-    front_desk: 0,
-    whatsapp: 0,
-    ota: 0,
+  // Booking sources distribution (counted in SQL)
+  const sourceCounts = {
+    direct: summary?.directCount ?? 0,
+    front_desk: summary?.frontDeskCount ?? 0,
+    whatsapp: summary?.whatsappCount ?? 0,
+    ota: summary?.otaCount ?? 0,
   };
 
-  reservations.forEach((r) => {
-    if (r.source === 'direct') sourceCounts.direct++;
-    else if (r.source === 'walk_in' || r.source === 'manual') sourceCounts.front_desk++;
-    else if (r.source === 'whatsapp') sourceCounts.whatsapp++;
-    else sourceCounts.ota++;
-  });
-
-  const totalSources = reservations.length || 1;
+  const totalSources = totalReservations || 1;
   const sourceBreakdown = [
     {
       source: 'Direct Website',
       count: sourceCounts.direct,
-      percentage: reservations.length > 0 ? Math.round((sourceCounts.direct / totalSources) * 100) : 0,
+      percentage: totalReservations > 0 ? Math.round((sourceCounts.direct / totalSources) * 100) : 0,
       color: 'bg-[#B85C3E]',
     },
     {
       source: 'Walk-in / Front Desk',
       count: sourceCounts.front_desk,
-      percentage: reservations.length > 0 ? Math.round((sourceCounts.front_desk / totalSources) * 100) : 0,
+      percentage: totalReservations > 0 ? Math.round((sourceCounts.front_desk / totalSources) * 100) : 0,
       color: 'bg-[#71382D]',
     },
     {
       source: 'WhatsApp / Phone',
       count: sourceCounts.whatsapp,
-      percentage: reservations.length > 0 ? Math.round((sourceCounts.whatsapp / totalSources) * 100) : 0,
+      percentage: totalReservations > 0 ? Math.round((sourceCounts.whatsapp / totalSources) * 100) : 0,
       color: 'bg-[#E5D4BC]',
     },
     {
       source: 'Other Channels (OTAs)',
       count: sourceCounts.ota,
-      percentage: reservations.length > 0 ? Math.round((sourceCounts.ota / totalSources) * 100) : 0,
+      percentage: totalReservations > 0 ? Math.round((sourceCounts.ota / totalSources) * 100) : 0,
       color: 'bg-[#7A7267]',
     },
   ];
 
-  // Category performance
+  // Category performance (revenue summed in SQL per room type)
   const categoryStats = roomTypes.map((rt) => {
     const categoryRooms = rooms.filter((rm) => rm.roomTypeId === rt.id || rm.roomTypeName === rt.name);
-    const categoryRes = reservations.filter((r) => r.roomTypeId === rt.id || r.roomTypeName === rt.name);
-    const catRevenue = categoryRes.reduce((sum, r) => sum + Number(r.paidAmountMinorUnits || 0), 0);
+    const catRevenue = summary?.byRoomType.find((row) => row.roomTypeId === rt.id)?.paidAmountMinorUnits ?? '0';
     const occupiedInCat = categoryRooms.filter((rm) => (rm.operationalStatus || rm.operational) === 'occupied').length;
     const catOcc = categoryRooms.length > 0 ? Math.round((occupiedInCat / categoryRooms.length) * 100) : 0;
 
@@ -141,14 +136,14 @@ export default function AnalyticsPage() {
           />
           <MetricCard
             label="Total Booking Value"
-            value={formatNaira(totalBookingValue)}
-            subtext={reservations.length > 0 ? `Across ${reservations.length} total stays` : 'No bookings recorded'}
+            value={formatMinorUnits(summary?.totalBookingValueMinorUnits)}
+            subtext={totalReservations > 0 ? `Across ${totalReservations} total stays` : 'No bookings recorded'}
             subValue="Gross"
           />
           <MetricCard
             label="Average Length of Stay"
             value={`${avgNights} ${avgNights === '1.0' || avgNights === '1' ? 'night' : 'nights'}`}
-            subtext={validStays.length > 0 ? 'Across confirmed stays' : 'Awaiting reservations'}
+            subtext={validStays > 0 ? 'Across confirmed stays' : 'Awaiting reservations'}
             subValue="Nights"
           />
           <MetricCard
@@ -172,7 +167,7 @@ export default function AnalyticsPage() {
               </p>
             </div>
 
-            {reservations.length === 0 ? (
+            {totalReservations === 0 ? (
               <div className="p-8 text-center border border-dashed border-[#E8E2DA] rounded-lg bg-[#FAF9F6] space-y-2">
                 <Globe className="w-5 h-5 mx-auto text-[#7A7267]" />
                 <p className="text-xs text-[#191816] font-semibold">No booking sources recorded yet</p>
@@ -240,7 +235,7 @@ export default function AnalyticsPage() {
                       </span>
                     </div>
                     <strong className="text-sm text-[#B85C3E] font-semibold">
-                      {formatNaira(cat.revenueMinorUnits)}
+                      {formatMinorUnits(cat.revenueMinorUnits)}
                     </strong>
                   </div>
                 ))}

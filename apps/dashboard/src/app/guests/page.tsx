@@ -4,7 +4,7 @@ import { useTranslations } from 'next-intl';
 
 import { PageLoadState, readJsonResponse } from '../../components/page-load-state';
 import * as React from 'react';
-import { formatNaira } from '@sena/config';
+import { formatMinorUnits } from '../../lib/minor-units';
 import {
   Badge,
   Drawer,
@@ -30,7 +30,7 @@ interface GuestProfile {
   stays: number;
   nights: number;
   lastStay: string;
-  lifetimeValueMinorUnits: number;
+  lifetimeValueMinorUnits: string;
   preferences: string[];
   notes: string;
 }
@@ -42,43 +42,61 @@ export default function GuestsPage() {
   const [guests, setGuests] = React.useState<GuestProfile[]>([]);
   const [loadError, setLoadError] = React.useState(false);
   const [loading, setLoading] = React.useState(true);
+  const [loadingMore, setLoadingMore] = React.useState(false);
+  const [nextCursor, setNextCursor] = React.useState<string | null>(null);
   const [search, setSearch] = React.useState('');
+  const [debouncedSearch, setDebouncedSearch] = React.useState('');
   const [selectedGuest, setSelectedGuest] = React.useState<GuestProfile | null>(null);
   const [editGuestOpen, setEditGuestOpen] = React.useState(false);
 
   React.useEffect(() => {
-    fetch('/api/guests')
-      .then(readJsonResponse)
-      .then((data) => {
-        if (data.guests) {
-          const mapped: GuestProfile[] = data.guests.map((g: any) => ({
-            id: g.id,
-            name: g.fullName,
-            phone: g.phone || '—',
-            email: g.email || '—',
-            stays: g.totalStays || 0,
-            nights: g.totalNights || 0,
-            lastStay: g.lastStayDate ? new Date(g.lastStayDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'No stays yet',
-            lifetimeValueMinorUnits: g.totalSpendMinorUnits || 0,
-            preferences: g.preferences || [],
-            notes: g.notes || '',
-          }));
-          setGuests(mapped);
-        }
-      })
-      .catch(() => setLoadError(true))
-      .finally(() => setLoading(false));
-  }, []);
+    const timer = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(timer);
+  }, [search]);
 
-  const filtered = guests.filter((g) => {
-    if (!search) return true;
-    const q = search.toLowerCase();
-    return (
-      g.name.toLowerCase().includes(q) ||
-      g.email.toLowerCase().includes(q) ||
-      g.phone.includes(q)
-    );
-  });
+  const loadGuests = React.useCallback(async (cursor: string | null, append: boolean) => {
+    try {
+      if (!append) {
+        setLoading(true);
+        setLoadError(false);
+      }
+      const params = new URLSearchParams({ limit: '25' });
+      if (debouncedSearch.trim()) params.set('search', debouncedSearch.trim());
+      if (cursor) params.set('cursor', cursor);
+      const data = await readJsonResponse(await fetch(`/api/guests?${params.toString()}`));
+      const mapped: GuestProfile[] = (data.items || []).map((g: any) => ({
+        id: g.id,
+        name: g.fullName,
+        phone: g.phone || '—',
+        email: g.email || '—',
+        stays: g.totalStays || 0,
+        nights: g.totalNights || 0,
+        lastStay: g.lastStayDate ? new Date(g.lastStayDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'No stays yet',
+        lifetimeValueMinorUnits: g.totalSpendMinorUnits || '0',
+        preferences: g.preferences || [],
+        notes: g.notes || '',
+      }));
+      setGuests((previous) => (append ? [...previous, ...mapped] : mapped));
+      setNextCursor(data.nextCursor || null);
+    } catch {
+      setLoadError(true);
+    } finally {
+      setLoading(false);
+    }
+  }, [debouncedSearch]);
+
+  React.useEffect(() => {
+    loadGuests(null, false);
+  }, [loadGuests]);
+
+  async function loadMoreGuests() {
+    if (!nextCursor || loadingMore) return;
+    setLoadingMore(true);
+    await loadGuests(nextCursor, true);
+    setLoadingMore(false);
+  }
+
+  const filtered = guests;
 
   if (loading || loadError) return <PageLoadState title={t('title')} failed={loadError} />;
 
@@ -197,7 +215,7 @@ export default function GuestsPage() {
                       </div>
                     </TableCell>
                     <TableCell className="py-3.5 text-right text-sm text-[#191816] font-semibold">
-                      {formatNaira(guest.lifetimeValueMinorUnits)}
+                      {formatMinorUnits(guest.lifetimeValueMinorUnits)}
                     </TableCell>
                   </TableRow>
                 ))
@@ -205,6 +223,18 @@ export default function GuestsPage() {
             </TableBody>
           </Table>
         </div>
+        {nextCursor && (
+          <div className="flex justify-center">
+            <button
+              type="button"
+              onClick={loadMoreGuests}
+              disabled={loadingMore}
+              className="rounded-md border border-[#E8E2DA] bg-white px-4 py-2 text-sm font-medium text-[#191816] transition-colors hover:bg-[#FAF8F6] disabled:opacity-60"
+            >
+              {loadingMore ? 'Loading…' : 'Load more guests'}
+            </button>
+          </div>
+        )}
       </main>
 
       {/* Section 52: Guest Profile Drawer */}
@@ -253,7 +283,7 @@ export default function GuestsPage() {
               <div className="p-3 rounded border border-[#E8E2DA] bg-[#FAFAFA] text-center">
                 <span className="text-[10px] uppercase text-[#7A7267] block">Total Spent</span>
                 <strong className="text-sm text-[#191816] block mt-1 font-semibold">
-                  {formatNaira(selectedGuest.lifetimeValueMinorUnits)}
+                  {formatMinorUnits(selectedGuest.lifetimeValueMinorUnits)}
                 </strong>
               </div>
             </div>

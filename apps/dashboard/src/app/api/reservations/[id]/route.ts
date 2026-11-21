@@ -1,7 +1,126 @@
 import { apiError } from '@/lib/api-error';
 import { getMerchantRequest, withMerchant } from '@/lib/merchant-route';
+import { noteCountsByReservation } from '@/lib/reservation-notes';
+import { badCursorResponse, cursorIsMalformed, cursorTimestamp, cursorUuid, decodeCursor, encodeCursor, parsePageLimit } from '@/lib/pagination';
 import { NextRequest, NextResponse } from 'next/server';
 import { updateStay } from '@sena/reservations';
+import { and, desc, eq, sql } from 'drizzle-orm';
+import { db, reservations, guests, rooms, roomTypes, apartments, reservationEvents, transferProofs } from '@sena/database';
+
+async function handleGET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
+  try {
+    const merchant = getMerchantRequest(req);
+    const propertyId = merchant?.tenant.propertyId;
+    if (!propertyId || !merchant) {
+      return NextResponse.json({ error: 'Your account does not have access to this property.' }, { status: 403 });
+    }
+    const { id } = await context.params;
+
+    const [reservation] = await db
+      .select({
+        id: reservations.id,
+        reference: reservations.reference,
+        status: reservations.status,
+        paymentStatus: reservations.paymentStatus,
+        checkInDate: reservations.checkInDate,
+        checkOutDate: reservations.checkOutDate,
+        nights: reservations.nights,
+        numGuests: reservations.numGuests,
+        source: reservations.source,
+        totalAmountMinorUnits: reservations.totalAmountMinorUnits,
+        paidAmountMinorUnits: reservations.paidAmountMinorUnits,
+        createdAt: reservations.createdAt,
+        guestId: reservations.guestId,
+        guestName: guests.fullName,
+        guestEmail: guests.email,
+        guestPhone: guests.phone,
+        roomId: reservations.roomId,
+        roomNumber: rooms.roomNumber,
+        bookingGroupId: reservations.bookingGroupId,
+        roomTypeId: reservations.roomTypeId,
+        roomTypeName: roomTypes.name,
+        apartmentId: reservations.apartmentId,
+        apartmentName: apartments.name,
+      })
+      .from(reservations)
+      .leftJoin(guests, eq(reservations.guestId, guests.id))
+      .leftJoin(rooms, eq(reservations.roomId, rooms.id))
+      .leftJoin(roomTypes, eq(reservations.roomTypeId, roomTypes.id))
+      .leftJoin(apartments, eq(reservations.apartmentId, apartments.id))
+      .where(and(eq(reservations.id, id), eq(reservations.propertyId, propertyId)))
+      .limit(1);
+
+    if (!reservation) {
+      return NextResponse.json({ error: 'Reservation not found' }, { status: 404 });
+    }
+
+    const { searchParams } = new URL(req.url);
+    const eventsLimit = parsePageLimit(searchParams.get('eventsLimit') || '50');
+    const rawEventsCursor = searchParams.get('eventsCursor');
+    const eventsCursor = decodeCursor(rawEventsCursor);
+    const eventsCursorCreatedAt = cursorTimestamp(eventsCursor?.createdAt);
+    const eventsCursorId = cursorUuid(eventsCursor?.id);
+    if (cursorIsMalformed(rawEventsCursor, eventsCursor) || (rawEventsCursor && (!eventsCursorCreatedAt || !eventsCursorId))) {
+      return NextResponse.json(badCursorResponse(), { status: 400 });
+    }
+    const eventConditions = [eq(reservationEvents.reservationId, reservation.id)];
+    if (eventsCursorCreatedAt && eventsCursorId) {
+      eventConditions.push(sql`(${reservationEvents.createdAt}, ${reservationEvents.id}) < (${eventsCursorCreatedAt}::timestamptz, ${eventsCursorId}::uuid)`);
+    }
+
+    const [events, pendingProofs, noteCounts] = await Promise.all([
+      db
+        .select({
+          id: reservationEvents.id,
+          reservationId: reservationEvents.reservationId,
+          eventType: reservationEvents.eventType,
+          description: reservationEvents.description,
+          actorName: reservationEvents.actorName,
+          metadata: reservationEvents.metadata,
+          createdAt: reservationEvents.createdAt,
+          // Keep microseconds; Date.toISOString() only has milliseconds.
+          cursorCreatedAt: sql<string>`to_char(${reservationEvents.createdAt} at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
+        })
+        .from(reservationEvents)
+        .where(sql.join(eventConditions, sql` and `))
+        .orderBy(desc(reservationEvents.createdAt), desc(reservationEvents.id))
+        .limit(eventsLimit + 1),
+      db
+        .select({ id: transferProofs.id })
+        .from(transferProofs)
+        .where(and(
+          eq(transferProofs.reservationId, reservation.id),
+          eq(transferProofs.propertyId, propertyId),
+          eq(transferProofs.status, 'pending')
+        ))
+        .limit(1),
+      noteCountsByReservation(propertyId, [reservation.id]),
+    ]);
+
+    const timezone = merchant.tenant.property.timezone;
+    const timeline = events.slice(0, eventsLimit).map((event) => ({
+      time: new Date(event.createdAt).toLocaleString('en-GB', { timeZone: timezone, day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }),
+      text: event.description,
+      actor: event.actorName || 'System',
+    }));
+    const lastEvent = events[eventsLimit - 1];
+    const timelineNextCursor = events.length > eventsLimit && lastEvent
+      ? encodeCursor({ createdAt: lastEvent.cursorCreatedAt, id: lastEvent.id })
+      : null;
+
+    return NextResponse.json({
+      reservation: {
+        ...reservation,
+        noteCount: noteCounts.get(reservation.id) || 0,
+        pendingTransferProof: pendingProofs.length > 0,
+        timeline,
+        timelineNextCursor,
+      },
+    });
+  } catch (error: unknown) {
+    return NextResponse.json({ error: apiError(error) }, { status: 500 });
+  }
+}
 
 async function handlePATCH(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
@@ -40,4 +159,5 @@ async function handlePATCH(req: NextRequest, context: { params: Promise<{ id: st
   }
 }
 
+export const GET = withMerchant(handleGET, 'reservations');
 export const PATCH = withMerchant(handlePATCH, 'reservations');
