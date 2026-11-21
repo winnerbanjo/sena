@@ -34,3 +34,7 @@ scripts/test-release.js
 apps/dashboard/cleanup.js
 .vercel
 .env*
+
+# Local Playwright verification artifacts
+e2e/artifacts/
+e2e/playwright-report/
