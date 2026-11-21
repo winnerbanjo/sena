@@ -211,7 +211,6 @@ export async function settlePropertyFlutterwave(attemptId: string, verified: any
       if (invoice.reservationId) {
         const [reservation] = await tx.select().from(reservations).where(eq(reservations.id, invoice.reservationId)).for('update');
         if (!reservation || reservation.propertyId !== attempt.propertyId || reservation.status === 'cancelled') throw new Error('RESERVATION_UNAVAILABLE');
-        if (attempt.amountMinorUnits > reservation.totalAmountMinorUnits - reservation.paidAmountMinorUnits) throw new Error('PAYMENT_EXCEEDS_BALANCE');
         const reservationPaid = checkedAdd(reservation.paidAmountMinorUnits, attempt.amountMinorUnits, 'Reservation paid amount');
         await tx.update(reservations).set({ paidAmountMinorUnits: reservationPaid, paymentStatus: reservationPaid >= reservation.totalAmountMinorUnits ? 'paid' : 'part_payment', updatedAt: new Date() }).where(eq(reservations.id, reservation.id));
       }
