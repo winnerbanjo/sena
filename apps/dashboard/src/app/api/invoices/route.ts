@@ -1,5 +1,5 @@
 import { createPublicInvoiceToken } from '@/lib/public-invoice-token';
-import { apiError } from '@/lib/api-error';
+import { apiError, errorStatus } from '@/lib/api-error';
 import { withMerchant } from '@/lib/merchant-route';
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
@@ -202,7 +202,11 @@ async function handlePOST(req: NextRequest) {
       applyVat: Boolean(applyVat),
       applyConsumptionTax: Boolean(applyConsumptionTax),
       applyServiceCharge: Boolean(applyServiceCharge),
-      discountMinorUnits: Math.max(0, Math.round(Number(discountMinorUnits) || 0)),
+      // Pass the raw amount through: calculateInvoiceAmounts rejects fractions
+      // and out-of-range values instead of silently rounding them.
+      discountMinorUnits: discountMinorUnits === undefined || discountMinorUnits === null
+        ? 0
+        : Number(discountMinorUnits),
     });
     if (!amounts.ok) return NextResponse.json({ error: amounts.error }, { status: 422 });
     const {
@@ -285,7 +289,7 @@ async function handlePOST(req: NextRequest) {
     });
   } catch (error: any) {
     console.error('[INVOICE POST ERROR]', error);
-    return NextResponse.json({ error: apiError(error) }, { status: 500 });
+    return NextResponse.json({ error: apiError(error) }, { status: errorStatus(error) });
   }
 }
 

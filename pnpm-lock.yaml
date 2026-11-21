@@ -400,6 +400,9 @@ importers:
 
   packages/payments:
     dependencies:
+      '@sena/config':
+        specifier: workspace:*
+        version: link:../config
       '@sena/database':
         specifier: workspace:*
         version: link:../database

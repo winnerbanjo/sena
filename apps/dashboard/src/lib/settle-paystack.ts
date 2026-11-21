@@ -18,7 +18,9 @@ export async function settlePaystack(data: any) {
       const paid = invoice.paidAmountMinorUnits + data.amount;
       await tx.update(propertyInvoices).set({paidAmountMinorUnits:paid,status:paid >= invoice.totalAmountMinorUnits ? 'paid':'partially_paid',updatedAt:new Date()}).where(eq(propertyInvoices.id,invoice.id));
       if (invoice.reservationId) {
-        await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${invoice.reservationId}))`);
+        // Invoice row is locked first (global ledger order); the reservation
+        // row lock below serializes with the payment service. Taking the
+        // reservation advisory key here would invert advisory -> row order.
         const [reservation] = await tx.select().from(reservations).where(eq(reservations.id,invoice.reservationId)).for('update');
         if (!reservation || reservation.propertyId !== invoice.propertyId) throw new Error('Reservation unavailable.');
         await tx.insert(payments).values({propertyId:invoice.propertyId,reservationId:reservation.id,amountMinorUnits:data.amount,currency:invoice.currency,provider:'paystack',providerReference:data.reference,method:'card',status:'successful',notes:`Invoice ${invoice.invoiceNumber}`});
