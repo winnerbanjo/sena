@@ -12,6 +12,7 @@ import { PwaProvider } from './pwa-provider';
 import { NetworkStatusBanner } from './network-status';
 import { PwaInstallDialog } from './pwa-install-dialog';
 import { ToastProvider } from './toast-notification';
+import { NoticeProvider } from './notice-modal';
 import { ReservationSuccessModal } from './reservation-success-modal';
 import type { ServerWorkspaceResult } from '@/lib/workspace';
 import { DashboardContext } from './dashboard-context';
@@ -114,6 +115,7 @@ export function DashboardShell({ children, workspaceResult }: { children: React.
   return (
     <WorkspaceAccess result={workspaceResult}><PwaProvider>
       <ToastProvider>
+        <NoticeProvider>
         <DashboardContext.Provider
         value={{
           isOpen,
@@ -177,6 +179,7 @@ export function DashboardShell({ children, workspaceResult }: { children: React.
         {/* Global PWA Install Guidance Dialog */}
         <PwaInstallDialog />
       </DashboardContext.Provider>
+        </NoticeProvider>
       </ToastProvider>
     </PwaProvider></WorkspaceAccess>
   );

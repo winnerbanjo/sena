@@ -44,6 +44,8 @@ function ReservationsContent() {
   const [fromDate, setFromDate] = React.useState('');
   const [toDate, setToDate] = React.useState('');
   const requestId = React.useRef(0);
+  const activeRequest = React.useRef<AbortController | null>(null);
+  const hasLoaded = React.useRef(false);
   const [selectedRes, setSelectedRes] = React.useState<ReservationItem | null>(null);
   const [drawerOpen, setDrawerOpen] = React.useState(false);
   const [newResOpen, setNewResOpen] = React.useState(false);
@@ -65,6 +67,9 @@ function ReservationsContent() {
   }, [urlSearch]);
 
   const loadReservations = React.useCallback(async (cursor: string | null, append: boolean) => {
+    activeRequest.current?.abort();
+    const controller = new AbortController();
+    activeRequest.current = controller;
     const id = ++requestId.current;
     const params = new URLSearchParams({ limit: '25' });
     const status = tabStatus[activeTab];
@@ -75,23 +80,30 @@ function ReservationsContent() {
     if (cursor) params.set('cursor', cursor);
 
     try {
-      const res = await fetch(`/api/reservations?${params.toString()}`);
+      const res = await fetch(`/api/reservations?${params.toString()}`, { signal: controller.signal });
       if (!res.ok) throw new Error('Page unavailable');
       const data = await res.json();
       if (id !== requestId.current) return;
       const mapped: ReservationItem[] = (data.items || []).map(mapReservationItem);
       setReservations((previous) => (append ? [...previous, ...mapped] : mapped));
       setNextCursor(data.nextCursor || null);
+      setLoadError(false);
     } catch (e) {
-      if (id !== requestId.current) return;
+      if (id !== requestId.current || controller.signal.aborted) return;
       setLoadError(true);
       console.error('Failed to load reservations:', e);
+    } finally {
+      if (id === requestId.current) {
+        hasLoaded.current = true;
+        setLoading(false);
+      }
     }
   }, [activeTab, debouncedSearch, fromDate, toDate]);
 
   React.useEffect(() => {
-    setLoading(true);
-    loadReservations(null, false).finally(() => setLoading(false));
+    if (!hasLoaded.current) setLoading(true);
+    void loadReservations(null, false);
+    return () => activeRequest.current?.abort();
   }, [loadReservations]);
 
   async function loadMore() {
@@ -103,7 +115,7 @@ function ReservationsContent() {
 
   const filtered = reservations;
 
-  if (loading || loadError) return <PageLoadState title={t('title')} failed={loadError} />;
+  if (loading) return <PageLoadState title={t('title')} failed={loadError} />;
 
   return (
     <div className={pageStack + ' h-screen'}>
@@ -113,6 +125,12 @@ function ReservationsContent() {
       />
 
       <main className={pageMain}>
+        {loadError && (
+          <div role="alert" className="flex items-center justify-between gap-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+            <span>Reservations could not be refreshed.</span>
+            <button type="button" className="font-medium underline" onClick={() => loadReservations(null, false)}>Retry</button>
+          </div>
+        )}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
           <div className="relative w-full sm:w-72">
             <Search className="absolute start-3.5 top-3 h-3.5 w-3.5 text-[#7A7267]" />

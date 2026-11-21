@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
 import {
   PAYMENT_RECEIPT_MAX_BYTES,
   inspectPaymentReceipt,
@@ -269,6 +270,51 @@ assert.match(persist, /propertyId: args.propertyId/);
 assert.doesNotMatch(persist, /digitaloceanspaces\.com/);
 assert.match(readFileSync('apps/dashboard/src/app/api/payments/[id]/receipt/route.ts', 'utf8'), /withMerchant\(handleGET, 'payments'\)/);
 console.log('PASS every manual payment surface shares one receipt field, private storage, and authenticated view');
+
+// Private media must survive a local run without Spaces credentials, and must
+// stay unreadable outside the authenticated receipt route.
+const localMediaDir = mkdtempSync(join(tmpdir(), 'sena-local-media-'));
+process.env.LOCAL_MEDIA_DIR = localMediaDir;
+const storage = await import('../packages/integrations/src/index');
+assert.equal(storage.s3Client, null);
+const localKey = paymentReceiptStorageKey(propertyA, paymentId, receiptId, 'pdf');
+const localUpload = await storage.uploadMediaToSpaces({ key: localKey, body: Buffer.from(pdf.bytes), contentType: 'application/pdf', acl: 'private' });
+assert.equal('simulated' in localUpload && localUpload.simulated, false);
+const localRead = await storage.readPrivateMediaFromSpaces(localKey);
+assert.ok(localRead);
+assert.deepEqual(Array.from(localRead.body), Array.from(pdf.bytes));
+assert.equal(localRead.contentType, 'application/pdf');
+assert.equal(await storage.readPrivateMediaFromSpaces('../../etc/passwd'), null);
+assert.equal(await storage.readPrivateMediaFromSpaces(`/payment-receipts/${propertyA}/escape.pdf`), null);
+await storage.deleteMediaFromSpaces(localKey);
+assert.equal(await storage.readPrivateMediaFromSpaces(localKey), null);
+const publicUpload = await storage.uploadMediaToSpaces({ key: 'gallery/sample.jpg', body: Buffer.from(jpeg.bytes), contentType: 'image/jpeg', acl: 'public-read' });
+assert.equal(publicUpload.simulated, true);
+
+// The reported bug: a file was attached but the payment reported no receipt.
+// Run the real upload/insert/audit path against local storage and require success.
+const localReceiptId = '66666666-6666-4666-8666-666666666666';
+const attachedLocally = await storePaymentReceipt({
+  propertyId: propertyA,
+  paymentId,
+  receiptId: localReceiptId,
+  userId,
+  actorName: 'Front desk',
+  file: png,
+  alreadyAttached: async () => false,
+  upload: (key, bytes, contentType) => storage.uploadMediaToSpaces({ key, body: Buffer.from(bytes), contentType, acl: 'private' }),
+  remove: async (key) => { await storage.deleteMediaFromSpaces(key); },
+  insert: async () => undefined,
+  audit: async () => undefined,
+});
+assert.equal(attachedLocally.attached, true);
+assert.equal(attachedLocally.error, undefined);
+const attachedFile = await storage.readPrivateMediaFromSpaces(paymentReceiptStorageKey(propertyA, paymentId, localReceiptId, 'png'));
+assert.ok(attachedFile);
+assert.deepEqual(Array.from(attachedFile.body), Array.from(png.bytes));
+console.log('PASS an attached receipt is reported as attached and can be read back without Spaces');
+rmSync(localMediaDir, { recursive: true, force: true });
+console.log('PASS private receipts persist locally without Spaces and cannot be read outside their key');
 
 console.log('payment receipt checks passed');
 }

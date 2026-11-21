@@ -64,6 +64,18 @@ test('A: reservation can be created, edited, and cancelled in the browser', asyn
   await expect(cancelledRow.getByText('Cancelled', { exact: true })).toBeVisible();
 });
 
+test('Reservations search keeps focus while debounced requests refresh the list', async ({ page }) => {
+  await login(page, OWNER_A);
+  await page.goto('/reservations');
+
+  const search = page.getByPlaceholder('Search guest, code, or room...');
+  await search.pressSequentially('Verification Guest 01', { delay: 80 });
+
+  await expect(search).toBeFocused();
+  await expect(page.getByRole('dialog', { name: 'New reservation' })).toHaveCount(0);
+  await expect(page.locator('table tbody tr').filter({ hasText: 'Verification Guest 01' }).first()).toBeVisible();
+});
+
 test('A: invalid stay dates are rejected with a 4xx response', async ({ page }) => {
   await login(page, OWNER_A);
   const categories = await api(page.request, 'GET', '/api/rooms');

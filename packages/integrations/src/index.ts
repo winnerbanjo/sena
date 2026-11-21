@@ -1,4 +1,6 @@
 import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { dirname, join, resolve, sep } from 'node:path';
 import Redis from 'ioredis';
 
 // ==========================================
@@ -23,6 +25,33 @@ export const s3Client =
       })
     : null;
 
+/**
+ * Private media fallback for runs without Spaces credentials (local dev and
+ * preview). Files never leave the machine and are only read through
+ * authenticated API routes. Production must configure S3 credentials.
+ */
+const localMediaRoot = resolve(process.env.LOCAL_MEDIA_DIR || join(process.cwd(), '.local-media'));
+
+const LOCAL_CONTENT_TYPES: Record<string, string> = {
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  png: 'image/png',
+  webp: 'image/webp',
+  pdf: 'application/pdf',
+};
+
+function localMediaPath(key: string): string | null {
+  if (!key || key.includes('\0') || key.startsWith('/') || key.startsWith('http')) return null;
+  const target = resolve(localMediaRoot, key);
+  if (!target.startsWith(localMediaRoot + sep)) return null;
+  return target;
+}
+
+function localContentType(key: string): string | undefined {
+  const extension = key.split('.').pop()?.toLowerCase() || '';
+  return LOCAL_CONTENT_TYPES[extension];
+}
+
 export function getSpacesPublicUrl(key: string): string {
   const cleanKey = key.startsWith('/') ? key.slice(1) : key;
   return `https://${S3_BUCKET}.${s3Region}.digitaloceanspaces.com/${cleanKey}`;
@@ -35,6 +64,18 @@ export async function uploadMediaToSpaces(params: {
   acl?: 'public-read' | 'private';
 }) {
   if (!s3Client) {
+    if (params.acl === 'private') {
+      const target = localMediaPath(params.key);
+      if (!target) throw new Error('Invalid media path.');
+      await mkdir(dirname(target), { recursive: true });
+      await writeFile(target, params.body);
+      if (process.env.NODE_ENV === 'production') {
+        console.warn('[STORAGE] Spaces credentials are not configured; private media is on local disk and will not survive a redeploy:', params.key);
+      } else {
+        console.log('[DEV STORAGE] Spaces S3 client not configured, stored private media locally:', params.key);
+      }
+      return { success: true, url: `/uploads/${params.key}`, local: true };
+    }
     console.log('[DEV STORAGE] Spaces S3 client not configured, simulating upload:', params.key);
     return { success: true, url: `/uploads/${params.key}`, simulated: true };
   }
@@ -55,7 +96,14 @@ export async function uploadMediaToSpaces(params: {
 }
 
 export async function readPrivateMediaFromSpaces(key: string): Promise<{ body: Uint8Array; contentType?: string } | null> {
-  if (!s3Client || !key || key.startsWith('http')) return null;
+  if (!key || key.startsWith('http')) return null;
+  if (!s3Client) {
+    const target = localMediaPath(key);
+    if (!target) return null;
+    const body = await readFile(target).catch(() => null);
+    if (!body) return null;
+    return { body: new Uint8Array(body), contentType: localContentType(key) };
+  }
   const result = await s3Client.send(new GetObjectCommand({ Bucket: S3_BUCKET, Key: key }));
   if (!result.Body) return null;
   const body = await result.Body.transformToByteArray();
@@ -63,7 +111,13 @@ export async function readPrivateMediaFromSpaces(key: string): Promise<{ body: U
 }
 
 export async function deleteMediaFromSpaces(key: string) {
-  if (!s3Client || !key || key.startsWith('http')) return { success: true, skipped: true };
+  if (!key || key.startsWith('http')) return { success: true, skipped: true };
+  if (!s3Client) {
+    const target = localMediaPath(key);
+    if (!target) return { success: true, skipped: true };
+    await rm(target, { force: true });
+    return { success: true, local: true };
+  }
   await s3Client.send(new DeleteObjectCommand({ Bucket: S3_BUCKET, Key: key }));
   return { success: true };
 }

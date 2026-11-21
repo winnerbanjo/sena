@@ -35,6 +35,9 @@ apps/dashboard/cleanup.js
 .vercel
 .env*
 
+# Local private media fallback when object storage is not configured
+.local-media/
+
 # Local Playwright verification artifacts
 e2e/artifacts/
 e2e/playwright-report/

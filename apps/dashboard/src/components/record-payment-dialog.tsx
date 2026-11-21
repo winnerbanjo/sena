@@ -7,6 +7,7 @@ import { Button } from '@sena/ui';
 import { manualPaymentBody } from '@/lib/payment-receipt-file';
 import { PaymentReceiptField, usePaymentReceipt } from './payment-receipt-field';
 import { useDialogA11y } from './use-dialog-a11y';
+import { useNotice } from './notice-modal';
 
 export function RecordPaymentDialog({
   open,
@@ -36,6 +37,7 @@ export function RecordPaymentDialog({
   const [error, setError] = React.useState('');
   const [saving, setSaving] = React.useState(false);
   const t = useTranslations('payments');
+  const notice = useNotice();
   const receipt = usePaymentReceipt({ invalid: t('receiptInvalid'), tooLarge: t('receiptTooLarge') });
   const key = React.useRef(crypto.randomUUID());
   const overlayRef = useDialogA11y<HTMLFormElement>(open && !embedded, onClose);
@@ -83,7 +85,9 @@ export function RecordPaymentDialog({
         if (data.code === 'receipt_size') throw new Error(t('receiptTooLarge'));
         throw new Error(data.error || 'Payment could not be recorded.');
       }
-      if (data.receiptError) window.alert(t('receiptUploadFailed'));
+      if (data.receiptError) {
+        notice.show({ tone: 'warning', title: 'Receipt not attached', message: t('receiptUploadFailed') });
+      }
       onRecorded?.();
       onClose();
     } catch (err: any) {

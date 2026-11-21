@@ -11,16 +11,36 @@ export declare function uploadMediaToSpaces(params: {
 }): Promise<{
     success: boolean;
     url: string;
-    simulated: boolean;
+    local: boolean;
+    simulated?: undefined;
 } | {
     success: boolean;
     url: string;
+    simulated: boolean;
+    local?: undefined;
+} | {
+    success: boolean;
+    url: string;
+    local?: undefined;
     simulated?: undefined;
 }>;
 export declare function readPrivateMediaFromSpaces(key: string): Promise<{
     body: Uint8Array;
     contentType?: string;
 } | null>;
+export declare function deleteMediaFromSpaces(key: string): Promise<{
+    success: boolean;
+    skipped: boolean;
+    local?: undefined;
+} | {
+    success: boolean;
+    local: boolean;
+    skipped?: undefined;
+} | {
+    success: boolean;
+    skipped?: undefined;
+    local?: undefined;
+}>;
 export declare const redis: Redis | null;
 export declare function getCache<T>(key: string): Promise<T | null>;
 export declare function setCache(key: string, value: unknown, ttlSeconds?: number): Promise<void>;

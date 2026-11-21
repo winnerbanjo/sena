@@ -6,6 +6,7 @@ import { useTranslations } from 'next-intl';
 import { manualPaymentBody } from '@/lib/payment-receipt-file';
 import { PaymentReceiptField, usePaymentReceipt } from './payment-receipt-field';
 import { useDialogA11y } from './use-dialog-a11y';
+import { useNotice } from './notice-modal';
 import { Button } from '@sena/ui';
 import {
   X,
@@ -55,6 +56,7 @@ export function InvoiceViewModal({
   const [payNotes, setPayNotes] = React.useState('');
   const paymentRequestKey = React.useRef<string | null>(null);
   const t = useTranslations('invoices');
+  const notice = useNotice();
   const receipt = usePaymentReceipt({ invalid: t('receiptInvalid'), tooLarge: t('receiptTooLarge') });
   const [submittingPay, setSubmittingPay] = React.useState(false);
 
@@ -304,7 +306,9 @@ export function InvoiceViewModal({
         if (data?.error) throw new Error(data.error);
         throw new Error('We could not confirm this payment. Refresh this invoice before trying again.');
       }
-      if (data?.receiptError) window.alert(t('receiptUploadFailed'));
+      if (data?.receiptError) {
+        notice.show({ tone: 'warning', title: 'Receipt not attached', message: t('receiptUploadFailed') });
+      }
       
       paymentRequestKey.current = null;
       receipt.clear();
@@ -314,7 +318,7 @@ export function InvoiceViewModal({
       setPayNotes('');
       onPaymentSuccess?.();
     } catch (err: any) {
-      alert(err.message || 'Payment recording failed');
+      notice.show({ tone: 'error', title: 'Payment not recorded', message: err?.message || 'Payment recording failed.' });
     } finally {
       setSubmittingPay(false);
     }

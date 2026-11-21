@@ -21,6 +21,7 @@ import { CreditCard, Download, Plus } from 'lucide-react';
 import { Topbar } from '../../components/topbar';
 import { useDialogA11y } from '../../components/use-dialog-a11y';
 import { PaymentReceiptField, usePaymentReceipt } from '../../components/payment-receipt-field';
+import { useNotice } from '../../components/notice-modal';
 import { manualPaymentBody } from '../../lib/payment-receipt-file';
 
 interface PaymentItem {
@@ -37,6 +38,7 @@ interface PaymentItem {
 
 export default function PaymentsPage() {
   const t = useTranslations('payments');
+  const notice = useNotice();
   const [payments, setPayments] = React.useState<PaymentItem[]>([]);
   const [receivables, setReceivables] = React.useState<any[]>([]);
   const [proofs, setProofs] = React.useState<any[]>([]);
@@ -154,11 +156,20 @@ export default function PaymentsPage() {
         if (data.code === 'receipt_size') throw new Error(t('receiptTooLarge'));
         throw new Error(data.error || 'Payment could not be recorded.');
       }
-      if (data.receiptError) window.alert(t('receiptUploadFailed'));
+      const receiptError = data.receiptError ? t('receiptUploadFailed') : null;
       setRecordOpen(false);
       receipt.clear();
       idempotencyKey.current = '';
-      window.location.reload();
+      if (receiptError) {
+        notice.show({
+          tone: 'warning',
+          title: 'Receipt not attached',
+          message: receiptError,
+          onDismiss: () => window.location.reload(),
+        });
+      } else {
+        window.location.reload();
+      }
     } catch (error: any) {
       setRecordError(error.message || 'Payment could not be recorded.');
     } finally {
