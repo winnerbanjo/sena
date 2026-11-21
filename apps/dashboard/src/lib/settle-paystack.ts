@@ -1,3 +1,4 @@
+import { assertMoney, checkedAdd } from '@sena/config';
 import { db, properties, propertyInvoices, payments, reservations, subscriptions, subscriptionInvoices, idempotencyKeys, eq, sql } from '@sena/database';
 
 /** Only call with a signed webhook or a transaction verified directly with Paystack. */
@@ -14,8 +15,10 @@ export async function settlePaystack(data: any) {
     let payload: any;
     if (metadata.type === 'invoice_settlement') {
       const [invoice] = await tx.select().from(propertyInvoices).where(eq(propertyInvoices.id, metadata.invoiceId)).for('update');
-      if (!invoice || invoice.propertyId !== metadata.propertyId || data.currency !== invoice.currency || ['void','draft'].includes(invoice.status)) throw new Error('Invoice unavailable.');
-      const paid = invoice.paidAmountMinorUnits + data.amount;
+      if (!invoice || invoice.propertyId !== metadata.propertyId || data.currency !== invoice.currency || ['void','draft','cancelled','paid'].includes(invoice.status)) throw new Error('Invoice unavailable.');
+      assertMoney(data.amount, 'Payment amount', { allowZero: false });
+      if (data.amount > invoice.totalAmountMinorUnits - invoice.paidAmountMinorUnits) throw new Error('Payment exceeds invoice balance.');
+      const paid = checkedAdd(invoice.paidAmountMinorUnits, data.amount, 'Invoice paid amount');
       await tx.update(propertyInvoices).set({paidAmountMinorUnits:paid,status:paid >= invoice.totalAmountMinorUnits ? 'paid':'partially_paid',updatedAt:new Date()}).where(eq(propertyInvoices.id,invoice.id));
       if (invoice.reservationId) {
         // Invoice row is locked first (global ledger order); the reservation
@@ -24,7 +27,7 @@ export async function settlePaystack(data: any) {
         const [reservation] = await tx.select().from(reservations).where(eq(reservations.id,invoice.reservationId)).for('update');
         if (!reservation || reservation.propertyId !== invoice.propertyId) throw new Error('Reservation unavailable.');
         await tx.insert(payments).values({propertyId:invoice.propertyId,reservationId:reservation.id,amountMinorUnits:data.amount,currency:invoice.currency,provider:'paystack',providerReference:data.reference,method:'card',status:'successful',notes:`Invoice ${invoice.invoiceNumber}`});
-        const balancePaid=reservation.paidAmountMinorUnits+data.amount;
+        const balancePaid = checkedAdd(reservation.paidAmountMinorUnits, data.amount, 'Reservation paid amount');
         await tx.update(reservations).set({paidAmountMinorUnits:balancePaid,paymentStatus:balancePaid>=reservation.totalAmountMinorUnits?'paid':'part_payment',updatedAt:new Date()}).where(eq(reservations.id,reservation.id));
       }
       payload={status:'success',invoiceId:invoice.id};

@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import { assertMoney, checkedAdd } from '@sena/config';
 import { and, eq, sql } from 'drizzle-orm';
 import { db, operationalNotifications, paymentAttempts, payments, propertyInvoices, reservations } from '@sena/database';
 import { assertPaystackPayable, requireConnectedPaystack } from './integrations/paystack';
@@ -86,14 +87,15 @@ export async function settlePropertyPaystack(attemptId: string, verified: any) {
     if (attempt.invoiceId) {
       const [invoice] = await tx.select().from(propertyInvoices).where(eq(propertyInvoices.id, attempt.invoiceId)).for('update');
       if (!invoice || invoice.propertyId !== attempt.propertyId || invoice.currency !== attempt.currency || ['draft', 'void', 'cancelled'].includes(invoice.status)) throw new Error('INVOICE_UNAVAILABLE');
+      assertMoney(attempt.amountMinorUnits, 'Payment amount', { allowZero: false });
       const outstanding = invoice.totalAmountMinorUnits - invoice.paidAmountMinorUnits;
       if (outstanding < attempt.amountMinorUnits) throw new Error('PAYMENT_EXCEEDS_BALANCE');
-      const paid = invoice.paidAmountMinorUnits + attempt.amountMinorUnits;
+      const paid = checkedAdd(invoice.paidAmountMinorUnits, attempt.amountMinorUnits, 'Invoice paid amount');
       await tx.update(propertyInvoices).set({ paidAmountMinorUnits: paid, status: paid === invoice.totalAmountMinorUnits ? 'paid' : 'partially_paid', updatedAt: new Date() }).where(eq(propertyInvoices.id, invoice.id));
       if (invoice.reservationId) {
         const [reservation] = await tx.select().from(reservations).where(eq(reservations.id, invoice.reservationId)).for('update');
         if (!reservation || reservation.propertyId !== attempt.propertyId) throw new Error('RESERVATION_UNAVAILABLE');
-        const reservationPaid = reservation.paidAmountMinorUnits + attempt.amountMinorUnits;
+        const reservationPaid = checkedAdd(reservation.paidAmountMinorUnits, attempt.amountMinorUnits, 'Reservation paid amount');
         await tx.update(reservations).set({ paidAmountMinorUnits: reservationPaid, paymentStatus: reservationPaid >= reservation.totalAmountMinorUnits ? 'paid' : 'part_payment', updatedAt: new Date() }).where(eq(reservations.id, reservation.id));
       }
       const [payment] = await tx
@@ -104,9 +106,10 @@ export async function settlePropertyPaystack(attemptId: string, verified: any) {
     } else if (attempt.reservationId) {
       const [reservation] = await tx.select().from(reservations).where(eq(reservations.id, attempt.reservationId)).for('update');
       if (!reservation || reservation.propertyId !== attempt.propertyId) throw new Error('RESERVATION_UNAVAILABLE');
+      assertMoney(attempt.amountMinorUnits, 'Payment amount', { allowZero: false });
       const outstanding = reservation.totalAmountMinorUnits - reservation.paidAmountMinorUnits;
       if (outstanding < attempt.amountMinorUnits) throw new Error('PAYMENT_EXCEEDS_BALANCE');
-      const paid = reservation.paidAmountMinorUnits + attempt.amountMinorUnits;
+      const paid = checkedAdd(reservation.paidAmountMinorUnits, attempt.amountMinorUnits, 'Reservation paid amount');
       await tx.insert(payments).values({ propertyId: attempt.propertyId, reservationId: reservation.id, integrationId: attempt.integrationId, internalReference: attempt.internalReference, amountMinorUnits: attempt.amountMinorUnits, currency: attempt.currency, provider: 'paystack', providerReference: verified.reference, providerTransactionId: verified.id ? String(verified.id) : null, method: verified.channel || 'card', status: 'successful', source: attempt.source, paidAt });
       await tx.update(reservations).set({ paidAmountMinorUnits: paid, paymentStatus: paid >= reservation.totalAmountMinorUnits ? 'paid' : 'part_payment', updatedAt: new Date() }).where(eq(reservations.id, reservation.id));
     } else throw new Error('PAYMENT_TARGET_MISSING');
