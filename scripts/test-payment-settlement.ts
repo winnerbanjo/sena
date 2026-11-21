@@ -4,7 +4,7 @@ import { requireIsolatedTestDatabase } from './require-isolated-test-database';
 requireIsolatedTestDatabase();
 
 async function run() {
-  const { db, organizations, properties, guests, reservations, propertyInvoices, payments, idempotencyKeys, eq } =
+  const { db, organizations, properties, guests, reservations, propertyInvoices, payments, subscriptions, subscriptionInvoices, idempotencyKeys, eq } =
     await import('../packages/database/src/index');
   const { settlePaystack } = await import('../apps/dashboard/src/lib/settle-paystack');
   const runId = crypto.randomUUID();
@@ -62,6 +62,19 @@ async function run() {
     assert.equal((await db.query.payments.findMany({ where: eq(payments.providerReference, reference) })).length, 1);
     console.log('PASS eight settlement retries add one receipt and update both balances once');
 
+    await assert.rejects(settlePaystack({
+      ...payment,
+      reference: `currency-${runId}`,
+      currency: 'USD',
+      metadata: { type: 'invoice_settlement', invoiceId: invoice.id, propertyId: property.id },
+    }));
+    await assert.rejects(settlePaystack({
+      ...payment,
+      reference: `property-${runId}`,
+      metadata: { type: 'invoice_settlement', invoiceId: invoice.id, propertyId: crypto.randomUUID() },
+    }));
+    console.log('PASS invoice settlement rejects currency and property mismatch');
+
     const overpayReference = `overpay-${runId}`;
     const [overpayInvoice] = await db.insert(propertyInvoices).values({
       propertyId: property.id,
@@ -102,8 +115,32 @@ async function run() {
     });
     assert.equal((await db.query.propertyInvoices.findFirst({ where: eq(propertyInvoices.id, maxInvoice.id) }))?.paidAmountMinorUnits, 2_147_483_647);
     console.log('PASS provider settlement accepts the PostgreSQL integer money maximum exactly');
+
+    const subscriptionReference = `subscription-${runId}`;
+    const subscriptionPayment = {
+      reference: subscriptionReference,
+      status: 'success',
+      amount: 2_500_000,
+      currency: 'NGN',
+      paid_at: '2030-01-01T10:00:00.000Z',
+      metadata: {
+        type: 'subscription_upgrade',
+        organizationId: organization.id,
+        propertyId: property.id,
+        plan: 'essential',
+        billingCycle: 'monthly',
+      },
+    };
+    await Promise.all(Array.from({ length: 8 }, () => settlePaystack(subscriptionPayment)));
+    const savedSubscription = await db.query.subscriptions.findFirst({ where: eq(subscriptions.organizationId, organization.id) });
+    assert.equal(savedSubscription?.currentPeriodStart?.toISOString(), '2030-01-01T10:00:00.000Z');
+    assert.equal((await db.query.subscriptionInvoices.findMany({ where: eq(subscriptionInvoices.organizationId, organization.id) })).length, 1);
+    await settlePaystack({ ...subscriptionPayment, paid_at: '2030-02-01T10:00:00.000Z' });
+    assert.equal((await db.query.subscriptions.findFirst({ where: eq(subscriptions.organizationId, organization.id) }))?.currentPeriodStart?.toISOString(), '2030-01-01T10:00:00.000Z');
+    await assert.rejects(settlePaystack({ ...subscriptionPayment, reference: `underpay-${runId}`, amount: 1 }));
+    console.log('PASS subscription settlement is idempotent and rejects underpayment');
   } finally {
-    for (const reference of [`pay-${runId}`, `overpay-${runId}`, `maximum-${runId}`]) {
+    for (const reference of [`pay-${runId}`, `overpay-${runId}`, `maximum-${runId}`, `subscription-${runId}`]) {
       await db.delete(idempotencyKeys).where(eq(idempotencyKeys.key, `paystack-settlement:${reference}`));
     }
     await db.delete(organizations).where(eq(organizations.id, organization.id));
