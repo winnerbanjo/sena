@@ -11,13 +11,20 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
+  # The status action lists this run's jobs to work out the final conclusion.
+  actions: read
   contents: read
   statuses: write
 
 jobs:
   health:
     name: health
-    if: github.event.client_payload.environment == 'production'
+    # Only the dashboard project serves /api/health. The admin and marketing
+    # projects deploy from the same commit, and without this filter their
+    # dispatches overwrite this check's status on that commit.
+    if: |
+      github.event.client_payload.environment == 'production' &&
+      contains(fromJSON('["sena", "sena-app"]'), github.event.client_payload.project.name)
     runs-on: ubuntu-latest
     steps:
       # Reports a pending commit status, then the job's final conclusion.
