@@ -43,6 +43,8 @@ export default function RestaurantPOSPage() {
   const [items, setItems] = React.useState<any[]>([]);
   const [tables, setTables] = React.useState<any[]>([]);
   const [inHouseGuests, setInHouseGuests] = React.useState<any[]>([]);
+  const [inHouseTotal, setInHouseTotal] = React.useState(0);
+  const [inHouseTruncated, setInHouseTruncated] = React.useState(false);
   const [loading, setLoading] = React.useState(true);
   const [loadError, setLoadError] = React.useState(false);
 
@@ -64,10 +66,10 @@ export default function RestaurantPOSPage() {
   const fetchCatalog = React.useCallback(async () => {
     setLoadError(false);
     try {
-      const [resMenu, resTables, resReservations] = await Promise.all([
+      const [resMenu, resTables, resInHouse] = await Promise.all([
         fetch('/api/restaurant/menu'),
         fetch('/api/restaurant/tables'),
-        fetch('/api/reservations?status=checked_in'),
+        fetch('/api/restaurant/in-house'),
       ]);
 
       if (!resMenu.ok) throw new Error('Could not load menu catalog');
@@ -80,10 +82,15 @@ export default function RestaurantPOSPage() {
         setTables(dataTables.tables || []);
       }
 
-      if (resReservations.ok) {
-        const dataRes = await resReservations.json();
-        const inHouse = (dataRes.reservations || []).filter((r: any) => r.status === 'checked_in');
-        setInHouseGuests(inHouse);
+      if (resInHouse.ok) {
+        const dataInHouse = await resInHouse.json();
+        setInHouseGuests(dataInHouse.items || []);
+        setInHouseTotal(Number(dataInHouse.total) || 0);
+        setInHouseTruncated(Boolean(dataInHouse.truncated));
+      } else {
+        setInHouseGuests([]);
+        setInHouseTotal(0);
+        setInHouseTruncated(false);
       }
     } catch (err: any) {
       setLoadError(true);
@@ -396,6 +403,11 @@ export default function RestaurantPOSPage() {
                 ))}
               </select>
             )}
+            {orderType === 'room_service' && inHouseTruncated && (
+              <p role="status" className="text-[11px] text-amber-900 bg-amber-50 border border-amber-200 rounded px-2 py-1">
+                Showing the first {inHouseGuests.length} of {inHouseTotal} in-house stays. Use Front Desk to find the rest.
+              </p>
+            )}
           </div>
 
           {/* Cart Item List */}
@@ -577,6 +589,11 @@ export default function RestaurantPOSPage() {
                       </option>
                     ))}
                   </select>
+                  {inHouseTruncated && (
+                    <p role="status" className="mt-1 text-[11px] text-amber-900 bg-amber-50 border border-amber-200 rounded px-2 py-1">
+                      Showing the first {inHouseGuests.length} of {inHouseTotal} in-house stays. Use Front Desk to find the rest.
+                    </p>
+                  )}
                 </div>
               )}
 

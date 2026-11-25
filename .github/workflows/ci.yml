@@ -40,3 +40,55 @@ jobs:
         env:
           NEXT_TELEMETRY_DISABLED: 1
           NODE_ENV: production
+
+  list-tests:
+    name: List Pagination & Route Tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: sena_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/sena_test
+      SENA_BENCH_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/sena_test
+      AUTH_SECRET: ci-only-secret-not-used-in-production
+      NEXT_TELEMETRY_DISABLED: 1
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Create schema
+        run: pnpm --filter @sena/database db:push --force
+
+      - name: Apply list indexes
+        run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f packages/database/drizzle/0017_list_pagination_indexes.sql
+
+      - name: Seed benchmark data
+        run: pnpm exec tsx scripts/seed-list-pagination-bench.ts
+
+      - name: Run list tests
+        run: pnpm test

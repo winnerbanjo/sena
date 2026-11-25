@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl';
 import * as React from 'react';
 import { PageLoadState } from '../../components/page-load-state';
 import { formatNaira } from '@sena/config';
+import { formatMinorUnits } from '../../lib/minor-units';
 import {
   Badge,
   Button,
@@ -35,11 +36,11 @@ import { Topbar } from '../../components/topbar';
 import { InvoiceViewModal, type PropertyInvoice } from '../../components/invoice-view-modal';
 
 interface InvoiceMetrics {
-  totalInvoicedMinorUnits: number;
-  totalPaidMinorUnits: number;
-  totalOutstandingMinorUnits: number;
+  totalInvoicedMinorUnits: string;
+  totalPaidMinorUnits: string;
+  totalOutstandingMinorUnits: string;
   overdueCount: number;
-  overdueMinorUnits: number;
+  overdueMinorUnits: string;
 }
 
 interface LineItemForm {
@@ -54,11 +55,11 @@ export default function InvoicesPage() {
   const t = useTranslations('invoices');
   const [invoices, setInvoices] = React.useState<PropertyInvoice[]>([]);
   const [metrics, setMetrics] = React.useState<InvoiceMetrics>({
-    totalInvoicedMinorUnits: 0,
-    totalPaidMinorUnits: 0,
-    totalOutstandingMinorUnits: 0,
+    totalInvoicedMinorUnits: '0',
+    totalPaidMinorUnits: '0',
+    totalOutstandingMinorUnits: '0',
     overdueCount: 0,
-    overdueMinorUnits: 0,
+    overdueMinorUnits: '0',
   });
   const [propertyMeta, setPropertyMeta] = React.useState<{
     propertyName?: string;
@@ -69,9 +70,12 @@ export default function InvoicesPage() {
 
   const [loadError, setLoadError] = React.useState(false);
   const [loading, setLoading] = React.useState(true);
+  const [loadingMore, setLoadingMore] = React.useState(false);
+  const [nextCursor, setNextCursor] = React.useState<string | null>(null);
   const [statusTab, setStatusTab] = React.useState<'all' | 'unpaid' | 'paid' | 'overdue' | 'draft'>('all');
   const [typeFilter, setTypeFilter] = React.useState<string>('all');
   const [searchQuery, setSearchQuery] = React.useState('');
+  const [debouncedSearch, setDebouncedSearch] = React.useState('');
 
   // Selected invoice for detail/print modal
   const [selectedInvoice, setSelectedInvoice] = React.useState<PropertyInvoice | null>(null);
@@ -80,6 +84,8 @@ export default function InvoicesPage() {
   // Create Invoice Modal State
   const [createModalOpen, setCreateModalOpen] = React.useState(false);
   const [reservations, setReservations] = React.useState<any[]>([]);
+  const [reservationQuery, setReservationQuery] = React.useState('');
+  const [reservationsLoading, setReservationsLoading] = React.useState(false);
   const [selectedResId, setSelectedResId] = React.useState<string>('');
 
   // Form Fields
@@ -107,43 +113,68 @@ export default function InvoicesPage() {
 
   const [submittingInvoice, setSubmittingInvoice] = React.useState(false);
 
-  const fetchInvoices = React.useCallback(async () => {
+  React.useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(searchQuery), 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  const fetchInvoices = React.useCallback(async (cursor: string | null, append: boolean) => {
     try {
-      setLoading(true);
-      setLoadError(false);
-      const res = await fetch(`/api/invoices?status=${statusTab}&type=${typeFilter}&search=${encodeURIComponent(searchQuery)}`);
-      if (!res.ok) throw new Error('Could not load invoices');
-      if (res.ok) {
-        const data = await res.json();
-        setInvoices(data.invoices || []);
-        if (data.metrics) setMetrics(data.metrics);
-        setPropertyMeta({
-          propertyName: data.propertyName,
-          propertyAddress: data.propertyAddress,
-          propertyPhone: data.propertyPhone,
-          propertyEmail: data.propertyEmail,
-        });
+      if (!append) {
+        setLoading(true);
+        setLoadError(false);
       }
+      const params = new URLSearchParams({ status: statusTab, type: typeFilter, search: debouncedSearch, limit: '25' });
+      if (cursor) params.set('cursor', cursor);
+      const res = await fetch(`/api/invoices?${params.toString()}`);
+      if (!res.ok) throw new Error('Could not load invoices');
+      const data = await res.json();
+      setInvoices((previous) => (append ? [...previous, ...(data.items || [])] : (data.items || [])));
+      setNextCursor(data.nextCursor || null);
+      if (data.metrics) setMetrics(data.metrics);
+      setPropertyMeta({
+        propertyName: data.propertyName,
+        propertyAddress: data.propertyAddress,
+        propertyPhone: data.propertyPhone,
+        propertyEmail: data.propertyEmail,
+      });
     } catch (e) {
       setLoadError(true);
     } finally {
       setLoading(false);
     }
-  }, [statusTab, typeFilter, searchQuery]);
+  }, [statusTab, typeFilter, debouncedSearch]);
 
   React.useEffect(() => {
-    fetchInvoices();
+    fetchInvoices(null, false);
   }, [fetchInvoices]);
 
-  // Load reservations for linking
+  async function loadMoreInvoices() {
+    if (!nextCursor || loadingMore) return;
+    setLoadingMore(true);
+    await fetchInvoices(nextCursor, true);
+    setLoadingMore(false);
+  }
+
+  // Search-as-you-type stay lookup for linking an invoice.
   React.useEffect(() => {
-    fetch('/api/reservations')
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.reservations) setReservations(data.reservations);
-      })
-      .catch((e) => console.error('Error loading reservations for invoicing:', e));
-  }, []);
+    if (!createModalOpen) return;
+    const controller = new AbortController();
+    const timer = setTimeout(() => {
+      setReservationsLoading(true);
+      const params = new URLSearchParams({ limit: '10' });
+      if (reservationQuery.trim()) params.set('search', reservationQuery.trim());
+      fetch(`/api/reservations?${params.toString()}`, { signal: controller.signal })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => setReservations(data?.items || []))
+        .catch(() => null)
+        .finally(() => setReservationsLoading(false));
+    }, reservationQuery ? 250 : 0);
+    return () => {
+      controller.abort();
+      clearTimeout(timer);
+    };
+  }, [createModalOpen, reservationQuery]);
 
   // When a reservation is picked in create modal, auto-fill guest & stay charges
   function handleSelectReservation(resId: string) {
@@ -256,7 +287,7 @@ export default function InvoicesPage() {
 
       setCreateModalOpen(false);
       resetCreateForm();
-      fetchInvoices();
+      fetchInvoices(null, false);
 
       // Open view modal for the newly generated invoice
       if (data.invoice) {
@@ -293,7 +324,7 @@ export default function InvoicesPage() {
     setModalOpen(true);
   }
 
-  if (loadError) return <PageLoadState title={t('title')} failed retry={fetchInvoices} />;
+  if (loadError) return <PageLoadState title={t('title')} failed retry={() => fetchInvoices(null, false)} />;
 
   return (
     <div className="flex-1 flex flex-col h-screen overflow-hidden bg-white text-[#191816]">
@@ -315,6 +346,8 @@ export default function InvoicesPage() {
             <Button
               onClick={() => {
                 resetCreateForm();
+                setReservationQuery('');
+                setSelectedResId('');
                 setCreateModalOpen(true);
               }}
               size="sm"
@@ -330,22 +363,22 @@ export default function InvoicesPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <MetricCard
             label="Total Invoiced"
-            value={formatNaira(metrics.totalInvoicedMinorUnits)}
+            value={formatMinorUnits(metrics.totalInvoicedMinorUnits)}
             subtext="Billed across active folios"
           />
           <MetricCard
             label="Settled Revenue"
-            value={formatNaira(metrics.totalPaidMinorUnits)}
+            value={formatMinorUnits(metrics.totalPaidMinorUnits)}
             subtext="Collected in full or part"
           />
           <MetricCard
             label="Outstanding Folios"
-            value={formatNaira(metrics.totalOutstandingMinorUnits)}
+            value={formatMinorUnits(metrics.totalOutstandingMinorUnits)}
             subtext="Pending balance due"
           />
           <MetricCard
             label="Overdue Receivables"
-            value={formatNaira(metrics.overdueMinorUnits)}
+            value={formatMinorUnits(metrics.overdueMinorUnits)}
             subtext={`${metrics.overdueCount} accounts past due date`}
           />
         </div>
@@ -498,6 +531,13 @@ export default function InvoicesPage() {
               </Table>
             )}
           </div>
+          {nextCursor && (
+            <div className="flex justify-center border-t border-[#E8E2DA] py-3">
+              <Button size="sm" variant="secondary" onClick={loadMoreInvoices} disabled={loadingMore} className="text-xs">
+                {loadingMore ? 'Loading…' : 'Load more invoices'}
+              </Button>
+            </div>
+          )}
         </div>
       </main>
 
@@ -511,7 +551,7 @@ export default function InvoicesPage() {
         propertyPhone={propertyMeta.propertyPhone}
         propertyEmail={propertyMeta.propertyEmail}
         onPaymentSuccess={() => {
-          fetchInvoices();
+          fetchInvoices(null, false);
           if (selectedInvoice) {
             fetch(`/api/invoices/${selectedInvoice.id}`)
               .then((r) => r.json())
@@ -522,7 +562,7 @@ export default function InvoicesPage() {
         }}
         onUpdated={(next) => {
           setSelectedInvoice(next);
-          fetchInvoices();
+          fetchInvoices(null, false);
         }}
       />
 
@@ -554,6 +594,13 @@ export default function InvoicesPage() {
                 <span className="font-semibold text-[#71382D] uppercase tracking-wider text-[10px] block">
                   Link Existing In-House / Arriving Stay (Optional)
                 </span>
+                <input
+                  type="search"
+                  placeholder="Search stay by reference, guest, or room…"
+                  value={reservationQuery}
+                  onChange={(e) => setReservationQuery(e.target.value)}
+                  className="w-full px-3 py-2 rounded border border-[#E8E2DA] text-xs text-[#191816] bg-white focus:outline-none"
+                />
                 <select
                   value={selectedResId}
                   onChange={(e) => handleSelectReservation(e.target.value)}
@@ -566,6 +613,7 @@ export default function InvoicesPage() {
                     </option>
                   ))}
                 </select>
+                {reservationsLoading && <span className="text-[10px] text-[#7A7267]">Searching stays…</span>}
               </div>
 
               {/* Recipient / Client Details */}

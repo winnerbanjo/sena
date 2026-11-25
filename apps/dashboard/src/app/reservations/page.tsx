@@ -19,6 +19,13 @@ import { useToast } from '../../components/toast-notification';
 import { ReservationSuccessModal } from '../../components/reservation-success-modal';
 import { useTranslations } from 'next-intl';
 
+const tabStatus: Record<string, string | undefined> = {
+  upcoming: 'confirmed',
+  in_house: 'checked_in',
+  completed: 'checked_out',
+  cancelled: 'cancelled',
+};
+
 function ReservationsContent() {
   const t = useTranslations('reservations');
   const tCommon = useTranslations('common');
@@ -29,8 +36,14 @@ function ReservationsContent() {
   const [reservations, setReservations] = React.useState<ReservationItem[]>([]);
   const [loadError, setLoadError] = React.useState(false);
   const [loading, setLoading] = React.useState(true);
+  const [loadingMore, setLoadingMore] = React.useState(false);
+  const [nextCursor, setNextCursor] = React.useState<string | null>(null);
   const [activeTab, setActiveTab] = React.useState('all');
   const [searchQuery, setSearchQuery] = React.useState(urlSearch || '');
+  const [debouncedSearch, setDebouncedSearch] = React.useState(urlSearch || '');
+  const [fromDate, setFromDate] = React.useState('');
+  const [toDate, setToDate] = React.useState('');
+  const requestId = React.useRef(0);
   const [selectedRes, setSelectedRes] = React.useState<ReservationItem | null>(null);
   const [drawerOpen, setDrawerOpen] = React.useState(false);
   const [newResOpen, setNewResOpen] = React.useState(false);
@@ -40,28 +53,10 @@ function ReservationsContent() {
     mode: RoomAssignmentMode;
   } | null>(null);
 
-  const fetchReservations = React.useCallback(async () => {
-    try {
-      const res = await fetch('/api/reservations');
-      if (!res.ok) throw new Error('Page unavailable');
-      if (res.ok) {
-        const data = await res.json();
-        if (data.reservations) {
-          const mapped: ReservationItem[] = data.reservations.map(mapReservationItem);
-          setReservations(mapped);
-        }
-      }
-    } catch (e) {
-      setLoadError(true);
-      console.error('Failed to load reservations:', e);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
   React.useEffect(() => {
-    fetchReservations();
-  }, [fetchReservations]);
+    const timer = setTimeout(() => setDebouncedSearch(searchQuery), 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   React.useEffect(() => {
     if (urlSearch) {
@@ -69,22 +64,44 @@ function ReservationsContent() {
     }
   }, [urlSearch]);
 
-  const filtered = reservations.filter((r) => {
-    if (activeTab === 'upcoming' && r.status !== 'confirmed') return false;
-    if (activeTab === 'in_house' && r.status !== 'checked_in') return false;
-    if (activeTab === 'completed' && r.status !== 'checked_out') return false;
-    if (activeTab === 'cancelled' && r.status !== 'cancelled') return false;
+  const loadReservations = React.useCallback(async (cursor: string | null, append: boolean) => {
+    const id = ++requestId.current;
+    const params = new URLSearchParams({ limit: '25' });
+    const status = tabStatus[activeTab];
+    if (status) params.set('status', status);
+    if (debouncedSearch.trim()) params.set('search', debouncedSearch.trim());
+    if (fromDate) params.set('from', fromDate);
+    if (toDate) params.set('to', toDate);
+    if (cursor) params.set('cursor', cursor);
 
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      return (
-        r.reference.toLowerCase().includes(q) ||
-        r.guestName.toLowerCase().includes(q) ||
-        r.roomNumber.toLowerCase().includes(q)
-      );
+    try {
+      const res = await fetch(`/api/reservations?${params.toString()}`);
+      if (!res.ok) throw new Error('Page unavailable');
+      const data = await res.json();
+      if (id !== requestId.current) return;
+      const mapped: ReservationItem[] = (data.items || []).map(mapReservationItem);
+      setReservations((previous) => (append ? [...previous, ...mapped] : mapped));
+      setNextCursor(data.nextCursor || null);
+    } catch (e) {
+      if (id !== requestId.current) return;
+      setLoadError(true);
+      console.error('Failed to load reservations:', e);
     }
-    return true;
-  });
+  }, [activeTab, debouncedSearch, fromDate, toDate]);
+
+  React.useEffect(() => {
+    setLoading(true);
+    loadReservations(null, false).finally(() => setLoading(false));
+  }, [loadReservations]);
+
+  async function loadMore() {
+    if (!nextCursor || loadingMore) return;
+    setLoadingMore(true);
+    await loadReservations(nextCursor, true);
+    setLoadingMore(false);
+  }
+
+  const filtered = reservations;
 
   if (loading || loadError) return <PageLoadState title={t('title')} failed={loadError} />;
 
@@ -107,6 +124,24 @@ function ReservationsContent() {
               className="w-full rounded-md border border-[#E8E2DA] bg-white py-2 pe-3.5 ps-9 text-sm text-[#191816] placeholder:text-[#7A7267] transition-colors focus:outline-none focus:ring-2 focus:ring-[#71382D]/30"
             />
           </div>
+          <label className="flex items-center gap-2 text-xs text-[#7A7267]">
+            Check-in from
+            <input
+              type="date"
+              value={fromDate}
+              onChange={(e) => setFromDate(e.target.value)}
+              className="rounded-md border border-[#E8E2DA] bg-white px-2 py-1.5 text-xs text-[#191816] focus:outline-none focus:ring-2 focus:ring-[#71382D]/30"
+            />
+          </label>
+          <label className="flex items-center gap-2 text-xs text-[#7A7267]">
+            to
+            <input
+              type="date"
+              value={toDate}
+              onChange={(e) => setToDate(e.target.value)}
+              className="rounded-md border border-[#E8E2DA] bg-white px-2 py-1.5 text-xs text-[#191816] focus:outline-none focus:ring-2 focus:ring-[#71382D]/30"
+            />
+          </label>
         </div>
 
         {/* Quiet, Editorial Tabs */}
@@ -262,6 +297,19 @@ function ReservationsContent() {
             </div>
           </>
         )}
+
+        {nextCursor && (
+          <div className="flex justify-center pt-2">
+            <button
+              type="button"
+              onClick={loadMore}
+              disabled={loadingMore}
+              className="rounded-md border border-[#E8E2DA] bg-white px-4 py-2 text-sm font-medium text-[#191816] transition-colors hover:bg-[#FAF8F6] disabled:opacity-60"
+            >
+              {loadingMore ? 'Loading…' : 'Load more stays'}
+            </button>
+          </div>
+        )}
       </main>
 
       <ReservationDrawer
@@ -290,7 +338,7 @@ function ReservationsContent() {
             const data = await res.json().catch(() => ({}));
             if (res.ok) {
               toast.success(t('successTitle'), tCommon('saved'));
-              fetchReservations();
+              loadReservations(null, false);
               if (selectedRes && selectedRes.id === id) {
                 setSelectedRes((prev) => (prev ? { ...prev, status: 'checked_out' } : null));
               }
@@ -301,11 +349,11 @@ function ReservationsContent() {
             toast.error('Check-out Error', e.message || 'Check out failed');
           }
         }}
-        onPaymentRecorded={() => fetchReservations()}
-        onNotesChanged={() => fetchReservations()}
+        onPaymentRecorded={() => loadReservations(null, false)}
+        onNotesChanged={() => loadReservations(null, false)}
         onUpdated={(updated) => {
           setSelectedRes(updated);
-          fetchReservations();
+          loadReservations(null, false);
         }}
       />
 
@@ -317,7 +365,7 @@ function ReservationsContent() {
           if (!open) setAssignment(null);
         }}
         onCompleted={(update) => {
-          fetchReservations();
+          loadReservations(null, false);
           setSelectedRes((prev) =>
             prev && assignment && prev.id === assignment.reservation.id
               ? { ...prev, roomId: update.roomId, roomNumber: update.roomNumber, status: update.status || prev.status }
@@ -354,7 +402,7 @@ function ReservationsContent() {
         open={newResOpen}
         onOpenChange={setNewResOpen}
         onCreateReservation={(newRes) => {
-          fetchReservations();
+          loadReservations(null, false);
           setSuccessReservation(newRes);
         }}
       />

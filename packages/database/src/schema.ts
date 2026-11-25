@@ -13,6 +13,7 @@ import {
   varchar,
   type AnyPgColumn,
 } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 
 // 1. Users
 export const users = pgTable('users', {
@@ -350,6 +351,8 @@ export const guests = pgTable(
   (t) => [
     index('guests_prop_email_idx').on(t.propertyId, t.email),
     index('guests_prop_phone_idx').on(t.propertyId, t.phone),
+    // Keyset directory order. Applied by 0017 (CONCURRENTLY), not by db:migrate.
+    index('guests_prop_created_id_idx').on(t.propertyId, t.createdAt.desc(), t.id.desc()),
   ]
 );
 
@@ -416,6 +419,17 @@ export const reservations = pgTable(
     index('res_guest_idx').on(t.guestId),
     index('res_apartment_dates_idx').on(t.apartmentId, t.checkInDate, t.checkOutDate),
     index('res_booking_group_idx').on(t.bookingGroupId),
+    // Keyset list indexes. Applied by 0017 (CONCURRENTLY), not by db:migrate.
+    index('res_prop_created_id_idx').on(t.propertyId, t.createdAt.desc(), t.id.desc()),
+    index('res_prop_status_created_id_idx').on(t.propertyId, t.status, t.createdAt.desc(), t.id.desc()),
+    index('res_prop_guest_idx').on(t.propertyId, t.guestId),
+    index('res_prop_outstanding_idx')
+      .on(
+        t.propertyId,
+        sql`(total_amount_minor_units - paid_amount_minor_units)`,
+        t.id.desc()
+      )
+      .where(sql`status <> 'cancelled' and total_amount_minor_units > paid_amount_minor_units`),
   ]
 );
 
@@ -492,6 +506,8 @@ export const payments = pgTable(
     index('payments_prop_idx').on(t.propertyId),
     index('payments_booking_group_idx').on(t.bookingGroupId),
     uniqueIndex('payments_provider_ref_idx').on(t.provider, t.providerReference),
+    // Keyset ledger order. Applied by 0017 (CONCURRENTLY), not by db:migrate.
+    index('payments_prop_created_id_idx').on(t.propertyId, t.createdAt.desc(), t.id.desc()),
   ]
 );
 
@@ -1177,6 +1193,11 @@ export const propertyInvoices = pgTable(
     index('prop_inv_res_idx').on(t.reservationId),
     index('prop_inv_booking_group_idx').on(t.bookingGroupId),
     index('prop_inv_status_idx').on(t.status),
+    // Keyset list indexes. Applied by 0017 (CONCURRENTLY), not by db:migrate.
+    index('prop_inv_prop_created_id_idx').on(t.propertyId, t.createdAt.desc(), t.id.desc()),
+    index('prop_inv_prop_unpaid_created_id_idx')
+      .on(t.propertyId, t.createdAt.desc(), t.id.desc())
+      .where(sql`status in ('issued', 'partially_paid', 'overdue') and paid_amount_minor_units < total_amount_minor_units`),
   ]
 );
 
@@ -1384,6 +1405,8 @@ export const transferProofs = pgTable(
     index('transfer_proofs_prop_idx').on(t.propertyId, t.status, t.submittedAt),
     index('transfer_proofs_res_idx').on(t.reservationId),
     index('transfer_proofs_inv_idx').on(t.invoiceId),
+    // Keyset proof queue order. Applied by 0017 (CONCURRENTLY), not by db:migrate.
+    index('transfer_proofs_prop_submitted_id_idx').on(t.propertyId, t.submittedAt.desc(), t.id.desc()),
   ]
 );
 

@@ -1,6 +1,6 @@
 import { createPublicInvoiceToken } from '@/lib/public-invoice-token';
 import { apiError, errorStatus } from '@/lib/api-error';
-import { withMerchant } from '@/lib/merchant-route';
+import { getMerchantRequest, withMerchant } from '@/lib/merchant-route';
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import {
@@ -12,8 +12,12 @@ import {
   guests,
   eq,
   desc,
+  ilike,
+  or,
   sql,
+  getTableColumns,
 } from '@sena/database';
+import { badCursorResponse, cursorIsMalformed, cursorTimestamp, cursorUuid, decodeCursor, encodeCursor, escapeLikePattern, parsePageLimit } from '@/lib/pagination';
 
 import { calculateInvoiceAmounts } from '@/lib/invoice-edit';
 import { resolveTenantForRequest } from '@/lib/tenant';
@@ -21,23 +25,36 @@ import { PaymentService } from '@sena/payments';
 
 async function handleGET(req: NextRequest) {
   try {
-    const session = await auth();
+    const merchant = getMerchantRequest(req);
+    const session = merchant ? merchant.session : await auth();
     const { searchParams } = new URL(req.url);
     const statusFilter = searchParams.get('status');
     const typeFilter = searchParams.get('type');
-    const search = searchParams.get('search')?.toLowerCase().trim();
+    const search = (searchParams.get('search') || '').trim().slice(0, 100);
+    const limit = parsePageLimit(searchParams.get('limit'));
+    const rawCursor = searchParams.get('cursor');
+    const cursor = decodeCursor(rawCursor);
+    if (cursorIsMalformed(rawCursor, cursor)) {
+      return NextResponse.json(badCursorResponse(), { status: 400 });
+    }
+    const cursorCreatedAt = cursorTimestamp(cursor?.createdAt);
+    const cursorId = cursorUuid(cursor?.id);
+    if (rawCursor && (!cursorCreatedAt || !cursorId)) {
+      return NextResponse.json(badCursorResponse(), { status: 400 });
+    }
 
     // 1. Resolve Property & Organization strictly scoped to tenant
     const tenant = await resolveTenantForRequest(session, req);
     if (!tenant) {
       return NextResponse.json({
-        invoices: [],
+        items: [],
+        nextCursor: null,
         metrics: {
-          totalInvoicedMinorUnits: 0,
-          totalPaidMinorUnits: 0,
-          totalOutstandingMinorUnits: 0,
+          totalInvoicedMinorUnits: '0',
+          totalPaidMinorUnits: '0',
+          totalOutstandingMinorUnits: '0',
           overdueCount: 0,
-          overdueMinorUnits: 0,
+          overdueMinorUnits: '0',
         },
       });
     }
@@ -45,89 +62,90 @@ async function handleGET(req: NextRequest) {
     const propertyId = tenant.propertyId;
     const prop = tenant.property;
 
-    // 2. Fetch all invoices for property
-    let allInvoices = await db
-      .select()
-      .from(propertyInvoices)
-      .where(eq(propertyInvoices.propertyId, propertyId))
-      .orderBy(desc(propertyInvoices.createdAt));
-
-    // Update overdue status dynamically if due date passed and not fully paid
     const todayStr = new Date().toISOString().slice(0, 10);
-    const mappedInvoices = allInvoices.map((inv) => {
-      let currentStatus = inv.status;
-      if (
-        (currentStatus === 'issued' || currentStatus === 'partially_paid') &&
-        inv.dueDate &&
-        inv.dueDate < todayStr &&
-        inv.paidAmountMinorUnits < inv.totalAmountMinorUnits
-      ) {
-        currentStatus = 'overdue';
-      }
-      return { ...inv, status: currentStatus, publicToken: createPublicInvoiceToken(inv.id) };
-    });
 
-    // 3. Compute High-Level Financial Metrics
-    let totalInvoicedMinorUnits = 0;
-    let totalPaidMinorUnits = 0;
-    let totalOutstandingMinorUnits = 0;
-    let overdueCount = 0;
-    let overdueMinorUnits = 0;
+    // Effective status: an issued/partially paid invoice past its due date is
+    // overdue even though the stored status has not been swept yet.
+    const effectiveStatus = sql<string>`case
+      when ${propertyInvoices.status} in ('issued', 'partially_paid')
+        and ${propertyInvoices.dueDate} < ${todayStr}
+        and ${propertyInvoices.paidAmountMinorUnits} < ${propertyInvoices.totalAmountMinorUnits}
+      then 'overdue'
+      else ${propertyInvoices.status}
+    end`;
 
-    for (const inv of mappedInvoices) {
-      if (inv.status !== 'void' && inv.status !== 'draft') {
-        totalInvoicedMinorUnits += inv.totalAmountMinorUnits;
-        totalPaidMinorUnits += inv.paidAmountMinorUnits;
-        const balance = Math.max(0, inv.totalAmountMinorUnits - inv.paidAmountMinorUnits);
-        totalOutstandingMinorUnits += balance;
-
-        if (inv.status === 'overdue' || (inv.dueDate && inv.dueDate < todayStr && balance > 0)) {
-          overdueCount += 1;
-          overdueMinorUnits += balance;
-        }
-      }
-    }
-
-    // 4. Filter in-memory based on query params
-    let filtered = mappedInvoices;
+    const conditions = [eq(propertyInvoices.propertyId, propertyId)];
 
     if (statusFilter && statusFilter !== 'all') {
       if (statusFilter === 'unpaid') {
-        filtered = filtered.filter(
-          (inv) =>
-            (inv.status === 'issued' || inv.status === 'partially_paid' || inv.status === 'overdue') &&
-            inv.paidAmountMinorUnits < inv.totalAmountMinorUnits
-        );
+        // Effective status only ever moves issued/partially_paid to overdue, so
+        // this is equivalent to filtering on the effective status and lets the
+        // partial unpaid index provide the sort order.
+        conditions.push(sql`${propertyInvoices.status} in ('issued', 'partially_paid', 'overdue') and ${propertyInvoices.paidAmountMinorUnits} < ${propertyInvoices.totalAmountMinorUnits}`);
+      } else if (statusFilter === 'overdue') {
+        conditions.push(sql`${effectiveStatus} = 'overdue'`);
       } else {
-        filtered = filtered.filter((inv) => inv.status === statusFilter);
+        conditions.push(eq(propertyInvoices.status, statusFilter));
       }
     }
 
     if (typeFilter && typeFilter !== 'all') {
-      filtered = filtered.filter((inv) => inv.invoiceType === typeFilter);
+      conditions.push(eq(propertyInvoices.invoiceType, typeFilter));
     }
 
     if (search) {
-      filtered = filtered.filter(
-        (inv) =>
-          inv.invoiceNumber.toLowerCase().includes(search) ||
-          inv.recipientName.toLowerCase().includes(search) ||
-          (inv.recipientEmail && inv.recipientEmail.toLowerCase().includes(search)) ||
-          (inv.companyTin && inv.companyTin.toLowerCase().includes(search))
-      );
+      const pattern = `%${escapeLikePattern(search)}%`;
+      conditions.push(or(
+        ilike(propertyInvoices.invoiceNumber, pattern),
+        ilike(propertyInvoices.recipientName, pattern),
+        ilike(propertyInvoices.recipientEmail, pattern),
+        ilike(propertyInvoices.companyTin, pattern)
+      )!);
     }
+
+    if (cursorCreatedAt && cursorId) {
+      conditions.push(sql`(${propertyInvoices.createdAt}, ${propertyInvoices.id}) < (${cursorCreatedAt}::timestamptz, ${cursorId}::uuid)`);
+    }
+
+    const rows = await db
+      .select({
+        ...getTableColumns(propertyInvoices),
+        effectiveStatus,
+        cursorCreatedAt: sql<string>`to_char(${propertyInvoices.createdAt} at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
+      })
+      .from(propertyInvoices)
+      .where(sql.join(conditions, sql` and `))
+      .orderBy(desc(propertyInvoices.createdAt), desc(propertyInvoices.id))
+      .limit(limit + 1);
+
+    const items = rows.slice(0, limit).map((row) => {
+      const { effectiveStatus: currentStatus, cursorCreatedAt: _cursorCreatedAt, ...invoice } = row;
+      return { ...invoice, status: currentStatus, publicToken: createPublicInvoiceToken(invoice.id) };
+    });
+    const last = items[items.length - 1];
+    const lastRow = rows[limit - 1];
+    const nextCursor = rows.length > limit && last && lastRow
+      ? encodeCursor({ createdAt: lastRow.cursorCreatedAt, id: last.id })
+      : null;
+
+    // Property-wide metrics stay in SQL and are independent of the page/filter.
+    const [metrics] = await db
+      .select({
+        totalInvoicedMinorUnits: sql<string>`coalesce(sum(${propertyInvoices.totalAmountMinorUnits}) filter (where ${propertyInvoices.status} not in ('void', 'draft')), 0)::text`,
+        totalPaidMinorUnits: sql<string>`coalesce(sum(${propertyInvoices.paidAmountMinorUnits}) filter (where ${propertyInvoices.status} not in ('void', 'draft')), 0)::text`,
+        totalOutstandingMinorUnits: sql<string>`coalesce(sum(greatest(${propertyInvoices.totalAmountMinorUnits} - ${propertyInvoices.paidAmountMinorUnits}, 0)) filter (where ${propertyInvoices.status} not in ('void', 'draft')), 0)::text`,
+        overdueCount: sql<number>`count(*) filter (where ${propertyInvoices.status} not in ('void', 'draft') and (${propertyInvoices.status} = 'overdue' or (${propertyInvoices.dueDate} < ${todayStr} and ${propertyInvoices.paidAmountMinorUnits} < ${propertyInvoices.totalAmountMinorUnits})))::int`,
+        overdueMinorUnits: sql<string>`coalesce(sum(greatest(${propertyInvoices.totalAmountMinorUnits} - ${propertyInvoices.paidAmountMinorUnits}, 0)) filter (where ${propertyInvoices.status} not in ('void', 'draft') and (${propertyInvoices.status} = 'overdue' or (${propertyInvoices.dueDate} < ${todayStr} and ${propertyInvoices.paidAmountMinorUnits} < ${propertyInvoices.totalAmountMinorUnits}))), 0)::text`,
+      })
+      .from(propertyInvoices)
+      .where(eq(propertyInvoices.propertyId, propertyId));
 
     const defaultBank = await PaymentService.primaryBankDetails(propertyId);
 
     return NextResponse.json({
-      invoices: filtered,
-      metrics: {
-        totalInvoicedMinorUnits,
-        totalPaidMinorUnits,
-        totalOutstandingMinorUnits,
-        overdueCount,
-        overdueMinorUnits,
-      },
+      items,
+      nextCursor,
+      metrics,
       propertyName: prop.name,
       propertyAddress: prop.address || '',
       propertyPhone: prop.phone || '',
@@ -142,7 +160,8 @@ async function handleGET(req: NextRequest) {
 
 async function handlePOST(req: NextRequest) {
   try {
-    const session = await auth();
+    const merchant = getMerchantRequest(req);
+    const session = merchant ? merchant.session : await auth();
     const body = await req.json();
 
     const {
