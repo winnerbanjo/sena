@@ -1,4 +1,4 @@
-import { calculateNights, getDatesBetween } from '@sena/config';
+import { assertMoney, calculateNights, checkedMul, checkedSub, checkedSum, getDatesBetween } from '@sena/config';
 import {
   apartments,
   bookingGroups,
@@ -208,7 +208,7 @@ export async function createBookingGroup(
       if (!roomType) throw new Error('Room type not found');
       if (input.numGuests > roomType.capacity) throw new Error(`Room ${room.roomNumber} cannot take that many guests. No rooms were booked.`);
       const reference = referenceCode('SEN-');
-      const totalAmountMinorUnits = roomType.basePriceMinorUnits * nights;
+      const totalAmountMinorUnits = checkedMul(roomType.basePriceMinorUnits, nights, 'Accommodation total');
       const [reservation] = await tx
         .insert(reservations)
         .values({
@@ -278,7 +278,7 @@ export async function createBookingGroup(
       .limit(1);
 
     const defaultBank = await PaymentService.primaryBankDetails(input.propertyId);
-    const combinedTotalMinorUnits = created.reduce((sum, r) => sum + r.totalAmountMinorUnits, 0);
+    const combinedTotalMinorUnits = checkedSum(created.map((r) => r.totalAmountMinorUnits), 'Booking total');
     const invoiceNumber = `INV-${new Date().getFullYear()}-${crypto.randomUUID().replaceAll('-', '').slice(0, 16).toUpperCase()}`;
 
     const lineItems = created.map((item) => ({
@@ -427,6 +427,29 @@ export async function addAccommodationToBooking(
   actor = { id: '', name: 'Front Desk' },
 ) {
   return db.transaction(async (tx) => {
+    // Global ledger lock order: property_invoices (ascending id) first, then
+    // reservations (ascending id). The unlocked read only selects the invoice
+    // rows to lock; the authoritative parent row is locked below.
+    const [scope] = await tx
+      .select({ propertyId: reservations.propertyId, bookingGroupId: reservations.bookingGroupId })
+      .from(reservations)
+      .where(eq(reservations.id, input.reservationId))
+      .limit(1);
+    if (!scope || scope.propertyId !== input.propertyId) throw new Error('Reservation not found');
+
+    const invoiceScope = scope.bookingGroupId
+      ? or(
+          eq(propertyInvoices.reservationId, input.reservationId),
+          eq(propertyInvoices.bookingGroupId, scope.bookingGroupId)
+        )
+      : eq(propertyInvoices.reservationId, input.reservationId);
+    const lockedInvoices = await tx
+      .select()
+      .from(propertyInvoices)
+      .where(and(invoiceScope, ne(propertyInvoices.status, 'void')))
+      .orderBy(propertyInvoices.id)
+      .for('update');
+
     const [parentRes] = await tx
       .select()
       .from(reservations)
@@ -512,7 +535,7 @@ export async function addAccommodationToBooking(
         );
       if (blocking.length > 0) throw new Error(`Apartment is already booked for these dates (${blocking[0].reference}).`);
 
-      standardAmount = apartment.basePriceMinorUnits * nights;
+      standardAmount = checkedMul(apartment.basePriceMinorUnits, nights, 'Accommodation total');
       targetRoomTypeId = null;
       targetRoomId = null;
       targetApartmentId = apartment.id;
@@ -545,16 +568,16 @@ export async function addAccommodationToBooking(
         targetLabel = `${roomType.name} (Unassigned)`;
       }
 
-      standardAmount = roomType.basePriceMinorUnits * nights;
+      standardAmount = checkedMul(roomType.basePriceMinorUnits, nights, 'Accommodation total');
       targetRoomTypeId = roomType.id;
       targetRoomId = input.roomId || null;
       targetApartmentId = null;
     }
 
     const agreedTotal = input.customTotalAmountMinorUnits != null
-      ? Math.max(0, input.customTotalAmountMinorUnits)
+      ? assertMoney(input.customTotalAmountMinorUnits, 'Custom total')
       : standardAmount;
-    const discount = Math.max(0, standardAmount - agreedTotal);
+    const discount = Math.max(0, checkedSub(standardAmount, agreedTotal, 'Discount', { allowNegative: true }));
     const newReference = referenceCode('SEN-');
 
     const [newRes] = await tx
@@ -602,20 +625,12 @@ export async function addAccommodationToBooking(
       metadata: { parentReservationId: parentRes.id, bookingGroupId },
     });
 
-    // Update or create single consolidated group invoice
-    const existingInvoices = await tx
-      .select()
-      .from(propertyInvoices)
-      .where(
-        and(
-          or(
-            eq(propertyInvoices.bookingGroupId, bookingGroupId),
-            eq(propertyInvoices.reservationId, parentRes.id)
-          ),
-          ne(propertyInvoices.status, 'void')
-        )
-      )
-      .orderBy(propertyInvoices.createdAt);
+    // Update or create single consolidated group invoice. These rows were
+    // locked above in the global invoice-first order; keep the oldest-first
+    // choice the previous query made with ORDER BY created_at.
+    const existingInvoices = [...lockedInvoices].sort(
+      (left, right) => left.createdAt.getTime() - right.createdAt.getTime(),
+    );
 
     const newItem = {
       id: crypto.randomUUID(),

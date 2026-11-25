@@ -8,23 +8,91 @@ import { auth } from '@/auth';
 import { db, operationalNotifications, payments, reservations, guests, transferProofs, paymentReceipts } from '@sena/database';
 import { PaymentService } from '@sena/payments';
 import { sendPaymentReceiptEmail } from '@sena/email';
-import { and, desc, eq, inArray, ne } from 'drizzle-orm';
+import { and, desc, eq, inArray, ne, sql } from 'drizzle-orm';
+import { badCursorResponse, cursorIsMalformed, cursorTimestamp, cursorUuid, decodeCursor, encodeCursor, parsePageLimit } from '@/lib/pagination';
 
 import { resolveTenantForRequest } from '@/lib/tenant';
 
 export const dynamic = 'force-dynamic';
+
+const emptyMetrics = {
+  totalCollectedMinorUnits: '0',
+  pendingFoliosMinorUnits: '0',
+  directBookingShare: 0,
+};
 
 async function handleGET(req: NextRequest) {
   try {
     const propertyId = getMerchantRequest(req)?.tenant.propertyId;
 
     if (!propertyId) {
-      return NextResponse.json({ payments: [], receivables: [], transferProofs: [] });
+      return NextResponse.json({
+        items: [],
+        nextCursor: null,
+        receivables: [],
+        receivablesNextCursor: null,
+        transferProofs: [],
+        transferProofsNextCursor: null,
+        metrics: emptyMetrics,
+      });
     }
 
-    const reservationId = req.nextUrl.searchParams.get('reservationId');
+    const { searchParams } = new URL(req.url);
+    const reservationId = searchParams.get('reservationId');
+    const limit = parsePageLimit(searchParams.get('limit'));
+    const receivablesLimit = parsePageLimit(searchParams.get('receivablesLimit') || searchParams.get('limit'));
+    const proofsLimit = parsePageLimit(searchParams.get('proofsLimit') || searchParams.get('limit'));
 
-    const [paymentList, reservationRows, proofs] = await Promise.all([
+    const paymentCursorRaw = searchParams.get('cursor');
+    const paymentCursor = decodeCursor(paymentCursorRaw);
+    const paymentCursorCreatedAt = cursorTimestamp(paymentCursor?.createdAt);
+    const paymentCursorId = cursorUuid(paymentCursor?.id);
+    if (cursorIsMalformed(paymentCursorRaw, paymentCursor) || (paymentCursorRaw && (!paymentCursorCreatedAt || !paymentCursorId))) {
+      return NextResponse.json(badCursorResponse(), { status: 400 });
+    }
+
+    const receivablesCursorRaw = searchParams.get('receivablesCursor');
+    const receivablesCursor = decodeCursor(receivablesCursorRaw);
+    const receivablesCursorOutstanding = receivablesCursor?.outstanding;
+    const receivablesCursorId = cursorUuid(receivablesCursor?.id);
+    if (
+      cursorIsMalformed(receivablesCursorRaw, receivablesCursor) ||
+      (receivablesCursorRaw && (typeof receivablesCursorOutstanding !== 'number' || !Number.isInteger(receivablesCursorOutstanding) || !receivablesCursorId))
+    ) {
+      return NextResponse.json(badCursorResponse(), { status: 400 });
+    }
+
+    const proofsCursorRaw = searchParams.get('proofsCursor');
+    const proofsCursor = decodeCursor(proofsCursorRaw);
+    const proofsCursorSubmittedAt = cursorTimestamp(proofsCursor?.submittedAt);
+    const proofsCursorId = cursorUuid(proofsCursor?.id);
+    if (cursorIsMalformed(proofsCursorRaw, proofsCursor) || (proofsCursorRaw && (!proofsCursorSubmittedAt || !proofsCursorId))) {
+      return NextResponse.json(badCursorResponse(), { status: 400 });
+    }
+
+    const paymentConditions = [eq(payments.propertyId, propertyId)];
+    if (reservationId) paymentConditions.push(eq(payments.reservationId, reservationId));
+    if (paymentCursorCreatedAt && paymentCursorId) {
+      paymentConditions.push(sql`(${payments.createdAt}, ${payments.id}) < (${paymentCursorCreatedAt}::timestamptz, ${paymentCursorId}::uuid)`);
+    }
+
+    const outstanding = sql<number>`(${reservations.totalAmountMinorUnits} - ${reservations.paidAmountMinorUnits})`;
+    const receivableConditions = [
+      eq(reservations.propertyId, propertyId),
+      ne(reservations.status, 'cancelled'),
+      // Written as a direct comparison so it matches the partial index predicate.
+      sql`${reservations.totalAmountMinorUnits} > ${reservations.paidAmountMinorUnits}`,
+    ];
+    if (typeof receivablesCursorOutstanding === 'number' && receivablesCursorId) {
+      receivableConditions.push(sql`(${outstanding}, ${reservations.id}) < (${receivablesCursorOutstanding}::int, ${receivablesCursorId}::uuid)`);
+    }
+
+    const proofConditions = [eq(transferProofs.propertyId, propertyId)];
+    if (proofsCursorSubmittedAt && proofsCursorId) {
+      proofConditions.push(sql`(${transferProofs.submittedAt}, ${transferProofs.id}) < (${proofsCursorSubmittedAt}::timestamptz, ${proofsCursorId}::uuid)`);
+    }
+
+    const [paymentList, reservationRows, proofs, paymentTotals, reservationTotals] = await Promise.all([
       db
         .select({
           id: payments.id,
@@ -36,20 +104,18 @@ async function handleGET(req: NextRequest) {
           status: payments.status,
           notes: payments.notes,
           createdAt: payments.createdAt,
+          cursorCreatedAt: sql<string>`to_char(${payments.createdAt} at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
           reservationId: payments.reservationId,
           reservationReference: reservations.reference,
           guestName: guests.fullName,
           guestEmail: guests.email,
         })
         .from(payments)
-        .leftJoin(reservations, eq(payments.reservationId, reservations.id))
+        .leftJoin(reservations, and(eq(payments.reservationId, reservations.id), eq(reservations.propertyId, propertyId)))
         .leftJoin(guests, eq(reservations.guestId, guests.id))
-        .where(
-          reservationId
-            ? and(eq(payments.propertyId, propertyId), eq(payments.reservationId, reservationId))
-            : eq(payments.propertyId, propertyId)
-        )
-        .orderBy(desc(payments.createdAt)),
+        .where(sql.join(paymentConditions, sql` and `))
+        .orderBy(desc(payments.createdAt), desc(payments.id))
+        .limit(limit + 1),
       db
         .select({
           id: reservations.id,
@@ -59,10 +125,13 @@ async function handleGET(req: NextRequest) {
           totalAmountMinorUnits: reservations.totalAmountMinorUnits,
           paidAmountMinorUnits: reservations.paidAmountMinorUnits,
           guestName: guests.fullName,
+          outstandingMinorUnits: outstanding,
         })
         .from(reservations)
         .leftJoin(guests, eq(reservations.guestId, guests.id))
-        .where(and(eq(reservations.propertyId, propertyId), ne(reservations.status, 'cancelled'))),
+        .where(sql.join(receivableConditions, sql` and `))
+        .orderBy(desc(outstanding), desc(reservations.id))
+        .limit(receivablesLimit + 1),
       db
         .select({
           id: transferProofs.id,
@@ -73,31 +142,56 @@ async function handleGET(req: NextRequest) {
           proofUrl: transferProofs.proofUrl,
           status: transferProofs.status,
           submittedAt: transferProofs.submittedAt,
+          cursorSubmittedAt: sql<string>`to_char(${transferProofs.submittedAt} at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
           reservationId: transferProofs.reservationId,
           invoiceId: transferProofs.invoiceId,
           reservationReference: reservations.reference,
           guestName: guests.fullName,
         })
         .from(transferProofs)
-        .leftJoin(reservations, eq(transferProofs.reservationId, reservations.id))
+        .leftJoin(reservations, and(eq(transferProofs.reservationId, reservations.id), eq(reservations.propertyId, propertyId)))
         .leftJoin(guests, eq(reservations.guestId, guests.id))
-        .where(eq(transferProofs.propertyId, propertyId))
-        .orderBy(desc(transferProofs.submittedAt)),
+        .where(sql.join(proofConditions, sql` and `))
+        .orderBy(desc(transferProofs.submittedAt), desc(transferProofs.id))
+        .limit(proofsLimit + 1),
+      db
+        .select({
+          totalCollectedMinorUnits: sql<string>`coalesce(sum(${payments.amountMinorUnits}) filter (where ${payments.status} = 'successful'), 0)::text`,
+        })
+        .from(payments)
+        .where(eq(payments.propertyId, propertyId)),
+      db
+        .select({
+          totalReservations: sql<number>`count(*)::int`,
+          directCount: sql<number>`count(*) filter (where ${reservations.source} = 'direct')::int`,
+          pendingFoliosMinorUnits: sql<string>`coalesce(sum(greatest(${reservations.totalAmountMinorUnits} - ${reservations.paidAmountMinorUnits}, 0)) filter (where ${reservations.status} <> 'cancelled'), 0)::text`,
+        })
+        .from(reservations)
+        .where(eq(reservations.propertyId, propertyId)),
     ]);
 
-    const receivables = reservationRows
-      .map((row) => {
-        const outstanding = folioBalance(row.totalAmountMinorUnits, row.paidAmountMinorUnits);
-        return {
-          ...row,
-          outstandingMinorUnits: outstanding,
-          settlement: settlementLabel(row.status, row.totalAmountMinorUnits, row.paidAmountMinorUnits),
-        };
-      })
-      .filter((row) => row.outstandingMinorUnits > 0)
-      .sort((a, b) => b.outstandingMinorUnits - a.outstandingMinorUnits);
+    const paymentItems = paymentList.slice(0, limit);
+    const receivableItems = reservationRows.slice(0, receivablesLimit).map((row) => ({
+      ...row,
+      outstandingMinorUnits: folioBalance(row.totalAmountMinorUnits, row.paidAmountMinorUnits),
+      settlement: settlementLabel(row.status, row.totalAmountMinorUnits, row.paidAmountMinorUnits),
+    }));
+    const proofItems = proofs.slice(0, proofsLimit);
 
-    const paymentIds = paymentList.map((payment) => payment.id);
+    const lastPayment = paymentItems[paymentItems.length - 1];
+    const nextCursor = paymentList.length > limit && lastPayment
+      ? encodeCursor({ createdAt: lastPayment.cursorCreatedAt, id: lastPayment.id })
+      : null;
+    const lastReceivable = receivableItems[receivableItems.length - 1];
+    const receivablesNextCursor = reservationRows.length > receivablesLimit && lastReceivable
+      ? encodeCursor({ outstanding: lastReceivable.outstandingMinorUnits, id: lastReceivable.id })
+      : null;
+    const lastProof = proofItems[proofItems.length - 1];
+    const transferProofsNextCursor = proofs.length > proofsLimit && lastProof
+      ? encodeCursor({ submittedAt: lastProof.cursorSubmittedAt, id: lastProof.id })
+      : null;
+
+    const paymentIds = paymentItems.map((payment) => payment.id);
     const receiptRows = paymentIds.length
       ? await db
           .select({ paymentId: paymentReceipts.paymentId })
@@ -105,10 +199,22 @@ async function handleGET(req: NextRequest) {
           .where(and(eq(paymentReceipts.propertyId, propertyId), inArray(paymentReceipts.paymentId, paymentIds)))
       : [];
     const receipts = new Set(receiptRows.map((row) => row.paymentId));
+
+    const totals = reservationTotals[0];
     return NextResponse.json({
-      payments: paymentList.map((payment) => ({ ...payment, hasReceipt: receipts.has(payment.id) })),
-      receivables,
-      transferProofs: proofs,
+      items: paymentItems.map(({ cursorCreatedAt: _cursorCreatedAt, ...payment }) => ({ ...payment, hasReceipt: receipts.has(payment.id) })),
+      nextCursor,
+      receivables: receivableItems,
+      receivablesNextCursor,
+      transferProofs: proofItems.map(({ cursorSubmittedAt: _cursorSubmittedAt, ...proof }) => proof),
+      transferProofsNextCursor,
+      metrics: {
+        totalCollectedMinorUnits: paymentTotals[0]?.totalCollectedMinorUnits || '0',
+        pendingFoliosMinorUnits: totals?.pendingFoliosMinorUnits || '0',
+        directBookingShare: totals && totals.totalReservations > 0
+          ? Math.round((totals.directCount / totals.totalReservations) * 100)
+          : 0,
+      },
     });
   } catch (error: any) {
     console.error('Payments API error:', error);

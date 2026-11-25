@@ -23,7 +23,7 @@ const merchantRequests = new WeakMap<NextRequest, MerchantRequestContext>();
  * production, and only when the test runner opts in explicitly.
  */
 type MerchantSession = {
-  user?: { id?: string; propertyId?: string; name?: string | null; email?: string | null };
+  user?: { id?: string; propertyId?: string; name?: string | null; email?: string | null } | null;
   expires?: string;
 } | null;
 

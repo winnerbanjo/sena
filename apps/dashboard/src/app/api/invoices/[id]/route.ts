@@ -1,6 +1,6 @@
 import { createPublicInvoiceToken } from '@/lib/public-invoice-token';
-import { apiError } from '@/lib/api-error';
-import { planInvoiceEdit } from '@/lib/invoice-edit';
+import { apiError, errorStatus } from '@/lib/api-error';
+import { applyInvoiceEdit } from '@/lib/invoice-edit-apply';
 import { loadInvoicePresentation } from '@/lib/invoice-presentation';
 import { getMerchantRequest, withMerchant } from '@/lib/merchant-route';
 import { NextRequest, NextResponse } from 'next/server';
@@ -66,51 +66,32 @@ async function handlePATCH(
   try {
     const { id } = await params;
     const merchant = getMerchantRequest(req);
-    const body = merchant?.body ?? {};
-
-    const invoice = await db.query.propertyInvoices.findFirst({
-      where: eq(propertyInvoices.id, id),
-    });
-
-    if (!invoice || !merchant || invoice.propertyId !== merchant.tenant.propertyId) {
+    if (!merchant?.tenant.propertyId) {
       return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
     }
 
-    const planned = planInvoiceEdit(invoice, body);
-    if (!planned.ok) {
-      return NextResponse.json({ error: planned.error }, { status: planned.status });
-    }
-
-    const [updated] = await db.transaction(async (tx) => {
-      const [row] = await tx
-        .update(propertyInvoices)
-        .set(planned.patch)
-        .where(eq(propertyInvoices.id, id))
-        .returning();
-      if (planned.changes.length) {
-        await tx.insert(activityLogs).values({
-          organizationId: invoice.organizationId,
-          propertyId: invoice.propertyId,
-          actorId: merchant.tenant.userId,
-          actorName: merchant.tenant.user.fullName || 'Staff',
-          action: 'invoice.updated',
-          resource: 'invoice',
-          resourceId: invoice.id,
-          previousValue: Object.fromEntries(planned.changes.map((change) => [change.field, change.from])),
-          newValue: Object.fromEntries(planned.changes.map((change) => [change.field, change.to])),
-        });
-      }
-      return [row];
+    const result = await applyInvoiceEdit({
+      propertyId: merchant.tenant.propertyId,
+      invoiceId: id,
+      body: merchant.body ?? {},
+      actor: {
+        userId: merchant.tenant.userId,
+        fullName: merchant.tenant.user.fullName || 'Staff',
+      },
     });
+
+    if (!result.ok) {
+      return NextResponse.json({ error: result.error }, { status: result.status });
+    }
 
     return NextResponse.json({
       success: true,
       message: 'Invoice updated successfully',
-      invoice: { ...updated, publicToken: createPublicInvoiceToken(updated.id) },
+      invoice: { ...result.invoice, publicToken: createPublicInvoiceToken(result.invoice.id) },
     });
   } catch (error: any) {
     console.error('[INVOICE PATCH ERROR]', error);
-    return NextResponse.json({ error: apiError(error) }, { status: 500 });
+    return NextResponse.json({ error: apiError(error) }, { status: errorStatus(error) });
   }
 }
 

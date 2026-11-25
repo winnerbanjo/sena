@@ -5,6 +5,8 @@
  * Reservation settlement is not touched.
  */
 
+import { assertMoney, checkedAdd, checkedMul, checkedSub } from '@sena/config';
+
 export const PAID_FINANCIAL_LOCK =
   'This invoice has already been paid. Financial amounts can no longer be edited.';
 export const BELOW_PAID = 'Invoice total cannot be less than the amount already paid.';
@@ -187,7 +189,8 @@ export function calculateInvoiceAmounts(input: {
     };
     const quantity = Number(row.quantity);
     const unitPriceMinorUnits = Number(row.unitPriceMinorUnits);
-    let totalMinorUnits = quantity * unitPriceMinorUnits;
+    const lineLabel = `Line ${index + 1} total`;
+    let totalMinorUnits = checkedMul(quantity, unitPriceMinorUnits, lineLabel);
 
     // Explicit remainder allocation for multi-unit stays:
     // If an authoritative line total T is provided where T was divided into Q units with base unit price
@@ -199,14 +202,14 @@ export function calculateInvoiceAmounts(input: {
       Number.isSafeInteger(Number(row.totalMinorUnits)) &&
       Number(row.totalMinorUnits) > 0
     ) {
-      const explicitTotal = Number(row.totalMinorUnits);
-      const remainder = explicitTotal - (quantity * unitPriceMinorUnits);
+      const explicitTotal = assertMoney(row.totalMinorUnits, lineLabel);
+      const remainder = explicitTotal - totalMinorUnits;
       if (remainder >= 0 && remainder < quantity) {
         totalMinorUnits = explicitTotal;
       }
     }
 
-    subtotalMinorUnits += totalMinorUnits;
+    subtotalMinorUnits = checkedAdd(subtotalMinorUnits, totalMinorUnits, 'Invoice subtotal');
     const category = LINE_CATEGORIES.includes(row.category as LineCategory) ? (row.category as LineCategory) : 'other';
     const description = typeof row.description === 'string' ? row.description.trim() : '';
     const reservationId = typeof row.reservationId === 'string' && row.reservationId.trim() ? row.reservationId.trim() : undefined;
@@ -224,29 +227,40 @@ export function calculateInvoiceAmounts(input: {
   if (!Number.isSafeInteger(input.discountMinorUnits) || input.discountMinorUnits < 0) {
     return { ok: false, error: 'Enter a valid discount.' };
   }
-  const discountMinorUnits = Math.min(subtotalMinorUnits, input.discountMinorUnits);
+  const discountMinorUnits = Math.min(subtotalMinorUnits, assertMoney(input.discountMinorUnits, 'Discount'));
 
   const existing = input.existingInvoice;
   const oldSubtotal = existing?.subtotalMinorUnits || 0;
-  const taxVatMinorUnits = input.applyVat
+  const rawTaxVatMinorUnits = input.applyVat
     ? existing && existing.taxVatMinorUnits > 0 && oldSubtotal > 0
       ? Math.round(subtotalMinorUnits * (existing.taxVatMinorUnits / oldSubtotal))
       : Math.round(subtotalMinorUnits * 0.075)
     : 0;
-  const taxConsumptionMinorUnits = input.applyConsumptionTax
+  const rawTaxConsumptionMinorUnits = input.applyConsumptionTax
     ? existing && existing.taxConsumptionMinorUnits > 0 && oldSubtotal > 0
       ? Math.round(subtotalMinorUnits * (existing.taxConsumptionMinorUnits / oldSubtotal))
       : Math.round(subtotalMinorUnits * 0.05)
     : 0;
-  const serviceChargeMinorUnits = input.applyServiceCharge
+  const rawServiceChargeMinorUnits = input.applyServiceCharge
     ? existing && existing.serviceChargeMinorUnits > 0 && oldSubtotal > 0
       ? Math.round(subtotalMinorUnits * (existing.serviceChargeMinorUnits / oldSubtotal))
       : Math.round(subtotalMinorUnits * 0.1)
     : 0;
 
-  const totalAmountMinorUnits = Math.max(
-    0,
-    subtotalMinorUnits + taxVatMinorUnits + taxConsumptionMinorUnits + serviceChargeMinorUnits - discountMinorUnits,
+  // Percentage charges keep the established rounding rule, but every rounded
+  // result must fit the ledger before it is stored or added to the total.
+  const taxVatMinorUnits = assertMoney(rawTaxVatMinorUnits, 'VAT');
+  const taxConsumptionMinorUnits = assertMoney(rawTaxConsumptionMinorUnits, 'Consumption tax');
+  const serviceChargeMinorUnits = assertMoney(rawServiceChargeMinorUnits, 'Service charge');
+
+  const totalAmountMinorUnits = checkedSub(
+    checkedAdd(
+      checkedAdd(checkedAdd(subtotalMinorUnits, taxVatMinorUnits, 'Invoice total'), taxConsumptionMinorUnits, 'Invoice total'),
+      serviceChargeMinorUnits,
+      'Invoice total',
+    ),
+    discountMinorUnits,
+    'Invoice total',
   );
   return {
     ok: true,

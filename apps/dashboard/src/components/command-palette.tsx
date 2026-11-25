@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useWorkspace } from './workspace-access';
+import { fetchPagedItems } from '../lib/paged-fetch';
 
 interface CommandPaletteProps {
   open: boolean;
@@ -78,11 +79,8 @@ export function CommandPalette({ open, onClose, onOpenNewReservation }: CommandP
           })
           .catch(() => {});
       } else if (industry === 'hotel') {
-        fetch('/api/reservations')
-          .then((res) => res.json())
-          .then((data) => {
-            if (data?.reservations) setLiveReservations(data.reservations);
-          })
+        fetchPagedItems<any>('/api/reservations?limit=100')
+          .then((items) => setLiveReservations(items))
           .catch(() => {});
 
         fetch('/api/rooms')
