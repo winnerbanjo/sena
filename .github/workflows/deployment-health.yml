@@ -1,0 +1,66 @@
+name: Deployment Health Check
+
+# Vercel sends `vercel.deployment.ready` after a deployment is built but before
+# Deployment Checks run, so this workflow can gate promotion to production.
+on:
+  repository_dispatch:
+    types: ['vercel.deployment.ready']
+
+concurrency:
+  group: deployment-health-${{ github.event.client_payload.id }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  statuses: write
+
+jobs:
+  health:
+    name: health
+    if: github.event.client_payload.environment == 'production'
+    runs-on: ubuntu-latest
+    steps:
+      # Reports a pending commit status, then the job's final conclusion.
+      - name: Notify Vercel
+        uses: vercel/repository-dispatch/actions/status@v1
+        with:
+          name: 'Vercel - sena-app: health'
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Probe deployment health endpoint
+        env:
+          DEPLOYMENT_URL: ${{ github.event.client_payload.url }}
+          BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+        run: |
+          set -euo pipefail
+
+          url="https://${DEPLOYMENT_URL#https://}"
+          url="${url%/}/api/health"
+          echo "Probing ${url}"
+
+          headers=()
+          if [ -n "${BYPASS_SECRET}" ]; then
+            headers+=(-H "x-vercel-protection-bypass: ${BYPASS_SECRET}")
+          fi
+
+          body=""
+          for attempt in $(seq 1 10); do
+            if body=$(curl --fail-with-body --silent --show-error \
+              --max-time 15 "${headers[@]}" "${url}"); then
+              echo "Response: ${body}"
+              break
+            fi
+            if [ "${attempt}" -eq 10 ]; then
+              echo "Health check failed after ${attempt} attempts" >&2
+              exit 1
+            fi
+            echo "Attempt ${attempt} failed; retrying in 6s"
+            sleep 6
+          done
+
+          if ! printf '%s' "${body}" | grep -q '"status":"ok"'; then
+            echo "Health endpoint did not report status ok" >&2
+            exit 1
+          fi
+
+          echo "Deployment is healthy"
