@@ -1,4 +1,6 @@
-import { MinorUnits, Permission, Role } from '@sena/types';
+import { Permission, Role } from '@sena/types';
+
+export * from './money';
 
 /**
  * Sena Design System Palette Tokens
@@ -115,30 +117,6 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     'analytics.read',
   ],
 };
-
-/**
- * Money Utility Functions
- * Stored strictly in minor integer units (Kobo)
- * Section 91 of PRD
- */
-export function formatNaira(minorUnits: MinorUnits, options?: { showKobo?: boolean }): string {
-  const majorUnits = minorUnits / 100;
-  if (!options?.showKobo && Number.isInteger(majorUnits)) {
-    return `₦${majorUnits.toLocaleString('en-NG')}`;
-  }
-  return `₦${majorUnits.toLocaleString('en-NG', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
-}
-
-export function toMinorUnits(naira: number): MinorUnits {
-  return Math.round(naira * 100);
-}
-
-export function fromMinorUnits(minorUnits: MinorUnits): number {
-  return minorUnits / 100;
-}
 
 /**
  * Calendar Date Helpers (Property Local Time - Africa/Lagos)

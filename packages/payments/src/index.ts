@@ -1,3 +1,4 @@
+import { assertMoney, checkedAdd } from '@sena/config';
 import crypto from 'crypto';
 import {
   db,
@@ -57,31 +58,16 @@ export class PaymentPolicyError extends Error {
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
+/**
+ * Distributes a payment across the invoices already locked by
+ * `recordPaymentInTx` in the global invoice-first order.
+ */
 async function applyPaymentToInvoices(
   tx: Tx,
-  reservationId: string,
+  invoices: (typeof propertyInvoices.$inferSelect)[],
   amountMinorUnits: number,
   preferredInvoiceId?: string | null
 ) {
-  const [res] = await tx
-    .select({ bookingGroupId: reservations.bookingGroupId })
-    .from(reservations)
-    .where(eq(reservations.id, reservationId))
-    .limit(1);
-
-  const invoices = await tx
-    .select()
-    .from(propertyInvoices)
-    .where(
-      res?.bookingGroupId
-        ? or(
-            eq(propertyInvoices.bookingGroupId, res.bookingGroupId),
-            eq(propertyInvoices.reservationId, reservationId)
-          )
-        : eq(propertyInvoices.reservationId, reservationId)
-    )
-    .for('update');
-
   const open = invoices.filter((invoice) => !['void', 'draft', 'cancelled'].includes(invoice.status));
   open.sort((a, b) => {
     if (preferredInvoiceId && a.id === preferredInvoiceId) return -1;
@@ -95,7 +81,7 @@ async function applyPaymentToInvoices(
     const outstanding = folioBalance(invoice.totalAmountMinorUnits, invoice.paidAmountMinorUnits);
     if (outstanding <= 0) continue;
     const apply = Math.min(remaining, outstanding);
-    const paid = invoice.paidAmountMinorUnits + apply;
+    const paid = checkedAdd(invoice.paidAmountMinorUnits, apply, 'Invoice paid amount');
     await tx
       .update(propertyInvoices)
       .set({
@@ -121,6 +107,8 @@ export class PaymentService {
     if (!Number.isSafeInteger(input.amountMinorUnits) || input.amountMinorUnits <= 0) {
       throw new Error('Enter a valid payment amount.');
     }
+    // Bounds check: an amount the ledger cannot store is a correctable input error.
+    assertMoney(input.amountMinorUnits, 'Payment amount', { allowZero: false });
     return await db.transaction(async (tx) => {
       return PaymentService.recordPaymentInTx(tx, input, idempotencyKey, actor);
     });
@@ -148,37 +136,58 @@ export class PaymentService {
       }
     }
 
-    const resList = await tx
-      .select()
+    // Global ledger lock order: property_invoices (ascending id) first, then
+    // reservations (ascending id). The unlocked scope read only tells us which
+    // invoice rows to lock before we touch the reservation rows.
+    const [scope] = await tx
+      .select({ bookingGroupId: reservations.bookingGroupId })
       .from(reservations)
       .where(eq(reservations.id, input.reservationId))
-      .limit(1)
+      .limit(1);
+    if (!scope) throw new Error('Reservation not found');
+
+    const invoices = await tx
+      .select()
+      .from(propertyInvoices)
+      .where(
+        scope.bookingGroupId
+          ? or(
+              eq(propertyInvoices.bookingGroupId, scope.bookingGroupId),
+              eq(propertyInvoices.reservationId, input.reservationId)
+            )
+          : eq(propertyInvoices.reservationId, input.reservationId)
+      )
+      .orderBy(propertyInvoices.id)
       .for('update');
 
-    if (resList.length === 0) {
-      throw new Error('Reservation not found');
-    }
-
-    const res = resList[0];
-    let outstanding = folioBalance(res.totalAmountMinorUnits, res.paidAmountMinorUnits);
+    let res: typeof reservations.$inferSelect;
     let groupStays: (typeof reservations.$inferSelect)[] = [];
-    if (res.bookingGroupId) {
-      groupStays = await tx
+    if (scope.bookingGroupId) {
+      const stays = await tx
         .select()
         .from(reservations)
-        .where(
-          and(
-            eq(reservations.bookingGroupId, res.bookingGroupId),
-            ne(reservations.status, 'cancelled'),
-            ne(reservations.status, 'voided')
-          )
-        )
+        .where(eq(reservations.bookingGroupId, scope.bookingGroupId))
+        .orderBy(reservations.id)
         .for('update');
-      if (groupStays.length > 0) {
-        const groupTotal = groupStays.reduce((sum, s) => sum + s.totalAmountMinorUnits, 0);
-        const groupPaid = groupStays.reduce((sum, s) => sum + s.paidAmountMinorUnits, 0);
-        outstanding = folioBalance(groupTotal, groupPaid);
-      }
+      const primary = stays.find((stay) => stay.id === input.reservationId);
+      if (!primary) throw new Error('Reservation not found');
+      res = primary;
+      groupStays = stays.filter((stay) => stay.status !== 'cancelled' && stay.status !== 'voided');
+    } else {
+      const [locked] = await tx
+        .select()
+        .from(reservations)
+        .where(eq(reservations.id, input.reservationId))
+        .for('update');
+      if (!locked) throw new Error('Reservation not found');
+      res = locked;
+    }
+
+    let outstanding = folioBalance(res.totalAmountMinorUnits, res.paidAmountMinorUnits);
+    if (groupStays.length > 0) {
+      const groupTotal = groupStays.reduce((sum, s) => sum + s.totalAmountMinorUnits, 0);
+      const groupPaid = groupStays.reduce((sum, s) => sum + s.paidAmountMinorUnits, 0);
+      outstanding = folioBalance(groupTotal, groupPaid);
     }
     if (input.amountMinorUnits > outstanding) throw new Error('Amount is more than the outstanding balance.');
 
@@ -215,7 +224,7 @@ export class PaymentService {
     if (res.bookingGroupId && groupStays.length > 0) {
       const resDue = Math.max(0, res.totalAmountMinorUnits - res.paidAmountMinorUnits);
       const resPay = Math.min(remaining, resDue);
-      const newResPaid = res.paidAmountMinorUnits + resPay;
+      const newResPaid = checkedAdd(res.paidAmountMinorUnits, resPay, 'Reservation paid amount');
       await tx
         .update(reservations)
         .set({
@@ -231,7 +240,7 @@ export class PaymentService {
         const stayDue = Math.max(0, stay.totalAmountMinorUnits - stay.paidAmountMinorUnits);
         if (stayDue <= 0) continue;
         const stayPay = Math.min(remaining, stayDue);
-        const newStayPaid = stay.paidAmountMinorUnits + stayPay;
+        const newStayPaid = checkedAdd(stay.paidAmountMinorUnits, stayPay, 'Reservation paid amount');
         await tx
           .update(reservations)
           .set({
@@ -243,7 +252,7 @@ export class PaymentService {
         remaining -= stayPay;
       }
     } else {
-      const newPaidAmount = res.paidAmountMinorUnits + input.amountMinorUnits;
+      const newPaidAmount = checkedAdd(res.paidAmountMinorUnits, input.amountMinorUnits, 'Reservation paid amount');
       const newPaymentStatus =
         newPaidAmount >= res.totalAmountMinorUnits
           ? 'paid'
@@ -261,7 +270,7 @@ export class PaymentService {
         .where(eq(reservations.id, input.reservationId));
     }
 
-    await applyPaymentToInvoices(tx, input.reservationId, input.amountMinorUnits, input.invoiceId);
+    await applyPaymentToInvoices(tx, invoices, input.amountMinorUnits, input.invoiceId);
 
     await tx.insert(reservationEvents).values({
       reservationId: input.reservationId,
@@ -299,6 +308,7 @@ export class PaymentService {
     if (!Number.isSafeInteger(input.amountMinorUnits) || input.amountMinorUnits <= 0) {
       throw new Error('Enter a valid transfer amount.');
     }
+    assertMoney(input.amountMinorUnits, 'Transfer amount', { allowZero: false });
     if (!input.proofUrl?.trim()) throw new Error('Upload proof of transfer.');
     if (!input.reservationId && !input.invoiceId) throw new Error('Choose a reservation or invoice.');
 

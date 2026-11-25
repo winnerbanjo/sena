@@ -406,6 +406,24 @@ async function run() {
   assert.equal((await db.query.emailLogs.findMany({ where: eq(emailLogs.idempotencyKey, 'payment_receipt_SENA_silent_receipt') })).length, 0);
   console.log('PASS invoice settlement records one receipt email only when a recipient exists');
 
+  const [aboveStayInvoice] = await db.insert(propertyInvoices).values({
+    propertyId: ids.property, organizationId: ids.organization, reservationId: ids.reservation, invoiceNumber: 'SYN-FLW-INV-ABOVE-STAY',
+    recipientName: 'Synthetic Guest', recipientEmail: 'guest-fw@qa.invalid', issueDate: '2030-02-01', dueDate: '2030-02-02',
+    totalAmountMinorUnits: 25_000_000, currency: 'NGN', status: 'issued',
+  }).returning();
+  const aboveStayInit = await paymentFlow.initializePropertyFlutterwave({
+    propertyId: ids.property, invoiceId: aboveStayInvoice.id, reservationId: ids.reservation, email: 'guest-fw@qa.invalid',
+    amountMinorUnits: 25_000_000, currency: 'NGN', source: 'invoice', callbackUrl: 'https://preview.invalid/invoice/confirming',
+  }, invoiceFetch as typeof fetch);
+  const aboveStayAttempt = await db.query.paymentAttempts.findFirst({ where: eq(paymentAttempts.providerReference, aboveStayInit.reference) });
+  await paymentFlow.settlePropertyFlutterwave(aboveStayAttempt!.id, {
+    id: 88003, status: 'successful', tx_ref: aboveStayInit.reference, amount: 250_000, currency: 'NGN', payment_type: 'card', created_at: '2030-02-01T14:00:00Z',
+    meta: { type: 'invoice_settlement', propertyId: ids.property, invoiceId: aboveStayInvoice.id, paymentAttemptId: aboveStayAttempt!.id, source: 'invoice' },
+  });
+  assert.equal((await db.query.propertyInvoices.findFirst({ where: eq(propertyInvoices.id, aboveStayInvoice.id) }))?.paidAmountMinorUnits, 25_000_000);
+  assert.equal((await db.query.reservations.findFirst({ where: eq(reservations.id, ids.reservation) }))?.paidAmountMinorUnits, 49_000_000);
+  console.log('PASS linked invoice settlement may exceed stay total while respecting invoice balance');
+
   await flutterwave.updateFlutterwavePaymentControls(ids.property, ids.user, { enabled: false });
   assert.equal(flutterwave.flutterwaveDisplayStatus(await flutterwave.getPropertyFlutterwave(ids.property)), 'disabled');
   await assert.rejects(paymentFlow.initializePropertyFlutterwave({

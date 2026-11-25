@@ -1,4 +1,4 @@
-import { calculateNights, formatNaira, getDatesBetween } from '@sena/config';
+import { assertMoney, calculateNights, checkedAdd, checkedMul, checkedSub, checkedSum, formatNaira, getDatesBetween } from '@sena/config';
 import {
   activityLogs,
   apartments,
@@ -51,9 +51,7 @@ function nextPaymentStatus(current: string, paid: number, total: number) {
 
 function readMoney(value: unknown, label: string): number | null {
   if (value === undefined || value === null || value === '') return null;
-  const amount = typeof value === 'number' ? value : Number(value);
-  if (!Number.isSafeInteger(amount)) throw new Error(`${label} must be a whole amount in kobo.`);
-  return amount;
+  return assertMoney(value, label);
 }
 
 /**
@@ -82,10 +80,10 @@ function buildQuote(input: {
   let requiresOperatorAction: string | null = null;
 
   if (requestedCustomTotal != null) {
-    appliedAmountMinorUnits = Math.abs(requestedCustomTotal - previousTotal);
+    appliedAmountMinorUnits = Math.abs(checkedSub(requestedCustomTotal, previousTotal, 'Stay total', { allowNegative: true }));
   } else if (mode === 'extension') {
     if (input.configuredRateMinorUnits != null) {
-      suggestedAmountMinorUnits = input.configuredRateMinorUnits * additionalNights;
+      suggestedAmountMinorUnits = checkedMul(input.configuredRateMinorUnits, additionalNights, 'Extension amount');
     }
     const amount = input.requestedExtensionAmount ?? suggestedAmountMinorUnits;
     if (amount == null) {
@@ -107,8 +105,10 @@ function buildQuote(input: {
   }
 
   const nextTotal = requestedCustomTotal != null
-    ? Math.max(0, requestedCustomTotal)
-    : Math.max(0, previousTotal + (mode === 'shortening' ? -appliedAmountMinorUnits : appliedAmountMinorUnits));
+    ? assertMoney(requestedCustomTotal, 'Custom total amount')
+    : mode === 'shortening'
+      ? checkedSub(previousTotal, appliedAmountMinorUnits, 'Stay total')
+      : checkedAdd(previousTotal, appliedAmountMinorUnits, 'Stay total');
 
   const note =
     nextTotal === previousTotal
@@ -346,6 +346,37 @@ export async function updateStay(
   const nights = calculateNights(input.checkInDate, input.checkOutDate);
 
   return db.transaction(async (tx) => {
+    // Global ledger lock order: property_invoices (ascending id) first, then
+    // reservations. Payments, invoice settlement, and booking-group invoice
+    // writes take the same order, so an edit and a payment can never hold one
+    // table and wait on the other. This scope read is deliberately unlocked:
+    // it only decides which invoice rows to lock before the reservation row.
+    const [scope] = await tx
+      .select({ propertyId: reservations.propertyId, bookingGroupId: reservations.bookingGroupId })
+      .from(reservations)
+      .where(eq(reservations.id, reservationId))
+      .limit(1);
+    if (!scope || scope.propertyId !== propertyId) throw new Error('Reservation not found');
+
+    const invoiceScope = tx
+      .select()
+      .from(propertyInvoices)
+      .where(
+        and(
+          eq(propertyInvoices.propertyId, propertyId),
+          scope.bookingGroupId
+            ? or(
+                eq(propertyInvoices.bookingGroupId, scope.bookingGroupId),
+                eq(propertyInvoices.reservationId, reservationId)
+              )
+            : eq(propertyInvoices.reservationId, reservationId),
+          notInArray(propertyInvoices.status, ['void', 'cancelled'])
+        )
+      )
+      .orderBy(propertyInvoices.id);
+    // Previews write nothing, so they read the invoice set without locking it.
+    const invoices = preview ? await invoiceScope : await invoiceScope.for('update');
+
     const [res] = await tx.select().from(reservations).where(eq(reservations.id, reservationId)).limit(1).for('update');
     if (!res || res.propertyId !== propertyId) throw new Error('Reservation not found');
     if (res.status === 'checked_out') throw new Error('Checked-out reservations cannot be edited.');
@@ -380,22 +411,7 @@ export async function updateStay(
       );
     }
 
-    const existingInvoices = await tx
-      .select({ id: propertyInvoices.id })
-      .from(propertyInvoices)
-      .where(
-        and(
-          eq(propertyInvoices.propertyId, propertyId),
-          res.bookingGroupId
-            ? or(
-                eq(propertyInvoices.bookingGroupId, res.bookingGroupId),
-                eq(propertyInvoices.reservationId, reservationId)
-              )
-            : eq(propertyInvoices.reservationId, reservationId),
-          notInArray(propertyInvoices.status, ['void', 'cancelled'])
-        )
-      );
-    const invoiceCount = existingInvoices.length;
+    const invoiceCount = invoices.length;
 
     const configuredRate = await configuredNightlyRate(tx, target);
     const requestedCustomTotal = readMoney(input.customTotalAmountMinorUnits, 'Custom total amount');
@@ -403,7 +419,10 @@ export async function updateStay(
 
     let customTotal: number | null = requestedCustomTotal;
     if (customTotal == null && requestedDiscount != null && configuredRate != null) {
-      customTotal = Math.max(0, (configuredRate * nights) - requestedDiscount);
+      customTotal = Math.max(
+        0,
+        checkedSub(checkedMul(configuredRate, nights, 'Custom total amount'), requestedDiscount, 'Custom total amount', { allowNegative: true }),
+      );
     }
 
     const financial = buildQuote({
@@ -500,8 +519,8 @@ export async function updateStay(
       }
     }
 
-    const standardTotal = (configuredRate ? configuredRate * nights : res.standardAmountMinorUnits) || nextTotal;
-    const discountAmount = Math.max(0, standardTotal - nextTotal);
+    const standardTotal = (configuredRate ? checkedMul(configuredRate, nights, 'Accommodation total') : res.standardAmountMinorUnits) || nextTotal;
+    const discountAmount = Math.max(0, checkedSub(standardTotal, nextTotal, 'Discount', { allowNegative: true }));
 
     const [updated] = await tx
       .update(reservations)
@@ -526,22 +545,8 @@ export async function updateStay(
 
     // Financial consistency: Synchronize active invoices with the updated reservation amount.
     if (nextTotal !== res.totalAmountMinorUnits || accommodationChanged || input.checkInDate !== res.checkInDate || input.checkOutDate !== res.checkOutDate) {
-      const activeInvoices = await tx
-        .select()
-        .from(propertyInvoices)
-        .where(
-          and(
-            eq(propertyInvoices.propertyId, propertyId),
-            res.bookingGroupId
-              ? or(
-                  eq(propertyInvoices.bookingGroupId, res.bookingGroupId),
-                  eq(propertyInvoices.reservationId, res.id)
-                )
-              : eq(propertyInvoices.reservationId, res.id),
-            notInArray(propertyInvoices.status, ['void', 'cancelled'])
-          )
-        )
-        .for('update');
+      // Already locked above in the global invoice-first order.
+      const activeInvoices = invoices;
 
       const [resRoom] = res.roomId
         ? await tx.select({ roomNumber: rooms.roomNumber }).from(rooms).where(eq(rooms.id, res.roomId)).limit(1)
@@ -653,24 +658,29 @@ export async function updateStay(
           updatedItems = [...lineItems, updatedRoomItem];
         }
 
-        const newSubtotal = updatedItems.reduce((sum, item) => sum + Number(item.totalMinorUnits || 0), 0);
+        const newSubtotal = checkedSum(updatedItems.map((item) => Number(item.totalMinorUnits || 0)), 'Invoice subtotal');
         const oldSubtotal = Number(inv.subtotalMinorUnits || 0);
         const hadVat = Number(inv.taxVatMinorUnits || 0) > 0;
-        const newTaxVat = hadVat && oldSubtotal > 0
+        const newTaxVat = assertMoney(hadVat && oldSubtotal > 0
           ? Math.round(newSubtotal * (Number(inv.taxVatMinorUnits) / oldSubtotal))
-          : (hadVat ? Math.round(newSubtotal * 0.075) : 0);
+          : (hadVat ? Math.round(newSubtotal * 0.075) : 0), 'VAT');
         const hadConsumption = Number(inv.taxConsumptionMinorUnits || 0) > 0;
-        const newTaxConsumption = hadConsumption && oldSubtotal > 0
+        const newTaxConsumption = assertMoney(hadConsumption && oldSubtotal > 0
           ? Math.round(newSubtotal * (Number(inv.taxConsumptionMinorUnits) / oldSubtotal))
-          : (hadConsumption ? Math.round(newSubtotal * 0.05) : 0);
+          : (hadConsumption ? Math.round(newSubtotal * 0.05) : 0), 'Consumption tax');
         const hadService = Number(inv.serviceChargeMinorUnits || 0) > 0;
-        const newServiceCharge = hadService && oldSubtotal > 0
+        const newServiceCharge = assertMoney(hadService && oldSubtotal > 0
           ? Math.round(newSubtotal * (Number(inv.serviceChargeMinorUnits) / oldSubtotal))
-          : (hadService ? Math.round(newSubtotal * 0.1) : 0);
-        const newDiscount = Math.min(newSubtotal, Number(inv.discountMinorUnits || 0));
-        const newTotalAmount = Math.max(
-          0,
-          newSubtotal + newTaxVat + newTaxConsumption + newServiceCharge - newDiscount
+          : (hadService ? Math.round(newSubtotal * 0.1) : 0), 'Service charge');
+        const newDiscount = Math.min(newSubtotal, assertMoney(Number(inv.discountMinorUnits || 0), 'Discount'));
+        const newTotalAmount = checkedSub(
+          checkedAdd(
+            checkedAdd(checkedAdd(newSubtotal, newTaxVat, 'Invoice total'), newTaxConsumption, 'Invoice total'),
+            newServiceCharge,
+            'Invoice total',
+          ),
+          newDiscount,
+          'Invoice total',
         );
 
         const paid = Number(inv.paidAmountMinorUnits || 0);
